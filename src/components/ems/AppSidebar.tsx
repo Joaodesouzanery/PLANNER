@@ -1,0 +1,109 @@
+import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  LayoutDashboard,
+  FolderKanban,
+  BookOpen,
+  TrendingUp,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import hiveLogo from "@/assets/hive-logo.jpg";
+
+const menuItems = [
+  { icon: LayoutDashboard, label: "Overview", path: "/ems" },
+  { icon: FolderKanban, label: "Gestão de Projetos", path: "/ems/projects" },
+  { icon: BookOpen, label: "Knowledge Base", path: "/ems/knowledge" },
+  { icon: TrendingUp, label: "Finanças & Estratégia", path: "/ems/finance" },
+  { icon: Settings, label: "Configurações", path: "/ems/settings" },
+];
+
+export const AppSidebar = () => {
+  const [collapsed, setCollapsed] = useState(false);
+  const location = useLocation();
+
+  return (
+    <motion.aside
+      initial={false}
+      animate={{ width: collapsed ? 72 : 260 }}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
+      className="h-screen bg-card border-r border-border flex flex-col fixed left-0 top-0 z-40"
+    >
+      {/* Logo */}
+      <div className="p-4 border-b border-border flex items-center gap-3">
+        <img src={hiveLogo} alt="Hive Tech" className="h-10 w-10 rounded-lg object-cover" />
+        <AnimatePresence>
+          {!collapsed && (
+            <motion.span
+              initial={{ opacity: 0, width: 0 }}
+              animate={{ opacity: 1, width: "auto" }}
+              exit={{ opacity: 0, width: 0 }}
+              className="text-lg font-heading font-bold text-primary whitespace-nowrap overflow-hidden"
+            >
+              Hive Tech
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 p-3 space-y-1">
+        {menuItems.map((item) => {
+          const isActive = location.pathname === item.path;
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={cn(
+                "flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200",
+                isActive
+                  ? "bg-primary/10 text-primary border border-primary/20"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <item.icon className="h-5 w-5 flex-shrink-0" />
+              <AnimatePresence>
+                {!collapsed && (
+                  <motion.span
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{ opacity: 1, width: "auto" }}
+                    exit={{ opacity: 0, width: 0 }}
+                    className="text-sm font-medium whitespace-nowrap overflow-hidden"
+                  >
+                    {item.label}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Collapse Button */}
+      <div className="p-3 border-t border-border">
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        >
+          {collapsed ? (
+            <ChevronRight className="h-5 w-5" />
+          ) : (
+            <>
+              <ChevronLeft className="h-5 w-5" />
+              <motion.span
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-sm"
+              >
+                Recolher
+              </motion.span>
+            </>
+          )}
+        </button>
+      </div>
+    </motion.aside>
+  );
+};

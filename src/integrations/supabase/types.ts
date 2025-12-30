@@ -92,6 +92,251 @@ export type Database = {
         }
         Relationships: []
       }
+      execution_records: {
+        Row: {
+          action_taken: string
+          created_at: string
+          id: string
+          lessons_learned: string
+          project_id: string | null
+          result_obtained: string
+          tags: string[] | null
+          user_id: string | null
+        }
+        Insert: {
+          action_taken: string
+          created_at?: string
+          id?: string
+          lessons_learned: string
+          project_id?: string | null
+          result_obtained: string
+          tags?: string[] | null
+          user_id?: string | null
+        }
+        Update: {
+          action_taken?: string
+          created_at?: string
+          id?: string
+          lessons_learned?: string
+          project_id?: string | null
+          result_obtained?: string
+          tags?: string[] | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execution_records_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_transactions: {
+        Row: {
+          amount: number
+          category: string | null
+          created_at: string
+          date: string
+          description: string
+          id: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          amount: number
+          category?: string | null
+          created_at?: string
+          date?: string
+          description: string
+          id?: string
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string | null
+          created_at?: string
+          date?: string
+          description?: string
+          id?: string
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      kanban_columns: {
+        Row: {
+          created_at: string
+          id: string
+          order_index: number
+          title: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_index?: number
+          title: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_index?: number
+          title?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      monthly_focus: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          month: number
+          title: string
+          user_id: string | null
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          month: number
+          title: string
+          user_id?: string | null
+          year: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          month?: number
+          title?: string
+          user_id?: string | null
+          year?: number
+        }
+        Relationships: []
+      }
+      okrs: {
+        Row: {
+          created_at: string
+          current_value: number
+          description: string | null
+          end_date: string | null
+          id: string
+          period: string | null
+          start_date: string | null
+          target_value: number
+          title: string
+          unit: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          current_value?: number
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          period?: string | null
+          start_date?: string | null
+          target_value?: number
+          title: string
+          unit?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          current_value?: number
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          period?: string | null
+          start_date?: string | null
+          target_value?: number
+          title?: string
+          unit?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          column_order: number | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          priority: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          column_order?: number | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          column_order?: number | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      strategic_pillars: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          order_index: number | null
+          title: string
+          user_id: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          order_index?: number | null
+          title: string
+          user_id?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          order_index?: number | null
+          title?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
