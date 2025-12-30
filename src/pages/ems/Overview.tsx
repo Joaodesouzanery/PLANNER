@@ -20,7 +20,6 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
 const iconMap: Record<string, React.ElementType> = {
@@ -45,7 +44,6 @@ interface MonthlyFocus {
 }
 
 const Overview = () => {
-  const { user } = useAuth();
   const { toast } = useToast();
   const [pillars, setPillars] = useState<Pillar[]>([]);
   const [monthlyFocus, setMonthlyFocus] = useState<MonthlyFocus | null>(null);
@@ -58,19 +56,14 @@ const Overview = () => {
   const [pillarForm, setPillarForm] = useState({ title: "", description: "" });
 
   useEffect(() => {
-    if (user) {
-      fetchData();
-    }
-  }, [user]);
+    fetchData();
+  }, []);
 
   const fetchData = async () => {
-    if (!user) return;
-
     // Fetch pillars
     const { data: pillarsData } = await supabase
       .from("strategic_pillars")
       .select("*")
-      .eq("user_id", user.id)
       .order("order_index");
     
     if (pillarsData) setPillars(pillarsData);
@@ -81,10 +74,9 @@ const Overview = () => {
     const { data: focusData } = await supabase
       .from("monthly_focus")
       .select("*")
-      .eq("user_id", user.id)
       .eq("month", currentMonth)
       .eq("year", currentYear)
-      .single();
+      .maybeSingle();
     
     if (focusData) {
       setMonthlyFocus(focusData);
@@ -94,8 +86,7 @@ const Overview = () => {
     // Fetch tasks stats
     const { data: tasksData } = await supabase
       .from("projects")
-      .select("status")
-      .eq("user_id", user.id);
+      .select("status");
     
     if (tasksData) {
       setPendingTasks(tasksData.filter(t => t.status !== "done").length);
@@ -105,8 +96,7 @@ const Overview = () => {
     // Fetch financial balance
     const { data: financialData } = await supabase
       .from("financial_transactions")
-      .select("amount, type")
-      .eq("user_id", user.id);
+      .select("amount, type");
     
     if (financialData) {
       const total = financialData.reduce((acc, t) => {
@@ -117,7 +107,6 @@ const Overview = () => {
   };
 
   const saveFocus = async () => {
-    if (!user) return;
     const currentMonth = new Date().getMonth() + 1;
     const currentYear = new Date().getFullYear();
 
@@ -132,7 +121,6 @@ const Overview = () => {
         description: focusForm.description,
         month: currentMonth,
         year: currentYear,
-        user_id: user.id,
       });
     }
 
@@ -142,13 +130,11 @@ const Overview = () => {
   };
 
   const addPillar = async () => {
-    if (!user) return;
     await supabase.from("strategic_pillars").insert({
       title: "Novo Pilar",
       description: "Descrição do pilar estratégico",
       icon: "target",
       color: "primary",
-      user_id: user.id,
       order_index: pillars.length,
     });
     fetchData();
