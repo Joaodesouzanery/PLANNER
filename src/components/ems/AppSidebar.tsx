@@ -10,6 +10,7 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  FileText,
 } from "lucide-react";
 import hiveLogo from "@/assets/hive-logo.jpg";
 
@@ -18,6 +19,7 @@ const menuItems = [
   { icon: FolderKanban, label: "Gestão de Projetos", path: "/ems/projects" },
   { icon: BookOpen, label: "Knowledge Base", path: "/ems/knowledge" },
   { icon: TrendingUp, label: "Finanças & Estratégia", path: "/ems/finance" },
+  { icon: FileText, label: "Relatórios", path: "/ems/reports" },
   { icon: Settings, label: "Configurações", path: "/ems/settings" },
 ];
 

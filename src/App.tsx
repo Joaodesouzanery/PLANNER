@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/admin/ProtectedRoute";
-import { EMSProtectedRoute } from "@/components/ems/EMSProtectedRoute";
 import Index from "./pages/Index";
 import Obrigado from "./pages/Obrigado";
 import Demonstracao from "./pages/Demonstracao";
@@ -14,12 +13,12 @@ import Dashboard from "./pages/admin/Dashboard";
 import NotFound from "./pages/NotFound";
 
 // EMS Pages
-import EMSLogin from "./pages/ems/EMSLogin";
 import Overview from "./pages/ems/Overview";
 import Projects from "./pages/ems/Projects";
 import Knowledge from "./pages/ems/Knowledge";
 import Finance from "./pages/ems/Finance";
 import Settings from "./pages/ems/Settings";
+import Reports from "./pages/ems/Reports";
 
 const queryClient = new QueryClient();
 
@@ -44,13 +43,13 @@ const App = () => (
               }
             />
             
-            {/* EMS Routes */}
-            <Route path="/ems/login" element={<EMSLogin />} />
-            <Route path="/ems" element={<EMSProtectedRoute><Overview /></EMSProtectedRoute>} />
-            <Route path="/ems/projects" element={<EMSProtectedRoute><Projects /></EMSProtectedRoute>} />
-            <Route path="/ems/knowledge" element={<EMSProtectedRoute><Knowledge /></EMSProtectedRoute>} />
-            <Route path="/ems/finance" element={<EMSProtectedRoute><Finance /></EMSProtectedRoute>} />
-            <Route path="/ems/settings" element={<EMSProtectedRoute><Settings /></EMSProtectedRoute>} />
+            {/* EMS Routes - No authentication required */}
+            <Route path="/ems" element={<Overview />} />
+            <Route path="/ems/projects" element={<Projects />} />
+            <Route path="/ems/knowledge" element={<Knowledge />} />
+            <Route path="/ems/finance" element={<Finance />} />
+            <Route path="/ems/settings" element={<Settings />} />
+            <Route path="/ems/reports" element={<Reports />} />
             
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

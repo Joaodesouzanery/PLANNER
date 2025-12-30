@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { motion, AnimatePresence, Reorder } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import {
   Plus,
   LayoutGrid,
@@ -18,9 +19,9 @@ import {
   CheckCircle,
   Calendar,
   X,
+  GripVertical,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -33,6 +34,7 @@ interface Project {
   priority: string;
   due_date: string | null;
   created_at: string;
+  column_order: number | null;
 }
 
 interface KanbanColumn {
@@ -55,7 +57,6 @@ const defaultColumns: KanbanColumn[] = [
 ];
 
 const Projects = () => {
-  const { user } = useAuth();
   const { toast } = useToast();
   const [view, setView] = useState<"kanban" | "timeline">("kanban");
   const [projects, setProjects] = useState<Project[]>([]);
@@ -83,28 +84,22 @@ const Projects = () => {
   const [tagInput, setTagInput] = useState("");
 
   useEffect(() => {
-    if (user) {
-      fetchProjects();
-      fetchColumns();
-    }
-  }, [user]);
+    fetchProjects();
+    fetchColumns();
+  }, []);
 
   const fetchProjects = async () => {
-    if (!user) return;
     const { data } = await supabase
       .from("projects")
       .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
+      .order("column_order", { ascending: true, nullsFirst: false });
     if (data) setProjects(data);
   };
 
   const fetchColumns = async () => {
-    if (!user) return;
     const { data } = await supabase
       .from("kanban_columns")
       .select("*")
-      .eq("user_id", user.id)
       .order("order_index");
     if (data && data.length > 0) {
       setColumns(data);
@@ -112,7 +107,9 @@ const Projects = () => {
   };
 
   const handleAddProject = async () => {
-    if (!user || !projectForm.title) return;
+    if (!projectForm.title) return;
+    
+    const maxOrder = projects.filter(p => p.status === "todo").length;
     
     await supabase.from("projects").insert({
       title: projectForm.title,
@@ -120,7 +117,7 @@ const Projects = () => {
       priority: projectForm.priority,
       due_date: projectForm.due_date || null,
       status: "todo",
-      user_id: user.id,
+      column_order: maxOrder,
     });
 
     setProjectForm({ title: "", description: "", priority: "medium", due_date: "" });
@@ -154,9 +151,22 @@ const Projects = () => {
     toast({ title: "Projeto removido!" });
   };
 
-  const handleMoveProject = async (projectId: string, newStatus: string) => {
-    const project = projects.find(p => p.id === projectId);
+  const handleDragEnd = async (result: DropResult) => {
+    const { destination, source, draggableId } = result;
+
+    if (!destination) return;
+
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
+      return;
+    }
+
+    const project = projects.find(p => p.id === draggableId);
     if (!project) return;
+
+    const newStatus = destination.droppableId;
 
     // If moving to done, open execution modal
     if (newStatus === "done" && project.status !== "done") {
@@ -165,16 +175,23 @@ const Projects = () => {
       return;
     }
 
+    // Optimistic update
+    const newProjects = [...projects];
+    const projectIndex = newProjects.findIndex(p => p.id === draggableId);
+    newProjects[projectIndex] = { ...newProjects[projectIndex], status: newStatus };
+    setProjects(newProjects);
+
+    // Update in database
     await supabase
       .from("projects")
-      .update({ status: newStatus })
-      .eq("id", projectId);
+      .update({ status: newStatus, column_order: destination.index })
+      .eq("id", draggableId);
 
     fetchProjects();
   };
 
   const handleCompleteWithExecution = async () => {
-    if (!selectedProject || !user) return;
+    if (!selectedProject) return;
     if (!executionForm.action_taken || !executionForm.result_obtained || !executionForm.lessons_learned) {
       toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
       return;
@@ -187,7 +204,6 @@ const Projects = () => {
       result_obtained: executionForm.result_obtained,
       lessons_learned: executionForm.lessons_learned,
       tags: executionForm.tags,
-      user_id: user.id,
     });
 
     // Update project status
@@ -215,11 +231,10 @@ const Projects = () => {
   };
 
   const addColumn = async () => {
-    if (!user || !newColumnTitle) return;
+    if (!newColumnTitle) return;
     await supabase.from("kanban_columns").insert({
       title: newColumnTitle,
       order_index: columns.length,
-      user_id: user.id,
     });
     setNewColumnTitle("");
     setShowColumnModal(false);
@@ -233,7 +248,8 @@ const Projects = () => {
     toast({ title: "Coluna removida!" });
   };
 
-  const getProjectsByStatus = (status: string) => projects.filter(p => p.status === status);
+  const getProjectsByStatus = (status: string) => 
+    projects.filter(p => p.status === status).sort((a, b) => (a.column_order ?? 0) - (b.column_order ?? 0));
 
   const priorityColors: Record<string, string> = {
     low: "bg-muted text-muted-foreground",
@@ -280,120 +296,122 @@ const Projects = () => {
           </TabsList>
 
           <TabsContent value="kanban" className="mt-6">
-            <div className="flex gap-4 overflow-x-auto pb-4">
-              {columns.map((column) => (
-                <div key={column.id} className="flex-shrink-0 w-80">
-                  <Card className="bg-card/50">
-                    <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
-                      <CardTitle className="text-sm font-medium">{column.title}</CardTitle>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">
-                          {getProjectsByStatus(column.id).length}
-                        </Badge>
-                        {!defaultColumns.find(c => c.id === column.id) && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => deleteColumn(column.id)}
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <div className="flex gap-4 overflow-x-auto pb-4">
+                {columns.map((column) => (
+                  <div key={column.id} className="flex-shrink-0 w-80">
+                    <Card className="bg-card/50">
+                      <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
+                        <CardTitle className="text-sm font-medium">{column.title}</CardTitle>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-xs">
+                            {getProjectsByStatus(column.id).length}
+                          </Badge>
+                          {!defaultColumns.find(c => c.id === column.id) && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => deleteColumn(column.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <Droppable droppableId={column.id}>
+                        {(provided, snapshot) => (
+                          <CardContent
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={`p-2 space-y-2 min-h-[200px] transition-colors ${
+                              snapshot.isDraggingOver ? "bg-primary/5" : ""
+                            }`}
                           >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
-                    </CardHeader>
-                    <CardContent className="p-2 space-y-2 min-h-[200px]">
-                      <AnimatePresence mode="popLayout">
-                        {getProjectsByStatus(column.id).map((project) => (
-                          <motion.div
-                            key={project.id}
-                            layout
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.8 }}
-                            className="bg-card border border-border rounded-lg p-3 cursor-pointer hover:border-primary/30 transition-colors"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <h4 className="font-medium text-sm">{project.title}</h4>
-                              <div className="flex gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6"
-                                  onClick={() => {
-                                    setEditingProject(project);
-                                    setProjectForm({
-                                      title: project.title,
-                                      description: project.description || "",
-                                      priority: project.priority,
-                                      due_date: project.due_date || "",
-                                    });
-                                  }}
-                                >
-                                  <Edit2 className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 text-destructive"
-                                  onClick={() => handleDeleteProject(project.id)}
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </div>
-                            {project.description && (
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                                {project.description}
-                              </p>
-                            )}
-                            <div className="flex items-center gap-2 mt-3">
-                              <Badge className={priorityColors[project.priority]} variant="secondary">
-                                {project.priority === "low" ? "Baixa" : project.priority === "medium" ? "Média" : "Alta"}
-                              </Badge>
-                              {project.due_date && (
-                                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  {format(new Date(project.due_date), "dd MMM", { locale: ptBR })}
-                                </span>
-                              )}
-                            </div>
-                            {column.id !== "done" && (
-                              <div className="mt-3 flex gap-1">
-                                {columns
-                                  .filter(c => c.id !== column.id)
-                                  .map(c => (
-                                    <Button
-                                      key={c.id}
-                                      variant="ghost"
-                                      size="sm"
-                                      className="text-xs h-7"
-                                      onClick={() => handleMoveProject(project.id, c.id)}
+                            <AnimatePresence mode="popLayout">
+                              {getProjectsByStatus(column.id).map((project, index) => (
+                                <Draggable key={project.id} draggableId={project.id} index={index}>
+                                  {(provided, snapshot) => (
+                                    <motion.div
+                                      ref={provided.innerRef}
+                                      {...provided.draggableProps}
+                                      layout
+                                      initial={{ opacity: 0, scale: 0.8 }}
+                                      animate={{ opacity: 1, scale: 1 }}
+                                      exit={{ opacity: 0, scale: 0.8 }}
+                                      className={`bg-card border border-border rounded-lg p-3 transition-all ${
+                                        snapshot.isDragging 
+                                          ? "shadow-lg border-primary/50 rotate-2" 
+                                          : "hover:border-primary/30"
+                                      }`}
                                     >
-                                      → {c.title}
-                                    </Button>
-                                  ))}
-                              </div>
-                            )}
-                            {column.id !== "done" && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="w-full mt-2 text-xs gap-1"
-                                onClick={() => handleMoveProject(project.id, "done")}
-                              >
-                                <CheckCircle className="h-3 w-3" />
-                                Concluir
-                              </Button>
-                            )}
-                          </motion.div>
-                        ))}
-                      </AnimatePresence>
-                    </CardContent>
-                  </Card>
-                </div>
-              ))}
-            </div>
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="flex items-start gap-2 flex-1">
+                                          <div
+                                            {...provided.dragHandleProps}
+                                            className="mt-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
+                                          >
+                                            <GripVertical className="h-4 w-4" />
+                                          </div>
+                                          <h4 className="font-medium text-sm">{project.title}</h4>
+                                        </div>
+                                        <div className="flex gap-1">
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6"
+                                            onClick={() => {
+                                              setEditingProject(project);
+                                              setProjectForm({
+                                                title: project.title,
+                                                description: project.description || "",
+                                                priority: project.priority,
+                                                due_date: project.due_date || "",
+                                              });
+                                            }}
+                                          >
+                                            <Edit2 className="h-3 w-3" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 text-destructive"
+                                            onClick={() => handleDeleteProject(project.id)}
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                      {project.description && (
+                                        <p className="text-xs text-muted-foreground mt-1 ml-6 line-clamp-2">
+                                          {project.description}
+                                        </p>
+                                      )}
+                                      <div className="flex items-center gap-2 mt-3 ml-6">
+                                        <Badge className={priorityColors[project.priority]} variant="secondary">
+                                          {project.priority === "low" ? "Baixa" : project.priority === "medium" ? "Média" : "Alta"}
+                                        </Badge>
+                                        {project.due_date && (
+                                          <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                            <Calendar className="h-3 w-3" />
+                                            {format(new Date(project.due_date), "dd MMM", { locale: ptBR })}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </Draggable>
+                              ))}
+                            </AnimatePresence>
+                            {provided.placeholder}
+                          </CardContent>
+                        )}
+                      </Droppable>
+                    </Card>
+                  </div>
+                ))}
+              </div>
+            </DragDropContext>
           </TabsContent>
 
           <TabsContent value="timeline" className="mt-6">
