@@ -15,11 +15,9 @@ import {
   Tag,
   Lightbulb,
   Target,
-  TrendingUp,
   Trash2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -38,7 +36,6 @@ interface ExecutionRecord {
 }
 
 const Knowledge = () => {
-  const { user } = useAuth();
   const { toast } = useToast();
   const [records, setRecords] = useState<ExecutionRecord[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<ExecutionRecord[]>([]);
@@ -48,25 +45,20 @@ const Knowledge = () => {
   const [allTags, setAllTags] = useState<string[]>([]);
 
   useEffect(() => {
-    if (user) {
-      fetchRecords();
-    }
-  }, [user]);
+    fetchRecords();
+  }, []);
 
   useEffect(() => {
     filterRecords();
   }, [records, searchQuery, selectedTag]);
 
   const fetchRecords = async () => {
-    if (!user) return;
-
     const { data } = await supabase
       .from("execution_records")
       .select(`
         *,
         project:projects(title)
       `)
-      .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
     if (data) {

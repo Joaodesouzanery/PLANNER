@@ -12,8 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
 import {
   Plus,
-  TrendingUp,
-  TrendingDown,
   DollarSign,
   Target,
   Edit2,
@@ -22,7 +20,6 @@ import {
   ArrowDownRight,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -51,7 +48,6 @@ interface Transaction {
 }
 
 const Finance = () => {
-  const { user } = useAuth();
   const { toast } = useToast();
   const [okrs, setOkrs] = useState<OKR[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -78,45 +74,34 @@ const Finance = () => {
   });
 
   useEffect(() => {
-    if (user) {
-      fetchOkrs();
-      fetchTransactions();
-    }
-  }, [user]);
+    fetchOkrs();
+    fetchTransactions();
+  }, []);
 
   const fetchOkrs = async () => {
-    if (!user) return;
     const { data } = await supabase
       .from("okrs")
       .select("*")
-      .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     if (data) setOkrs(data);
   };
 
   const fetchTransactions = async () => {
-    if (!user) return;
     const { data } = await supabase
       .from("financial_transactions")
       .select("*")
-      .eq("user_id", user.id)
       .order("date", { ascending: false });
     if (data) setTransactions(data as Transaction[]);
   };
 
   const handleSaveOkr = async () => {
-    if (!user) return;
-
     if (editingOkr) {
       await supabase
         .from("okrs")
         .update(okrForm)
         .eq("id", editingOkr.id);
     } else {
-      await supabase.from("okrs").insert({
-        ...okrForm,
-        user_id: user.id,
-      });
+      await supabase.from("okrs").insert(okrForm);
     }
 
     setShowOkrModal(false);
@@ -140,18 +125,13 @@ const Finance = () => {
   };
 
   const handleSaveTransaction = async () => {
-    if (!user) return;
-
     if (editingTransaction) {
       await supabase
         .from("financial_transactions")
         .update(transactionForm)
         .eq("id", editingTransaction.id);
     } else {
-      await supabase.from("financial_transactions").insert({
-        ...transactionForm,
-        user_id: user.id,
-      });
+      await supabase.from("financial_transactions").insert(transactionForm);
     }
 
     setShowTransactionModal(false);

@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { motion, AnimatePresence } from "framer-motion";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import {
@@ -20,6 +21,7 @@ import {
   Calendar,
   X,
   GripVertical,
+  Building2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -35,6 +37,7 @@ interface Project {
   due_date: string | null;
   created_at: string;
   column_order: number | null;
+  client: string | null;
 }
 
 interface KanbanColumn {
@@ -67,12 +70,14 @@ const Projects = () => {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [showColumnModal, setShowColumnModal] = useState(false);
   const [newColumnTitle, setNewColumnTitle] = useState("");
+  const [clientFilter, setClientFilter] = useState<string>("all");
   
   const [projectForm, setProjectForm] = useState({
     title: "",
     description: "",
     priority: "medium",
     due_date: "",
+    client: "",
   });
 
   const [executionForm, setExecutionForm] = useState<ExecutionRecord>({
@@ -93,7 +98,7 @@ const Projects = () => {
       .from("projects")
       .select("*")
       .order("column_order", { ascending: true, nullsFirst: false });
-    if (data) setProjects(data);
+    if (data) setProjects(data as Project[]);
   };
 
   const fetchColumns = async () => {
@@ -105,6 +110,9 @@ const Projects = () => {
       setColumns(data);
     }
   };
+
+  // Get unique clients for filter
+  const uniqueClients = [...new Set(projects.map(p => p.client).filter(Boolean))] as string[];
 
   const handleAddProject = async () => {
     if (!projectForm.title) return;
@@ -118,9 +126,10 @@ const Projects = () => {
       due_date: projectForm.due_date || null,
       status: "todo",
       column_order: maxOrder,
+      client: projectForm.client || null,
     });
 
-    setProjectForm({ title: "", description: "", priority: "medium", due_date: "" });
+    setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "" });
     setShowAddProject(false);
     fetchProjects();
     toast({ title: "Projeto criado!" });
@@ -136,11 +145,12 @@ const Projects = () => {
         description: projectForm.description,
         priority: projectForm.priority,
         due_date: projectForm.due_date || null,
+        client: projectForm.client || null,
       })
       .eq("id", editingProject.id);
 
     setEditingProject(null);
-    setProjectForm({ title: "", description: "", priority: "medium", due_date: "" });
+    setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "" });
     fetchProjects();
     toast({ title: "Projeto atualizado!" });
   };
@@ -152,7 +162,7 @@ const Projects = () => {
   };
 
   const handleDragEnd = async (result: DropResult) => {
-    const { destination, source, draggableId } = result;
+    const { destination, source, draggableId, type } = result;
 
     if (!destination) return;
 
@@ -163,6 +173,31 @@ const Projects = () => {
       return;
     }
 
+    // Handle column reordering
+    if (type === "COLUMN") {
+      const newColumns = Array.from(columns);
+      const [removed] = newColumns.splice(source.index, 1);
+      newColumns.splice(destination.index, 0, removed);
+      
+      // Update order_index
+      const updatedColumns = newColumns.map((col, index) => ({
+        ...col,
+        order_index: index,
+      }));
+      
+      setColumns(updatedColumns);
+      
+      // Update in database
+      for (const col of updatedColumns) {
+        await supabase
+          .from("kanban_columns")
+          .update({ order_index: col.order_index })
+          .eq("id", col.id);
+      }
+      return;
+    }
+
+    // Handle card reordering
     const project = projects.find(p => p.id === draggableId);
     if (!project) return;
 
@@ -248,8 +283,13 @@ const Projects = () => {
     toast({ title: "Coluna removida!" });
   };
 
-  const getProjectsByStatus = (status: string) => 
-    projects.filter(p => p.status === status).sort((a, b) => (a.column_order ?? 0) - (b.column_order ?? 0));
+  const getProjectsByStatus = (status: string) => {
+    let filteredProjects = projects.filter(p => p.status === status);
+    if (clientFilter !== "all") {
+      filteredProjects = filteredProjects.filter(p => p.client === clientFilter);
+    }
+    return filteredProjects.sort((a, b) => (a.column_order ?? 0) - (b.column_order ?? 0));
+  };
 
   const priorityColors: Record<string, string> = {
     low: "bg-muted text-muted-foreground",
@@ -282,6 +322,24 @@ const Projects = () => {
           </div>
         </div>
 
+        {/* Filters */}
+        <div className="flex flex-wrap gap-4 items-center">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <Select value={clientFilter} onValueChange={setClientFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filtrar por cliente" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os clientes</SelectItem>
+                {uniqueClients.map(client => (
+                  <SelectItem key={client} value={client}>{client}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
         {/* View Toggle */}
         <Tabs value={view} onValueChange={(v) => setView(v as "kanban" | "timeline")}>
           <TabsList>
@@ -297,120 +355,149 @@ const Projects = () => {
 
           <TabsContent value="kanban" className="mt-6">
             <DragDropContext onDragEnd={handleDragEnd}>
-              <div className="flex gap-4 overflow-x-auto pb-4">
-                {columns.map((column) => (
-                  <div key={column.id} className="flex-shrink-0 w-80">
-                    <Card className="bg-card/50">
-                      <CardHeader className="py-3 px-4 flex flex-row items-center justify-between">
-                        <CardTitle className="text-sm font-medium">{column.title}</CardTitle>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="secondary" className="text-xs">
-                            {getProjectsByStatus(column.id).length}
-                          </Badge>
-                          {!defaultColumns.find(c => c.id === column.id) && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6"
-                              onClick={() => deleteColumn(column.id)}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </div>
-                      </CardHeader>
-                      <Droppable droppableId={column.id}>
+              <Droppable droppableId="columns" direction="horizontal" type="COLUMN">
+                {(provided) => (
+                  <div 
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className="flex gap-4 overflow-x-auto pb-4"
+                  >
+                    {columns.map((column, columnIndex) => (
+                      <Draggable key={column.id} draggableId={`column-${column.id}`} index={columnIndex}>
                         {(provided, snapshot) => (
-                          <CardContent
+                          <div
                             ref={provided.innerRef}
-                            {...provided.droppableProps}
-                            className={`p-2 space-y-2 min-h-[200px] transition-colors ${
-                              snapshot.isDraggingOver ? "bg-primary/5" : ""
-                            }`}
+                            {...provided.draggableProps}
+                            className={`flex-shrink-0 w-80 ${snapshot.isDragging ? "opacity-75" : ""}`}
                           >
-                            <AnimatePresence mode="popLayout">
-                              {getProjectsByStatus(column.id).map((project, index) => (
-                                <Draggable key={project.id} draggableId={project.id} index={index}>
-                                  {(provided, snapshot) => (
-                                    <motion.div
-                                      ref={provided.innerRef}
-                                      {...provided.draggableProps}
-                                      layout
-                                      initial={{ opacity: 0, scale: 0.8 }}
-                                      animate={{ opacity: 1, scale: 1 }}
-                                      exit={{ opacity: 0, scale: 0.8 }}
-                                      className={`bg-card border border-border rounded-lg p-3 transition-all ${
-                                        snapshot.isDragging 
-                                          ? "shadow-lg border-primary/50 rotate-2" 
-                                          : "hover:border-primary/30"
-                                      }`}
+                            <Card className="bg-card/50">
+                              <CardHeader 
+                                {...provided.dragHandleProps}
+                                className="py-3 px-4 flex flex-row items-center justify-between cursor-grab active:cursor-grabbing"
+                              >
+                                <CardTitle className="text-sm font-medium">{column.title}</CardTitle>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="secondary" className="text-xs">
+                                    {getProjectsByStatus(column.id).length}
+                                  </Badge>
+                                  {!defaultColumns.find(c => c.id === column.id) && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6"
+                                      onClick={() => deleteColumn(column.id)}
                                     >
-                                      <div className="flex items-start justify-between gap-2">
-                                        <div className="flex items-start gap-2 flex-1">
-                                          <div
-                                            {...provided.dragHandleProps}
-                                            className="mt-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
-                                          >
-                                            <GripVertical className="h-4 w-4" />
-                                          </div>
-                                          <h4 className="font-medium text-sm">{project.title}</h4>
-                                        </div>
-                                        <div className="flex gap-1">
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-6 w-6"
-                                            onClick={() => {
-                                              setEditingProject(project);
-                                              setProjectForm({
-                                                title: project.title,
-                                                description: project.description || "",
-                                                priority: project.priority,
-                                                due_date: project.due_date || "",
-                                              });
-                                            }}
-                                          >
-                                            <Edit2 className="h-3 w-3" />
-                                          </Button>
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-6 w-6 text-destructive"
-                                            onClick={() => handleDeleteProject(project.id)}
-                                          >
-                                            <Trash2 className="h-3 w-3" />
-                                          </Button>
-                                        </div>
-                                      </div>
-                                      {project.description && (
-                                        <p className="text-xs text-muted-foreground mt-1 ml-6 line-clamp-2">
-                                          {project.description}
-                                        </p>
-                                      )}
-                                      <div className="flex items-center gap-2 mt-3 ml-6">
-                                        <Badge className={priorityColors[project.priority]} variant="secondary">
-                                          {project.priority === "low" ? "Baixa" : project.priority === "medium" ? "Média" : "Alta"}
-                                        </Badge>
-                                        {project.due_date && (
-                                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                            <Calendar className="h-3 w-3" />
-                                            {format(new Date(project.due_date), "dd MMM", { locale: ptBR })}
-                                          </span>
-                                        )}
-                                      </div>
-                                    </motion.div>
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
                                   )}
-                                </Draggable>
-                              ))}
-                            </AnimatePresence>
-                            {provided.placeholder}
-                          </CardContent>
+                                </div>
+                              </CardHeader>
+                              <Droppable droppableId={column.id} type="CARD">
+                                {(provided, snapshot) => (
+                                  <CardContent
+                                    ref={provided.innerRef}
+                                    {...provided.droppableProps}
+                                    className={`p-2 space-y-2 min-h-[200px] transition-colors ${
+                                      snapshot.isDraggingOver ? "bg-primary/5" : ""
+                                    }`}
+                                  >
+                                    <AnimatePresence mode="popLayout">
+                                      {getProjectsByStatus(column.id).map((project, index) => (
+                                        <Draggable key={project.id} draggableId={project.id} index={index}>
+                                          {(provided, snapshot) => (
+                                            <motion.div
+                                              ref={provided.innerRef}
+                                              {...provided.draggableProps}
+                                              layout
+                                              initial={{ opacity: 0, scale: 0.8 }}
+                                              animate={{ opacity: 1, scale: 1 }}
+                                              exit={{ opacity: 0, scale: 0.8 }}
+                                              className={`bg-card border border-border rounded-lg p-3 transition-all ${
+                                                snapshot.isDragging 
+                                                  ? "shadow-lg border-primary/50 rotate-2" 
+                                                  : "hover:border-primary/30"
+                                              }`}
+                                            >
+                                              <div className="flex items-start justify-between gap-2">
+                                                <div className="flex items-start gap-2 flex-1">
+                                                  <div
+                                                    {...provided.dragHandleProps}
+                                                    className="mt-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
+                                                  >
+                                                    <GripVertical className="h-4 w-4" />
+                                                  </div>
+                                                  <div className="flex-1">
+                                                    <h4 className="font-medium text-sm">{project.title}</h4>
+                                                    {project.client && (
+                                                      <p className="text-xs text-primary mt-0.5 flex items-center gap-1">
+                                                        <Building2 className="h-3 w-3" />
+                                                        {project.client}
+                                                      </p>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                                <div className="flex gap-1">
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6"
+                                                    onClick={() => {
+                                                      setEditingProject(project);
+                                                      setProjectForm({
+                                                        title: project.title,
+                                                        description: project.description || "",
+                                                        priority: project.priority,
+                                                        due_date: project.due_date || "",
+                                                        client: project.client || "",
+                                                      });
+                                                    }}
+                                                  >
+                                                    <Edit2 className="h-3 w-3" />
+                                                  </Button>
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-6 w-6 text-destructive"
+                                                    onClick={() => handleDeleteProject(project.id)}
+                                                  >
+                                                    <Trash2 className="h-3 w-3" />
+                                                  </Button>
+                                                </div>
+                                              </div>
+                                              {project.description && (
+                                                <p className="text-xs text-muted-foreground mt-1 ml-6 line-clamp-2">
+                                                  {project.description}
+                                                </p>
+                                              )}
+                                              <div className="flex items-center gap-2 mt-3 ml-6">
+                                                <Badge className={priorityColors[project.priority]} variant="secondary">
+                                                  {project.priority === "low" ? "Baixa" : project.priority === "medium" ? "Média" : "Alta"}
+                                                </Badge>
+                                                {project.due_date && (
+                                                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                                    <Calendar className="h-3 w-3" />
+                                                    {format(new Date(project.due_date), "dd MMM", { locale: ptBR })}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </motion.div>
+                                          )}
+                                        </Draggable>
+                                      ))}
+                                    </AnimatePresence>
+                                    {provided.placeholder}
+                                  </CardContent>
+                                )}
+                              </Droppable>
+                            </Card>
+                          </div>
                         )}
-                      </Droppable>
-                    </Card>
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
                   </div>
-                ))}
-              </div>
+                )}
+              </Droppable>
             </DragDropContext>
           </TabsContent>
 
@@ -420,6 +507,7 @@ const Projects = () => {
                 <div className="space-y-4">
                   {projects
                     .filter(p => p.due_date)
+                    .filter(p => clientFilter === "all" || p.client === clientFilter)
                     .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())
                     .map((project, index) => (
                       <motion.div
@@ -440,6 +528,12 @@ const Projects = () => {
                         <div className="w-px h-12 bg-border" />
                         <div className="flex-1">
                           <h4 className="font-medium">{project.title}</h4>
+                          {project.client && (
+                            <p className="text-xs text-primary flex items-center gap-1 mt-0.5">
+                              <Building2 className="h-3 w-3" />
+                              {project.client}
+                            </p>
+                          )}
                           {project.description && (
                             <p className="text-sm text-muted-foreground">{project.description}</p>
                           )}
@@ -449,7 +543,7 @@ const Projects = () => {
                         </Badge>
                       </motion.div>
                     ))}
-                  {projects.filter(p => p.due_date).length === 0 && (
+                  {projects.filter(p => p.due_date).filter(p => clientFilter === "all" || p.client === clientFilter).length === 0 && (
                     <p className="text-center text-muted-foreground py-8">
                       Nenhum projeto com data de entrega definida.
                     </p>
@@ -465,7 +559,7 @@ const Projects = () => {
           if (!open) {
             setShowAddProject(false);
             setEditingProject(null);
-            setProjectForm({ title: "", description: "", priority: "medium", due_date: "" });
+            setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "" });
           }
         }}>
           <DialogContent>
@@ -487,6 +581,14 @@ const Projects = () => {
                   value={projectForm.description}
                   onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
                   placeholder="Descrição do projeto"
+                />
+              </div>
+              <div>
+                <Label>Cliente / Empresa</Label>
+                <Input
+                  value={projectForm.client}
+                  onChange={(e) => setProjectForm({ ...projectForm, client: e.target.value })}
+                  placeholder="Nome do cliente ou empresa"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
