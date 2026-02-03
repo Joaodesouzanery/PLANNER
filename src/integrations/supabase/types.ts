@@ -267,6 +267,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          client: string | null
           column_order: number | null
           created_at: string
           description: string | null
@@ -279,6 +280,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          client?: string | null
           column_order?: number | null
           created_at?: string
           description?: string | null
@@ -291,6 +293,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          client?: string | null
           column_order?: number | null
           created_at?: string
           description?: string | null

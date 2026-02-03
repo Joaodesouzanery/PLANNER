@@ -11,7 +11,11 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  Moon,
+  Sun,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useTheme } from "./ThemeProvider";
 import hiveLogo from "@/assets/hive-logo.jpg";
 
 const menuItems = [
@@ -26,6 +30,7 @@ const menuItems = [
 export const AppSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { theme, setTheme } = useTheme();
 
   return (
     <motion.aside
@@ -84,8 +89,31 @@ export const AppSidebar = () => {
         })}
       </nav>
 
-      {/* Collapse Button */}
-      <div className="p-3 border-t border-border">
+      {/* Footer */}
+      <div className="p-3 border-t border-border space-y-2">
+        {/* Theme Toggle */}
+        <div className={cn(
+          "flex items-center",
+          collapsed ? "justify-center" : "justify-between px-3"
+        )}>
+          {!collapsed && (
+            <span className="text-sm text-muted-foreground">Tema</span>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className="h-9 w-9"
+          >
+            {theme === "dark" ? (
+              <Sun className="h-4 w-4" />
+            ) : (
+              <Moon className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+        
+        {/* Collapse Button */}
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
