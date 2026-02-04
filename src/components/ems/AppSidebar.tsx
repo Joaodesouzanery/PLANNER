@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
+import { DueDateNotifications } from "./DueDateNotifications";
 import hiveLogo from "@/assets/hive-logo.jpg";
 
 const menuItems = [
@@ -91,6 +92,17 @@ export const AppSidebar = () => {
 
       {/* Footer */}
       <div className="p-3 border-t border-border space-y-2">
+        {/* Notifications */}
+        <div className={cn(
+          "flex items-center",
+          collapsed ? "justify-center" : "justify-between px-3"
+        )}>
+          {!collapsed && (
+            <span className="text-sm text-muted-foreground">Alertas</span>
+          )}
+          <DueDateNotifications />
+        </div>
+        
         {/* Theme Toggle */}
         <div className={cn(
           "flex items-center",

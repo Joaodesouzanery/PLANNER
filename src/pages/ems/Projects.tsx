@@ -71,6 +71,7 @@ const Projects = () => {
   const [showColumnModal, setShowColumnModal] = useState(false);
   const [newColumnTitle, setNewColumnTitle] = useState("");
   const [clientFilter, setClientFilter] = useState<string>("all");
+  const [isInitialized, setIsInitialized] = useState(false);
   
   const [projectForm, setProjectForm] = useState({
     title: "",
@@ -89,9 +90,42 @@ const Projects = () => {
   const [tagInput, setTagInput] = useState("");
 
   useEffect(() => {
-    fetchProjects();
-    fetchColumns();
+    initializeColumnsAndFetch();
   }, []);
+
+  const initializeColumnsAndFetch = async () => {
+    // First check if columns exist in database
+    const { data: existingColumns } = await supabase
+      .from("kanban_columns")
+      .select("*")
+      .order("order_index");
+
+    // If no columns exist, insert the default ones with our specific IDs
+    if (!existingColumns || existingColumns.length === 0) {
+      for (const col of defaultColumns) {
+        await supabase.from("kanban_columns").insert({
+          id: col.id,
+          title: col.title,
+          order_index: col.order_index,
+        });
+      }
+      setColumns(defaultColumns);
+    } else {
+      // Map existing columns, keeping the default IDs for default columns
+      const mappedColumns = existingColumns.map(col => {
+        // Check if this is a default column by title
+        const defaultCol = defaultColumns.find(d => d.title === col.title);
+        if (defaultCol) {
+          return { ...col, id: defaultCol.id };
+        }
+        return col;
+      });
+      setColumns(mappedColumns);
+    }
+    
+    await fetchProjects();
+    setIsInitialized(true);
+  };
 
   const fetchProjects = async () => {
     const { data } = await supabase
@@ -107,7 +141,15 @@ const Projects = () => {
       .select("*")
       .order("order_index");
     if (data && data.length > 0) {
-      setColumns(data);
+      // Map existing columns, keeping the default IDs for default columns
+      const mappedColumns = data.map(col => {
+        const defaultCol = defaultColumns.find(d => d.title === col.title);
+        if (defaultCol) {
+          return { ...col, id: defaultCol.id };
+        }
+        return col;
+      });
+      setColumns(mappedColumns);
     }
   };
 
