@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { RecentActivity } from "@/components/ems/RecentActivity";
 
 const iconMap: Record<string, React.ElementType> = {
   target: Target,
@@ -323,61 +324,68 @@ const Overview = () => {
           </div>
         </motion.div>
 
-        {/* Quick Stats */}
-        <motion.div variants={itemVariants}>
-          <h2 className="text-xl font-heading font-semibold text-foreground mb-4">Resumo Rápido</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-amber-500/10">
-                    <Clock className="h-6 w-6 text-amber-500" />
+        {/* Quick Stats & Recent Activity */}
+        <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-4">
+            <h2 className="text-xl font-heading font-semibold text-foreground">Resumo Rápido</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-xl bg-amber-500/10">
+                      <Clock className="h-6 w-6 text-amber-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Tarefas Pendentes</p>
+                      <p className="text-2xl font-bold text-foreground">{pendingTasks}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Tarefas Pendentes</p>
-                    <p className="text-2xl font-bold text-foreground">{pendingTasks}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 rounded-xl bg-emerald-500/10">
-                    <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 rounded-xl bg-emerald-500/10">
+                      <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Tarefas Concluídas</p>
+                      <p className="text-2xl font-bold text-foreground">{completedTasks}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Tarefas Concluídas</p>
-                    <p className="text-2xl font-bold text-foreground">{completedTasks}</p>
-                  </div>
-                </div>
-                {(pendingTasks + completedTasks) > 0 && (
-                  <div className="mt-4">
-                    <Progress value={(completedTasks / (pendingTasks + completedTasks)) * 100} className="h-2" />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {Math.round((completedTasks / (pendingTasks + completedTasks)) * 100)}% completo
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  {(pendingTasks + completedTasks) > 0 && (
+                    <div className="mt-4">
+                      <Progress value={(completedTasks / (pendingTasks + completedTasks)) * 100} className="h-2" />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {Math.round((completedTasks / (pendingTasks + completedTasks)) * 100)}% completo
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-4">
-                  <div className={`p-3 rounded-xl ${balance >= 0 ? 'bg-emerald-500/10' : 'bg-destructive/10'}`}>
-                    <DollarSign className={`h-6 w-6 ${balance >= 0 ? 'text-emerald-500' : 'text-destructive'}`} />
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-4">
+                    <div className={`p-3 rounded-xl ${balance >= 0 ? 'bg-emerald-500/10' : 'bg-destructive/10'}`}>
+                      <DollarSign className={`h-6 w-6 ${balance >= 0 ? 'text-emerald-500' : 'text-destructive'}`} />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Saldo Atual</p>
+                      <p className={`text-2xl font-bold ${balance >= 0 ? 'text-emerald-500' : 'text-destructive'}`}>
+                        R$ {balance.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Saldo Atual</p>
-                    <p className={`text-2xl font-bold ${balance >= 0 ? 'text-emerald-500' : 'text-destructive'}`}>
-                      R$ {balance.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+          
+          {/* Recent Activity */}
+          <div>
+            <RecentActivity />
           </div>
         </motion.div>
       </motion.div>
