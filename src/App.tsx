@@ -12,6 +12,8 @@ import Knowledge from "./pages/ems/Knowledge";
 import Finance from "./pages/ems/Finance";
 import Settings from "./pages/ems/Settings";
 import Reports from "./pages/ems/Reports";
+import Planning from "./pages/ems/Planning";
+import OrgChart from "./pages/ems/OrgChart";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +36,8 @@ const App = () => (
             <Route path="/ems/finance" element={<Finance />} />
             <Route path="/ems/settings" element={<Settings />} />
             <Route path="/ems/reports" element={<Reports />} />
+            <Route path="/ems/planning" element={<Planning />} />
+            <Route path="/ems/orgchart" element={<OrgChart />} />
             
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
