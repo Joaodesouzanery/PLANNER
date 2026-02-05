@@ -265,6 +265,162 @@ export type Database = {
         }
         Relationships: []
       }
+      org_chart_nodes: {
+        Row: {
+          avatar_url: string | null
+          color: string | null
+          created_at: string
+          department: string | null
+          email: string | null
+          id: string
+          name: string
+          order_index: number | null
+          parent_id: string | null
+          phone: string | null
+          position: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          color?: string | null
+          created_at?: string
+          department?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          order_index?: number | null
+          parent_id?: string | null
+          phone?: string | null
+          position: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          color?: string | null
+          created_at?: string
+          department?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          order_index?: number | null
+          parent_id?: string | null
+          phone?: string | null
+          position?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_chart_nodes_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "org_chart_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planning_goals: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          end_date: string | null
+          id: string
+          order_index: number | null
+          parent_id: string | null
+          progress: number | null
+          start_date: string | null
+          status: string | null
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          order_index?: number | null
+          parent_id?: string | null
+          progress?: number | null
+          start_date?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          order_index?: number | null
+          parent_id?: string | null
+          progress?: number | null
+          start_date?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_goals_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "planning_goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      planning_milestones: {
+        Row: {
+          completed: boolean | null
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          goal_id: string | null
+          id: string
+          order_index: number | null
+          title: string
+        }
+        Insert: {
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          goal_id?: string | null
+          id?: string
+          order_index?: number | null
+          title: string
+        }
+        Update: {
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          goal_id?: string | null
+          id?: string
+          order_index?: number | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "planning_milestones_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "planning_goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           client: string | null

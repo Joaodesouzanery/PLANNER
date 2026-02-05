@@ -13,6 +13,8 @@ import {
   FileText,
   Moon,
   Sun,
+  Target,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
@@ -22,6 +24,8 @@ import hiveLogo from "@/assets/hive-logo.jpg";
 const menuItems = [
   { icon: LayoutDashboard, label: "Overview", path: "/ems" },
   { icon: FolderKanban, label: "Gestão de Projetos", path: "/ems/projects" },
+  { icon: Target, label: "Planejamento", path: "/ems/planning" },
+  { icon: Users, label: "Organograma", path: "/ems/orgchart" },
   { icon: BookOpen, label: "Knowledge Base", path: "/ems/knowledge" },
   { icon: TrendingUp, label: "Finanças & Estratégia", path: "/ems/finance" },
   { icon: FileText, label: "Relatórios", path: "/ems/reports" },
