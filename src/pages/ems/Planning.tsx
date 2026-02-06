@@ -800,14 +800,14 @@ const Planning = () => {
               <div>
                 <label className="text-sm font-medium">Meta Pai (opcional)</label>
                 <Select
-                  value={goalForm.parent_id}
-                  onValueChange={(v) => setGoalForm({ ...goalForm, parent_id: v })}
+                  value={goalForm.parent_id || "none"}
+                  onValueChange={(v) => setGoalForm({ ...goalForm, parent_id: v === "none" ? "" : v })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione uma meta pai" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Nenhuma (meta raiz)</SelectItem>
+                    <SelectItem value="none">Nenhuma (meta raiz)</SelectItem>
                     {goals
                       .filter((g) => g.id !== editingGoal?.id)
                       .map((g) => (

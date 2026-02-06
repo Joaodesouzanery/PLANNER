@@ -626,14 +626,14 @@ const OrgChart = () => {
                 <div>
                   <label className="text-sm font-medium">Superior Direto</label>
                   <Select
-                    value={nodeForm.parent_id}
-                    onValueChange={(v) => setNodeForm({ ...nodeForm, parent_id: v })}
+                    value={nodeForm.parent_id || "none"}
+                    onValueChange={(v) => setNodeForm({ ...nodeForm, parent_id: v === "none" ? "" : v })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Nenhum (topo da hierarquia)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhum (topo da hierarquia)</SelectItem>
+                      <SelectItem value="none">Nenhum (topo da hierarquia)</SelectItem>
                       {nodes
                         .filter((n) => n.id !== editingNode?.id)
                         .map((n) => (
