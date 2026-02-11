@@ -15,14 +15,17 @@ import {
   Sun,
   Target,
   Users,
+  ListTodo,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
 import { DueDateNotifications } from "./DueDateNotifications";
+import { ColorPicker } from "./ColorPicker";
 import hiveLogo from "@/assets/hive-logo.jpg";
 
 const menuItems = [
   { icon: LayoutDashboard, label: "Overview", path: "/ems" },
+  { icon: ListTodo, label: "Tarefas", path: "/ems/tasks" },
   { icon: FolderKanban, label: "Gestão de Projetos", path: "/ems/projects" },
   { icon: Target, label: "Planejamento", path: "/ems/planning" },
   { icon: Users, label: "Organograma", path: "/ems/orgchart" },
@@ -107,6 +110,17 @@ export const AppSidebar = () => {
           <DueDateNotifications />
         </div>
         
+        {/* Color Picker */}
+        <div className={cn(
+          "flex items-center",
+          collapsed ? "justify-center" : "justify-between px-3"
+        )}>
+          {!collapsed && (
+            <span className="text-sm text-muted-foreground">Cor</span>
+          )}
+          <ColorPicker collapsed={collapsed} />
+        </div>
+
         {/* Theme Toggle */}
         <div className={cn(
           "flex items-center",
