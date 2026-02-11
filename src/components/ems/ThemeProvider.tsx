@@ -20,6 +20,17 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     root.classList.remove("light", "dark");
     root.classList.add(theme);
     localStorage.setItem("ems-theme", theme);
+
+    // Restore saved color
+    const savedColor = localStorage.getItem("ems-color");
+    if (savedColor) {
+      const [h, s, l] = savedColor.split("-").map(Number);
+      root.style.setProperty("--primary", `${h} ${s}% ${l}%`);
+      root.style.setProperty("--primary-light", `${h} ${s}% ${l + 10}%`);
+      root.style.setProperty("--accent", `${h} ${s}% ${l}%`);
+      root.style.setProperty("--accent-light", `${h} ${s}% ${l + 10}%`);
+      root.style.setProperty("--ring", `${h} ${s}% ${l}%`);
+    }
   }, [theme]);
 
   return (
