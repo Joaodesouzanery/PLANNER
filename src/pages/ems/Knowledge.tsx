@@ -4,7 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -16,6 +19,8 @@ import {
   Lightbulb,
   Target,
   Trash2,
+  Plus,
+  X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -35,6 +40,11 @@ interface ExecutionRecord {
   };
 }
 
+interface Project {
+  id: string;
+  title: string;
+}
+
 const Knowledge = () => {
   const { toast } = useToast();
   const [records, setRecords] = useState<ExecutionRecord[]>([]);
@@ -43,28 +53,39 @@ const Knowledge = () => {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [expandedRecords, setExpandedRecords] = useState<Set<string>>(new Set());
   const [allTags, setAllTags] = useState<string[]>([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [tagInput, setTagInput] = useState("");
+  const [form, setForm] = useState({
+    action_taken: "",
+    result_obtained: "",
+    lessons_learned: "",
+    project_id: "",
+    tags: [] as string[],
+  });
 
   useEffect(() => {
     fetchRecords();
+    fetchProjects();
   }, []);
 
   useEffect(() => {
     filterRecords();
   }, [records, searchQuery, selectedTag]);
 
+  const fetchProjects = async () => {
+    const { data } = await supabase.from("projects").select("id, title").order("title");
+    if (data) setProjects(data);
+  };
+
   const fetchRecords = async () => {
     const { data } = await supabase
       .from("execution_records")
-      .select(`
-        *,
-        project:projects(title)
-      `)
+      .select(`*, project:projects(title)`)
       .order("created_at", { ascending: false });
 
     if (data) {
       setRecords(data as ExecutionRecord[]);
-      
-      // Extract all unique tags
       const tags = new Set<string>();
       data.forEach((record: ExecutionRecord) => {
         record.tags?.forEach((tag: string) => tags.add(tag));
@@ -75,7 +96,6 @@ const Knowledge = () => {
 
   const filterRecords = () => {
     let filtered = records;
-
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -86,21 +106,16 @@ const Knowledge = () => {
           r.project?.title?.toLowerCase().includes(query)
       );
     }
-
     if (selectedTag) {
       filtered = filtered.filter((r) => r.tags?.includes(selectedTag));
     }
-
     setFilteredRecords(filtered);
   };
 
   const toggleExpanded = (id: string) => {
     const newExpanded = new Set(expandedRecords);
-    if (newExpanded.has(id)) {
-      newExpanded.delete(id);
-    } else {
-      newExpanded.add(id);
-    }
+    if (newExpanded.has(id)) newExpanded.delete(id);
+    else newExpanded.add(id);
     setExpandedRecords(newExpanded);
   };
 
@@ -110,14 +125,44 @@ const Knowledge = () => {
     toast({ title: "Registro removido!" });
   };
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.05 },
-    },
+  const addTag = () => {
+    const tag = tagInput.trim();
+    if (tag && !form.tags.includes(tag)) {
+      setForm({ ...form, tags: [...form.tags, tag] });
+      setTagInput("");
+    }
   };
 
+  const removeTag = (tag: string) => {
+    setForm({ ...form, tags: form.tags.filter((t) => t !== tag) });
+  };
+
+  const handleCreate = async () => {
+    if (!form.action_taken.trim() || !form.result_obtained.trim() || !form.lessons_learned.trim()) {
+      toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
+      return;
+    }
+    const { error } = await supabase.from("execution_records").insert({
+      action_taken: form.action_taken,
+      result_obtained: form.result_obtained,
+      lessons_learned: form.lessons_learned,
+      project_id: form.project_id || null,
+      tags: form.tags,
+    });
+    if (error) {
+      toast({ title: "Erro ao criar registro", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Registro criado com sucesso!" });
+    setDialogOpen(false);
+    setForm({ action_taken: "", result_obtained: "", lessons_learned: "", project_id: "", tags: [] });
+    fetchRecords();
+  };
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
+  };
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: { opacity: 1, y: 0 },
@@ -125,52 +170,33 @@ const Knowledge = () => {
 
   return (
     <EMSLayout>
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="space-y-6"
-      >
+      <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
         {/* Header */}
-        <motion.div variants={itemVariants}>
-          <h1 className="text-3xl font-heading font-bold text-foreground">Knowledge Base</h1>
-          <p className="text-muted-foreground mt-1">
-            Repositório de aprendizados e registros de execução
-          </p>
+        <motion.div variants={itemVariants} className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-heading font-bold text-foreground">Knowledge Base</h1>
+            <p className="text-muted-foreground mt-1">Repositório de aprendizados e registros de execução</p>
+          </div>
+          <Button onClick={() => setDialogOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" /> Novo Registro
+          </Button>
         </motion.div>
 
-        {/* Search and Filters */}
+        {/* Search */}
         <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar por palavra-chave, projeto ou lição..."
-              className="pl-10"
-            />
+            <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Buscar por palavra-chave, projeto ou lição..." className="pl-10" />
           </div>
         </motion.div>
 
         {/* Tags Filter */}
         {allTags.length > 0 && (
           <motion.div variants={itemVariants} className="flex flex-wrap gap-2">
-            <Button
-              variant={selectedTag === null ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedTag(null)}
-            >
-              Todas
-            </Button>
+            <Button variant={selectedTag === null ? "default" : "outline"} size="sm" onClick={() => setSelectedTag(null)}>Todas</Button>
             {allTags.map((tag) => (
-              <Button
-                key={tag}
-                variant={selectedTag === tag ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
-              >
-                <Tag className="h-3 w-3 mr-1" />
-                {tag}
+              <Button key={tag} variant={selectedTag === tag ? "default" : "outline"} size="sm" onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}>
+                <Tag className="h-3 w-3 mr-1" />{tag}
               </Button>
             ))}
           </motion.div>
@@ -178,58 +204,30 @@ const Knowledge = () => {
 
         {/* Stats */}
         <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <BookOpen className="h-5 w-5 text-primary" />
+          {[
+            { icon: BookOpen, value: records.length, label: "Total de Registros" },
+            { icon: Tag, value: allTags.length, label: "Tags Únicas" },
+            { icon: Lightbulb, value: filteredRecords.length, label: "Resultados Filtrados" },
+          ].map((s) => (
+            <Card key={s.label}>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10"><s.icon className="h-5 w-5 text-primary" /></div>
+                  <div>
+                    <p className="text-2xl font-bold">{s.value}</p>
+                    <p className="text-sm text-muted-foreground">{s.label}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-2xl font-bold">{records.length}</p>
-                  <p className="text-sm text-muted-foreground">Total de Registros</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Tag className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{allTags.length}</p>
-                  <p className="text-sm text-muted-foreground">Tags Únicas</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Lightbulb className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{filteredRecords.length}</p>
-                  <p className="text-sm text-muted-foreground">Resultados Filtrados</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          ))}
         </motion.div>
 
         {/* Records List */}
         <motion.div variants={itemVariants} className="space-y-4">
           <AnimatePresence mode="popLayout">
             {filteredRecords.map((record) => (
-              <motion.div
-                key={record.id}
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-              >
+              <motion.div key={record.id} layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
                 <Collapsible open={expandedRecords.has(record.id)}>
                   <Card className="hover:border-primary/30 transition-colors">
                     <CardHeader className="pb-3">
@@ -247,30 +245,15 @@ const Knowledge = () => {
                               </>
                             )}
                           </div>
-                          <CardTitle className="text-lg font-medium line-clamp-2">
-                            {record.action_taken}
-                          </CardTitle>
+                          <CardTitle className="text-lg font-medium line-clamp-2">{record.action_taken}</CardTitle>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => deleteRecord(record.id)}
-                          >
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteRecord(record.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                           <CollapsibleTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => toggleExpanded(record.id)}
-                            >
-                              {expandedRecords.has(record.id) ? (
-                                <ChevronUp className="h-4 w-4" />
-                              ) : (
-                                <ChevronDown className="h-4 w-4" />
-                              )}
+                            <Button variant="ghost" size="icon" onClick={() => toggleExpanded(record.id)}>
+                              {expandedRecords.has(record.id) ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                             </Button>
                           </CollapsibleTrigger>
                         </div>
@@ -278,9 +261,7 @@ const Knowledge = () => {
                       {record.tags && record.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
                           {record.tags.map((tag) => (
-                            <Badge key={tag} variant="secondary" className="text-xs">
-                              {tag}
-                            </Badge>
+                            <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
                           ))}
                         </div>
                       )}
@@ -317,15 +298,83 @@ const Knowledge = () => {
                 <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="font-medium text-foreground mb-2">Nenhum registro encontrado</h3>
                 <p className="text-sm text-muted-foreground">
-                  {records.length === 0
-                    ? "Complete projetos para criar registros na Knowledge Base."
-                    : "Tente ajustar os filtros de busca."}
+                  {records.length === 0 ? "Crie seu primeiro registro de conhecimento." : "Tente ajustar os filtros de busca."}
                 </p>
+                {records.length === 0 && (
+                  <Button className="mt-4" onClick={() => setDialogOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" /> Criar primeiro registro
+                  </Button>
+                )}
               </CardContent>
             </Card>
           )}
         </motion.div>
       </motion.div>
+
+      {/* Create Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Novo Registro de Conhecimento</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Ação Realizada *</label>
+              <Textarea value={form.action_taken} onChange={(e) => setForm({ ...form, action_taken: e.target.value })} placeholder="O que foi feito?" rows={2} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Resultado Obtido *</label>
+              <Textarea value={form.result_obtained} onChange={(e) => setForm({ ...form, result_obtained: e.target.value })} placeholder="Qual foi o resultado?" rows={2} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Lições Aprendidas *</label>
+              <Textarea value={form.lessons_learned} onChange={(e) => setForm({ ...form, lessons_learned: e.target.value })} placeholder="O que se aprendeu com isso?" rows={2} />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Projeto (opcional)</label>
+              <Select value={form.project_id || "none"} onValueChange={(v) => setForm({ ...form, project_id: v === "none" ? "" : v })}>
+                <SelectTrigger><SelectValue placeholder="Vincular a um projeto" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Tags</label>
+              <div className="flex gap-2">
+                <Input
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  placeholder="Adicionar tag..."
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }}
+                />
+                <Button variant="outline" size="icon" onClick={addTag} type="button">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              {form.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {form.tags.map((tag) => (
+                    <Badge key={tag} variant="secondary" className="gap-1">
+                      {tag}
+                      <button onClick={() => removeTag(tag)}><X className="h-3 w-3" /></button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreate} disabled={!form.action_taken.trim() || !form.result_obtained.trim() || !form.lessons_learned.trim()}>
+              Criar Registro
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </EMSLayout>
   );
 };
