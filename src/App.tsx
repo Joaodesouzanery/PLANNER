@@ -15,6 +15,7 @@ import Reports from "./pages/ems/Reports";
 import Planning from "./pages/ems/Planning";
 import OrgChart from "./pages/ems/OrgChart";
 import Tasks from "./pages/ems/Tasks";
+import Contacts from "./pages/ems/Contacts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
             {/* EMS Routes */}
             <Route path="/ems" element={<Overview />} />
             <Route path="/ems/tasks" element={<Tasks />} />
+            <Route path="/ems/contacts" element={<Contacts />} />
             <Route path="/ems/projects" element={<Projects />} />
             <Route path="/ems/knowledge" element={<Knowledge />} />
             <Route path="/ems/finance" element={<Finance />} />

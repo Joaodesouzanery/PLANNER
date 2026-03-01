@@ -10,17 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search,
-  BookOpen,
-  ChevronDown,
-  ChevronUp,
-  Calendar,
-  Tag,
-  Lightbulb,
-  Target,
-  Trash2,
-  Plus,
-  X,
+  Search, BookOpen, ChevronDown, ChevronUp, Calendar, Tag,
+  Lightbulb, Target, Trash2, Plus, X, Edit2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -35,9 +26,7 @@ interface ExecutionRecord {
   lessons_learned: string;
   tags: string[];
   created_at: string;
-  project?: {
-    title: string;
-  };
+  project?: { title: string };
 }
 
 interface Project {
@@ -54,6 +43,7 @@ const Knowledge = () => {
   const [expandedRecords, setExpandedRecords] = useState<Set<string>>(new Set());
   const [allTags, setAllTags] = useState<string[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<ExecutionRecord | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [form, setForm] = useState({
@@ -64,14 +54,8 @@ const Knowledge = () => {
     tags: [] as string[],
   });
 
-  useEffect(() => {
-    fetchRecords();
-    fetchProjects();
-  }, []);
-
-  useEffect(() => {
-    filterRecords();
-  }, [records, searchQuery, selectedTag]);
+  useEffect(() => { fetchRecords(); fetchProjects(); }, []);
+  useEffect(() => { filterRecords(); }, [records, searchQuery, selectedTag]);
 
   const fetchProjects = async () => {
     const { data } = await supabase.from("projects").select("id, title").order("title");
@@ -83,13 +67,10 @@ const Knowledge = () => {
       .from("execution_records")
       .select(`*, project:projects(title)`)
       .order("created_at", { ascending: false });
-
     if (data) {
       setRecords(data as ExecutionRecord[]);
       const tags = new Set<string>();
-      data.forEach((record: ExecutionRecord) => {
-        record.tags?.forEach((tag: string) => tags.add(tag));
-      });
+      data.forEach((record: ExecutionRecord) => { record.tags?.forEach((tag: string) => tags.add(tag)); });
       setAllTags(Array.from(tags));
     }
   };
@@ -98,24 +79,20 @@ const Knowledge = () => {
     let filtered = records;
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (r) =>
-          r.action_taken.toLowerCase().includes(query) ||
-          r.result_obtained.toLowerCase().includes(query) ||
-          r.lessons_learned.toLowerCase().includes(query) ||
-          r.project?.title?.toLowerCase().includes(query)
+      filtered = filtered.filter((r) =>
+        r.action_taken.toLowerCase().includes(query) ||
+        r.result_obtained.toLowerCase().includes(query) ||
+        r.lessons_learned.toLowerCase().includes(query) ||
+        r.project?.title?.toLowerCase().includes(query)
       );
     }
-    if (selectedTag) {
-      filtered = filtered.filter((r) => r.tags?.includes(selectedTag));
-    }
+    if (selectedTag) filtered = filtered.filter((r) => r.tags?.includes(selectedTag));
     setFilteredRecords(filtered);
   };
 
   const toggleExpanded = (id: string) => {
     const newExpanded = new Set(expandedRecords);
-    if (newExpanded.has(id)) newExpanded.delete(id);
-    else newExpanded.add(id);
+    if (newExpanded.has(id)) newExpanded.delete(id); else newExpanded.add(id);
     setExpandedRecords(newExpanded);
   };
 
@@ -127,46 +104,56 @@ const Knowledge = () => {
 
   const addTag = () => {
     const tag = tagInput.trim();
-    if (tag && !form.tags.includes(tag)) {
-      setForm({ ...form, tags: [...form.tags, tag] });
-      setTagInput("");
-    }
+    if (tag && !form.tags.includes(tag)) { setForm({ ...form, tags: [...form.tags, tag] }); setTagInput(""); }
   };
 
-  const removeTag = (tag: string) => {
-    setForm({ ...form, tags: form.tags.filter((t) => t !== tag) });
+  const removeTag = (tag: string) => { setForm({ ...form, tags: form.tags.filter((t) => t !== tag) }); };
+
+  const resetForm = () => {
+    setForm({ action_taken: "", result_obtained: "", lessons_learned: "", project_id: "", tags: [] });
+    setEditingRecord(null);
+    setTagInput("");
   };
 
-  const handleCreate = async () => {
+  const openEdit = (record: ExecutionRecord) => {
+    setEditingRecord(record);
+    setForm({
+      action_taken: record.action_taken,
+      result_obtained: record.result_obtained,
+      lessons_learned: record.lessons_learned,
+      project_id: record.project_id || "",
+      tags: record.tags || [],
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSave = async () => {
     if (!form.action_taken.trim() || !form.result_obtained.trim() || !form.lessons_learned.trim()) {
       toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
       return;
     }
-    const { error } = await supabase.from("execution_records").insert({
+    const payload = {
       action_taken: form.action_taken,
       result_obtained: form.result_obtained,
       lessons_learned: form.lessons_learned,
       project_id: form.project_id || null,
       tags: form.tags,
-    });
+    };
+    const { error } = editingRecord
+      ? await supabase.from("execution_records").update(payload).eq("id", editingRecord.id)
+      : await supabase.from("execution_records").insert(payload);
     if (error) {
-      toast({ title: "Erro ao criar registro", variant: "destructive" });
+      toast({ title: "Erro ao salvar registro", variant: "destructive" });
       return;
     }
-    toast({ title: "Registro criado com sucesso!" });
+    toast({ title: editingRecord ? "Registro atualizado!" : "Registro criado com sucesso!" });
     setDialogOpen(false);
-    setForm({ action_taken: "", result_obtained: "", lessons_learned: "", project_id: "", tags: [] });
+    resetForm();
     fetchRecords();
   };
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
-  };
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0 },
-  };
+  const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.05 } } };
+  const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } };
 
   return (
     <EMSLayout>
@@ -177,7 +164,7 @@ const Knowledge = () => {
             <h1 className="text-3xl font-heading font-bold text-foreground">Knowledge Base</h1>
             <p className="text-muted-foreground mt-1">Repositório de aprendizados e registros de execução</p>
           </div>
-          <Button onClick={() => setDialogOpen(true)} className="gap-2">
+          <Button onClick={() => { resetForm(); setDialogOpen(true); }} className="gap-2">
             <Plus className="h-4 w-4" /> Novo Registro
           </Button>
         </motion.div>
@@ -239,15 +226,15 @@ const Knowledge = () => {
                               {format(new Date(record.created_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
                             </span>
                             {record.project?.title && (
-                              <>
-                                <span className="text-muted-foreground">•</span>
-                                <Badge variant="outline">{record.project.title}</Badge>
-                              </>
+                              <><span className="text-muted-foreground">•</span><Badge variant="outline">{record.project.title}</Badge></>
                             )}
                           </div>
                           <CardTitle className="text-lg font-medium line-clamp-2">{record.action_taken}</CardTitle>
                         </div>
                         <div className="flex items-center gap-2">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(record)}>
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteRecord(record.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -260,9 +247,7 @@ const Knowledge = () => {
                       </div>
                       {record.tags && record.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
-                          {record.tags.map((tag) => (
-                            <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
-                          ))}
+                          {record.tags.map((tag) => <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>)}
                         </div>
                       )}
                     </CardHeader>
@@ -301,7 +286,7 @@ const Knowledge = () => {
                   {records.length === 0 ? "Crie seu primeiro registro de conhecimento." : "Tente ajustar os filtros de busca."}
                 </p>
                 {records.length === 0 && (
-                  <Button className="mt-4" onClick={() => setDialogOpen(true)}>
+                  <Button className="mt-4" onClick={() => { resetForm(); setDialogOpen(true); }}>
                     <Plus className="h-4 w-4 mr-2" /> Criar primeiro registro
                   </Button>
                 )}
@@ -311,11 +296,11 @@ const Knowledge = () => {
         </motion.div>
       </motion.div>
 
-      {/* Create Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {/* Create/Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Novo Registro de Conhecimento</DialogTitle>
+            <DialogTitle>{editingRecord ? "Editar Registro" : "Novo Registro de Conhecimento"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -336,31 +321,22 @@ const Knowledge = () => {
                 <SelectTrigger><SelectValue placeholder="Vincular a um projeto" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhum</SelectItem>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
-                  ))}
+                  {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
               <label className="text-sm font-medium">Tags</label>
               <div className="flex gap-2">
-                <Input
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  placeholder="Adicionar tag..."
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }}
-                />
-                <Button variant="outline" size="icon" onClick={addTag} type="button">
-                  <Plus className="h-4 w-4" />
-                </Button>
+                <Input value={tagInput} onChange={(e) => setTagInput(e.target.value)} placeholder="Adicionar tag..."
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }} />
+                <Button variant="outline" size="icon" onClick={addTag} type="button"><Plus className="h-4 w-4" /></Button>
               </div>
               {form.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
                   {form.tags.map((tag) => (
                     <Badge key={tag} variant="secondary" className="gap-1">
-                      {tag}
-                      <button onClick={() => removeTag(tag)}><X className="h-3 w-3" /></button>
+                      {tag}<button onClick={() => removeTag(tag)}><X className="h-3 w-3" /></button>
                     </Badge>
                   ))}
                 </div>
@@ -368,9 +344,9 @@ const Knowledge = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreate} disabled={!form.action_taken.trim() || !form.result_obtained.trim() || !form.lessons_learned.trim()}>
-              Criar Registro
+            <Button variant="outline" onClick={() => { setDialogOpen(false); resetForm(); }}>Cancelar</Button>
+            <Button onClick={handleSave} disabled={!form.action_taken.trim() || !form.result_obtained.trim() || !form.lessons_learned.trim()}>
+              {editingRecord ? "Salvar Alterações" : "Criar Registro"}
             </Button>
           </DialogFooter>
         </DialogContent>

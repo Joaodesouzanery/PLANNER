@@ -16,6 +16,7 @@ import {
   Target,
   Users,
   ListTodo,
+  Contact,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
@@ -26,6 +27,7 @@ import hiveLogo from "@/assets/hive-logo.jpg";
 const menuItems = [
   { icon: LayoutDashboard, label: "Overview", path: "/ems" },
   { icon: ListTodo, label: "Tarefas", path: "/ems/tasks" },
+  { icon: Contact, label: "Contatos", path: "/ems/contacts" },
   { icon: FolderKanban, label: "Gestão de Projetos", path: "/ems/projects" },
   { icon: Target, label: "Planejamento", path: "/ems/planning" },
   { icon: Users, label: "Organograma", path: "/ems/orgchart" },
