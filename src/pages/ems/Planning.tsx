@@ -43,6 +43,16 @@ import { useToast } from "@/hooks/use-toast";
 import { format, parseISO, differenceInDays, isAfter, isBefore } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
+interface OKR {
+  id: string;
+  title: string;
+}
+
+interface Project {
+  id: string;
+  title: string;
+}
+
 interface PlanningGoal {
   id: string;
   title: string;
@@ -53,6 +63,8 @@ interface PlanningGoal {
   progress: number;
   status: string;
   parent_id: string | null;
+  okr_id?: string | null;
+  project_id?: string | null;
   order_index: number;
   created_at: string;
   milestones?: PlanningMilestone[];
@@ -96,6 +108,8 @@ const Planning = () => {
   const [editingGoal, setEditingGoal] = useState<PlanningGoal | null>(null);
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   const [expandedGoals, setExpandedGoals] = useState<Set<string>>(new Set());
+  const [okrs, setOkrs] = useState<OKR[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [activeTab, setActiveTab] = useState("overview");
 
   const [goalForm, setGoalForm] = useState({
@@ -106,6 +120,8 @@ const Planning = () => {
     end_date: "",
     status: "pending",
     parent_id: "",
+    okr_id: "",
+    project_id: "",
   });
 
   const [milestoneForm, setMilestoneForm] = useState({
@@ -114,9 +130,19 @@ const Planning = () => {
     due_date: "",
   });
 
+  const fetchOkrsAndProjects = async () => {
+    const [okrsRes, projectsRes] = await Promise.all([
+      supabase.from("okrs").select("id, title").order("title"),
+      supabase.from("projects").select("id, title").order("title"),
+    ]);
+    if (okrsRes.data) setOkrs(okrsRes.data);
+    if (projectsRes.data) setProjects(projectsRes.data);
+  };
+
   useEffect(() => {
     fetchGoals();
     fetchMilestones();
+    fetchOkrsAndProjects();
   }, []);
 
   const fetchGoals = async () => {
@@ -156,6 +182,8 @@ const Planning = () => {
       end_date: goalForm.end_date || null,
       status: goalForm.status,
       parent_id: goalForm.parent_id || null,
+      okr_id: goalForm.okr_id || null,
+      project_id: goalForm.project_id || null,
     };
 
     if (editingGoal) {
@@ -242,6 +270,8 @@ const Planning = () => {
       end_date: "",
       status: "pending",
       parent_id: "",
+      okr_id: "",
+      project_id: "",
     });
     setEditingGoal(null);
     setShowGoalModal(false);
@@ -395,6 +425,8 @@ const Planning = () => {
                           end_date: goal.end_date || "",
                           status: goal.status,
                           parent_id: goal.parent_id || "",
+                          okr_id: goal.okr_id || "",
+                          project_id: goal.project_id || "",
                         });
                         setShowGoalModal(true);
                       }}
@@ -817,6 +849,28 @@ const Planning = () => {
                       ))}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">OKR Vinculado</label>
+                  <Select value={goalForm.okr_id || "none"} onValueChange={(v) => setGoalForm({ ...goalForm, okr_id: v === "none" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {okrs.map((o) => <SelectItem key={o.id} value={o.id}>{o.title}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Projeto Vinculado</label>
+                  <Select value={goalForm.project_id || "none"} onValueChange={(v) => setGoalForm({ ...goalForm, project_id: v === "none" ? "" : v })}>
+                    <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="flex justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={resetGoalForm}>

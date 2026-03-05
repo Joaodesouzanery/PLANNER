@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
@@ -68,6 +69,8 @@ const Reports = () => {
   const [okrs, setOkrs] = useState<OKR[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   useEffect(() => {
     fetchData();
@@ -85,11 +88,17 @@ const Reports = () => {
     if (projectsRes.data) setProjects(projectsRes.data);
   };
 
+  const filteredTransactions = transactions.filter((t) => {
+    if (dateFrom && t.date < dateFrom) return false;
+    if (dateTo && t.date > dateTo) return false;
+    return true;
+  });
+
   // Calculate totals
-  const totalIncome = transactions
+  const totalIncome = filteredTransactions
     .filter((t) => t.type === "income")
     .reduce((acc, t) => acc + Number(t.amount), 0);
-  const totalExpense = transactions
+  const totalExpense = filteredTransactions
     .filter((t) => t.type === "expense")
     .reduce((acc, t) => acc + Number(t.amount), 0);
   const balance = totalIncome - totalExpense;
@@ -109,7 +118,7 @@ const Reports = () => {
   ].filter((d) => d.value > 0);
 
   // Monthly chart data
-  const monthlyData = transactions.reduce((acc: Record<string, { income: number; expense: number }>, t) => {
+  const monthlyData = filteredTransactions.reduce((acc: Record<string, { income: number; expense: number }>, t) => {
     const month = format(new Date(t.date), "MMM/yy", { locale: ptBR });
     if (!acc[month]) acc[month] = { income: 0, expense: 0 };
     if (t.type === "income") {
@@ -131,6 +140,24 @@ const Reports = () => {
     okrs.length > 0
       ? okrs.reduce((acc, okr) => acc + (okr.current_value / okr.target_value) * 100, 0) / okrs.length
       : 0;
+
+  const exportCSV = () => {
+    const headers = "Data,Descrição,Categoria,Tipo,Valor\n";
+    const rows = filteredTransactions.map((t) =>
+      `${t.date},"${t.description}",${t.category || ""},${t.type === "income" ? "Entrada" : "Saída"},${t.amount}`
+    ).join("\n");
+    const csv = headers + rows;
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `transacoes-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast({ title: "CSV exportado!" });
+  };
 
   const exportFinancialPDF = () => {
     const doc = new jsPDF();
@@ -350,6 +377,10 @@ const Reports = () => {
             <p className="text-muted-foreground mt-1">Dashboard executivo e exportação de dados</p>
           </div>
           <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" onClick={exportCSV}>
+              <Download className="h-4 w-4 mr-2" />
+              CSV
+            </Button>
             <Button variant="outline" onClick={exportFinancialPDF}>
               <Download className="h-4 w-4 mr-2" />
               Financeiro (PDF)
@@ -363,6 +394,21 @@ const Reports = () => {
               Relatório Completo
             </Button>
           </div>
+        </motion.div>
+
+        {/* Date Range Filter */}
+        <motion.div variants={itemVariants} className="flex flex-wrap gap-3 items-end">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">De</label>
+            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-[160px]" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Até</label>
+            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-[160px]" />
+          </div>
+          {(dateFrom || dateTo) && (
+            <Button variant="ghost" size="sm" onClick={() => { setDateFrom(""); setDateTo(""); }}>Limpar filtro</Button>
+          )}
         </motion.div>
 
         {/* Summary Cards */}
@@ -580,9 +626,9 @@ const Reports = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {transactions.length > 0 ? (
+              {filteredTransactions.length > 0 ? (
                 <div className="space-y-3">
-                  {transactions.slice(0, 10).map((t) => (
+                  {filteredTransactions.slice(0, 10).map((t) => (
                     <div
                       key={t.id}
                       className="flex items-center justify-between p-3 rounded-lg border border-border"

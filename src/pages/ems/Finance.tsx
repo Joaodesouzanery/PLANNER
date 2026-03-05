@@ -23,7 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from "recharts";
 
 interface OKR {
   id: string;
@@ -193,6 +193,18 @@ const Finance = () => {
     ...data,
     burnRate: data.expense - data.income,
   }));
+
+  // Expense by category for pie chart
+  const categoryData = transactions
+    .filter((t) => t.type === "expense")
+    .reduce((acc: Record<string, number>, t) => {
+      const cat = t.category || "Sem categoria";
+      acc[cat] = (acc[cat] || 0) + Number(t.amount);
+      return acc;
+    }, {});
+
+  const expensePieData = Object.entries(categoryData).map(([name, value]) => ({ name, value }));
+  const PIE_COLORS = ["hsl(var(--primary))", "hsl(142.1, 76.2%, 36.3%)", "hsl(0, 84.2%, 60.2%)", "hsl(45, 93%, 47%)", "hsl(262, 83%, 58%)", "hsl(199, 89%, 48%)"];
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -438,6 +450,33 @@ const Finance = () => {
                 </Card>
               </motion.div>
             )}
+
+            {/* Expense by Category Pie Chart */}
+            <motion.div variants={itemVariants}>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Despesas por Categoria</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-64">
+                    {expensePieData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={expensePieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                            {expensePieData.map((_, index) => (
+                              <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} formatter={(value: number) => `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-muted-foreground">Nenhuma despesa registrada</div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
 
             {/* Transactions Table */}
             <motion.div variants={itemVariants}>

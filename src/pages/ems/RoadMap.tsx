@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface RoadMapStep {
   id: string;
@@ -65,22 +66,9 @@ interface RoadMapData {
   updatedAt: string;
 }
 
-const STORAGE_KEY = "ems-roadmaps";
+const LEGACY_STORAGE_KEY = "ems-roadmaps";
 
 const generateId = () => crypto.randomUUID();
-
-const getStoredRoadMaps = (): RoadMapData[] => {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-};
-
-const saveRoadMaps = (roadmaps: RoadMapData[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(roadmaps));
-};
 
 const statusConfig = {
   pending: { label: "Pendente", color: "bg-muted text-muted-foreground", icon: CircleDot },
@@ -88,6 +76,16 @@ const statusConfig = {
   success: { label: "Sucesso", color: "bg-emerald-500/10 text-emerald-600", icon: CheckCircle2 },
   failed: { label: "Falhou", color: "bg-destructive/10 text-destructive", icon: XCircle },
 };
+
+// Convert DB row to local RoadMapData
+const fromDbRow = (row: any): RoadMapData => ({
+  id: row.id,
+  title: row.title,
+  description: row.description || "",
+  paths: (row.paths as RoadMapPath[]) || [],
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
 
 const RoadMap = () => {
   const { toast } = useToast();
@@ -105,54 +103,138 @@ const RoadMap = () => {
   const [branchForm, setBranchForm] = useState({ name: "", description: "" });
   const [collapsedPaths, setCollapsedPaths] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    const stored = getStoredRoadMaps();
-    setRoadmaps(stored);
-    if (stored.length > 0 && !selectedRoadmap) {
-      setSelectedRoadmap(stored[0]);
+  // Migrate localStorage data to Supabase, then clear localStorage
+  const migrateLocalStorage = useCallback(async () => {
+    try {
+      const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (!raw) return;
+      const legacy: RoadMapData[] = JSON.parse(raw);
+      if (!legacy || legacy.length === 0) {
+        localStorage.removeItem(LEGACY_STORAGE_KEY);
+        return;
+      }
+      for (const rm of legacy) {
+        await supabase.from("roadmaps").upsert({
+          id: rm.id,
+          title: rm.title,
+          description: rm.description,
+          paths: rm.paths as any,
+          created_at: rm.createdAt,
+          updated_at: rm.updatedAt,
+        });
+      }
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+    } catch {
+      // If migration fails, leave localStorage intact for next attempt
     }
   }, []);
 
-  const persist = useCallback(
-    (updated: RoadMapData[]) => {
-      setRoadmaps(updated);
-      saveRoadMaps(updated);
-      if (selectedRoadmap) {
-        const found = updated.find((r) => r.id === selectedRoadmap.id);
-        if (found) setSelectedRoadmap(found);
+  // Fetch all roadmaps from Supabase
+  const fetchRoadmaps = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("roadmaps")
+      .select("*")
+      .order("created_at", { ascending: true });
+    if (error) {
+      toast({ title: "Erro ao carregar roadmaps", description: error.message, variant: "destructive" });
+      return [];
+    }
+    return (data || []).map(fromDbRow);
+  }, [toast]);
+
+  // Load on mount: migrate then fetch
+  useEffect(() => {
+    const init = async () => {
+      await migrateLocalStorage();
+      const loaded = await fetchRoadmaps();
+      setRoadmaps(loaded);
+      if (loaded.length > 0) {
+        setSelectedRoadmap(loaded[0]);
+      }
+    };
+    init();
+  }, []);
+
+  // Helper: update a single roadmap in Supabase and refresh local state
+  const persistRoadmap = useCallback(
+    async (roadmap: RoadMapData) => {
+      const { error } = await supabase
+        .from("roadmaps")
+        .update({
+          title: roadmap.title,
+          description: roadmap.description,
+          paths: roadmap.paths as any,
+          updated_at: roadmap.updatedAt,
+        })
+        .eq("id", roadmap.id);
+      if (error) {
+        toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
       }
     },
-    [selectedRoadmap]
+    [toast]
   );
 
-  const createRoadmap = () => {
+  // Update local state after a mutation on the selected roadmap's paths
+  const updateSelectedRoadmap = useCallback(
+    async (updater: (rm: RoadMapData) => RoadMapData) => {
+      if (!selectedRoadmap) return;
+      const updated = updater(selectedRoadmap);
+      // Update local arrays
+      setRoadmaps((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+      setSelectedRoadmap(updated);
+      await persistRoadmap(updated);
+    },
+    [selectedRoadmap, persistRoadmap]
+  );
+
+  const createRoadmap = async () => {
     if (!newRoadmapForm.title.trim()) return;
+    const now = new Date().toISOString();
+    const id = generateId();
+    const { error } = await supabase.from("roadmaps").insert({
+      id,
+      title: newRoadmapForm.title,
+      description: newRoadmapForm.description,
+      paths: [] as any,
+      created_at: now,
+      updated_at: now,
+    });
+    if (error) {
+      toast({ title: "Erro ao criar roadmap", description: error.message, variant: "destructive" });
+      return;
+    }
     const newRoadmap: RoadMapData = {
-      id: generateId(),
+      id,
       title: newRoadmapForm.title,
       description: newRoadmapForm.description,
       paths: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     };
-    const updated = [...roadmaps, newRoadmap];
-    persist(updated);
+    setRoadmaps((prev) => [...prev, newRoadmap]);
     setSelectedRoadmap(newRoadmap);
     setNewRoadmapForm({ title: "", description: "" });
     setShowNewRoadmap(false);
     toast({ title: "RoadMap criado!" });
   };
 
-  const deleteRoadmap = (id: string) => {
-    const updated = roadmaps.filter((r) => r.id !== id);
-    persist(updated);
-    if (selectedRoadmap?.id === id) {
-      setSelectedRoadmap(updated[0] || null);
+  const deleteRoadmap = async (id: string) => {
+    const { error } = await supabase.from("roadmaps").delete().eq("id", id);
+    if (error) {
+      toast({ title: "Erro ao remover", description: error.message, variant: "destructive" });
+      return;
     }
+    setRoadmaps((prev) => {
+      const updated = prev.filter((r) => r.id !== id);
+      if (selectedRoadmap?.id === id) {
+        setSelectedRoadmap(updated[0] || null);
+      }
+      return updated;
+    });
     toast({ title: "RoadMap removido!" });
   };
 
-  const addPath = () => {
+  const addPath = async () => {
     if (!selectedRoadmap || !newPathForm.name.trim()) return;
     const newPath: RoadMapPath = {
       id: generateId(),
@@ -163,33 +245,27 @@ const RoadMap = () => {
       parentPathId: null,
       failedStepId: null,
     };
-    const updated = roadmaps.map((r) =>
-      r.id === selectedRoadmap.id
-        ? { ...r, paths: [...r.paths, newPath], updatedAt: new Date().toISOString() }
-        : r
-    );
-    persist(updated);
+    await updateSelectedRoadmap((rm) => ({
+      ...rm,
+      paths: [...rm.paths, newPath],
+      updatedAt: new Date().toISOString(),
+    }));
     setNewPathForm({ name: "", description: "" });
     setShowNewPath(false);
     toast({ title: "Caminho adicionado!" });
   };
 
-  const deletePath = (pathId: string) => {
+  const deletePath = async (pathId: string) => {
     if (!selectedRoadmap) return;
-    const updated = roadmaps.map((r) =>
-      r.id === selectedRoadmap.id
-        ? {
-            ...r,
-            paths: r.paths.filter((p) => p.id !== pathId && p.parentPathId !== pathId),
-            updatedAt: new Date().toISOString(),
-          }
-        : r
-    );
-    persist(updated);
+    await updateSelectedRoadmap((rm) => ({
+      ...rm,
+      paths: rm.paths.filter((p) => p.id !== pathId && p.parentPathId !== pathId),
+      updatedAt: new Date().toISOString(),
+    }));
     toast({ title: "Caminho removido!" });
   };
 
-  const addStep = (pathId: string) => {
+  const addStep = async (pathId: string) => {
     if (!selectedRoadmap || !newStepForm.label.trim()) return;
     const newStep: RoadMapStep = {
       id: generateId(),
@@ -197,89 +273,69 @@ const RoadMap = () => {
       description: newStepForm.description,
       status: "pending",
     };
-    const updated = roadmaps.map((r) =>
-      r.id === selectedRoadmap.id
-        ? {
-            ...r,
-            paths: r.paths.map((p) =>
-              p.id === pathId ? { ...p, steps: [...p.steps, newStep] } : p
-            ),
-            updatedAt: new Date().toISOString(),
-          }
-        : r
-    );
-    persist(updated);
+    await updateSelectedRoadmap((rm) => ({
+      ...rm,
+      paths: rm.paths.map((p) =>
+        p.id === pathId ? { ...p, steps: [...p.steps, newStep] } : p
+      ),
+      updatedAt: new Date().toISOString(),
+    }));
     setNewStepForm({ label: "", description: "" });
     setShowNewStep(null);
     toast({ title: "Etapa adicionada!" });
   };
 
-  const updateStepStatus = (pathId: string, stepId: string, status: RoadMapStep["status"]) => {
+  const updateStepStatus = async (pathId: string, stepId: string, status: RoadMapStep["status"]) => {
     if (!selectedRoadmap) return;
-    const updated = roadmaps.map((r) =>
-      r.id === selectedRoadmap.id
-        ? {
-            ...r,
-            paths: r.paths.map((p) =>
-              p.id === pathId
-                ? {
-                    ...p,
-                    steps: p.steps.map((s) => (s.id === stepId ? { ...s, status } : s)),
-                  }
-                : p
-            ),
-            updatedAt: new Date().toISOString(),
-          }
-        : r
-    );
-    persist(updated);
+    await updateSelectedRoadmap((rm) => ({
+      ...rm,
+      paths: rm.paths.map((p) =>
+        p.id === pathId
+          ? {
+              ...p,
+              steps: p.steps.map((s) => (s.id === stepId ? { ...s, status } : s)),
+            }
+          : p
+      ),
+      updatedAt: new Date().toISOString(),
+    }));
   };
 
-  const updateStep = (pathId: string, stepId: string) => {
+  const updateStep = async (pathId: string, stepId: string) => {
     if (!selectedRoadmap) return;
-    const updated = roadmaps.map((r) =>
-      r.id === selectedRoadmap.id
-        ? {
-            ...r,
-            paths: r.paths.map((p) =>
-              p.id === pathId
-                ? {
-                    ...p,
-                    steps: p.steps.map((s) =>
-                      s.id === stepId ? { ...s, label: stepForm.label, description: stepForm.description } : s
-                    ),
-                  }
-                : p
-            ),
-            updatedAt: new Date().toISOString(),
-          }
-        : r
-    );
-    persist(updated);
+    await updateSelectedRoadmap((rm) => ({
+      ...rm,
+      paths: rm.paths.map((p) =>
+        p.id === pathId
+          ? {
+              ...p,
+              steps: p.steps.map((s) =>
+                s.id === stepId ? { ...s, label: stepForm.label, description: stepForm.description } : s
+              ),
+            }
+          : p
+      ),
+      updatedAt: new Date().toISOString(),
+    }));
     setEditingStep(null);
     toast({ title: "Etapa atualizada!" });
   };
 
-  const deleteStep = (pathId: string, stepId: string) => {
+  const deleteStep = async (pathId: string, stepId: string) => {
     if (!selectedRoadmap) return;
-    const updated = roadmaps.map((r) =>
-      r.id === selectedRoadmap.id
-        ? {
-            ...r,
-            paths: r.paths.map((p) =>
-              p.id === pathId
-                ? { ...p, steps: p.steps.filter((s) => s.id !== stepId) }
-                : p
-            ),
-            updatedAt: new Date().toISOString(),
-          }
-        : r
-    );
-    persist(updated);
+    await updateSelectedRoadmap((rm) => ({
+      ...rm,
+      paths: rm.paths.map((p) =>
+        p.id === pathId
+          ? { ...p, steps: p.steps.filter((s) => s.id !== stepId) }
+          : p
+      ),
+      updatedAt: new Date().toISOString(),
+    }));
     toast({ title: "Etapa removida!" });
   };
 
-  const createBranch = () => {
+  const createBranch = async () => {
     if (!selectedRoadmap || !branchFromStep || !branchForm.name.trim()) return;
     const newPath: RoadMapPath = {
       id: generateId(),
@@ -290,18 +346,15 @@ const RoadMap = () => {
       parentPathId: branchFromStep.pathId,
       failedStepId: branchFromStep.stepId,
     };
-    const updated = roadmaps.map((r) =>
-      r.id === selectedRoadmap.id
-        ? {
-            ...r,
-            paths: r.paths.map((p) =>
-              p.id === branchFromStep.pathId ? { ...p, isActive: false } : p
-            ).concat(newPath),
-            updatedAt: new Date().toISOString(),
-          }
-        : r
-    );
-    persist(updated);
+    await updateSelectedRoadmap((rm) => ({
+      ...rm,
+      paths: rm.paths
+        .map((p) =>
+          p.id === branchFromStep.pathId ? { ...p, isActive: false } : p
+        )
+        .concat(newPath),
+      updatedAt: new Date().toISOString(),
+    }));
     setBranchFromStep(null);
     setBranchForm({ name: "", description: "" });
     toast({ title: "Caminho alternativo criado!" });

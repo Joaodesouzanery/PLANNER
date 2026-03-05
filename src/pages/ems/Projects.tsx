@@ -38,6 +38,7 @@ interface Project {
   created_at: string;
   column_order: number | null;
   client: string | null;
+  labels: string[] | null;
 }
 
 interface KanbanColumn {
@@ -79,6 +80,7 @@ const Projects = () => {
     priority: "medium",
     due_date: "",
     client: "",
+    labels: "",
   });
 
   const [executionForm, setExecutionForm] = useState<ExecutionRecord>({
@@ -169,9 +171,10 @@ const Projects = () => {
       status: "todo",
       column_order: maxOrder,
       client: projectForm.client || null,
+      labels: projectForm.labels ? projectForm.labels.split(",").map(l => l.trim()).filter(Boolean) : [],
     });
 
-    setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "" });
+    setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "" });
     setShowAddProject(false);
     fetchProjects();
     toast({ title: "Projeto criado!" });
@@ -188,11 +191,12 @@ const Projects = () => {
         priority: projectForm.priority,
         due_date: projectForm.due_date || null,
         client: projectForm.client || null,
+        labels: projectForm.labels ? projectForm.labels.split(",").map(l => l.trim()).filter(Boolean) : [],
       })
       .eq("id", editingProject.id);
 
     setEditingProject(null);
-    setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "" });
+    setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "" });
     fetchProjects();
     toast({ title: "Projeto atualizado!" });
   };
@@ -491,6 +495,7 @@ const Projects = () => {
                                                         priority: project.priority,
                                                         due_date: project.due_date || "",
                                                         client: project.client || "",
+                                                        labels: project.labels?.join(", ") || "",
                                                       });
                                                     }}
                                                   >
@@ -515,6 +520,9 @@ const Projects = () => {
                                                 <Badge className={priorityColors[project.priority]} variant="secondary">
                                                   {project.priority === "low" ? "Baixa" : project.priority === "medium" ? "Média" : "Alta"}
                                                 </Badge>
+                                                {project.labels && project.labels.length > 0 && project.labels.map(label => (
+                                                  <Badge key={label} variant="outline" className="text-xs">{label}</Badge>
+                                                ))}
                                                 {project.due_date && (
                                                   <span className="text-xs text-muted-foreground flex items-center gap-1">
                                                     <Calendar className="h-3 w-3" />
@@ -580,9 +588,14 @@ const Projects = () => {
                             <p className="text-sm text-muted-foreground">{project.description}</p>
                           )}
                         </div>
-                        <Badge className={priorityColors[project.priority]} variant="secondary">
-                          {project.status === "done" ? "Concluído" : project.status === "in_progress" ? "Em Progresso" : "A Fazer"}
-                        </Badge>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge className={priorityColors[project.priority]} variant="secondary">
+                            {project.status === "done" ? "Concluído" : project.status === "in_progress" ? "Em Progresso" : "A Fazer"}
+                          </Badge>
+                          {project.labels && project.labels.length > 0 && project.labels.map(label => (
+                            <Badge key={label} variant="outline" className="text-xs">{label}</Badge>
+                          ))}
+                        </div>
                       </motion.div>
                     ))}
                   {projects.filter(p => p.due_date).filter(p => clientFilter === "all" || p.client === clientFilter).length === 0 && (
@@ -601,7 +614,7 @@ const Projects = () => {
           if (!open) {
             setShowAddProject(false);
             setEditingProject(null);
-            setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "" });
+            setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "" });
           }
         }}>
           <DialogContent>
@@ -631,6 +644,14 @@ const Projects = () => {
                   value={projectForm.client}
                   onChange={(e) => setProjectForm({ ...projectForm, client: e.target.value })}
                   placeholder="Nome do cliente ou empresa"
+                />
+              </div>
+              <div>
+                <Label>Labels</Label>
+                <Input
+                  value={projectForm.labels}
+                  onChange={(e) => setProjectForm({ ...projectForm, labels: e.target.value })}
+                  placeholder="Ex: frontend, urgente, redesign (separados por vírgula)"
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
