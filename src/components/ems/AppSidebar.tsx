@@ -17,6 +17,7 @@ import {
   Users,
   ListTodo,
   Contact,
+  Route,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
@@ -30,6 +31,7 @@ const menuItems = [
   { icon: Contact, label: "Contatos", path: "/ems/contacts" },
   { icon: FolderKanban, label: "Gestão de Projetos", path: "/ems/projects" },
   { icon: Target, label: "Planejamento", path: "/ems/planning" },
+  { icon: Route, label: "RoadMap", path: "/ems/roadmap" },
   { icon: Users, label: "Organograma", path: "/ems/orgchart" },
   { icon: BookOpen, label: "Knowledge Base", path: "/ems/knowledge" },
   { icon: TrendingUp, label: "Finanças & Estratégia", path: "/ems/finance" },
