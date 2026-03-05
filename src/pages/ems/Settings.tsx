@@ -29,7 +29,7 @@ const Settings = () => {
       const allData: Record<string, any[]> = {};
 
       for (const table of tables) {
-        const { data } = await supabase.from(table).select("*");
+        const { data } = await (supabase.from as any)(table).select("*");
         if (data) allData[table] = data;
       }
 
