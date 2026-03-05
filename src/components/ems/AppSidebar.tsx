@@ -22,6 +22,7 @@ import {
   CalendarDays,
   Menu,
   X,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
@@ -30,21 +31,48 @@ import { ColorPicker } from "./ColorPicker";
 import { useIsMobile } from "@/hooks/use-mobile";
 import hiveLogo from "@/assets/hive-logo.jpg";
 
-const menuItems = [
-  { icon: LayoutDashboard, label: "Overview", path: "/ems" },
-  { icon: ListTodo, label: "Tarefas", path: "/ems/tasks" },
-  { icon: Contact, label: "Contatos", path: "/ems/contacts" },
-  { icon: FolderKanban, label: "Projetos", path: "/ems/projects" },
-  { icon: Target, label: "Planejamento", path: "/ems/planning" },
-  { icon: Route, label: "RoadMap", path: "/ems/roadmap" },
-  { icon: Users, label: "Organograma", path: "/ems/orgchart" },
-  { icon: StickyNote, label: "Notas Rápidas", path: "/ems/quick-notes" },
-  { icon: CalendarDays, label: "Calendário", path: "/ems/calendar" },
-  { icon: BookOpen, label: "Knowledge", path: "/ems/knowledge" },
-  { icon: TrendingUp, label: "Finanças", path: "/ems/finance" },
-  { icon: FileText, label: "Relatórios", path: "/ems/reports" },
-  { icon: Settings, label: "Configurações", path: "/ems/settings" },
+interface MenuGroup {
+  label: string;
+  items: { icon: React.ElementType; label: string; path: string }[];
+}
+
+const menuGroups: MenuGroup[] = [
+  {
+    label: "Principal",
+    items: [
+      { icon: LayoutDashboard, label: "Dashboard", path: "/ems" },
+      { icon: FolderKanban, label: "Projetos", path: "/ems/projects" },
+      { icon: ListTodo, label: "Tarefas", path: "/ems/tasks" },
+      { icon: TrendingUp, label: "Finanças", path: "/ems/finance" },
+      { icon: FileText, label: "Relatórios", path: "/ems/reports" },
+    ],
+  },
+  {
+    label: "Gestão",
+    items: [
+      { icon: Contact, label: "Contatos", path: "/ems/contacts" },
+      { icon: Target, label: "Planejamento", path: "/ems/planning" },
+      { icon: Route, label: "RoadMap", path: "/ems/roadmap" },
+      { icon: Users, label: "Organograma", path: "/ems/orgchart" },
+    ],
+  },
+  {
+    label: "Ferramentas",
+    items: [
+      { icon: CalendarDays, label: "Calendário", path: "/ems/calendar" },
+      { icon: StickyNote, label: "Notas Rápidas", path: "/ems/quick-notes" },
+      { icon: BookOpen, label: "Knowledge Base", path: "/ems/knowledge" },
+    ],
+  },
+  {
+    label: "Configuração",
+    items: [
+      { icon: Settings, label: "Configurações", path: "/ems/settings" },
+    ],
+  },
 ];
+
+const allMenuItems = menuGroups.flatMap((g) => g.items);
 
 interface AppSidebarProps {
   mobileOpen?: boolean;
@@ -58,128 +86,125 @@ export const AppSidebar = ({ mobileOpen, onMobileClose }: AppSidebarProps) => {
   const isMobile = useIsMobile();
 
   const handleNavClick = () => {
-    if (isMobile && onMobileClose) {
-      onMobileClose();
-    }
+    if (isMobile && onMobileClose) onMobileClose();
   };
 
   const sidebarContent = (
-    <div className="h-screen bg-card border-r border-border flex flex-col">
-      {/* Logo */}
-      <div className="p-4 border-b border-border flex items-center justify-between">
+    <div className="h-screen bg-sidebar flex flex-col border-r border-sidebar-border">
+      {/* Logo Header */}
+      <div className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img src={hiveLogo} alt="Hive Tech" className="h-10 w-10 rounded-lg object-cover" />
+          <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden">
+            <img src={hiveLogo} alt="Hive Tech" className="h-10 w-10 rounded-xl object-cover" />
+          </div>
           {(!collapsed || isMobile) && (
-            <span className="text-lg font-heading font-bold text-primary whitespace-nowrap">
-              Hive Tech
-            </span>
+            <div className="flex flex-col">
+              <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
+                EMS
+              </span>
+              <span className="text-sm font-semibold text-foreground whitespace-nowrap leading-tight">
+                Hive Tech
+              </span>
+            </div>
           )}
         </div>
         {isMobile && (
-          <Button variant="ghost" size="icon" onClick={onMobileClose} className="h-9 w-9">
+          <Button variant="ghost" size="icon" onClick={onMobileClose} className="h-9 w-9 text-muted-foreground">
             <X className="h-5 w-5" />
           </Button>
         )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        {menuItems.map((item) => {
-          const isActive = location.pathname === item.path;
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              onClick={handleNavClick}
-              className={cn(
-                "flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200",
-                isActive
-                  ? "bg-primary/10 text-primary border border-primary/20"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <item.icon className="h-5 w-5 flex-shrink-0" />
-              <AnimatePresence>
-                {(!collapsed || isMobile) && (
-                  <motion.span
-                    initial={{ opacity: 0, width: 0 }}
-                    animate={{ opacity: 1, width: "auto" }}
-                    exit={{ opacity: 0, width: 0 }}
-                    className="text-sm font-medium whitespace-nowrap overflow-hidden"
+      <nav className="flex-1 px-3 py-2 overflow-y-auto space-y-5">
+        {menuGroups.map((group) => (
+          <div key={group.label}>
+            {(!collapsed || isMobile) && (
+              <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold px-3 mb-2">
+                {group.label}
+              </p>
+            )}
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const isActive = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={handleNavClick}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative",
+                      isActive
+                        ? "text-primary"
+                        : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-hover"
+                    )}
                   >
-                    {item.label}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </Link>
-          );
-        })}
+                    {isActive && (
+                      <motion.div
+                        layoutId="activeTab"
+                        className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-primary"
+                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                      />
+                    )}
+                    <item.icon className={cn(
+                      "h-[18px] w-[18px] flex-shrink-0 transition-colors",
+                      isActive ? "text-primary" : "text-sidebar-foreground group-hover:text-foreground"
+                    )} />
+                    <AnimatePresence>
+                      {(!collapsed || isMobile) && (
+                        <motion.span
+                          initial={{ opacity: 0, width: 0 }}
+                          animate={{ opacity: 1, width: "auto" }}
+                          exit={{ opacity: 0, width: 0 }}
+                          className={cn(
+                            "text-[13px] font-medium whitespace-nowrap overflow-hidden",
+                            isActive ? "text-primary" : ""
+                          )}
+                        >
+                          {item.label}
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* Footer */}
-      <div className="p-3 border-t border-border space-y-2">
-        {/* Notifications */}
-        <div className={cn(
-          "flex items-center",
-          collapsed && !isMobile ? "justify-center" : "justify-between px-3"
-        )}>
-          {(!collapsed || isMobile) && (
-            <span className="text-sm text-muted-foreground">Alertas</span>
-          )}
+      <div className="px-3 py-3 border-t border-sidebar-border space-y-1.5">
+        <div className={cn("flex items-center", collapsed && !isMobile ? "justify-center" : "justify-between px-3")}>
+          {(!collapsed || isMobile) && <span className="text-[11px] text-muted-foreground">Alertas</span>}
           <DueDateNotifications />
         </div>
-
-        {/* Color Picker */}
-        <div className={cn(
-          "flex items-center",
-          collapsed && !isMobile ? "justify-center" : "justify-between px-3"
-        )}>
-          {(!collapsed || isMobile) && (
-            <span className="text-sm text-muted-foreground">Cor</span>
-          )}
+        <div className={cn("flex items-center", collapsed && !isMobile ? "justify-center" : "justify-between px-3")}>
+          {(!collapsed || isMobile) && <span className="text-[11px] text-muted-foreground">Cor</span>}
           <ColorPicker collapsed={collapsed && !isMobile} />
         </div>
-
-        {/* Theme Toggle */}
-        <div className={cn(
-          "flex items-center",
-          collapsed && !isMobile ? "justify-center" : "justify-between px-3"
-        )}>
-          {(!collapsed || isMobile) && (
-            <span className="text-sm text-muted-foreground">Tema</span>
-          )}
+        <div className={cn("flex items-center", collapsed && !isMobile ? "justify-center" : "justify-between px-3")}>
+          {(!collapsed || isMobile) && <span className="text-[11px] text-muted-foreground">Tema</span>}
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            className="h-9 w-9"
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
           >
-            {theme === "dark" ? (
-              <Sun className="h-4 w-4" />
-            ) : (
-              <Moon className="h-4 w-4" />
-            )}
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
         </div>
-
-        {/* Collapse Button - desktop only */}
         {!isMobile && (
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-muted-foreground hover:bg-sidebar-hover hover:text-foreground transition-colors"
           >
             {collapsed ? (
-              <ChevronRight className="h-5 w-5" />
+              <ChevronRight className="h-4 w-4" />
             ) : (
               <>
-                <ChevronLeft className="h-5 w-5" />
-                <motion.span
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-sm"
-                >
-                  Recolher
-                </motion.span>
+                <ChevronLeft className="h-4 w-4" />
+                <span className="text-[11px]">Recolher</span>
               </>
             )}
           </button>
@@ -188,21 +213,18 @@ export const AppSidebar = ({ mobileOpen, onMobileClose }: AppSidebarProps) => {
     </div>
   );
 
-  // Mobile: overlay drawer
   if (isMobile) {
     return (
       <AnimatePresence>
         {mobileOpen && (
           <>
-            {/* Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={onMobileClose}
-              className="fixed inset-0 bg-black/50 z-40"
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
             />
-            {/* Drawer */}
             <motion.aside
               initial={{ x: -280 }}
               animate={{ x: 0 }}
@@ -218,7 +240,6 @@ export const AppSidebar = ({ mobileOpen, onMobileClose }: AppSidebarProps) => {
     );
   }
 
-  // Desktop: fixed sidebar with collapse
   return (
     <motion.aside
       initial={false}
@@ -233,16 +254,16 @@ export const AppSidebar = ({ mobileOpen, onMobileClose }: AppSidebarProps) => {
 
 export const MobileHeader = ({ onMenuClick }: { onMenuClick: () => void }) => {
   const location = useLocation();
-  const currentPage = menuItems.find((item) => item.path === location.pathname);
+  const currentPage = allMenuItems.find((item) => item.path === location.pathname);
 
   return (
-    <div className="sticky top-0 z-30 bg-card/95 backdrop-blur-sm border-b border-border px-4 py-3 flex items-center gap-3 md:hidden">
-      <Button variant="ghost" size="icon" onClick={onMenuClick} className="h-10 w-10">
+    <div className="sticky top-0 z-30 bg-sidebar/95 backdrop-blur-xl border-b border-sidebar-border px-4 py-3 flex items-center gap-3 md:hidden">
+      <Button variant="ghost" size="icon" onClick={onMenuClick} className="h-10 w-10 text-muted-foreground">
         <Menu className="h-5 w-5" />
       </Button>
       <div className="flex items-center gap-2">
         <img src={hiveLogo} alt="Hive Tech" className="h-8 w-8 rounded-lg object-cover" />
-        <span className="font-heading font-semibold text-foreground">
+        <span className="font-semibold text-foreground">
           {currentPage?.label || "Hive Tech"}
         </span>
       </div>
