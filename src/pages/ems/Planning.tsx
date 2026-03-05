@@ -481,7 +481,7 @@ const Planning = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-heading font-bold text-foreground">
+            <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">
               Planejamento
             </h1>
             <p className="text-muted-foreground mt-1">
@@ -495,7 +495,7 @@ const Planning = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -738,7 +738,7 @@ const Planning = () => {
                   rows={3}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Categoria</label>
                   <Select
@@ -779,7 +779,7 @@ const Planning = () => {
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium">Data de Início</label>
                   <Input

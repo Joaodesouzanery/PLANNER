@@ -161,7 +161,7 @@ const Knowledge = () => {
         {/* Header */}
         <motion.div variants={itemVariants} className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-heading font-bold text-foreground">Knowledge Base</h1>
+            <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">Knowledge Base</h1>
             <p className="text-muted-foreground mt-1">Repositório de aprendizados e registros de execução</p>
           </div>
           <Button onClick={() => { resetForm(); setDialogOpen(true); }} className="gap-2">
@@ -190,7 +190,7 @@ const Knowledge = () => {
         )}
 
         {/* Stats */}
-        <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             { icon: BookOpen, value: records.length, label: "Total de Registros" },
             { icon: Tag, value: allTags.length, label: "Tags Únicas" },

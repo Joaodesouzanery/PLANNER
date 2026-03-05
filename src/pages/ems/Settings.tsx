@@ -33,7 +33,7 @@ const Settings = () => {
       >
         {/* Header */}
         <motion.div variants={itemVariants}>
-          <h1 className="text-3xl font-heading font-bold text-foreground">Configurações</h1>
+          <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">Configurações</h1>
           <p className="text-muted-foreground mt-1">Gerencie suas preferências do sistema</p>
         </motion.div>
 

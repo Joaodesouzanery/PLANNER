@@ -346,7 +346,7 @@ const Reports = () => {
         {/* Header */}
         <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-heading font-bold text-foreground">Relatórios</h1>
+            <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">Relatórios</h1>
             <p className="text-muted-foreground mt-1">Dashboard executivo e exportação de dados</p>
           </div>
           <div className="flex gap-2 flex-wrap">

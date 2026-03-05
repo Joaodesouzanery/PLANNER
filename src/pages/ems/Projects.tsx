@@ -349,8 +349,8 @@ const Projects = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-heading font-bold text-foreground">Gestão de Projetos</h1>
-            <p className="text-muted-foreground mt-1">Gerencie suas tarefas e projetos</p>
+            <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">Gestão de Projetos</h1>
+            <p className="text-sm md:text-base text-muted-foreground mt-1">Gerencie suas tarefas e projetos</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setShowColumnModal(true)}>
@@ -402,7 +402,7 @@ const Projects = () => {
                   <div 
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    className="flex gap-4 overflow-x-auto pb-4"
+                    className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory"
                   >
                     {columns.map((column, columnIndex) => (
                       <Draggable key={column.id} draggableId={`column-${column.id}`} index={columnIndex}>
@@ -410,7 +410,7 @@ const Projects = () => {
                           <div
                             ref={provided.innerRef}
                             {...provided.draggableProps}
-                            className={`flex-shrink-0 w-80 ${snapshot.isDragging ? "opacity-75" : ""}`}
+                            className={`flex-shrink-0 w-[75vw] sm:w-80 snap-center ${snapshot.isDragging ? "opacity-75" : ""}`}
                           >
                             <Card className="bg-card/50">
                               <CardHeader 
@@ -633,7 +633,7 @@ const Projects = () => {
                   placeholder="Nome do cliente ou empresa"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>Prioridade</Label>
                   <select

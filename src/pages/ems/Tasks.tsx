@@ -116,18 +116,18 @@ const Tasks = () => {
     <EMSLayout>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-heading font-bold text-foreground">Tarefas</h1>
-            <p className="text-muted-foreground mt-1">Gerencie suas tarefas diárias por prioridade</p>
+            <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">Tarefas</h1>
+            <p className="text-sm md:text-base text-muted-foreground mt-1">Gerencie suas tarefas diárias por prioridade</p>
           </div>
-          <Button onClick={() => setDialogOpen(true)} className="gap-2">
+          <Button onClick={() => setDialogOpen(true)} className="gap-2 w-full sm:w-auto">
             <Plus className="h-4 w-4" /> Nova Tarefa
           </Button>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: "Total", value: stats.total, icon: ListTodo, color: "text-primary" },
             { label: "Pendentes", value: stats.pending, icon: Clock, color: "text-yellow-400" },
@@ -260,7 +260,7 @@ const Tasks = () => {
                 rows={2}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">Prioridade</label>
                 <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>

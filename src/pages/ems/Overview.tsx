@@ -223,8 +223,8 @@ const Overview = () => {
       >
         {/* Page Header */}
         <motion.div variants={itemVariants}>
-          <h1 className="text-3xl font-heading font-bold text-foreground">Overview</h1>
-          <p className="text-muted-foreground mt-1">Visão executiva do seu negócio</p>
+          <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">Overview</h1>
+          <p className="text-sm md:text-base text-muted-foreground mt-1">Visão executiva do seu negócio</p>
         </motion.div>
 
         {/* Monthly Focus */}
@@ -294,7 +294,7 @@ const Overview = () => {
               Adicionar Pilar
             </Button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
             {pillars.map((pillar) => {
               const Icon = iconMap[pillar.icon] || Target;
               return (
@@ -369,20 +369,20 @@ const Overview = () => {
         {/* Pending Contact Tasks Notifications */}
         {contactTasks.length > 0 && (
           <motion.div variants={itemVariants}>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-amber-500/10">
+                <div className="p-2 rounded-lg bg-amber-500/10 flex-shrink-0">
                   <UserCheck className="h-5 w-5 text-amber-500" />
                 </div>
-                <h2 className="text-xl font-heading font-semibold text-foreground">
-                  Tarefas de Contatos Pendentes
+                <h2 className="text-lg md:text-xl font-heading font-semibold text-foreground">
+                  Tarefas de Contatos
                 </h2>
                 <Badge variant="secondary" className="text-xs">
                   {contactTasks.length}
                 </Badge>
               </div>
               <Link to="/ems/contacts">
-                <Button variant="outline" size="sm">Ver Todos</Button>
+                <Button variant="outline" size="sm" className="w-full sm:w-auto">Ver Todos</Button>
               </Link>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -447,8 +447,8 @@ const Overview = () => {
         {/* Quick Stats & Recent Activity */}
         <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
-            <h2 className="text-xl font-heading font-semibold text-foreground">Resumo Rápido</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <h2 className="text-lg md:text-xl font-heading font-semibold text-foreground">Resumo Rápido</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
               <Card>
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-4">

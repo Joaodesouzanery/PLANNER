@@ -217,7 +217,7 @@ const Finance = () => {
       >
         {/* Header */}
         <motion.div variants={itemVariants}>
-          <h1 className="text-3xl font-heading font-bold text-foreground">Finanças & Estratégia</h1>
+          <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">Finanças & Estratégia</h1>
           <p className="text-muted-foreground mt-1">Gestão de OKRs e controle financeiro</p>
         </motion.div>
 
@@ -450,8 +450,8 @@ const Finance = () => {
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  <div className="overflow-x-auto">
-                    <Table>
+                  <div className="overflow-x-auto -mx-4 sm:mx-0">
+                    <Table className="min-w-[600px]">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Data</TableHead>
@@ -571,7 +571,7 @@ const Finance = () => {
                   placeholder="Descrição opcional"
                 />
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <Label>Meta</Label>
                   <Input
@@ -641,7 +641,7 @@ const Finance = () => {
                   placeholder="Descrição da transação"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>Valor (R$)</Label>
                   <Input
@@ -665,7 +665,7 @@ const Finance = () => {
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>Categoria</Label>
                   <Input
