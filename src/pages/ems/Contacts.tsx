@@ -369,30 +369,38 @@ const Contacts = () => {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, x: -100 }}
         className={cn(
-          "flex items-center gap-3 p-3 rounded-xl border transition-all duration-300",
+          "flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-xl border transition-all duration-300",
           task.status === "completed" ? "opacity-50 bg-muted/30" : "bg-card hover:bg-muted/50 hover:shadow-sm"
         )}
       >
         <Checkbox
           checked={task.status === "completed"}
           onCheckedChange={(checked) => toggleTaskMutation.mutate({ id: task.id, completed: !!checked })}
+          className="shrink-0"
         />
         <div className="flex-1 min-w-0">
-          <p className={cn("font-medium truncate", task.status === "completed" && "line-through text-muted-foreground")}>
+          <p className={cn("font-medium truncate text-sm", task.status === "completed" && "line-through text-muted-foreground")}>
             {task.title}
           </p>
-          {task.contact && (
-            <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-              <Users className="h-3 w-3" /> {task.contact.name}
-            </p>
-          )}
-          {!compact && task.project && (
-            <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-              <Building2 className="h-3 w-3" /> {task.project.title}
-            </p>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            {task.contact && (
+              <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                <Users className="h-3 w-3 shrink-0" /> {task.contact.name}
+              </p>
+            )}
+            {!compact && task.project && (
+              <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                <Building2 className="h-3 w-3 shrink-0" /> {task.project.title}
+              </p>
+            )}
+            {task.due_date && (
+              <span className="text-xs text-muted-foreground shrink-0 sm:hidden">
+                {format(new Date(task.due_date + "T00:00:00"), "dd/MM", { locale: ptBR })}
+              </span>
+            )}
+          </div>
         </div>
-        <Badge variant="outline" className={cn("text-xs shrink-0", pConfig.color)}>
+        <Badge variant="outline" className={cn("text-[10px] sm:text-xs shrink-0 hidden sm:flex", pConfig.color)}>
           <PIcon className="h-3 w-3 mr-1" />{pConfig.label}
         </Badge>
         {task.due_date && (
@@ -401,12 +409,14 @@ const Contacts = () => {
             {format(new Date(task.due_date + "T00:00:00"), "dd/MM", { locale: ptBR })}
           </span>
         )}
-        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => openEditTask(task)}>
-          <Edit2 className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => deleteTaskMutation.mutate(task.id)}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
+        <div className="flex shrink-0">
+          <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8" onClick={() => openEditTask(task)}>
+            <Edit2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-destructive" onClick={() => deleteTaskMutation.mutate(task.id)}>
+            <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+          </Button>
+        </div>
       </motion.div>
     );
   };
@@ -458,13 +468,13 @@ const Contacts = () => {
             { label: "Concluídas", value: tasks.filter((t) => t.status === "completed").length, icon: CheckCircle2, color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20" },
           ].map((s) => (
             <Card key={s.label} className={cn("border transition-all duration-300 hover:scale-[1.02]", s.border)}>
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className={cn("p-2 rounded-lg", s.bg)}>
-                  <s.icon className={cn("h-5 w-5", s.color)} />
+              <CardContent className="p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3">
+                <div className={cn("p-1.5 sm:p-2 rounded-lg", s.bg)}>
+                  <s.icon className={cn("h-4 w-4 sm:h-5 sm:w-5", s.color)} />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{s.value}</p>
-                  <p className="text-xs text-muted-foreground">{s.label}</p>
+                  <p className="text-xl sm:text-2xl font-bold">{s.value}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">{s.label}</p>
                 </div>
               </CardContent>
             </Card>
@@ -473,15 +483,15 @@ const Contacts = () => {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <div className="flex items-center justify-between">
-            <TabsList>
-              <TabsTrigger value="contacts" className="gap-2"><Users className="h-4 w-4" /> Contatos</TabsTrigger>
-              <TabsTrigger value="tasks" className="gap-2"><ListTodo className="h-4 w-4" /> Tarefas</TabsTrigger>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <TabsList className="w-full sm:w-auto">
+              <TabsTrigger value="contacts" className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"><Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Contatos</TabsTrigger>
+              <TabsTrigger value="tasks" className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"><ListTodo className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> Tarefas</TabsTrigger>
             </TabsList>
             {activeTab === "tasks" && (
-              <div className="flex gap-1 bg-muted/50 p-1 rounded-xl">
-                <Button variant={viewMode === "list" ? "default" : "ghost"} size="sm" className="rounded-lg" onClick={() => setViewMode("list")}>Lista</Button>
-                <Button variant={viewMode === "kanban" ? "default" : "ghost"} size="sm" className="rounded-lg" onClick={() => setViewMode("kanban")}>Kanban</Button>
+              <div className="flex gap-1 bg-muted/50 p-1 rounded-xl self-end sm:self-auto">
+                <Button variant={viewMode === "list" ? "default" : "ghost"} size="sm" className="rounded-lg text-xs sm:text-sm h-8" onClick={() => setViewMode("list")}>Lista</Button>
+                <Button variant={viewMode === "kanban" ? "default" : "ghost"} size="sm" className="rounded-lg text-xs sm:text-sm h-8" onClick={() => setViewMode("kanban")}>Kanban</Button>
               </div>
             )}
           </div>
@@ -512,32 +522,32 @@ const Contacts = () => {
                     return (
                       <motion.div key={contact.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
                         <Card className="hover:border-primary/30 transition-all duration-300 hover:shadow-md hover:shadow-primary/5">
-                          <CardContent className="p-5">
-                            <div className="flex items-start justify-between gap-4">
+                          <CardContent className="p-4 sm:p-5">
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                  <h3 className="font-semibold text-foreground text-base">{contact.name}</h3>
+                                <div className="flex items-center gap-1.5 sm:gap-2 mb-2 flex-wrap">
+                                  <h3 className="font-semibold text-foreground text-sm sm:text-base">{contact.name}</h3>
                                   {(() => {
                                     const stage = pipelineStages.find((s) => s.key === (contact.pipeline_stage || "lead"));
                                     return stage ? (
-                                      <Badge variant="outline" className={cn("text-xs", stage.color)}>{stage.label}</Badge>
+                                      <Badge variant="outline" className={cn("text-[10px] sm:text-xs", stage.color)}>{stage.label}</Badge>
                                     ) : null;
                                   })()}
-                                  {contact.project?.title && <Badge variant="outline" className="text-xs">{contact.project.title}</Badge>}
+                                  {contact.project?.title && <Badge variant="outline" className="text-[10px] sm:text-xs max-w-[120px] truncate">{contact.project.title}</Badge>}
                                   {pendingTasks > 0 && (
-                                    <Badge variant="secondary" className="text-xs">
+                                    <Badge variant="secondary" className="text-[10px] sm:text-xs">
                                       {pendingTasks} pendente{pendingTasks > 1 ? "s" : ""}
                                     </Badge>
                                   )}
                                 </div>
-                                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                                  {contact.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{contact.email}</span>}
-                                  {contact.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{contact.phone}</span>}
-                                  {contact.company && <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{contact.company}</span>}
+                                <div className="flex flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
+                                  {contact.email && <span className="flex items-center gap-1 truncate max-w-[180px] sm:max-w-none"><Mail className="h-3 w-3 shrink-0" />{contact.email}</span>}
+                                  {contact.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3 shrink-0" />{contact.phone}</span>}
+                                  {contact.company && <span className="flex items-center gap-1 truncate max-w-[140px] sm:max-w-none"><Building2 className="h-3 w-3 shrink-0" />{contact.company}</span>}
                                 </div>
                                 {contact.notes && <p className="text-xs text-muted-foreground mt-1 truncate">{contact.notes}</p>}
                               </div>
-                              <div className="flex gap-1">
+                              <div className="flex gap-1 shrink-0 -mt-1 sm:mt-0">
                                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors" onClick={() => { setInteractionContactId(contact.id); setInteractionDialogOpen(true); }} title="Registrar interação">
                                   <MessageSquare className="h-4 w-4" />
                                 </Button>
@@ -557,15 +567,15 @@ const Contacts = () => {
                               const cInteractions = getContactInteractions(contact.id);
                               return (
                                 <div className="mt-3 pt-3 border-t">
-                                  <div className="flex items-center justify-between mb-2">
+                                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                                     <p className="text-xs font-medium text-muted-foreground">Histórico de Interações</p>
                                     {/* Pipeline stage selector */}
-                                    <div className="flex gap-1">
+                                    <div className="flex gap-1 overflow-x-auto pb-1 sm:pb-0 -mx-1 px-1">
                                       {pipelineStages.map((s) => (
                                         <Badge
                                           key={s.key}
                                           variant={contact.pipeline_stage === s.key ? "default" : "outline"}
-                                          className={cn("text-[10px] cursor-pointer", contact.pipeline_stage === s.key ? "" : s.color)}
+                                          className={cn("text-[10px] cursor-pointer whitespace-nowrap shrink-0", contact.pipeline_stage === s.key ? "" : s.color)}
                                           onClick={() => updatePipelineMutation.mutate({ id: contact.id, stage: s.key })}
                                         >
                                           {s.label}
@@ -685,33 +695,33 @@ const Contacts = () => {
                                     <Building2 className="h-3 w-3" /> {task.project.title}
                                   </p>
                                 )}
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between flex-wrap gap-1">
                                   {task.due_date && (
                                     <span className="text-xs text-muted-foreground">
                                       <Calendar className="h-3 w-3 inline mr-1" />
                                       {format(new Date(task.due_date + "T00:00:00"), "dd/MM", { locale: ptBR })}
                                     </span>
                                   )}
-                                  <div className="flex gap-1 ml-auto">
+                                  <div className="flex gap-0.5 ml-auto flex-wrap">
                                     {col.key !== "pending" && (
-                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateTaskStatusMutation.mutate({ id: task.id, status: "pending" })}>
+                                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateTaskStatusMutation.mutate({ id: task.id, status: "pending" })}>
                                         <Clock className="h-3 w-3" />
                                       </Button>
                                     )}
                                     {col.key !== "in_progress" && (
-                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateTaskStatusMutation.mutate({ id: task.id, status: "in_progress" })}>
+                                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateTaskStatusMutation.mutate({ id: task.id, status: "in_progress" })}>
                                         <ListTodo className="h-3 w-3" />
                                       </Button>
                                     )}
                                     {col.key !== "completed" && (
-                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => updateTaskStatusMutation.mutate({ id: task.id, status: "completed" })}>
+                                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateTaskStatusMutation.mutate({ id: task.id, status: "completed" })}>
                                         <CheckCircle2 className="h-3 w-3" />
                                       </Button>
                                     )}
-                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditTask(task)}>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditTask(task)}>
                                       <Edit2 className="h-3 w-3" />
                                     </Button>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => deleteTaskMutation.mutate(task.id)}>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => deleteTaskMutation.mutate(task.id)}>
                                       <Trash2 className="h-3 w-3" />
                                     </Button>
                                   </div>
@@ -735,34 +745,34 @@ const Contacts = () => {
 
       {/* Contact Dialog */}
       <Dialog open={contactDialogOpen} onOpenChange={(open) => { setContactDialogOpen(open); if (!open) resetContactForm(); }}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingContact ? "Editar Contato" : "Novo Contato"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             <div>
-              <label className="text-sm font-medium">Nome *</label>
-              <Input value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} placeholder="Nome do contato" />
+              <label className="text-xs sm:text-sm font-medium">Nome *</label>
+              <Input value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} placeholder="Nome do contato" className="mt-1" />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <label className="text-sm font-medium">Email</label>
-                <Input value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} placeholder="email@exemplo.com" />
+                <label className="text-xs sm:text-sm font-medium">Email</label>
+                <Input value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} placeholder="email@exemplo.com" className="mt-1" />
               </div>
               <div>
-                <label className="text-sm font-medium">Telefone</label>
-                <Input value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })} placeholder="(00) 00000-0000" />
+                <label className="text-xs sm:text-sm font-medium">Telefone</label>
+                <Input value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })} placeholder="(00) 00000-0000" className="mt-1" />
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <label className="text-sm font-medium">Empresa</label>
-                <Input value={contactForm.company} onChange={(e) => setContactForm({ ...contactForm, company: e.target.value })} placeholder="Nome da empresa" />
+                <label className="text-xs sm:text-sm font-medium">Empresa</label>
+                <Input value={contactForm.company} onChange={(e) => setContactForm({ ...contactForm, company: e.target.value })} placeholder="Nome da empresa" className="mt-1" />
               </div>
               <div>
-                <label className="text-sm font-medium">Projeto</label>
+                <label className="text-xs sm:text-sm font-medium">Projeto</label>
                 <Select value={contactForm.project_id || "none"} onValueChange={(v) => setContactForm({ ...contactForm, project_id: v === "none" ? "" : v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Nenhum</SelectItem>
                     {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
@@ -771,22 +781,22 @@ const Contacts = () => {
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium">Estágio do Pipeline</label>
+              <label className="text-xs sm:text-sm font-medium">Estágio do Pipeline</label>
               <Select value={contactForm.pipeline_stage} onValueChange={(v) => setContactForm({ ...contactForm, pipeline_stage: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {pipelineStages.map((s) => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium">Observações</label>
-              <Textarea value={contactForm.notes} onChange={(e) => setContactForm({ ...contactForm, notes: e.target.value })} placeholder="Notas sobre o contato..." rows={2} />
+              <label className="text-xs sm:text-sm font-medium">Observações</label>
+              <Textarea value={contactForm.notes} onChange={(e) => setContactForm({ ...contactForm, notes: e.target.value })} placeholder="Notas sobre o contato..." rows={2} className="mt-1" />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" className="rounded-xl" onClick={() => { setContactDialogOpen(false); resetContactForm(); }}>Cancelar</Button>
-            <Button className="rounded-xl shadow-lg hover:shadow-primary transition-all duration-300" onClick={() => saveContactMutation.mutate()} disabled={!contactForm.name.trim() || saveContactMutation.isPending}>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+            <Button variant="outline" className="rounded-xl w-full sm:w-auto" onClick={() => { setContactDialogOpen(false); resetContactForm(); }}>Cancelar</Button>
+            <Button className="rounded-xl shadow-lg hover:shadow-primary transition-all duration-300 w-full sm:w-auto" onClick={() => saveContactMutation.mutate()} disabled={!contactForm.name.trim() || saveContactMutation.isPending}>
               {saveContactMutation.isPending ? "Salvando..." : editingContact ? "Salvar" : "Criar Contato"}
             </Button>
           </DialogFooter>
@@ -795,24 +805,24 @@ const Contacts = () => {
 
       {/* Task Dialog */}
       <Dialog open={taskDialogOpen} onOpenChange={(open) => { setTaskDialogOpen(open); if (!open) resetTaskForm(); }}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingTask ? "Editar Tarefa" : "Nova Tarefa"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             <div>
-              <label className="text-sm font-medium">Título *</label>
-              <Input value={taskForm.title} onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })} placeholder="O que precisa ser feito?" />
+              <label className="text-xs sm:text-sm font-medium">Título *</label>
+              <Input value={taskForm.title} onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })} placeholder="O que precisa ser feito?" className="mt-1" />
             </div>
             <div>
-              <label className="text-sm font-medium">Descrição</label>
-              <Textarea value={taskForm.description} onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })} placeholder="Detalhes..." rows={2} />
+              <label className="text-xs sm:text-sm font-medium">Descrição</label>
+              <Textarea value={taskForm.description} onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })} placeholder="Detalhes..." rows={2} className="mt-1" />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <label className="text-sm font-medium">Contato</label>
+                <label className="text-xs sm:text-sm font-medium">Contato</label>
                 <Select value={taskForm.contact_id || "none"} onValueChange={(v) => setTaskForm({ ...taskForm, contact_id: v === "none" ? "" : v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Nenhum</SelectItem>
                     {contacts.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -820,9 +830,9 @@ const Contacts = () => {
                 </Select>
               </div>
               <div>
-                <label className="text-sm font-medium">Projeto</label>
+                <label className="text-xs sm:text-sm font-medium">Projeto</label>
                 <Select value={taskForm.project_id || "none"} onValueChange={(v) => setTaskForm({ ...taskForm, project_id: v === "none" ? "" : v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Nenhum</SelectItem>
                     {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
@@ -830,24 +840,24 @@ const Contacts = () => {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div>
-                <label className="text-sm font-medium">Prioridade</label>
+                <label className="text-xs sm:text-sm font-medium">Prioridade</label>
                 <Select value={taskForm.priority} onValueChange={(v) => setTaskForm({ ...taskForm, priority: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="urgent">🔴 Urgente</SelectItem>
-                    <SelectItem value="high">🟠 Alta</SelectItem>
-                    <SelectItem value="medium">🟡 Média</SelectItem>
-                    <SelectItem value="low">🔵 Baixa</SelectItem>
+                    <SelectItem value="urgent">Urgente</SelectItem>
+                    <SelectItem value="high">Alta</SelectItem>
+                    <SelectItem value="medium">Média</SelectItem>
+                    <SelectItem value="low">Baixa</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <label className="text-sm font-medium">Data</label>
+                <label className="text-xs sm:text-sm font-medium">Data</label>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !taskForm.due_date && "text-muted-foreground")}>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal mt-1", !taskForm.due_date && "text-muted-foreground")}>
                       <Calendar className="h-4 w-4 mr-2" />
                       {taskForm.due_date ? format(taskForm.due_date, "dd/MM/yyyy") : "Hoje"}
                     </Button>
@@ -859,9 +869,9 @@ const Contacts = () => {
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" className="rounded-xl" onClick={() => { setTaskDialogOpen(false); resetTaskForm(); }}>Cancelar</Button>
-            <Button className="rounded-xl shadow-lg hover:shadow-primary transition-all duration-300" onClick={() => saveTaskMutation.mutate()} disabled={!taskForm.title.trim() || saveTaskMutation.isPending}>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+            <Button variant="outline" className="rounded-xl w-full sm:w-auto" onClick={() => { setTaskDialogOpen(false); resetTaskForm(); }}>Cancelar</Button>
+            <Button className="rounded-xl shadow-lg hover:shadow-primary transition-all duration-300 w-full sm:w-auto" onClick={() => saveTaskMutation.mutate()} disabled={!taskForm.title.trim() || saveTaskMutation.isPending}>
               {saveTaskMutation.isPending ? "Salvando..." : editingTask ? "Salvar" : "Criar Tarefa"}
             </Button>
           </DialogFooter>
@@ -869,28 +879,28 @@ const Contacts = () => {
       </Dialog>
       {/* Interaction Dialog */}
       <Dialog open={interactionDialogOpen} onOpenChange={(open) => { setInteractionDialogOpen(open); if (!open) { setInteractionForm({ type: "note", description: "" }); setInteractionContactId(null); } }}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Registrar Interação</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             <div>
-              <label className="text-sm font-medium">Tipo</label>
+              <label className="text-xs sm:text-sm font-medium">Tipo</label>
               <Select value={interactionForm.type} onValueChange={(v) => setInteractionForm({ ...interactionForm, type: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {interactionTypes.map((t) => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium">Descrição *</label>
-              <Textarea value={interactionForm.description} onChange={(e) => setInteractionForm({ ...interactionForm, description: e.target.value })} placeholder="Descreva a interação..." rows={3} />
+              <label className="text-xs sm:text-sm font-medium">Descrição *</label>
+              <Textarea value={interactionForm.description} onChange={(e) => setInteractionForm({ ...interactionForm, description: e.target.value })} placeholder="Descreva a interação..." rows={3} className="mt-1" />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" className="rounded-xl" onClick={() => { setInteractionDialogOpen(false); setInteractionForm({ type: "note", description: "" }); }}>Cancelar</Button>
-            <Button className="rounded-xl shadow-lg hover:shadow-primary transition-all duration-300" onClick={() => saveInteractionMutation.mutate()} disabled={!interactionForm.description.trim() || saveInteractionMutation.isPending}>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+            <Button variant="outline" className="rounded-xl w-full sm:w-auto" onClick={() => { setInteractionDialogOpen(false); setInteractionForm({ type: "note", description: "" }); }}>Cancelar</Button>
+            <Button className="rounded-xl shadow-lg hover:shadow-primary transition-all duration-300 w-full sm:w-auto" onClick={() => saveInteractionMutation.mutate()} disabled={!interactionForm.description.trim() || saveInteractionMutation.isPending}>
               {saveInteractionMutation.isPending ? "Registrando..." : "Registrar"}
             </Button>
           </DialogFooter>
