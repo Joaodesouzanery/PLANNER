@@ -22,6 +22,7 @@ import { ptBR } from "date-fns/locale";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Contact {
   id: string;
@@ -95,6 +96,7 @@ const kanbanStatuses = [
 
 const Contacts = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("contacts");
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
@@ -169,6 +171,9 @@ const Contacts = () => {
       setInteractionForm({ type: "note", description: "" });
       toast({ title: "Interação registrada!" });
     },
+    onError: (error: any) => {
+      toast({ title: "Erro ao registrar interação", description: error?.message || "Tente novamente", variant: "destructive" });
+    },
   });
 
   const updatePipelineMutation = useMutation({
@@ -182,7 +187,7 @@ const Contacts = () => {
   // Contact mutations
   const saveContactMutation = useMutation({
     mutationFn: async () => {
-      const payload = {
+      const payload: any = {
         name: contactForm.name,
         email: contactForm.email || null,
         phone: contactForm.phone || null,
@@ -195,6 +200,7 @@ const Contacts = () => {
         const { error } = await supabase.from("contacts").update(payload).eq("id", editingContact.id);
         if (error) throw error;
       } else {
+        if (user?.id) payload.user_id = user.id;
         const { error } = await supabase.from("contacts").insert(payload);
         if (error) throw error;
       }
@@ -204,6 +210,10 @@ const Contacts = () => {
       setContactDialogOpen(false);
       resetContactForm();
       toast({ title: editingContact ? "Contato atualizado!" : "Contato criado!" });
+    },
+    onError: (error: any) => {
+      console.error("Erro ao salvar contato:", error);
+      toast({ title: "Erro ao salvar contato", description: error?.message || "Tente novamente", variant: "destructive" });
     },
   });
 
@@ -216,6 +226,9 @@ const Contacts = () => {
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
       queryClient.invalidateQueries({ queryKey: ["contact-tasks"] });
       toast({ title: "Contato removido" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao remover contato", description: error?.message || "Tente novamente", variant: "destructive" });
     },
   });
 
@@ -245,6 +258,9 @@ const Contacts = () => {
       resetTaskForm();
       toast({ title: editingTask ? "Tarefa atualizada!" : "Tarefa criada!" });
     },
+    onError: (error: any) => {
+      toast({ title: "Erro ao salvar tarefa", description: error?.message || "Tente novamente", variant: "destructive" });
+    },
   });
 
   const toggleTaskMutation = useMutation({
@@ -267,6 +283,9 @@ const Contacts = () => {
       queryClient.invalidateQueries({ queryKey: ["contact-tasks"] });
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       toast({ title: "Tarefa removida" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao remover tarefa", description: error?.message || "Tente novamente", variant: "destructive" });
     },
   });
 
@@ -350,8 +369,8 @@ const Contacts = () => {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, x: -100 }}
         className={cn(
-          "flex items-center gap-3 p-3 rounded-lg border transition-colors",
-          task.status === "completed" ? "opacity-50 bg-muted/30" : "bg-card hover:bg-muted/50"
+          "flex items-center gap-3 p-3 rounded-xl border transition-all duration-300",
+          task.status === "completed" ? "opacity-50 bg-muted/30" : "bg-card hover:bg-muted/50 hover:shadow-sm"
         )}
       >
         <Checkbox
@@ -396,17 +415,17 @@ const Contacts = () => {
     <EMSLayout>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">Contatos</h1>
             <p className="text-sm md:text-base text-muted-foreground mt-1">Gerencie contatos e suas tarefas</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => { resetContactForm(); setContactDialogOpen(true); }} className="gap-2 flex-1 sm:flex-none">
-              <Plus className="h-4 w-4" /> Contato
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={() => { resetContactForm(); setContactDialogOpen(true); }} className="gap-2 flex-1 sm:flex-none rounded-xl border-primary/30 hover:border-primary/60 hover:bg-primary/5 transition-all duration-300">
+              <Plus className="h-4 w-4" /> Novo Contato
             </Button>
-            <Button onClick={() => { resetTaskForm(); setTaskDialogOpen(true); }} className="gap-2 flex-1 sm:flex-none">
-              <Plus className="h-4 w-4" /> Tarefa
+            <Button onClick={() => { resetTaskForm(); setTaskDialogOpen(true); }} className="gap-2 flex-1 sm:flex-none rounded-xl shadow-lg hover:shadow-primary transition-all duration-300">
+              <Plus className="h-4 w-4" /> Nova Tarefa
             </Button>
           </div>
         </div>
@@ -433,14 +452,16 @@ const Contacts = () => {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Contatos", value: contacts.length, icon: Users, color: "text-primary" },
-            { label: "Tarefas", value: tasks.length, icon: ListTodo, color: "text-blue-400" },
-            { label: "Pendentes", value: tasks.filter((t) => t.status !== "completed").length, icon: Clock, color: "text-yellow-400" },
-            { label: "Concluídas", value: tasks.filter((t) => t.status === "completed").length, icon: CheckCircle2, color: "text-green-400" },
+            { label: "Contatos", value: contacts.length, icon: Users, color: "text-primary", bg: "bg-primary/10", border: "border-primary/20" },
+            { label: "Tarefas", value: tasks.length, icon: ListTodo, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
+            { label: "Pendentes", value: tasks.filter((t) => t.status !== "completed").length, icon: Clock, color: "text-yellow-400", bg: "bg-yellow-500/10", border: "border-yellow-500/20" },
+            { label: "Concluídas", value: tasks.filter((t) => t.status === "completed").length, icon: CheckCircle2, color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20" },
           ].map((s) => (
-            <Card key={s.label}>
+            <Card key={s.label} className={cn("border transition-all duration-300 hover:scale-[1.02]", s.border)}>
               <CardContent className="p-4 flex items-center gap-3">
-                <s.icon className={cn("h-5 w-5", s.color)} />
+                <div className={cn("p-2 rounded-lg", s.bg)}>
+                  <s.icon className={cn("h-5 w-5", s.color)} />
+                </div>
                 <div>
                   <p className="text-2xl font-bold">{s.value}</p>
                   <p className="text-xs text-muted-foreground">{s.label}</p>
@@ -458,9 +479,9 @@ const Contacts = () => {
               <TabsTrigger value="tasks" className="gap-2"><ListTodo className="h-4 w-4" /> Tarefas</TabsTrigger>
             </TabsList>
             {activeTab === "tasks" && (
-              <div className="flex gap-1">
-                <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setViewMode("list")}>Lista</Button>
-                <Button variant={viewMode === "kanban" ? "default" : "outline"} size="sm" onClick={() => setViewMode("kanban")}>Kanban</Button>
+              <div className="flex gap-1 bg-muted/50 p-1 rounded-xl">
+                <Button variant={viewMode === "list" ? "default" : "ghost"} size="sm" className="rounded-lg" onClick={() => setViewMode("list")}>Lista</Button>
+                <Button variant={viewMode === "kanban" ? "default" : "ghost"} size="sm" className="rounded-lg" onClick={() => setViewMode("kanban")}>Kanban</Button>
               </div>
             )}
           </div>
@@ -471,11 +492,14 @@ const Contacts = () => {
               {contactsLoading ? (
                 <p className="text-muted-foreground text-center py-8">Carregando...</p>
               ) : filteredContacts.length === 0 ? (
-                <Card className="border-dashed">
-                  <CardContent className="py-12 text-center">
-                    <Users className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
-                    <p className="text-muted-foreground">Nenhum contato encontrado</p>
-                    <Button variant="outline" className="mt-4" onClick={() => { resetContactForm(); setContactDialogOpen(true); }}>
+                <Card className="border-dashed border-primary/20">
+                  <CardContent className="py-16 text-center">
+                    <div className="inline-flex p-4 rounded-2xl bg-primary/10 mb-4">
+                      <Users className="h-10 w-10 text-primary/60" />
+                    </div>
+                    <p className="text-muted-foreground text-lg font-medium">Nenhum contato encontrado</p>
+                    <p className="text-muted-foreground/60 text-sm mt-1 mb-4">Comece adicionando seu primeiro contato</p>
+                    <Button className="rounded-xl shadow-lg hover:shadow-primary transition-all duration-300" onClick={() => { resetContactForm(); setContactDialogOpen(true); }}>
                       <Plus className="h-4 w-4 mr-2" /> Criar primeiro contato
                     </Button>
                   </CardContent>
@@ -487,12 +511,12 @@ const Contacts = () => {
                     const pendingTasks = contactTasks.filter((t) => t.status !== "completed").length;
                     return (
                       <motion.div key={contact.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                        <Card className="hover:border-primary/30 transition-colors">
-                          <CardContent className="p-4">
+                        <Card className="hover:border-primary/30 transition-all duration-300 hover:shadow-md hover:shadow-primary/5">
+                          <CardContent className="p-5">
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                  <h3 className="font-semibold text-foreground">{contact.name}</h3>
+                                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                  <h3 className="font-semibold text-foreground text-base">{contact.name}</h3>
                                   {(() => {
                                     const stage = pipelineStages.find((s) => s.key === (contact.pipeline_stage || "lead"));
                                     return stage ? (
@@ -514,16 +538,16 @@ const Contacts = () => {
                                 {contact.notes && <p className="text-xs text-muted-foreground mt-1 truncate">{contact.notes}</p>}
                               </div>
                               <div className="flex gap-1">
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setInteractionContactId(contact.id); setInteractionDialogOpen(true); }} title="Registrar interação">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors" onClick={() => { setInteractionContactId(contact.id); setInteractionDialogOpen(true); }} title="Registrar interação">
                                   <MessageSquare className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setExpandedContact(expandedContact === contact.id ? null : contact.id)} title="Histórico">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-blue-500/10 hover:text-blue-400 transition-colors" onClick={() => setExpandedContact(expandedContact === contact.id ? null : contact.id)} title="Histórico">
                                   <Clock className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditContact(contact)}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-muted transition-colors" onClick={() => openEditContact(contact)}>
                                   <Edit2 className="h-4 w-4" />
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => deleteContactMutation.mutate(contact.id)}>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" onClick={() => deleteContactMutation.mutate(contact.id)}>
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </div>
@@ -600,10 +624,13 @@ const Contacts = () => {
                   {tasksLoading ? (
                     <p className="text-muted-foreground text-center py-8">Carregando...</p>
                   ) : filteredTasks.length === 0 ? (
-                    <div className="text-center py-12">
-                      <ListTodo className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
-                      <p className="text-muted-foreground">Nenhuma tarefa de contato encontrada</p>
-                      <Button variant="outline" className="mt-4" onClick={() => { resetTaskForm(); setTaskDialogOpen(true); }}>
+                    <div className="text-center py-16">
+                      <div className="inline-flex p-4 rounded-2xl bg-blue-500/10 mb-4">
+                        <ListTodo className="h-10 w-10 text-blue-400/60" />
+                      </div>
+                      <p className="text-muted-foreground text-lg font-medium">Nenhuma tarefa de contato encontrada</p>
+                      <p className="text-muted-foreground/60 text-sm mt-1 mb-4">Crie tarefas para acompanhar seus contatos</p>
+                      <Button className="rounded-xl shadow-lg hover:shadow-primary transition-all duration-300" onClick={() => { resetTaskForm(); setTaskDialogOpen(true); }}>
                         <Plus className="h-4 w-4 mr-2" /> Criar tarefa
                       </Button>
                     </div>
@@ -640,7 +667,7 @@ const Contacts = () => {
                                 initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}
                                 exit={{ opacity: 0, scale: 0.95 }}
-                                className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                                className="p-3 rounded-xl border bg-card hover:bg-muted/50 transition-all duration-300 hover:shadow-sm"
                               >
                                 <div className="flex items-start justify-between gap-2 mb-2">
                                   <p className="font-medium text-sm">{task.title}</p>
@@ -758,9 +785,9 @@ const Contacts = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setContactDialogOpen(false); resetContactForm(); }}>Cancelar</Button>
-            <Button onClick={() => saveContactMutation.mutate()} disabled={!contactForm.name.trim()}>
-              {editingContact ? "Salvar" : "Criar Contato"}
+            <Button variant="outline" className="rounded-xl" onClick={() => { setContactDialogOpen(false); resetContactForm(); }}>Cancelar</Button>
+            <Button className="rounded-xl shadow-lg hover:shadow-primary transition-all duration-300" onClick={() => saveContactMutation.mutate()} disabled={!contactForm.name.trim() || saveContactMutation.isPending}>
+              {saveContactMutation.isPending ? "Salvando..." : editingContact ? "Salvar" : "Criar Contato"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -833,9 +860,9 @@ const Contacts = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setTaskDialogOpen(false); resetTaskForm(); }}>Cancelar</Button>
-            <Button onClick={() => saveTaskMutation.mutate()} disabled={!taskForm.title.trim()}>
-              {editingTask ? "Salvar" : "Criar Tarefa"}
+            <Button variant="outline" className="rounded-xl" onClick={() => { setTaskDialogOpen(false); resetTaskForm(); }}>Cancelar</Button>
+            <Button className="rounded-xl shadow-lg hover:shadow-primary transition-all duration-300" onClick={() => saveTaskMutation.mutate()} disabled={!taskForm.title.trim() || saveTaskMutation.isPending}>
+              {saveTaskMutation.isPending ? "Salvando..." : editingTask ? "Salvar" : "Criar Tarefa"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -862,8 +889,10 @@ const Contacts = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setInteractionDialogOpen(false); setInteractionForm({ type: "note", description: "" }); }}>Cancelar</Button>
-            <Button onClick={() => saveInteractionMutation.mutate()} disabled={!interactionForm.description.trim()}>Registrar</Button>
+            <Button variant="outline" className="rounded-xl" onClick={() => { setInteractionDialogOpen(false); setInteractionForm({ type: "note", description: "" }); }}>Cancelar</Button>
+            <Button className="rounded-xl shadow-lg hover:shadow-primary transition-all duration-300" onClick={() => saveInteractionMutation.mutate()} disabled={!interactionForm.description.trim() || saveInteractionMutation.isPending}>
+              {saveInteractionMutation.isPending ? "Registrando..." : "Registrar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
