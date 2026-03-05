@@ -53,6 +53,77 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_events: {
+        Row: {
+          all_day: boolean | null
+          color: string | null
+          created_at: string
+          description: string | null
+          end_date: string | null
+          id: string
+          start_date: string
+          title: string
+          user_id: string | null
+        }
+        Insert: {
+          all_day?: boolean | null
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          start_date: string
+          title: string
+          user_id?: string | null
+        }
+        Update: {
+          all_day?: boolean | null
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          start_date?: string
+          title?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      contact_interactions: {
+        Row: {
+          contact_id: string
+          created_at: string
+          date: string
+          description: string
+          id: string
+          type: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          date?: string
+          description: string
+          id?: string
+          type: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          date?: string
+          description?: string
+          id?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_interactions_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_submissions: {
         Row: {
           challenge: string
@@ -101,6 +172,7 @@ export type Database = {
           name: string
           notes: string | null
           phone: string | null
+          pipeline_stage: string | null
           project_id: string | null
           updated_at: string
           user_id: string | null
@@ -113,6 +185,7 @@ export type Database = {
           name: string
           notes?: string | null
           phone?: string | null
+          pipeline_stage?: string | null
           project_id?: string | null
           updated_at?: string
           user_id?: string | null
@@ -125,6 +198,7 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string | null
+          pipeline_stage?: string | null
           project_id?: string | null
           updated_at?: string
           user_id?: string | null
@@ -476,6 +550,7 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          labels: string[] | null
           priority: string | null
           status: string
           title: string
@@ -489,6 +564,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          labels?: string[] | null
           priority?: string | null
           status?: string
           title: string
@@ -502,9 +578,40 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          labels?: string[] | null
           priority?: string | null
           status?: string
           title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      quick_notes: {
+        Row: {
+          color: string | null
+          content: string
+          created_at: string
+          id: string
+          pinned: boolean | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          color?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          pinned?: boolean | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          color?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          pinned?: boolean | null
           updated_at?: string
           user_id?: string | null
         }
@@ -573,6 +680,35 @@ export type Database = {
         }
         Relationships: []
       }
+      task_notes: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          task_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          task_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_notes_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           completed_at: string | null
@@ -582,9 +718,11 @@ export type Database = {
           due_date: string | null
           id: string
           order_index: number | null
+          parent_task_id: string | null
           priority: string
           project_id: string | null
           status: string
+          tags: string[] | null
           title: string
           updated_at: string
           user_id: string | null
@@ -597,9 +735,11 @@ export type Database = {
           due_date?: string | null
           id?: string
           order_index?: number | null
+          parent_task_id?: string | null
           priority?: string
           project_id?: string | null
           status?: string
+          tags?: string[] | null
           title: string
           updated_at?: string
           user_id?: string | null
@@ -612,9 +752,11 @@ export type Database = {
           due_date?: string | null
           id?: string
           order_index?: number | null
+          parent_task_id?: string | null
           priority?: string
           project_id?: string | null
           status?: string
+          tags?: string[] | null
           title?: string
           updated_at?: string
           user_id?: string | null
@@ -625,6 +767,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
           {
