@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import {
   Target,
@@ -18,10 +19,15 @@ import {
   Edit2,
   Save,
   X,
+  AlertTriangle,
+  UserCheck,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { RecentActivity } from "@/components/ems/RecentActivity";
+import { Link } from "react-router-dom";
+import { formatDistanceToNow, parseISO, isBefore } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const iconMap: Record<string, React.ElementType> = {
   target: Target,
@@ -44,6 +50,19 @@ interface MonthlyFocus {
   description: string;
 }
 
+interface ContactTask {
+  id: string;
+  title: string;
+  priority: string;
+  due_date: string | null;
+  status: string;
+  contact: {
+    id: string;
+    name: string;
+    company: string | null;
+  } | null;
+}
+
 const Overview = () => {
   const { toast } = useToast();
   const [pillars, setPillars] = useState<Pillar[]>([]);
@@ -55,6 +74,7 @@ const Overview = () => {
   const [focusForm, setFocusForm] = useState({ title: "", description: "" });
   const [editingPillar, setEditingPillar] = useState<string | null>(null);
   const [pillarForm, setPillarForm] = useState({ title: "", description: "" });
+  const [contactTasks, setContactTasks] = useState<ContactTask[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -98,12 +118,34 @@ const Overview = () => {
     const { data: financialData } = await supabase
       .from("financial_transactions")
       .select("amount, type");
-    
+
     if (financialData) {
       const total = financialData.reduce((acc, t) => {
         return acc + (t.type === "income" ? Number(t.amount) : -Number(t.amount));
       }, 0);
       setBalance(total);
+    }
+
+    // Fetch pending contact tasks
+    const { data: contactTasksData } = await supabase
+      .from("tasks")
+      .select("id, title, priority, due_date, status, contacts(id, name, company)")
+      .not("contact_id", "is", null)
+      .neq("status", "completed")
+      .order("due_date", { ascending: true })
+      .limit(10);
+
+    if (contactTasksData) {
+      setContactTasks(
+        contactTasksData.map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          priority: t.priority,
+          due_date: t.due_date,
+          status: t.status,
+          contact: t.contacts,
+        }))
+      );
     }
   };
 
@@ -323,6 +365,84 @@ const Overview = () => {
             )}
           </div>
         </motion.div>
+
+        {/* Pending Contact Tasks Notifications */}
+        {contactTasks.length > 0 && (
+          <motion.div variants={itemVariants}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-amber-500/10">
+                  <UserCheck className="h-5 w-5 text-amber-500" />
+                </div>
+                <h2 className="text-xl font-heading font-semibold text-foreground">
+                  Tarefas de Contatos Pendentes
+                </h2>
+                <Badge variant="secondary" className="text-xs">
+                  {contactTasks.length}
+                </Badge>
+              </div>
+              <Link to="/ems/contacts">
+                <Button variant="outline" size="sm">Ver Todos</Button>
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {contactTasks.map((task) => {
+                const isOverdue = task.due_date && isBefore(parseISO(task.due_date), new Date());
+                return (
+                  <Card
+                    key={task.id}
+                    className={`border-l-4 ${
+                      isOverdue
+                        ? "border-l-destructive"
+                        : task.priority === "urgent"
+                        ? "border-l-destructive"
+                        : task.priority === "high"
+                        ? "border-l-amber-500"
+                        : "border-l-primary"
+                    }`}
+                  >
+                    <CardContent className="pt-4 pb-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{task.title}</p>
+                          {task.contact && (
+                            <p className="text-xs text-muted-foreground mt-1 truncate">
+                              {task.contact.name}
+                              {task.contact.company && ` - ${task.contact.company}`}
+                            </p>
+                          )}
+                        </div>
+                        <Badge
+                          variant={task.priority === "urgent" ? "destructive" : "outline"}
+                          className="text-xs flex-shrink-0"
+                        >
+                          {task.priority === "urgent" && "Urgente"}
+                          {task.priority === "high" && "Alta"}
+                          {task.priority === "medium" && "Média"}
+                          {task.priority === "low" && "Baixa"}
+                        </Badge>
+                      </div>
+                      {task.due_date && (
+                        <div className={`flex items-center gap-1 mt-2 text-xs ${isOverdue ? "text-destructive" : "text-muted-foreground"}`}>
+                          {isOverdue ? (
+                            <AlertTriangle className="h-3 w-3" />
+                          ) : (
+                            <Clock className="h-3 w-3" />
+                          )}
+                          <span>
+                            {isOverdue
+                              ? `Atrasada ${formatDistanceToNow(parseISO(task.due_date), { locale: ptBR, addSuffix: false })}`
+                              : `Vence ${formatDistanceToNow(parseISO(task.due_date), { locale: ptBR, addSuffix: true })}`}
+                          </span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
 
         {/* Quick Stats & Recent Activity */}
         <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
