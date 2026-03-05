@@ -439,7 +439,7 @@ const OrgChart = () => {
     };
 
     return (
-      <div className="flex justify-center gap-8 overflow-x-auto pb-8">
+      <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-8 overflow-x-auto pb-8">
         {rootNodes.map((node) => renderVisualNode(node))}
       </div>
     );
@@ -451,7 +451,7 @@ const OrgChart = () => {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-heading font-bold text-foreground">
+            <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">
               Organograma
             </h1>
             <p className="text-muted-foreground mt-1">
@@ -483,7 +483,7 @@ const OrgChart = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -556,7 +556,7 @@ const OrgChart = () => {
           </div>
         ) : (
           <Card>
-            <CardContent className="p-8 overflow-x-auto">
+            <CardContent className="p-4 sm:p-8 overflow-x-auto">
               {renderOrgChartVisual()}
             </CardContent>
           </Card>
@@ -571,8 +571,8 @@ const OrgChart = () => {
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
                   <label className="text-sm font-medium">Nome *</label>
                   <Input
                     value={nodeForm.name}

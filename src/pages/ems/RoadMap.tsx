@@ -345,13 +345,13 @@ const RoadMap = () => {
         key={path.id}
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        className={cn("relative", depth > 0 && "ml-6 mt-4")}
+        className={cn("relative", depth > 0 && "ml-3 sm:ml-6 mt-4")}
       >
         {depth > 0 && (
-          <div className="absolute -left-6 top-0 bottom-0 w-px bg-border" />
+          <div className="absolute -left-3 sm:-left-6 top-0 bottom-0 w-px bg-border" />
         )}
         {depth > 0 && (
-          <div className="absolute -left-6 top-6 w-6 h-px bg-border" />
+          <div className="absolute -left-3 sm:-left-6 top-6 w-3 sm:w-6 h-px bg-border" />
         )}
 
         <Card className={cn(
@@ -477,14 +477,14 @@ const RoadMap = () => {
                                 </div>
                               ) : (
                                 <div>
-                                  <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2">
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
                                       <span className="font-medium text-sm">{step.label}</span>
                                       <Badge variant="outline" className={cn("text-xs", statusConfig[step.status].color)}>
                                         {statusConfig[step.status].label}
                                       </Badge>
                                     </div>
-                                    <div className="flex items-center gap-1 flex-shrink-0">
+                                    <div className="flex items-center gap-1 flex-shrink-0 flex-wrap">
                                       <Select
                                         value={step.status}
                                         onValueChange={(value) =>
@@ -610,7 +610,7 @@ const RoadMap = () => {
         {/* Header */}
         <motion.div variants={itemVariants} className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-heading font-bold text-foreground">RoadMap</h1>
+            <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">RoadMap</h1>
             <p className="text-muted-foreground mt-1">
               Visualize seus caminhos estratégicos e alternativas
             </p>

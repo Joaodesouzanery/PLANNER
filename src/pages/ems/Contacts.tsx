@@ -328,16 +328,16 @@ const Contacts = () => {
     <EMSLayout>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-heading font-bold text-foreground">Contatos</h1>
-            <p className="text-muted-foreground mt-1">Gerencie contatos e suas tarefas</p>
+            <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">Contatos</h1>
+            <p className="text-sm md:text-base text-muted-foreground mt-1">Gerencie contatos e suas tarefas</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => { resetContactForm(); setContactDialogOpen(true); }} className="gap-2">
+            <Button variant="outline" onClick={() => { resetContactForm(); setContactDialogOpen(true); }} className="gap-2 flex-1 sm:flex-none">
               <Plus className="h-4 w-4" /> Contato
             </Button>
-            <Button onClick={() => { resetTaskForm(); setTaskDialogOpen(true); }} className="gap-2">
+            <Button onClick={() => { resetTaskForm(); setTaskDialogOpen(true); }} className="gap-2 flex-1 sm:flex-none">
               <Plus className="h-4 w-4" /> Tarefa
             </Button>
           </div>
@@ -350,7 +350,7 @@ const Contacts = () => {
             <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Buscar contatos ou tarefas..." className="pl-10" />
           </div>
           <Select value={projectFilter} onValueChange={setProjectFilter}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-full sm:w-[200px]">
               <SelectValue placeholder="Projeto" />
             </SelectTrigger>
             <SelectContent>
@@ -363,7 +363,7 @@ const Contacts = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: "Contatos", value: contacts.length, icon: Users, color: "text-primary" },
             { label: "Tarefas", value: tasks.length, icon: ListTodo, color: "text-blue-400" },
@@ -595,7 +595,7 @@ const Contacts = () => {
               <label className="text-sm font-medium">Nome *</label>
               <Input value={contactForm.name} onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })} placeholder="Nome do contato" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">Email</label>
                 <Input value={contactForm.email} onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })} placeholder="email@exemplo.com" />
@@ -605,7 +605,7 @@ const Contacts = () => {
                 <Input value={contactForm.phone} onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })} placeholder="(00) 00000-0000" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">Empresa</label>
                 <Input value={contactForm.company} onChange={(e) => setContactForm({ ...contactForm, company: e.target.value })} placeholder="Nome da empresa" />
@@ -650,7 +650,7 @@ const Contacts = () => {
               <label className="text-sm font-medium">Descrição</label>
               <Textarea value={taskForm.description} onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })} placeholder="Detalhes..." rows={2} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">Contato</label>
                 <Select value={taskForm.contact_id || "none"} onValueChange={(v) => setTaskForm({ ...taskForm, contact_id: v === "none" ? "" : v })}>
@@ -672,7 +672,7 @@ const Contacts = () => {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">Prioridade</label>
                 <Select value={taskForm.priority} onValueChange={(v) => setTaskForm({ ...taskForm, priority: v })}>
