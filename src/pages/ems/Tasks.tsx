@@ -9,7 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Trash2, Calendar, Flag, ListTodo, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
+import {
+  Plus, Trash2, Calendar, Flag, ListTodo, CheckCircle2, Clock, AlertTriangle,
+  Tag, MessageSquare, ChevronDown, ChevronRight, X,
+} from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -28,6 +31,15 @@ interface Task {
   due_date: string | null;
   completed_at: string | null;
   order_index: number;
+  tags: string[] | null;
+  parent_task_id: string | null;
+  created_at: string;
+}
+
+interface TaskNote {
+  id: string;
+  task_id: string;
+  content: string;
   created_at: string;
 }
 
@@ -44,12 +56,17 @@ const Tasks = () => {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [filter, setFilter] = useState<"all" | "pending" | "completed">("all");
-  const [form, setForm] = useState({ title: "", description: "", priority: "medium", due_date: null as Date | null });
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [form, setForm] = useState({ title: "", description: "", priority: "medium", due_date: null as Date | null, tags: [] as string[] });
+  const [tagInput, setTagInput] = useState("");
+  const [expandedTask, setExpandedTask] = useState<string | null>(null);
+  const [subtaskInput, setSubtaskInput] = useState("");
+  const [noteInput, setNoteInput] = useState("");
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["tasks"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tasks").select("*").order("order_index");
+      const { data, error } = await supabase.from("tasks").select("*").is("contact_id", null).order("order_index");
       if (error) throw error;
       return (data as Task[]).sort((a, b) => {
         if (a.status === "completed" && b.status !== "completed") return 1;
@@ -59,6 +76,21 @@ const Tasks = () => {
     },
   });
 
+  const { data: taskNotes = [] } = useQuery({
+    queryKey: ["task-notes", expandedTask],
+    queryFn: async () => {
+      if (!expandedTask) return [];
+      const { data } = await supabase.from("task_notes").select("*").eq("task_id", expandedTask).order("created_at", { ascending: false });
+      return (data || []) as TaskNote[];
+    },
+    enabled: !!expandedTask,
+  });
+
+  const parentTasks = tasks.filter((t) => !t.parent_task_id);
+  const getSubtasks = (parentId: string) => tasks.filter((t) => t.parent_task_id === parentId);
+
+  const allTags = [...new Set(tasks.flatMap((t) => t.tags || []))].sort();
+
   const createMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("tasks").insert({
@@ -66,13 +98,14 @@ const Tasks = () => {
         description: form.description || null,
         priority: form.priority,
         due_date: form.due_date ? format(form.due_date, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
+        tags: form.tags.length > 0 ? form.tags : null,
       });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       setDialogOpen(false);
-      setForm({ title: "", description: "", priority: "medium", due_date: null });
+      setForm({ title: "", description: "", priority: "medium", due_date: null, tags: [] });
       toast({ title: "Tarefa criada!" });
     },
   });
@@ -99,17 +132,46 @@ const Tasks = () => {
     },
   });
 
-  const filteredTasks = tasks.filter((t) => {
-    if (filter === "pending") return t.status !== "completed";
-    if (filter === "completed") return t.status === "completed";
+  const addSubtask = async (parentId: string) => {
+    if (!subtaskInput.trim()) return;
+    await supabase.from("tasks").insert({
+      title: subtaskInput,
+      priority: "medium",
+      parent_task_id: parentId,
+      due_date: format(new Date(), "yyyy-MM-dd"),
+    });
+    setSubtaskInput("");
+    queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    toast({ title: "Subtarefa adicionada!" });
+  };
+
+  const addNote = async (taskId: string) => {
+    if (!noteInput.trim()) return;
+    await supabase.from("task_notes").insert({ task_id: taskId, content: noteInput });
+    setNoteInput("");
+    queryClient.invalidateQueries({ queryKey: ["task-notes", taskId] });
+    toast({ title: "Nota adicionada!" });
+  };
+
+  const addTagToForm = () => {
+    if (tagInput && !form.tags.includes(tagInput)) {
+      setForm({ ...form, tags: [...form.tags, tagInput] });
+      setTagInput("");
+    }
+  };
+
+  const filteredTasks = parentTasks.filter((t) => {
+    if (filter === "pending" && t.status === "completed") return false;
+    if (filter === "completed" && t.status !== "completed") return false;
+    if (tagFilter && !(t.tags || []).includes(tagFilter)) return false;
     return true;
   });
 
   const stats = {
-    total: tasks.length,
-    pending: tasks.filter((t) => t.status !== "completed").length,
-    completed: tasks.filter((t) => t.status === "completed").length,
-    urgent: tasks.filter((t) => t.priority === "urgent" && t.status !== "completed").length,
+    total: parentTasks.length,
+    pending: parentTasks.filter((t) => t.status !== "completed").length,
+    completed: parentTasks.filter((t) => t.status === "completed").length,
+    urgent: parentTasks.filter((t) => t.priority === "urgent" && t.status !== "completed").length,
   };
 
   return (
@@ -146,18 +208,33 @@ const Tasks = () => {
           ))}
         </div>
 
-        {/* Filter */}
-        <div className="flex gap-2">
+        {/* Filters */}
+        <div className="flex flex-wrap gap-2">
           {(["all", "pending", "completed"] as const).map((f) => (
-            <Button
-              key={f}
-              variant={filter === f ? "default" : "outline"}
-              size="sm"
-              onClick={() => setFilter(f)}
-            >
+            <Button key={f} variant={filter === f ? "default" : "outline"} size="sm" onClick={() => setFilter(f)}>
               {f === "all" ? "Todas" : f === "pending" ? "Pendentes" : "Concluídas"}
             </Button>
           ))}
+          {allTags.length > 0 && (
+            <>
+              <div className="w-px h-6 bg-border self-center mx-1" />
+              {tagFilter && (
+                <Button variant="ghost" size="sm" onClick={() => setTagFilter(null)} className="gap-1 text-xs">
+                  <X className="h-3 w-3" /> Limpar tag
+                </Button>
+              )}
+              {allTags.map((tag) => (
+                <Badge
+                  key={tag}
+                  variant={tagFilter === tag ? "default" : "outline"}
+                  className="cursor-pointer text-xs"
+                  onClick={() => setTagFilter(tagFilter === tag ? null : tag)}
+                >
+                  <Tag className="h-3 w-3 mr-1" />{tag}
+                </Badge>
+              ))}
+            </>
+          )}
         </div>
 
         {/* Task List */}
@@ -165,6 +242,7 @@ const Tasks = () => {
           <CardHeader>
             <CardTitle className="text-lg">
               {filter === "all" ? "Todas as Tarefas" : filter === "pending" ? "Tarefas Pendentes" : "Tarefas Concluídas"}
+              {tagFilter && <span className="text-primary ml-2">#{tagFilter}</span>}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -184,6 +262,10 @@ const Tasks = () => {
                   {filteredTasks.map((task) => {
                     const pConfig = priorityConfig[task.priority] || priorityConfig.medium;
                     const PIcon = pConfig.icon;
+                    const subtasks = getSubtasks(task.id);
+                    const completedSubs = subtasks.filter((s) => s.status === "completed").length;
+                    const isExpanded = expandedTask === task.id;
+
                     return (
                       <motion.div
                         key={task.id}
@@ -191,41 +273,132 @@ const Tasks = () => {
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, x: -100 }}
-                        className={cn(
-                          "flex items-center gap-3 p-3 rounded-lg border transition-colors",
-                          task.status === "completed" ? "opacity-50 bg-muted/30" : "bg-card hover:bg-muted/50"
-                        )}
                       >
-                        <Checkbox
-                          checked={task.status === "completed"}
-                          onCheckedChange={(checked) => toggleMutation.mutate({ id: task.id, completed: !!checked })}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className={cn("font-medium truncate", task.status === "completed" && "line-through text-muted-foreground")}>
-                            {task.title}
-                          </p>
-                          {task.description && (
-                            <p className="text-xs text-muted-foreground truncate">{task.description}</p>
+                        <div
+                          className={cn(
+                            "p-3 rounded-lg border transition-colors",
+                            task.status === "completed" ? "opacity-50 bg-muted/30" : "bg-card hover:bg-muted/50"
                           )}
-                        </div>
-                        <Badge variant="outline" className={cn("text-xs shrink-0", pConfig.color)}>
-                          <PIcon className="h-3 w-3 mr-1" />
-                          {pConfig.label}
-                        </Badge>
-                        {task.due_date && (
-                          <span className="text-xs text-muted-foreground shrink-0 hidden sm:block">
-                            <Calendar className="h-3 w-3 inline mr-1" />
-                            {format(new Date(task.due_date + "T00:00:00"), "dd/MM", { locale: ptBR })}
-                          </span>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
-                          onClick={() => deleteMutation.mutate(task.id)}
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                          <div className="flex items-center gap-3">
+                            <Checkbox
+                              checked={task.status === "completed"}
+                              onCheckedChange={(checked) => toggleMutation.mutate({ id: task.id, completed: !!checked })}
+                            />
+                            <button className="flex-1 min-w-0 text-left" onClick={() => setExpandedTask(isExpanded ? null : task.id)}>
+                              <div className="flex items-center gap-2">
+                                {subtasks.length > 0 && (
+                                  isExpanded ? <ChevronDown className="h-3 w-3 text-muted-foreground" /> : <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                                )}
+                                <p className={cn("font-medium truncate", task.status === "completed" && "line-through text-muted-foreground")}>
+                                  {task.title}
+                                </p>
+                              </div>
+                              {task.description && (
+                                <p className="text-xs text-muted-foreground truncate">{task.description}</p>
+                              )}
+                              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                {(task.tags || []).map((tag) => (
+                                  <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                                {subtasks.length > 0 && (
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {completedSubs}/{subtasks.length} subtarefas
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                            <Badge variant="outline" className={cn("text-xs shrink-0 hidden sm:flex", pConfig.color)}>
+                              <PIcon className="h-3 w-3 mr-1" />
+                              {pConfig.label}
+                            </Badge>
+                            {task.due_date && (
+                              <span className="text-xs text-muted-foreground shrink-0 hidden sm:block">
+                                <Calendar className="h-3 w-3 inline mr-1" />
+                                {format(new Date(task.due_date + "T00:00:00"), "dd/MM", { locale: ptBR })}
+                              </span>
+                            )}
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => deleteMutation.mutate(task.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+
+                          {/* Expanded area: subtasks + notes */}
+                          <AnimatePresence>
+                            {isExpanded && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="mt-3 ml-7 space-y-3">
+                                  {/* Subtasks */}
+                                  <div>
+                                    <p className="text-xs font-medium text-muted-foreground mb-2">Subtarefas</p>
+                                    {subtasks.map((sub) => (
+                                      <div key={sub.id} className="flex items-center gap-2 py-1">
+                                        <Checkbox
+                                          className="h-3.5 w-3.5"
+                                          checked={sub.status === "completed"}
+                                          onCheckedChange={(checked) => toggleMutation.mutate({ id: sub.id, completed: !!checked })}
+                                        />
+                                        <span className={cn("text-sm", sub.status === "completed" && "line-through text-muted-foreground")}>
+                                          {sub.title}
+                                        </span>
+                                        <Button variant="ghost" size="icon" className="h-5 w-5 ml-auto text-muted-foreground hover:text-destructive" onClick={() => deleteMutation.mutate(sub.id)}>
+                                          <Trash2 className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                    <div className="flex gap-2 mt-1">
+                                      <Input
+                                        className="h-8 text-sm"
+                                        placeholder="Adicionar subtarefa..."
+                                        value={subtaskInput}
+                                        onChange={(e) => setSubtaskInput(e.target.value)}
+                                        onKeyDown={(e) => e.key === "Enter" && addSubtask(task.id)}
+                                      />
+                                      <Button size="sm" variant="outline" className="h-8" onClick={() => addSubtask(task.id)}>
+                                        <Plus className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+
+                                  {/* Notes */}
+                                  <div>
+                                    <p className="text-xs font-medium text-muted-foreground mb-2">
+                                      <MessageSquare className="h-3 w-3 inline mr-1" />
+                                      Notas
+                                    </p>
+                                    {taskNotes.map((note) => (
+                                      <div key={note.id} className="text-sm text-muted-foreground bg-muted/50 rounded p-2 mb-1">
+                                        <p>{note.content}</p>
+                                        <p className="text-[10px] mt-1 opacity-60">
+                                          {format(new Date(note.created_at), "dd/MM HH:mm", { locale: ptBR })}
+                                        </p>
+                                      </div>
+                                    ))}
+                                    <div className="flex gap-2 mt-1">
+                                      <Input
+                                        className="h-8 text-sm"
+                                        placeholder="Adicionar nota..."
+                                        value={noteInput}
+                                        onChange={(e) => setNoteInput(e.target.value)}
+                                        onKeyDown={(e) => e.key === "Enter" && addNote(task.id)}
+                                      />
+                                      <Button size="sm" variant="outline" className="h-8" onClick={() => addNote(task.id)}>
+                                        <MessageSquare className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       </motion.div>
                     );
                   })}
@@ -245,33 +418,22 @@ const Tasks = () => {
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium">Título *</label>
-              <Input
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder="O que precisa ser feito?"
-              />
+              <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="O que precisa ser feito?" />
             </div>
             <div>
               <label className="text-sm font-medium">Descrição</label>
-              <Textarea
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="Detalhes adicionais..."
-                rows={2}
-              />
+              <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Detalhes adicionais..." rows={2} />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium">Prioridade</label>
                 <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="urgent">🔴 Urgente</SelectItem>
-                    <SelectItem value="high">🟠 Alta</SelectItem>
-                    <SelectItem value="medium">🟡 Média</SelectItem>
-                    <SelectItem value="low">🔵 Baixa</SelectItem>
+                    <SelectItem value="urgent">Urgente</SelectItem>
+                    <SelectItem value="high">Alta</SelectItem>
+                    <SelectItem value="medium">Média</SelectItem>
+                    <SelectItem value="low">Baixa</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -285,22 +447,42 @@ const Tasks = () => {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={form.due_date || undefined}
-                      onSelect={(d) => setForm({ ...form, due_date: d || null })}
-                      className="p-3 pointer-events-auto"
-                    />
+                    <CalendarComponent mode="single" selected={form.due_date || undefined} onSelect={(d) => setForm({ ...form, due_date: d || null })} className="p-3 pointer-events-auto" />
                   </PopoverContent>
                 </Popover>
               </div>
             </div>
+            {/* Tags */}
+            <div>
+              <label className="text-sm font-medium">Tags</label>
+              <div className="flex gap-2">
+                <Input
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  placeholder="Ex: marketing, dev, vendas"
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTagToForm(); } }}
+                />
+                <Button type="button" variant="outline" onClick={addTagToForm}>
+                  <Tag className="h-4 w-4" />
+                </Button>
+              </div>
+              {form.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {form.tags.map((tag) => (
+                    <Badge key={tag} variant="secondary" className="gap-1 text-xs">
+                      {tag}
+                      <button onClick={() => setForm({ ...form, tags: form.tags.filter((t) => t !== tag) })}>
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={() => createMutation.mutate()} disabled={!form.title.trim()}>
-              Criar Tarefa
-            </Button>
+            <Button onClick={() => createMutation.mutate()} disabled={!form.title.trim()}>Criar Tarefa</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

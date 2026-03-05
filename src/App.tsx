@@ -17,6 +17,8 @@ import OrgChart from "./pages/ems/OrgChart";
 import Tasks from "./pages/ems/Tasks";
 import Contacts from "./pages/ems/Contacts";
 import RoadMap from "./pages/ems/RoadMap";
+import QuickNotes from "./pages/ems/QuickNotes";
+import CalendarPage from "./pages/ems/Calendar";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,7 +46,9 @@ const App = () => (
             <Route path="/ems/planning" element={<Planning />} />
             <Route path="/ems/orgchart" element={<OrgChart />} />
             <Route path="/ems/roadmap" element={<RoadMap />} />
-            
+            <Route path="/ems/quick-notes" element={<QuickNotes />} />
+            <Route path="/ems/calendar" element={<CalendarPage />} />
+
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>

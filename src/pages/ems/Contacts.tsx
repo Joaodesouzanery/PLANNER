@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Trash2, Calendar, Flag, Users, Phone, Mail, Building2,
-  Search, Edit2, CheckCircle2, Clock, AlertTriangle, ListTodo, GripVertical
+  Search, Edit2, CheckCircle2, Clock, AlertTriangle, ListTodo, GripVertical, MessageSquare
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,10 +30,35 @@ interface Contact {
   phone: string | null;
   company: string | null;
   notes: string | null;
+  pipeline_stage: string | null;
   project_id: string | null;
   created_at: string;
   project?: { title: string } | null;
 }
+
+interface Interaction {
+  id: string;
+  contact_id: string;
+  type: string;
+  description: string;
+  date: string;
+  created_at: string;
+}
+
+const pipelineStages = [
+  { key: "lead", label: "Lead", color: "bg-blue-500/10 text-blue-500 border-blue-500/30" },
+  { key: "qualified", label: "Qualificado", color: "bg-amber-500/10 text-amber-500 border-amber-500/30" },
+  { key: "proposal", label: "Proposta", color: "bg-purple-500/10 text-purple-500 border-purple-500/30" },
+  { key: "closed", label: "Fechado", color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/30" },
+];
+
+const interactionTypes = [
+  { key: "call", label: "Ligação" },
+  { key: "meeting", label: "Reunião" },
+  { key: "email", label: "Email" },
+  { key: "proposal", label: "Proposta" },
+  { key: "note", label: "Nota" },
+];
 
 interface Task {
   id: string;
@@ -79,8 +104,12 @@ const Contacts = () => {
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
 
-  const [contactForm, setContactForm] = useState({ name: "", email: "", phone: "", company: "", notes: "", project_id: "" });
+  const [contactForm, setContactForm] = useState({ name: "", email: "", phone: "", company: "", notes: "", project_id: "", pipeline_stage: "lead" });
   const [taskForm, setTaskForm] = useState({ title: "", description: "", priority: "medium", due_date: null as Date | null, contact_id: "", project_id: "" });
+  const [interactionDialogOpen, setInteractionDialogOpen] = useState(false);
+  const [interactionContactId, setInteractionContactId] = useState<string | null>(null);
+  const [interactionForm, setInteractionForm] = useState({ type: "note", description: "" });
+  const [expandedContact, setExpandedContact] = useState<string | null>(null);
 
   const { data: projects = [] } = useQuery({
     queryKey: ["projects"],
@@ -113,6 +142,43 @@ const Contacts = () => {
     },
   });
 
+  const { data: interactions = [] } = useQuery({
+    queryKey: ["contact-interactions"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("contact_interactions").select("*").order("date", { ascending: false });
+      if (error) throw error;
+      return data as Interaction[];
+    },
+  });
+
+  const getContactInteractions = (contactId: string) => interactions.filter((i) => i.contact_id === contactId);
+
+  const saveInteractionMutation = useMutation({
+    mutationFn: async () => {
+      if (!interactionContactId) return;
+      const { error } = await supabase.from("contact_interactions").insert({
+        contact_id: interactionContactId,
+        type: interactionForm.type,
+        description: interactionForm.description,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contact-interactions"] });
+      setInteractionDialogOpen(false);
+      setInteractionForm({ type: "note", description: "" });
+      toast({ title: "Interação registrada!" });
+    },
+  });
+
+  const updatePipelineMutation = useMutation({
+    mutationFn: async ({ id, stage }: { id: string; stage: string }) => {
+      const { error } = await supabase.from("contacts").update({ pipeline_stage: stage }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["contacts"] }),
+  });
+
   // Contact mutations
   const saveContactMutation = useMutation({
     mutationFn: async () => {
@@ -123,6 +189,7 @@ const Contacts = () => {
         company: contactForm.company || null,
         notes: contactForm.notes || null,
         project_id: contactForm.project_id || null,
+        pipeline_stage: contactForm.pipeline_stage || "lead",
       };
       if (editingContact) {
         const { error } = await supabase.from("contacts").update(payload).eq("id", editingContact.id);
@@ -215,7 +282,7 @@ const Contacts = () => {
   });
 
   const resetContactForm = () => {
-    setContactForm({ name: "", email: "", phone: "", company: "", notes: "", project_id: "" });
+    setContactForm({ name: "", email: "", phone: "", company: "", notes: "", project_id: "", pipeline_stage: "lead" });
     setEditingContact(null);
   };
 
@@ -233,6 +300,7 @@ const Contacts = () => {
       company: contact.company || "",
       notes: contact.notes || "",
       project_id: contact.project_id || "",
+      pipeline_stage: contact.pipeline_stage || "lead",
     });
     setContactDialogOpen(true);
   };
@@ -423,12 +491,18 @@ const Contacts = () => {
                           <CardContent className="p-4">
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
                                   <h3 className="font-semibold text-foreground">{contact.name}</h3>
-                                  {contact.project?.title && <Badge variant="outline">{contact.project.title}</Badge>}
+                                  {(() => {
+                                    const stage = pipelineStages.find((s) => s.key === (contact.pipeline_stage || "lead"));
+                                    return stage ? (
+                                      <Badge variant="outline" className={cn("text-xs", stage.color)}>{stage.label}</Badge>
+                                    ) : null;
+                                  })()}
+                                  {contact.project?.title && <Badge variant="outline" className="text-xs">{contact.project.title}</Badge>}
                                   {pendingTasks > 0 && (
                                     <Badge variant="secondary" className="text-xs">
-                                      {pendingTasks} tarefa{pendingTasks > 1 ? "s" : ""} pendente{pendingTasks > 1 ? "s" : ""}
+                                      {pendingTasks} pendente{pendingTasks > 1 ? "s" : ""}
                                     </Badge>
                                   )}
                                 </div>
@@ -440,6 +514,12 @@ const Contacts = () => {
                                 {contact.notes && <p className="text-xs text-muted-foreground mt-1 truncate">{contact.notes}</p>}
                               </div>
                               <div className="flex gap-1">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setInteractionContactId(contact.id); setInteractionDialogOpen(true); }} title="Registrar interação">
+                                  <MessageSquare className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setExpandedContact(expandedContact === contact.id ? null : contact.id)} title="Histórico">
+                                  <Clock className="h-4 w-4" />
+                                </Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditContact(contact)}>
                                   <Edit2 className="h-4 w-4" />
                                 </Button>
@@ -448,6 +528,48 @@ const Contacts = () => {
                                 </Button>
                               </div>
                             </div>
+                            {/* Interaction History */}
+                            {expandedContact === contact.id && (() => {
+                              const cInteractions = getContactInteractions(contact.id);
+                              return (
+                                <div className="mt-3 pt-3 border-t">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <p className="text-xs font-medium text-muted-foreground">Histórico de Interações</p>
+                                    {/* Pipeline stage selector */}
+                                    <div className="flex gap-1">
+                                      {pipelineStages.map((s) => (
+                                        <Badge
+                                          key={s.key}
+                                          variant={contact.pipeline_stage === s.key ? "default" : "outline"}
+                                          className={cn("text-[10px] cursor-pointer", contact.pipeline_stage === s.key ? "" : s.color)}
+                                          onClick={() => updatePipelineMutation.mutate({ id: contact.id, stage: s.key })}
+                                        >
+                                          {s.label}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  {cInteractions.length === 0 ? (
+                                    <p className="text-xs text-muted-foreground py-2">Nenhuma interação registrada</p>
+                                  ) : (
+                                    <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                                      {cInteractions.slice(0, 5).map((interaction) => (
+                                        <div key={interaction.id} className="flex items-start gap-2 text-xs bg-muted/50 rounded p-2">
+                                          <Badge variant="secondary" className="text-[10px] shrink-0">
+                                            {interactionTypes.find((t) => t.key === interaction.type)?.label || interaction.type}
+                                          </Badge>
+                                          <span className="text-muted-foreground flex-1">{interaction.description}</span>
+                                          <span className="text-[10px] text-muted-foreground/60 shrink-0">
+                                            {format(new Date(interaction.date), "dd/MM", { locale: ptBR })}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+
                             {/* Inline tasks for this contact */}
                             {contactTasks.length > 0 && (
                               <div className="mt-3 pt-3 border-t space-y-1">
@@ -622,6 +744,15 @@ const Contacts = () => {
               </div>
             </div>
             <div>
+              <label className="text-sm font-medium">Estágio do Pipeline</label>
+              <Select value={contactForm.pipeline_stage} onValueChange={(v) => setContactForm({ ...contactForm, pipeline_stage: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {pipelineStages.map((s) => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <label className="text-sm font-medium">Observações</label>
               <Textarea value={contactForm.notes} onChange={(e) => setContactForm({ ...contactForm, notes: e.target.value })} placeholder="Notas sobre o contato..." rows={2} />
             </div>
@@ -706,6 +837,33 @@ const Contacts = () => {
             <Button onClick={() => saveTaskMutation.mutate()} disabled={!taskForm.title.trim()}>
               {editingTask ? "Salvar" : "Criar Tarefa"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Interaction Dialog */}
+      <Dialog open={interactionDialogOpen} onOpenChange={(open) => { setInteractionDialogOpen(open); if (!open) { setInteractionForm({ type: "note", description: "" }); setInteractionContactId(null); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar Interação</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium">Tipo</label>
+              <Select value={interactionForm.type} onValueChange={(v) => setInteractionForm({ ...interactionForm, type: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {interactionTypes.map((t) => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Descrição *</label>
+              <Textarea value={interactionForm.description} onChange={(e) => setInteractionForm({ ...interactionForm, description: e.target.value })} placeholder="Descreva a interação..." rows={3} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setInteractionDialogOpen(false); setInteractionForm({ type: "note", description: "" }); }}>Cancelar</Button>
+            <Button onClick={() => saveInteractionMutation.mutate()} disabled={!interactionForm.description.trim()}>Registrar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

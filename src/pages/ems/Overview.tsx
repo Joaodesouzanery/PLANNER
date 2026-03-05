@@ -21,12 +21,13 @@ import {
   X,
   AlertTriangle,
   UserCheck,
+  Calendar,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { RecentActivity } from "@/components/ems/RecentActivity";
 import { Link } from "react-router-dom";
-import { formatDistanceToNow, parseISO, isBefore } from "date-fns";
+import { formatDistanceToNow, parseISO, isBefore, startOfWeek, endOfWeek, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const iconMap: Record<string, React.ElementType> = {
@@ -75,6 +76,8 @@ const Overview = () => {
   const [editingPillar, setEditingPillar] = useState<string | null>(null);
   const [pillarForm, setPillarForm] = useState({ title: "", description: "" });
   const [contactTasks, setContactTasks] = useState<ContactTask[]>([]);
+  const [weekTasks, setWeekTasks] = useState<{id: string; title: string; due_date: string | null; status: string; priority: string}[]>([]);
+  const [totalTasks, setTotalTasks] = useState(0);
 
   useEffect(() => {
     fetchData();
@@ -147,6 +150,23 @@ const Overview = () => {
         }))
       );
     }
+
+    // This week's tasks
+    const now = new Date();
+    const weekStart = startOfWeek(now, { locale: ptBR });
+    const weekEnd = endOfWeek(now, { locale: ptBR });
+    const { data: weekTasksData } = await supabase
+      .from("tasks")
+      .select("id, title, due_date, status, priority")
+      .gte("due_date", format(weekStart, "yyyy-MM-dd"))
+      .lte("due_date", format(weekEnd, "yyyy-MM-dd"))
+      .order("due_date");
+
+    if (weekTasksData) setWeekTasks(weekTasksData);
+
+    // Total tasks for productivity
+    const { count } = await supabase.from("tasks").select("*", { count: "exact", head: true });
+    setTotalTasks(count || 0);
   };
 
   const saveFocus = async () => {
@@ -443,6 +463,38 @@ const Overview = () => {
             </div>
           </motion.div>
         )}
+
+        {/* This Week's Tasks */}
+        <motion.div variants={itemVariants}>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 rounded-lg bg-blue-500/10">
+              <Calendar className="h-5 w-5 text-blue-500" />
+            </div>
+            <h2 className="text-lg md:text-xl font-heading font-semibold text-foreground">Esta Semana</h2>
+            <Badge variant="secondary" className="text-xs">{weekTasks.length} tarefas</Badge>
+          </div>
+          {weekTasks.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {weekTasks.slice(0, 6).map((task) => (
+                <Card key={task.id} className={task.status === "completed" ? "opacity-60" : ""}>
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${task.status === "completed" ? "bg-emerald-500" : task.priority === "urgent" ? "bg-red-500" : task.priority === "high" ? "bg-amber-500" : "bg-blue-500"}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium truncate ${task.status === "completed" ? "line-through text-muted-foreground" : ""}`}>{task.title}</p>
+                      {task.due_date && <p className="text-xs text-muted-foreground">{format(new Date(task.due_date), "EEEE", { locale: ptBR })}</p>}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card className="border-dashed">
+              <CardContent className="py-6 text-center text-muted-foreground text-sm">
+                Nenhuma tarefa agendada para esta semana
+              </CardContent>
+            </Card>
+          )}
+        </motion.div>
 
         {/* Quick Stats & Recent Activity */}
         <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-6">

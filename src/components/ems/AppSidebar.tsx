@@ -18,6 +18,8 @@ import {
   ListTodo,
   Contact,
   Route,
+  StickyNote,
+  CalendarDays,
   Menu,
   X,
 } from "lucide-react";
@@ -36,6 +38,8 @@ const menuItems = [
   { icon: Target, label: "Planejamento", path: "/ems/planning" },
   { icon: Route, label: "RoadMap", path: "/ems/roadmap" },
   { icon: Users, label: "Organograma", path: "/ems/orgchart" },
+  { icon: StickyNote, label: "Notas Rápidas", path: "/ems/quick-notes" },
+  { icon: CalendarDays, label: "Calendário", path: "/ems/calendar" },
   { icon: BookOpen, label: "Knowledge", path: "/ems/knowledge" },
   { icon: TrendingUp, label: "Finanças", path: "/ems/finance" },
   { icon: FileText, label: "Relatórios", path: "/ems/reports" },

@@ -101,6 +101,7 @@ export type Database = {
           name: string
           notes: string | null
           phone: string | null
+          pipeline_stage: string | null
           project_id: string | null
           updated_at: string
           user_id: string | null
@@ -113,6 +114,7 @@ export type Database = {
           name: string
           notes?: string | null
           phone?: string | null
+          pipeline_stage?: string | null
           project_id?: string | null
           updated_at?: string
           user_id?: string | null
@@ -125,6 +127,7 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string | null
+          pipeline_stage?: string | null
           project_id?: string | null
           updated_at?: string
           user_id?: string | null
@@ -138,6 +141,77 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      contact_interactions: {
+        Row: {
+          id: string
+          contact_id: string
+          type: string
+          description: string
+          date: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          contact_id: string
+          type?: string
+          description: string
+          date?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          contact_id?: string
+          type?: string
+          description?: string
+          date?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_interactions_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      calendar_events: {
+        Row: {
+          id: string
+          title: string
+          description: string | null
+          start_date: string
+          end_date: string | null
+          all_day: boolean | null
+          color: string | null
+          created_at: string
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string | null
+          start_date: string
+          end_date?: string | null
+          all_day?: boolean | null
+          color?: string | null
+          created_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string | null
+          start_date?: string
+          end_date?: string | null
+          all_day?: boolean | null
+          color?: string | null
+          created_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
       }
       execution_records: {
         Row: {
@@ -188,6 +262,8 @@ export type Database = {
           date: string
           description: string
           id: string
+          is_recurring: boolean | null
+          recurrence_type: string | null
           type: string
           user_id: string | null
         }
@@ -198,6 +274,8 @@ export type Database = {
           date?: string
           description: string
           id?: string
+          is_recurring?: boolean | null
+          recurrence_type?: string | null
           type: string
           user_id?: string | null
         }
@@ -208,6 +286,8 @@ export type Database = {
           date?: string
           description?: string
           id?: string
+          is_recurring?: boolean | null
+          recurrence_type?: string | null
           type?: string
           user_id?: string | null
         }
@@ -375,9 +455,11 @@ export type Database = {
           description: string | null
           end_date: string | null
           id: string
+          okr_id: string | null
           order_index: number | null
           parent_id: string | null
           progress: number | null
+          project_id: string | null
           start_date: string | null
           status: string | null
           title: string
@@ -390,9 +472,11 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           id?: string
+          okr_id?: string | null
           order_index?: number | null
           parent_id?: string | null
           progress?: number | null
+          project_id?: string | null
           start_date?: string | null
           status?: string | null
           title: string
@@ -405,9 +489,11 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           id?: string
+          okr_id?: string | null
           order_index?: number | null
           parent_id?: string | null
           progress?: number | null
+          project_id?: string | null
           start_date?: string | null
           status?: string | null
           title?: string
@@ -476,6 +562,7 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          labels: string[] | null
           priority: string | null
           status: string
           title: string
@@ -489,6 +576,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          labels?: string[] | null
           priority?: string | null
           status?: string
           title: string
@@ -502,6 +590,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          labels?: string[] | null
           priority?: string | null
           status?: string
           title?: string
@@ -543,6 +632,95 @@ export type Database = {
         }
         Relationships: []
       }
+      roadmaps: {
+        Row: {
+          id: string
+          title: string
+          description: string | null
+          paths: any
+          created_at: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string | null
+          paths?: any
+          created_at?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string | null
+          paths?: any
+          created_at?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      quick_notes: {
+        Row: {
+          id: string
+          content: string
+          color: string | null
+          pinned: boolean | null
+          created_at: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          content?: string
+          color?: string | null
+          pinned?: boolean | null
+          created_at?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          content?: string
+          color?: string | null
+          pinned?: boolean | null
+          created_at?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      task_notes: {
+        Row: {
+          id: string
+          task_id: string
+          content: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          task_id: string
+          content: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          task_id?: string
+          content?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_notes_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           completed_at: string | null
@@ -552,9 +730,11 @@ export type Database = {
           due_date: string | null
           id: string
           order_index: number | null
+          parent_task_id: string | null
           priority: string
           project_id: string | null
           status: string
+          tags: string[] | null
           title: string
           updated_at: string
           user_id: string | null
@@ -567,9 +747,11 @@ export type Database = {
           due_date?: string | null
           id?: string
           order_index?: number | null
+          parent_task_id?: string | null
           priority?: string
           project_id?: string | null
           status?: string
+          tags?: string[] | null
           title: string
           updated_at?: string
           user_id?: string | null
@@ -582,9 +764,11 @@ export type Database = {
           due_date?: string | null
           id?: string
           order_index?: number | null
+          parent_task_id?: string | null
           priority?: string
           project_id?: string | null
           status?: string
+          tags?: string[] | null
           title?: string
           updated_at?: string
           user_id?: string | null
