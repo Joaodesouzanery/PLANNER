@@ -23,9 +23,8 @@ const Settings = () => {
         "projects", "tasks", "contacts", "financial_transactions",
         "okrs", "planning_goals", "planning_milestones", "org_chart_nodes",
         "execution_records", "strategic_pillars", "monthly_focus",
-        "kanban_columns", "roadmaps", "quick_notes", "calendar_events",
-        "contact_interactions",
-      ];
+        "kanban_columns", "roadmaps", "quick_notes",
+      ] as const;
 
       const allData: Record<string, any[]> = {};
 
