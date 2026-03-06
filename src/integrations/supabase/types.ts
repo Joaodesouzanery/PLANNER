@@ -89,6 +89,129 @@ export type Database = {
         }
         Relationships: []
       }
+      commercial_items: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          order_index: number
+          parent_item_id: string | null
+          phase_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          order_index?: number
+          parent_item_id?: string | null
+          phase_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          order_index?: number
+          parent_item_id?: string | null
+          phase_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commercial_items_parent_item_id_fkey"
+            columns: ["parent_item_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commercial_items_phase_id_fkey"
+            columns: ["phase_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_phases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commercial_phases: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string
+          id: string
+          order_index: number
+          title: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string
+          id?: string
+          order_index?: number
+          title: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string
+          id?: string
+          order_index?: number
+          title?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      contact_commercial_tracking: {
+        Row: {
+          completed_at: string | null
+          contact_id: string
+          created_at: string
+          id: string
+          item_id: string
+          notes: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          contact_id: string
+          created_at?: string
+          id?: string
+          item_id: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          contact_id?: string
+          created_at?: string
+          id?: string
+          item_id?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_commercial_tracking_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_commercial_tracking_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "commercial_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_interactions: {
         Row: {
           contact_id: string
