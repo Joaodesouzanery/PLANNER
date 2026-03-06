@@ -22,7 +22,6 @@ import { ptBR } from "date-fns/locale";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/useAuth";
 
 interface Contact {
   id: string;
@@ -96,7 +95,6 @@ const kanbanStatuses = [
 
 const Contacts = () => {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("contacts");
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
@@ -187,7 +185,7 @@ const Contacts = () => {
   // Contact mutations
   const saveContactMutation = useMutation({
     mutationFn: async () => {
-      const payload: any = {
+      const payload = {
         name: contactForm.name,
         email: contactForm.email || null,
         phone: contactForm.phone || null,
@@ -200,7 +198,6 @@ const Contacts = () => {
         const { error } = await supabase.from("contacts").update(payload).eq("id", editingContact.id);
         if (error) throw error;
       } else {
-        if (user?.id) payload.user_id = user.id;
         const { error } = await supabase.from("contacts").insert(payload);
         if (error) throw error;
       }
