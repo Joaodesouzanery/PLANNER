@@ -24,6 +24,7 @@ import {
   X,
   ChevronDown,
   Briefcase,
+  ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
@@ -53,6 +54,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { icon: Contact, label: "Contatos", path: "/ems/contacts" },
       { icon: Briefcase, label: "Comercial", path: "/ems/comercial" },
+      { icon: ClipboardList, label: "Onboarding", path: "/ems/onboarding" },
       { icon: Target, label: "Planejamento", path: "/ems/planning" },
       { icon: Route, label: "RoadMap", path: "/ems/roadmap" },
       { icon: Users, label: "Organograma", path: "/ems/orgchart" },
