@@ -28,16 +28,7 @@ import PhaseItemManager from "@/components/ems/commercial/PhaseItemManager";
 import PipelineKanban from "@/components/ems/commercial/PipelineKanban";
 import FunnelReports from "@/components/ems/commercial/FunnelReports";
 
-interface ContactMeta {
-  id: string;
-  contact_id: string;
-  tags: string[];
-  priority: string;
-  next_action_date: string | null;
-  next_action_description: string | null;
-  last_contact_date: string | null;
-  temperature: string;
-}
+
 
 const phaseIcons: Record<string, typeof Target> = {
   palette: Palette, search: Telescope, handshake: Handshake, rocket: Rocket,
