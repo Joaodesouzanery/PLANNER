@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { Phase, Item, Tracking, Contact } from "./types";
+import type { Phase, Item, Tracking, Contact, ContactMeta } from "./types";
 
 export const useCommercialData = () => {
   const queryClient = useQueryClient();
@@ -27,9 +27,18 @@ export const useCommercialData = () => {
   const { data: contacts = [] } = useQuery({
     queryKey: ["contacts"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("contacts").select("id, name, email, phone, company, pipeline_stage").order("name");
+      const { data, error } = await supabase.from("contacts").select("id, name, email, phone, company, pipeline_stage, created_at").order("name");
       if (error) throw error;
       return data as Contact[];
+    },
+  });
+
+  const { data: allMeta = [] } = useQuery({
+    queryKey: ["commercial-contact-meta"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("commercial_contact_meta").select("*");
+      if (error) throw error;
+      return (data || []) as ContactMeta[];
     },
   });
 
@@ -71,9 +80,13 @@ export const useCommercialData = () => {
     queryClient.invalidateQueries({ queryKey: ["commercial-tracking-all"] });
   };
 
+  const getContactMeta = (contactId: string): ContactMeta | undefined => {
+    return allMeta.find(m => m.contact_id === contactId);
+  };
+
   return {
-    phases, items, contacts, allTracking, leafItems,
+    phases, items, contacts, allTracking, leafItems, allMeta,
     getContactProgress, getPhaseItems, getChildItems, isLeafItem,
-    invalidateAll, queryClient,
+    getContactMeta, invalidateAll, queryClient,
   };
 };

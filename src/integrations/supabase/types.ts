@@ -89,6 +89,53 @@ export type Database = {
         }
         Relationships: []
       }
+      commercial_contact_meta: {
+        Row: {
+          contact_id: string
+          created_at: string
+          id: string
+          last_contact_date: string | null
+          next_action_date: string | null
+          next_action_description: string | null
+          priority: string | null
+          tags: string[] | null
+          temperature: string | null
+          updated_at: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          id?: string
+          last_contact_date?: string | null
+          next_action_date?: string | null
+          next_action_description?: string | null
+          priority?: string | null
+          tags?: string[] | null
+          temperature?: string | null
+          updated_at?: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          id?: string
+          last_contact_date?: string | null
+          next_action_date?: string | null
+          next_action_description?: string | null
+          priority?: string | null
+          tags?: string[] | null
+          temperature?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commercial_contact_meta_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: true
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commercial_items: {
         Row: {
           created_at: string

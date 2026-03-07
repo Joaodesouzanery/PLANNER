@@ -23,20 +23,12 @@ import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useCommercialData } from "@/components/ems/commercial/useCommercialData";
 import { statusConfig, phaseColors, phaseIconColors } from "@/components/ems/commercial/types";
-import type { Phase, Item, Tracking, Contact } from "@/components/ems/commercial/types";
+import type { Phase, Item, Tracking, Contact, ContactMeta } from "@/components/ems/commercial/types";
 import PhaseItemManager from "@/components/ems/commercial/PhaseItemManager";
 import PipelineKanban from "@/components/ems/commercial/PipelineKanban";
+import FunnelReports from "@/components/ems/commercial/FunnelReports";
 
-interface ContactMeta {
-  id: string;
-  contact_id: string;
-  tags: string[];
-  priority: string;
-  next_action_date: string | null;
-  next_action_description: string | null;
-  last_contact_date: string | null;
-  temperature: string;
-}
+
 
 const phaseIcons: Record<string, typeof Target> = {
   palette: Palette, search: Telescope, handshake: Handshake, rocket: Rocket,
@@ -78,9 +70,9 @@ const priorityConfig: Record<string, { label: string; color: string; border: str
 
 const Commercial = () => {
   const {
-    phases, items, contacts, allTracking, leafItems,
+    phases, items, contacts, allTracking, leafItems, allMeta,
     getContactProgress, getPhaseItems, getChildItems, isLeafItem,
-    invalidateAll, queryClient,
+    getContactMeta, invalidateAll, queryClient,
   } = useCommercialData();
 
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
@@ -107,19 +99,7 @@ const Commercial = () => {
     enabled: !!selectedContact,
   });
 
-  // Fetch ALL contact meta
-  const { data: allMeta = [] } = useQuery({
-    queryKey: ["commercial-contact-meta"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("commercial_contact_meta").select("*");
-      if (error) throw error;
-      return data as ContactMeta[];
-    },
-  });
 
-  const getContactMeta = (contactId: string): ContactMeta | undefined => {
-    return allMeta.find(m => m.contact_id === contactId);
-  };
 
   const getItemStatus = (itemId: string): string => {
     const t = tracking.find(t => t.item_id === itemId);
@@ -203,10 +183,10 @@ const Commercial = () => {
         updated_at: new Date().toISOString(),
       };
       if (existing) {
-        const { error } = await supabase.from("commercial_contact_meta").update(data).eq("id", existing.id);
+        const { error } = await (supabase as any).from("commercial_contact_meta").update(data).eq("id", existing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("commercial_contact_meta").insert({ contact_id: payload.contactId, ...data });
+        const { error } = await (supabase as any).from("commercial_contact_meta").insert({ contact_id: payload.contactId, ...data });
         if (error) throw error;
       }
     },
@@ -662,10 +642,11 @@ const Commercial = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="contacts" className="gap-1.5"><Users className="h-4 w-4" /><span className="hidden sm:inline">Contatos</span></TabsTrigger>
             <TabsTrigger value="pipeline" className="gap-1.5"><Kanban className="h-4 w-4" /><span className="hidden sm:inline">Pipeline</span></TabsTrigger>
-            <TabsTrigger value="manage" className="gap-1.5"><Settings2 className="h-4 w-4" /><span className="hidden sm:inline">Gerenciar Funil</span></TabsTrigger>
+            <TabsTrigger value="reports" className="gap-1.5"><BarChart3 className="h-4 w-4" /><span className="hidden sm:inline">Relatórios</span></TabsTrigger>
+            <TabsTrigger value="manage" className="gap-1.5"><Settings2 className="h-4 w-4" /><span className="hidden sm:inline">Gerenciar</span></TabsTrigger>
           </TabsList>
 
           <TabsContent value="contacts" className="mt-4 space-y-4">
@@ -821,6 +802,10 @@ const Commercial = () => {
 
           <TabsContent value="pipeline" className="mt-4">
             <PipelineKanban onSelectContact={(c) => { setSelectedContact(c); setExpandedPhases(new Set()); }} />
+          </TabsContent>
+
+          <TabsContent value="reports" className="mt-4">
+            <FunnelReports />
           </TabsContent>
 
           <TabsContent value="manage" className="mt-4">
