@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,43 +9,32 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { motion } from "framer-motion";
 import {
-  Plus,
-  DollarSign,
-  Target,
-  Edit2,
-  Trash2,
-  ArrowUpRight,
-  ArrowDownRight,
+  Plus, DollarSign, Target, Edit2, Trash2, ArrowUpRight, ArrowDownRight,
+  TrendingUp, BarChart3, PieChart as PieIcon, Calendar, Wallet,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, subMonths, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from "recharts";
+import { cn } from "@/lib/utils";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, Legend,
+} from "recharts";
 
 interface OKR {
-  id: string;
-  title: string;
-  description: string | null;
-  target_value: number;
-  current_value: number;
-  unit: string;
-  period: string;
-  start_date: string | null;
-  end_date: string | null;
+  id: string; title: string; description: string | null; target_value: number;
+  current_value: number; unit: string; period: string; start_date: string | null; end_date: string | null;
+}
+interface Transaction {
+  id: string; description: string; amount: number; type: "income" | "expense";
+  category: string | null; date: string; created_at: string;
 }
 
-interface Transaction {
-  id: string;
-  description: string;
-  amount: number;
-  type: "income" | "expense";
-  category: string | null;
-  date: string;
-  created_at: string;
-}
+const PIE_COLORS = ["hsl(var(--primary))", "hsl(142.1, 76.2%, 36.3%)", "hsl(0, 84.2%, 60.2%)", "hsl(45, 93%, 47%)", "hsl(262, 83%, 58%)", "hsl(199, 89%, 48%)", "hsl(330, 80%, 55%)", "hsl(160, 60%, 45%)"];
 
 const Finance = () => {
   const { toast } = useToast();
@@ -55,680 +44,452 @@ const Finance = () => {
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [editingOkr, setEditingOkr] = useState<OKR | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterType, setFilterType] = useState("");
 
-  const [okrForm, setOkrForm] = useState({
-    title: "",
-    description: "",
-    target_value: 100,
-    current_value: 0,
-    unit: "%",
-    period: "quarterly",
-  });
+  const [okrForm, setOkrForm] = useState({ title: "", description: "", target_value: 100, current_value: 0, unit: "%", period: "quarterly" });
+  const [transactionForm, setTransactionForm] = useState({ description: "", amount: 0, type: "income" as "income" | "expense", category: "", date: format(new Date(), "yyyy-MM-dd") });
 
-  const [transactionForm, setTransactionForm] = useState({
-    description: "",
-    amount: 0,
-    type: "income" as "income" | "expense",
-    category: "",
-    date: format(new Date(), "yyyy-MM-dd"),
-  });
-
-  useEffect(() => {
-    fetchOkrs();
-    fetchTransactions();
-  }, []);
+  useEffect(() => { fetchOkrs(); fetchTransactions(); }, []);
 
   const fetchOkrs = async () => {
-    const { data } = await supabase
-      .from("okrs")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const { data } = await supabase.from("okrs").select("*").order("created_at", { ascending: false });
     if (data) setOkrs(data);
   };
-
   const fetchTransactions = async () => {
-    const { data } = await supabase
-      .from("financial_transactions")
-      .select("*")
-      .order("date", { ascending: false });
+    const { data } = await supabase.from("financial_transactions").select("*").order("date", { ascending: false });
     if (data) setTransactions(data as Transaction[]);
   };
 
   const handleSaveOkr = async () => {
-    if (editingOkr) {
-      await supabase
-        .from("okrs")
-        .update(okrForm)
-        .eq("id", editingOkr.id);
-    } else {
-      await supabase.from("okrs").insert(okrForm);
-    }
-
-    setShowOkrModal(false);
-    setEditingOkr(null);
-    setOkrForm({
-      title: "",
-      description: "",
-      target_value: 100,
-      current_value: 0,
-      unit: "%",
-      period: "quarterly",
-    });
-    fetchOkrs();
-    toast({ title: editingOkr ? "OKR atualizado!" : "OKR criado!" });
+    if (editingOkr) { await supabase.from("okrs").update(okrForm).eq("id", editingOkr.id); }
+    else { await supabase.from("okrs").insert(okrForm); }
+    setShowOkrModal(false); setEditingOkr(null);
+    setOkrForm({ title: "", description: "", target_value: 100, current_value: 0, unit: "%", period: "quarterly" });
+    fetchOkrs(); toast({ title: editingOkr ? "OKR atualizado!" : "OKR criado!" });
   };
-
-  const handleDeleteOkr = async (id: string) => {
-    await supabase.from("okrs").delete().eq("id", id);
-    fetchOkrs();
-    toast({ title: "OKR removido!" });
-  };
+  const handleDeleteOkr = async (id: string) => { await supabase.from("okrs").delete().eq("id", id); fetchOkrs(); toast({ title: "OKR removido!" }); };
 
   const handleSaveTransaction = async () => {
-    if (editingTransaction) {
-      await supabase
-        .from("financial_transactions")
-        .update(transactionForm)
-        .eq("id", editingTransaction.id);
-    } else {
-      await supabase.from("financial_transactions").insert(transactionForm);
-    }
-
-    setShowTransactionModal(false);
-    setEditingTransaction(null);
-    setTransactionForm({
-      description: "",
-      amount: 0,
-      type: "income",
-      category: "",
-      date: format(new Date(), "yyyy-MM-dd"),
-    });
-    fetchTransactions();
-    toast({ title: editingTransaction ? "Transação atualizada!" : "Transação criada!" });
+    if (editingTransaction) { await supabase.from("financial_transactions").update(transactionForm).eq("id", editingTransaction.id); }
+    else { await supabase.from("financial_transactions").insert(transactionForm); }
+    setShowTransactionModal(false); setEditingTransaction(null);
+    setTransactionForm({ description: "", amount: 0, type: "income", category: "", date: format(new Date(), "yyyy-MM-dd") });
+    fetchTransactions(); toast({ title: editingTransaction ? "Transação atualizada!" : "Transação criada!" });
   };
+  const handleDeleteTransaction = async (id: string) => { await supabase.from("financial_transactions").delete().eq("id", id); fetchTransactions(); toast({ title: "Transação removida!" }); };
 
-  const handleDeleteTransaction = async (id: string) => {
-    await supabase.from("financial_transactions").delete().eq("id", id);
-    fetchTransactions();
-    toast({ title: "Transação removida!" });
-  };
-
-  // Calculate totals
-  const totalIncome = transactions
-    .filter((t) => t.type === "income")
-    .reduce((acc, t) => acc + Number(t.amount), 0);
-  const totalExpense = transactions
-    .filter((t) => t.type === "expense")
-    .reduce((acc, t) => acc + Number(t.amount), 0);
+  const totalIncome = transactions.filter(t => t.type === "income").reduce((a, t) => a + Number(t.amount), 0);
+  const totalExpense = transactions.filter(t => t.type === "expense").reduce((a, t) => a + Number(t.amount), 0);
   const balance = totalIncome - totalExpense;
 
-  // Prepare chart data
-  const chartData = transactions
-    .slice()
-    .reverse()
-    .reduce((acc: { date: string; balance: number }[], t, index) => {
-      const prevBalance = index > 0 ? acc[index - 1].balance : 0;
-      const newBalance = prevBalance + (t.type === "income" ? Number(t.amount) : -Number(t.amount));
-      acc.push({
-        date: format(new Date(t.date), "dd/MM"),
-        balance: newBalance,
-      });
-      return acc;
-    }, []);
+  const allCategories = useMemo(() => {
+    const cats = new Set<string>();
+    transactions.forEach(t => { if (t.category) cats.add(t.category); });
+    return Array.from(cats).sort();
+  }, [transactions]);
 
-  // Monthly burn rate
-  const monthlyData = transactions.reduce((acc: Record<string, { income: number; expense: number }>, t) => {
-    const month = format(new Date(t.date), "MMM/yy", { locale: ptBR });
-    if (!acc[month]) acc[month] = { income: 0, expense: 0 };
-    if (t.type === "income") {
-      acc[month].income += Number(t.amount);
-    } else {
-      acc[month].expense += Number(t.amount);
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(t => {
+      if (filterCategory && t.category !== filterCategory) return false;
+      if (filterType && t.type !== filterType) return false;
+      return true;
+    });
+  }, [transactions, filterCategory, filterType]);
+
+  // Monthly data for last 12 months
+  const monthlyData = useMemo(() => {
+    const months: { month: string; income: number; expense: number; balance: number }[] = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = subMonths(new Date(), i);
+      const key = format(d, "yyyy-MM");
+      const label = format(d, "MMM/yy", { locale: ptBR });
+      const monthTx = transactions.filter(t => t.date.startsWith(key));
+      const inc = monthTx.filter(t => t.type === "income").reduce((a, t) => a + Number(t.amount), 0);
+      const exp = monthTx.filter(t => t.type === "expense").reduce((a, t) => a + Number(t.amount), 0);
+      months.push({ month: label, income: inc, expense: exp, balance: inc - exp });
     }
-    return acc;
-  }, {});
+    return months;
+  }, [transactions]);
 
-  const burnRateData = Object.entries(monthlyData).map(([month, data]) => ({
-    month,
-    ...data,
-    burnRate: data.expense - data.income,
-  }));
-
-  // Expense by category for pie chart
-  const categoryData = transactions
-    .filter((t) => t.type === "expense")
-    .reduce((acc: Record<string, number>, t) => {
+  // Revenue by category
+  const incomeByCat = useMemo(() => {
+    const map: Record<string, number> = {};
+    transactions.filter(t => t.type === "income").forEach(t => {
       const cat = t.category || "Sem categoria";
-      acc[cat] = (acc[cat] || 0) + Number(t.amount);
-      return acc;
-    }, {});
+      map[cat] = (map[cat] || 0) + Number(t.amount);
+    });
+    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }, [transactions]);
 
-  const expensePieData = Object.entries(categoryData).map(([name, value]) => ({ name, value }));
-  const PIE_COLORS = ["hsl(var(--primary))", "hsl(142.1, 76.2%, 36.3%)", "hsl(0, 84.2%, 60.2%)", "hsl(45, 93%, 47%)", "hsl(262, 83%, 58%)", "hsl(199, 89%, 48%)"];
+  const expenseByCat = useMemo(() => {
+    const map: Record<string, number> = {};
+    transactions.filter(t => t.type === "expense").forEach(t => {
+      const cat = t.category || "Sem categoria";
+      map[cat] = (map[cat] || 0) + Number(t.amount);
+    });
+    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+  }, [transactions]);
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1 },
-    },
-  };
+  // Projections (simple: average last 3 months projected forward 3 months)
+  const projectionData = useMemo(() => {
+    const last3 = monthlyData.slice(-3);
+    const avgInc = last3.length > 0 ? last3.reduce((a, m) => a + m.income, 0) / last3.length : 0;
+    const avgExp = last3.length > 0 ? last3.reduce((a, m) => a + m.expense, 0) / last3.length : 0;
+    const projected: { month: string; income: number; expense: number; balance: number; projected: boolean }[] = [];
+    // Include last 3 real months
+    last3.forEach(m => projected.push({ ...m, projected: false }));
+    // Add 3 projected months
+    for (let i = 1; i <= 3; i++) {
+      const d = addMonths(new Date(), i);
+      projected.push({ month: format(d, "MMM/yy", { locale: ptBR }), income: Math.round(avgInc), expense: Math.round(avgExp), balance: Math.round(avgInc - avgExp), projected: true });
+    }
+    return projected;
+  }, [monthlyData]);
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0 },
-  };
+  // Capital evolution
+  const capitalEvolution = useMemo(() => {
+    let running = 0;
+    return monthlyData.map(m => {
+      running += m.balance;
+      return { month: m.month, capital: running };
+    });
+  }, [monthlyData]);
+
+  const fmtCurrency = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+  const tooltipStyle = { backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" };
 
   return (
     <EMSLayout>
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="space-y-6"
-      >
-        {/* Header */}
-        <motion.div variants={itemVariants}>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+        <div>
           <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">Finanças & Estratégia</h1>
-          <p className="text-muted-foreground mt-1">Gestão de OKRs e controle financeiro</p>
-        </motion.div>
+          <p className="text-muted-foreground mt-1">Dashboard financeiro detalhado com projeções</p>
+        </div>
 
-        <Tabs defaultValue="okrs" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="okrs" className="gap-2">
-              <Target className="h-4 w-4" />
-              OKRs & Metas
-            </TabsTrigger>
-            <TabsTrigger value="finance" className="gap-2">
-              <DollarSign className="h-4 w-4" />
-              Gestão de Capital
-            </TabsTrigger>
+        <Tabs defaultValue="dashboard" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="dashboard" className="gap-1.5"><BarChart3 className="h-4 w-4" /><span className="hidden sm:inline">Dashboard</span></TabsTrigger>
+            <TabsTrigger value="okrs" className="gap-1.5"><Target className="h-4 w-4" /><span className="hidden sm:inline">OKRs</span></TabsTrigger>
+            <TabsTrigger value="transactions" className="gap-1.5"><Wallet className="h-4 w-4" /><span className="hidden sm:inline">Transações</span></TabsTrigger>
+            <TabsTrigger value="projections" className="gap-1.5"><TrendingUp className="h-4 w-4" /><span className="hidden sm:inline">Projeções</span></TabsTrigger>
           </TabsList>
 
-          {/* OKRs Tab */}
-          <TabsContent value="okrs" className="space-y-6">
-            <motion.div variants={itemVariants} className="flex justify-end">
-              <Button onClick={() => setShowOkrModal(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Novo OKR
-              </Button>
-            </motion.div>
+          {/* ============ DASHBOARD ============ */}
+          <TabsContent value="dashboard" className="space-y-6">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: "Entradas", value: fmtCurrency(totalIncome), icon: ArrowUpRight, color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
+                { label: "Saídas", value: fmtCurrency(totalExpense), icon: ArrowDownRight, color: "text-destructive", bg: "bg-destructive/10", border: "border-destructive/20" },
+                { label: "Saldo", value: fmtCurrency(balance), icon: DollarSign, color: balance >= 0 ? "text-emerald-500" : "text-destructive", bg: balance >= 0 ? "bg-emerald-500/10" : "bg-destructive/10", border: balance >= 0 ? "border-emerald-500/20" : "border-destructive/20" },
+                { label: "Transações", value: transactions.length, icon: Calendar, color: "text-primary", bg: "bg-primary/10", border: "border-primary/20" },
+              ].map(s => (
+                <Card key={s.label} className={cn("border", s.border)}>
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <div className={cn("p-2 rounded-lg", s.bg)}><s.icon className={cn("h-5 w-5", s.color)} /></div>
+                    <div><p className={cn("text-lg sm:text-xl font-bold", typeof s.value === "string" && s.value.includes("-") ? "text-destructive" : "")}>{s.value}</p><p className="text-[10px] sm:text-xs text-muted-foreground">{s.label}</p></div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
 
-            <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {okrs.map((okr) => {
+            {/* Monthly Trend + Capital Evolution */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-base">Receita vs Despesa Mensal</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="h-[280px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={monthlyData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                        <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => fmtCurrency(v)} />
+                        <Legend />
+                        <Bar dataKey="income" fill="hsl(142.1, 76.2%, 36.3%)" name="Entradas" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="expense" fill="hsl(0, 84.2%, 60.2%)" name="Saídas" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-base">Evolução do Capital</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="h-[280px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={capitalEvolution}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                        <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => fmtCurrency(v)} />
+                        <Area type="monotone" dataKey="capital" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.15} strokeWidth={2} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Revenue & Expense by Category */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><ArrowUpRight className="h-4 w-4 text-emerald-500" />Receita por Categoria</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="h-[250px]">
+                    {incomeByCat.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={incomeByCat} cx="50%" cy="50%" innerRadius={45} outerRadius={80} paddingAngle={3} dataKey="value"
+                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                            {incomeByCat.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                          </Pie>
+                          <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => fmtCurrency(v)} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : <div className="h-full flex items-center justify-center text-muted-foreground text-sm">Nenhuma receita</div>}
+                  </div>
+                  {/* Category breakdown list */}
+                  {incomeByCat.length > 0 && (
+                    <div className="space-y-2 mt-2">
+                      {incomeByCat.map((c, i) => (
+                        <div key={c.name} className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
+                            <span className="text-muted-foreground">{c.name}</span>
+                          </div>
+                          <span className="font-medium text-emerald-500">{fmtCurrency(c.value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><ArrowDownRight className="h-4 w-4 text-destructive" />Despesas por Categoria</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="h-[250px]">
+                    {expenseByCat.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={expenseByCat} cx="50%" cy="50%" innerRadius={45} outerRadius={80} paddingAngle={3} dataKey="value"
+                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                            {expenseByCat.map((_, i) => <Cell key={i} fill={PIE_COLORS[(i + 2) % PIE_COLORS.length]} />)}
+                          </Pie>
+                          <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => fmtCurrency(v)} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : <div className="h-full flex items-center justify-center text-muted-foreground text-sm">Nenhuma despesa</div>}
+                  </div>
+                  {expenseByCat.length > 0 && (
+                    <div className="space-y-2 mt-2">
+                      {expenseByCat.map((c, i) => (
+                        <div key={c.name} className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: PIE_COLORS[(i + 2) % PIE_COLORS.length] }} />
+                            <span className="text-muted-foreground">{c.name}</span>
+                          </div>
+                          <span className="font-medium text-destructive">{fmtCurrency(c.value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* ============ OKRs ============ */}
+          <TabsContent value="okrs" className="space-y-6">
+            <div className="flex justify-end"><Button onClick={() => setShowOkrModal(true)}><Plus className="h-4 w-4 mr-2" />Novo OKR</Button></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {okrs.map(okr => {
                 const progress = (okr.current_value / okr.target_value) * 100;
                 return (
                   <Card key={okr.id} className="hover:border-primary/30 transition-colors">
                     <CardHeader className="pb-2">
                       <div className="flex items-start justify-between">
-                        <div>
-                          <CardTitle className="text-lg">{okr.title}</CardTitle>
-                          {okr.description && (
-                            <p className="text-sm text-muted-foreground mt-1">{okr.description}</p>
-                          )}
-                        </div>
+                        <div><CardTitle className="text-lg">{okr.title}</CardTitle>{okr.description && <p className="text-sm text-muted-foreground mt-1">{okr.description}</p>}</div>
                         <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => {
-                              setEditingOkr(okr);
-                              setOkrForm({
-                                title: okr.title,
-                                description: okr.description || "",
-                                target_value: okr.target_value,
-                                current_value: okr.current_value,
-                                unit: okr.unit,
-                                period: okr.period,
-                              });
-                              setShowOkrModal(true);
-                            }}
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => handleDeleteOkr(okr.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingOkr(okr); setOkrForm({ title: okr.title, description: okr.description || "", target_value: okr.target_value, current_value: okr.current_value, unit: okr.unit, period: okr.period }); setShowOkrModal(true); }}><Edit2 className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteOkr(okr.id)}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </div>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">Progresso</span>
-                          <span className="font-medium">
-                            {okr.current_value} / {okr.target_value} {okr.unit}
-                          </span>
-                        </div>
+                        <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">Progresso</span><span className="font-medium">{okr.current_value} / {okr.target_value} {okr.unit}</span></div>
                         <Progress value={Math.min(progress, 100)} className="h-3" />
                         <div className="flex items-center justify-between">
                           <Badge variant="outline">{okr.period === "quarterly" ? "Trimestral" : "Anual"}</Badge>
-                          <span
-                            className={`text-sm font-medium ${
-                              progress >= 100
-                                ? "text-emerald-500"
-                                : progress >= 70
-                                ? "text-amber-500"
-                                : "text-muted-foreground"
-                            }`}
-                          >
-                            {Math.round(progress)}%
-                          </span>
+                          <span className={cn("text-sm font-medium", progress >= 100 ? "text-emerald-500" : progress >= 70 ? "text-amber-500" : "text-muted-foreground")}>{Math.round(progress)}%</span>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
                 );
               })}
-              {okrs.length === 0 && (
-                <Card className="col-span-full border-dashed">
-                  <CardContent className="py-8 text-center text-muted-foreground">
-                    Nenhum OKR definido. Clique em "Novo OKR" para começar.
-                  </CardContent>
-                </Card>
-              )}
-            </motion.div>
+              {okrs.length === 0 && <Card className="col-span-full border-dashed"><CardContent className="py-8 text-center text-muted-foreground">Nenhum OKR definido.</CardContent></Card>}
+            </div>
           </TabsContent>
 
-          {/* Finance Tab */}
-          <TabsContent value="finance" className="space-y-6">
-            {/* Summary Cards */}
-            <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-xl bg-emerald-500/10">
-                      <ArrowUpRight className="h-6 w-6 text-emerald-500" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Entradas</p>
-                      <p className="text-2xl font-bold text-emerald-500">
-                        R$ {totalIncome.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+          {/* ============ TRANSACTIONS ============ */}
+          <TabsContent value="transactions" className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+              <div className="flex gap-2">
+                <Select value={filterType || "all"} onValueChange={v => setFilterType(v === "all" ? "" : v)}>
+                  <SelectTrigger className="w-[140px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                  <SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="income">Entradas</SelectItem><SelectItem value="expense">Saídas</SelectItem></SelectContent>
+                </Select>
+                <Select value={filterCategory || "all"} onValueChange={v => setFilterCategory(v === "all" ? "" : v)}>
+                  <SelectTrigger className="w-[160px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
+                  <SelectContent><SelectItem value="all">Todas</SelectItem>{allCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <Button size="sm" onClick={() => setShowTransactionModal(true)}><Plus className="h-4 w-4 mr-2" />Nova Transação</Button>
+            </div>
 
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 rounded-xl bg-destructive/10">
-                      <ArrowDownRight className="h-6 w-6 text-destructive" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Saídas</p>
-                      <p className="text-2xl font-bold text-destructive">
-                        R$ {totalExpense.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-4">
-                    <div className={`p-3 rounded-xl ${balance >= 0 ? "bg-emerald-500/10" : "bg-destructive/10"}`}>
-                      <DollarSign className={`h-6 w-6 ${balance >= 0 ? "text-emerald-500" : "text-destructive"}`} />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Saldo</p>
-                      <p className={`text-2xl font-bold ${balance >= 0 ? "text-emerald-500" : "text-destructive"}`}>
-                        R$ {balance.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            {/* Charts */}
-            {transactions.length > 0 && (
-              <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Evolução do Capital</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                          <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                          <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                          <Tooltip
-                            contentStyle={{
-                              backgroundColor: "hsl(var(--card))",
-                              border: "1px solid hsl(var(--border))",
-                              borderRadius: "8px",
-                            }}
-                          />
-                          <Line
-                            type="monotone"
-                            dataKey="balance"
-                            stroke="hsl(var(--primary))"
-                            strokeWidth={2}
-                            dot={false}
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Burn Rate Mensal</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={burnRateData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                          <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                          <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                          <Tooltip
-                            contentStyle={{
-                              backgroundColor: "hsl(var(--card))",
-                              border: "1px solid hsl(var(--border))",
-                              borderRadius: "8px",
-                            }}
-                          />
-                          <Bar dataKey="income" fill="hsl(142.1, 76.2%, 36.3%)" name="Entradas" />
-                          <Bar dataKey="expense" fill="hsl(0, 84.2%, 60.2%)" name="Saídas" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-
-            {/* Expense by Category Pie Chart */}
-            <motion.div variants={itemVariants}>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Despesas por Categoria</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-64">
-                    {expensePieData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie data={expensePieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
-                            {expensePieData.map((_, index) => (
-                              <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                            ))}
-                          </Pie>
-                          <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} formatter={(value: number) => `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="h-full flex items-center justify-center text-muted-foreground">Nenhuma despesa registrada</div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            {/* Transactions Table */}
-            <motion.div variants={itemVariants}>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-lg">Transações</CardTitle>
-                  <Button size="sm" onClick={() => setShowTransactionModal(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Nova Transação
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto -mx-4 sm:mx-0">
-                    <Table className="min-w-[600px]">
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Data</TableHead>
-                          <TableHead>Descrição</TableHead>
-                          <TableHead>Categoria</TableHead>
-                          <TableHead>Tipo</TableHead>
-                          <TableHead className="text-right">Valor</TableHead>
-                          <TableHead></TableHead>
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader><TableRow>
+                      <TableHead>Data</TableHead><TableHead>Descrição</TableHead><TableHead>Categoria</TableHead><TableHead>Tipo</TableHead><TableHead className="text-right">Valor</TableHead><TableHead></TableHead>
+                    </TableRow></TableHeader>
+                    <TableBody>
+                      {filteredTransactions.map(t => (
+                        <TableRow key={t.id}>
+                          <TableCell className="whitespace-nowrap">{format(new Date(t.date), "dd/MM/yyyy")}</TableCell>
+                          <TableCell>{t.description}</TableCell>
+                          <TableCell>{t.category && <Badge variant="outline">{t.category}</Badge>}</TableCell>
+                          <TableCell><Badge variant="secondary" className={t.type === "income" ? "bg-emerald-500/10 text-emerald-500" : "bg-destructive/10 text-destructive"}>{t.type === "income" ? "Entrada" : "Saída"}</Badge></TableCell>
+                          <TableCell className={cn("text-right font-medium", t.type === "income" ? "text-emerald-500" : "text-destructive")}>{t.type === "income" ? "+" : "-"} {fmtCurrency(Number(t.amount))}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1 justify-end">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingTransaction(t); setTransactionForm({ description: t.description, amount: t.amount, type: t.type, category: t.category || "", date: t.date }); setShowTransactionModal(true); }}><Edit2 className="h-4 w-4" /></Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteTransaction(t.id)}><Trash2 className="h-4 w-4" /></Button>
+                            </div>
+                          </TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {transactions.map((t) => (
-                          <TableRow key={t.id}>
-                            <TableCell className="whitespace-nowrap">
-                              {format(new Date(t.date), "dd/MM/yyyy")}
-                            </TableCell>
-                            <TableCell>{t.description}</TableCell>
-                            <TableCell>
-                              {t.category && <Badge variant="outline">{t.category}</Badge>}
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant="secondary"
-                                className={
-                                  t.type === "income"
-                                    ? "bg-emerald-500/10 text-emerald-500"
-                                    : "bg-destructive/10 text-destructive"
-                                }
-                              >
-                                {t.type === "income" ? "Entrada" : "Saída"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell
-                              className={`text-right font-medium ${
-                                t.type === "income" ? "text-emerald-500" : "text-destructive"
-                              }`}
-                            >
-                              {t.type === "income" ? "+" : "-"} R${" "}
-                              {Number(t.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex gap-1 justify-end">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => {
-                                    setEditingTransaction(t);
-                                    setTransactionForm({
-                                      description: t.description,
-                                      amount: t.amount,
-                                      type: t.type,
-                                      category: t.category || "",
-                                      date: t.date,
-                                    });
-                                    setShowTransactionModal(true);
-                                  }}
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-destructive"
-                                  onClick={() => handleDeleteTransaction(t.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                        {transactions.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                              Nenhuma transação registrada.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
+                      ))}
+                      {filteredTransactions.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhuma transação encontrada.</TableCell></TableRow>}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ============ PROJECTIONS ============ */}
+          <TabsContent value="projections" className="space-y-6">
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary" />Projeção Mensal (3 meses)</CardTitle></CardHeader>
+              <CardContent>
+                <p className="text-xs text-muted-foreground mb-4">Baseado na média dos últimos 3 meses. Meses projetados aparecem com borda tracejada.</p>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={projectionData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                      <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => fmtCurrency(v)} />
+                      <Legend />
+                      <Bar dataKey="income" fill="hsl(142.1, 76.2%, 36.3%)" name="Entradas" radius={[4, 4, 0, 0]} fillOpacity={0.8} />
+                      <Bar dataKey="expense" fill="hsl(0, 84.2%, 60.2%)" name="Saídas" radius={[4, 4, 0, 0]} fillOpacity={0.8} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Projection Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {projectionData.filter(p => p.projected).map(p => (
+                <Card key={p.month} className="border border-dashed border-primary/30">
+                  <CardContent className="p-4">
+                    <p className="text-sm font-medium text-primary mb-2">{p.month} (projeção)</p>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between"><span className="text-muted-foreground">Entradas</span><span className="text-emerald-500 font-medium">{fmtCurrency(p.income)}</span></div>
+                      <div className="flex justify-between"><span className="text-muted-foreground">Saídas</span><span className="text-destructive font-medium">{fmtCurrency(p.expense)}</span></div>
+                      <div className="flex justify-between border-t pt-1 mt-1"><span className="text-muted-foreground">Saldo</span><span className={cn("font-bold", p.balance >= 0 ? "text-emerald-500" : "text-destructive")}>{fmtCurrency(p.balance)}</span></div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Cumulative projection */}
+            <Card>
+              <CardHeader className="pb-2"><CardTitle className="text-base">Projeção de Capital Acumulado</CardTitle></CardHeader>
+              <CardContent>
+                <div className="h-[250px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={(() => {
+                      let running = capitalEvolution.length > 0 ? capitalEvolution[capitalEvolution.length - 1].capital : 0;
+                      return projectionData.map(p => {
+                        if (!p.projected) { return { month: p.month, capital: null, projected: null }; }
+                        running += p.balance;
+                        return { month: p.month, capital: null, projected: running };
+                      }).filter(p => p.projected !== null || p.capital !== null);
+                    })()}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                      <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => fmtCurrency(v)} />
+                      <Area type="monotone" dataKey="projected" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.1} strokeWidth={2} strokeDasharray="5 5" name="Projetado" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
 
         {/* OKR Modal */}
-        <Dialog
-          open={showOkrModal}
-          onOpenChange={(open) => {
-            if (!open) {
-              setShowOkrModal(false);
-              setEditingOkr(null);
-            }
-          }}
-        >
+        <Dialog open={showOkrModal} onOpenChange={open => { if (!open) { setShowOkrModal(false); setEditingOkr(null); } }}>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingOkr ? "Editar OKR" : "Novo OKR"}</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>{editingOkr ? "Editar OKR" : "Novo OKR"}</DialogTitle></DialogHeader>
             <div className="space-y-4 py-4">
-              <div>
-                <Label>Título</Label>
-                <Input
-                  value={okrForm.title}
-                  onChange={(e) => setOkrForm({ ...okrForm, title: e.target.value })}
-                  placeholder="Ex: Aumentar receita mensal"
-                />
+              <div><Label>Título</Label><Input value={okrForm.title} onChange={e => setOkrForm({ ...okrForm, title: e.target.value })} placeholder="Ex: Aumentar receita mensal" /></div>
+              <div><Label>Descrição</Label><Input value={okrForm.description} onChange={e => setOkrForm({ ...okrForm, description: e.target.value })} /></div>
+              <div className="grid grid-cols-3 gap-4">
+                <div><Label>Meta</Label><Input type="number" value={okrForm.target_value} onChange={e => setOkrForm({ ...okrForm, target_value: Number(e.target.value) })} /></div>
+                <div><Label>Atual</Label><Input type="number" value={okrForm.current_value} onChange={e => setOkrForm({ ...okrForm, current_value: Number(e.target.value) })} /></div>
+                <div><Label>Unidade</Label><Input value={okrForm.unit} onChange={e => setOkrForm({ ...okrForm, unit: e.target.value })} placeholder="%" /></div>
               </div>
-              <div>
-                <Label>Descrição</Label>
-                <Input
-                  value={okrForm.description}
-                  onChange={(e) => setOkrForm({ ...okrForm, description: e.target.value })}
-                  placeholder="Descrição opcional"
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <Label>Meta</Label>
-                  <Input
-                    type="number"
-                    value={okrForm.target_value}
-                    onChange={(e) => setOkrForm({ ...okrForm, target_value: Number(e.target.value) })}
-                  />
-                </div>
-                <div>
-                  <Label>Atual</Label>
-                  <Input
-                    type="number"
-                    value={okrForm.current_value}
-                    onChange={(e) => setOkrForm({ ...okrForm, current_value: Number(e.target.value) })}
-                  />
-                </div>
-                <div>
-                  <Label>Unidade</Label>
-                  <Input
-                    value={okrForm.unit}
-                    onChange={(e) => setOkrForm({ ...okrForm, unit: e.target.value })}
-                    placeholder="%"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label>Período</Label>
-                <select
-                  value={okrForm.period}
-                  onChange={(e) => setOkrForm({ ...okrForm, period: e.target.value })}
-                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="quarterly">Trimestral</option>
-                  <option value="yearly">Anual</option>
+              <div><Label>Período</Label>
+                <select value={okrForm.period} onChange={e => setOkrForm({ ...okrForm, period: e.target.value })} className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
+                  <option value="quarterly">Trimestral</option><option value="yearly">Anual</option>
                 </select>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowOkrModal(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleSaveOkr}>{editingOkr ? "Salvar" : "Criar"}</Button>
-            </DialogFooter>
+            <DialogFooter><Button variant="outline" onClick={() => setShowOkrModal(false)}>Cancelar</Button><Button onClick={handleSaveOkr}>{editingOkr ? "Salvar" : "Criar"}</Button></DialogFooter>
           </DialogContent>
         </Dialog>
 
         {/* Transaction Modal */}
-        <Dialog
-          open={showTransactionModal}
-          onOpenChange={(open) => {
-            if (!open) {
-              setShowTransactionModal(false);
-              setEditingTransaction(null);
-            }
-          }}
-        >
+        <Dialog open={showTransactionModal} onOpenChange={open => { if (!open) { setShowTransactionModal(false); setEditingTransaction(null); } }}>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingTransaction ? "Editar Transação" : "Nova Transação"}</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>{editingTransaction ? "Editar Transação" : "Nova Transação"}</DialogTitle></DialogHeader>
             <div className="space-y-4 py-4">
-              <div>
-                <Label>Descrição</Label>
-                <Input
-                  value={transactionForm.description}
-                  onChange={(e) => setTransactionForm({ ...transactionForm, description: e.target.value })}
-                  placeholder="Descrição da transação"
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label>Valor (R$)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={transactionForm.amount}
-                    onChange={(e) => setTransactionForm({ ...transactionForm, amount: Number(e.target.value) })}
-                  />
-                </div>
-                <div>
-                  <Label>Tipo</Label>
-                  <select
-                    value={transactionForm.type}
-                    onChange={(e) =>
-                      setTransactionForm({ ...transactionForm, type: e.target.value as "income" | "expense" })
-                    }
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="income">Entrada</option>
-                    <option value="expense">Saída</option>
+              <div><Label>Descrição</Label><Input value={transactionForm.description} onChange={e => setTransactionForm({ ...transactionForm, description: e.target.value })} placeholder="Descrição da transação" /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label>Valor (R$)</Label><Input type="number" step="0.01" value={transactionForm.amount} onChange={e => setTransactionForm({ ...transactionForm, amount: Number(e.target.value) })} /></div>
+                <div><Label>Tipo</Label>
+                  <select value={transactionForm.type} onChange={e => setTransactionForm({ ...transactionForm, type: e.target.value as "income" | "expense" })} className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm">
+                    <option value="income">Entrada</option><option value="expense">Saída</option>
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <Label>Categoria</Label>
-                  <Input
-                    value={transactionForm.category}
-                    onChange={(e) => setTransactionForm({ ...transactionForm, category: e.target.value })}
-                    placeholder="Ex: Marketing"
-                  />
-                </div>
-                <div>
-                  <Label>Data</Label>
-                  <Input
-                    type="date"
-                    value={transactionForm.date}
-                    onChange={(e) => setTransactionForm({ ...transactionForm, date: e.target.value })}
-                  />
-                </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label>Categoria</Label><Input value={transactionForm.category} onChange={e => setTransactionForm({ ...transactionForm, category: e.target.value })} placeholder="Ex: Marketing" /></div>
+                <div><Label>Data</Label><Input type="date" value={transactionForm.date} onChange={e => setTransactionForm({ ...transactionForm, date: e.target.value })} /></div>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowTransactionModal(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleSaveTransaction}>{editingTransaction ? "Salvar" : "Criar"}</Button>
-            </DialogFooter>
+            <DialogFooter><Button variant="outline" onClick={() => setShowTransactionModal(false)}>Cancelar</Button><Button onClick={handleSaveTransaction}>{editingTransaction ? "Salvar" : "Criar"}</Button></DialogFooter>
           </DialogContent>
         </Dialog>
       </motion.div>
