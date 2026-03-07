@@ -80,9 +80,13 @@ export const useCommercialData = () => {
     queryClient.invalidateQueries({ queryKey: ["commercial-tracking-all"] });
   };
 
+  const getContactMeta = (contactId: string): ContactMeta | undefined => {
+    return allMeta.find(m => m.contact_id === contactId);
+  };
+
   return {
-    phases, items, contacts, allTracking, leafItems,
+    phases, items, contacts, allTracking, leafItems, allMeta,
     getContactProgress, getPhaseItems, getChildItems, isLeafItem,
-    invalidateAll, queryClient,
+    getContactMeta, invalidateAll, queryClient,
   };
 };
