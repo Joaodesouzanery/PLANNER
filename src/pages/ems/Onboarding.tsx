@@ -117,18 +117,24 @@ const Onboarding = () => {
     },
   });
 
+  // Default fallback steps when DB table is empty
+  const DEFAULT_ONBOARDING_STEPS: OnboardingStep[] = [
+    { id: "__default-1__", title: "Enviar Contrato", description: "Preparar e enviar contrato para assinatura", icon: "file-text", order_index: 0 },
+    { id: "__default-2__", title: "Enviar Fatura", description: "Gerar e enviar primeira fatura/cobrança", icon: "credit-card", order_index: 1 },
+    { id: "__default-3__", title: "Boas-Vindas", description: "Enviar e-mail/kit de boas-vindas ao cliente", icon: "mail", order_index: 2 },
+    { id: "__default-4__", title: "Call Estratégica", description: "Agendar e realizar call de alinhamento estratégico", icon: "phone", order_index: 3 },
+    { id: "__default-5__", title: "Remover Remorso", description: "Follow-up para garantir satisfação e reter o cliente", icon: "rocket", order_index: 4 },
+  ];
+
+  const effectiveSteps = steps.length > 0 ? steps : DEFAULT_ONBOARDING_STEPS;
+  const usingDefaults = steps.length === 0;
+
   // Auto-seed default onboarding steps if table is empty
   const seededRef = useRef(false);
   useEffect(() => {
     if (!stepsLoaded || steps.length > 0 || seededRef.current) return;
     seededRef.current = true;
-    const defaultSteps = [
-      { title: "Enviar Contrato", description: "Preparar e enviar contrato para assinatura", icon: "file-text", order_index: 0 },
-      { title: "Enviar Fatura", description: "Gerar e enviar primeira fatura/cobrança", icon: "credit-card", order_index: 1 },
-      { title: "Boas-Vindas", description: "Enviar e-mail/kit de boas-vindas ao cliente", icon: "mail", order_index: 2 },
-      { title: "Call Estratégica", description: "Agendar e realizar call de alinhamento estratégico", icon: "phone", order_index: 3 },
-      { title: "Remover Remorso", description: "Follow-up para garantir satisfação e reter o cliente", icon: "rocket", order_index: 4 },
-    ];
+    const defaultSteps = DEFAULT_ONBOARDING_STEPS.map(({ id, ...rest }) => rest);
     (async () => {
       const { error } = await supabase.from("onboarding_steps").insert(defaultSteps);
       if (!error) {
@@ -205,7 +211,7 @@ const Onboarding = () => {
 
   const getContactProgress = (contactId: string) => {
     const contactSteps = allStepTracking.filter(t => t.contact_id === contactId);
-    const total = steps.length;
+    const total = effectiveSteps.length;
     if (total === 0) return 0;
     const completed = contactSteps.filter(t => t.status === "completed").length;
     return Math.round((completed / total) * 100);
@@ -316,7 +322,7 @@ const Onboarding = () => {
     });
   };
 
-  const expandAll = () => setExpandedSteps(new Set(steps.map(s => s.id)));
+  const expandAll = () => setExpandedSteps(new Set(effectiveSteps.map(s => s.id)));
   const collapseAll = () => setExpandedSteps(new Set());
 
   const filteredContacts = contacts.filter(c =>
@@ -332,18 +338,18 @@ const Onboarding = () => {
   const getContactCurrentStepId = (contactId: string): string => {
     const contactSteps = allStepTracking.filter(t => t.contact_id === contactId);
     // Find the first step that is NOT completed (current step)
-    for (const step of steps) {
+    for (const step of effectiveSteps) {
       const st = contactSteps.find(t => t.step_id === step.id);
       if (!st || st.status !== "completed") return step.id;
     }
     // All completed → put in last step
-    return steps.length > 0 ? steps[steps.length - 1].id : "";
+    return effectiveSteps.length > 0 ? effectiveSteps[effectiveSteps.length - 1].id : "";
   };
 
   const contactsByStep = useMemo(() => {
     const map: Record<string, Contact[]> = {};
     // Add a "done" column
-    steps.forEach(s => { map[s.id] = []; });
+    effectiveSteps.forEach(s => { map[s.id] = []; });
     map["__done__"] = [];
     contacts.forEach(c => {
       const progress = getContactProgress(c.id);
@@ -353,22 +359,28 @@ const Onboarding = () => {
         const stepId = getContactCurrentStepId(c.id);
         if (stepId && map[stepId]) {
           map[stepId].push(c);
-        } else if (steps.length > 0) {
-          map[steps[0].id].push(c);
+        } else if (effectiveSteps.length > 0) {
+          map[effectiveSteps[0].id].push(c);
         }
       }
     });
     return map;
-  }, [contacts, steps, allStepTracking]);
+  }, [contacts, effectiveSteps, allStepTracking]);
 
   // Drag-and-drop: move contact to a step by marking all previous steps as completed
   const moveContactToStepMutation = useMutation({
     mutationFn: async ({ contactId, targetStepId }: { contactId: string; targetStepId: string }) => {
       const now = new Date().toISOString();
 
+      // Skip DB operations when using fallback default steps (no real step IDs in DB)
+      if (usingDefaults) {
+        toast({ title: "Etapas padrão", description: "Configure as etapas de onboarding no banco de dados para habilitar o acompanhamento." });
+        return;
+      }
+
       if (targetStepId === "__done__") {
         // Mark all steps as completed
-        for (const step of steps) {
+        for (const step of effectiveSteps) {
           const existing = allStepTracking.find(t => t.contact_id === contactId && t.step_id === step.id);
           if (existing) {
             if (existing.status !== "completed") {
@@ -386,9 +398,9 @@ const Onboarding = () => {
         return;
       }
 
-      const targetIdx = steps.findIndex(s => s.id === targetStepId);
-      for (let i = 0; i < steps.length; i++) {
-        const step = steps[i];
+      const targetIdx = effectiveSteps.findIndex(s => s.id === targetStepId);
+      for (let i = 0; i < effectiveSteps.length; i++) {
+        const step = effectiveSteps[i];
         const existing = allStepTracking.find(t => t.contact_id === contactId && t.step_id === step.id);
         const newStatus = i < targetIdx ? "completed" : i === targetIdx ? "in_progress" : "pending";
         const completedAt = newStatus === "completed" ? now : null;
@@ -422,9 +434,9 @@ const Onboarding = () => {
 
   // ============= CONTACT DETAIL VIEW =============
   if (selectedContact) {
-    const completedSteps = steps.filter(s => getStepStatus(s.id) === "completed").length;
-    const inProgressSteps = steps.filter(s => getStepStatus(s.id) === "in_progress").length;
-    const overallProgress = steps.length > 0 ? Math.round((completedSteps / steps.length) * 100) : 0;
+    const completedSteps = effectiveSteps.filter(s => getStepStatus(s.id) === "completed").length;
+    const inProgressSteps = effectiveSteps.filter(s => getStepStatus(s.id) === "in_progress").length;
+    const overallProgress = effectiveSteps.length > 0 ? Math.round((completedSteps / effectiveSteps.length) * 100) : 0;
 
     return (
       <EMSLayout>
@@ -454,7 +466,7 @@ const Onboarding = () => {
               { label: "Progresso", value: `${overallProgress}%`, icon: Target, color: "text-primary", bg: "bg-primary/10", border: "border-primary/20" },
               { label: "Concluídos", value: completedSteps, icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
               { label: "Em Andamento", value: inProgressSteps, icon: Clock, color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/20" },
-              { label: "Total Etapas", value: steps.length, icon: ClipboardList, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
+              { label: "Total Etapas", value: effectiveSteps.length, icon: ClipboardList, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
             ].map(s => (
               <Card key={s.label} className={cn("border", s.border)}>
                 <CardContent className="p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3">
@@ -478,7 +490,7 @@ const Onboarding = () => {
 
           {/* Steps Pipeline */}
           <div className="space-y-3">
-            {steps.map((step, idx) => {
+            {effectiveSteps.map((step, idx) => {
               const isExpanded = expandedSteps.has(step.id);
               const stepDocs = documents.filter(d => d.step_id === step.id).sort((a, b) => a.order_index - b.order_index);
               const stepProgress = getStepProgress(step.id);
@@ -688,7 +700,7 @@ const Onboarding = () => {
                     const completed = contactSteps.filter(t => t.status === "completed").length;
                     const inProg = contactSteps.filter(t => t.status === "in_progress").length;
 
-                    const currentStep = steps.find(s => {
+                    const currentStep = effectiveSteps.find(s => {
                       const st = contactSteps.find(t => t.step_id === s.id);
                       return !st || st.status !== "completed";
                     });
@@ -723,7 +735,7 @@ const Onboarding = () => {
 
                               <div className="flex items-center gap-3 sm:gap-4 shrink-0">
                                 <div className="flex items-center gap-1">
-                                  {steps.map((s) => {
+                                  {effectiveSteps.map((s) => {
                                     const st = contactSteps.find(t => t.step_id === s.id);
                                     const status = st?.status || "pending";
                                     return (
@@ -774,7 +786,7 @@ const Onboarding = () => {
               <DragDropContext onDragEnd={onDragEnd}>
                 <div className="flex gap-3 overflow-x-auto pb-4 min-h-[400px]">
                   {/* Step columns */}
-                  {steps.map((step, idx) => {
+                  {effectiveSteps.map((step, idx) => {
                     const StepIcon = stepIcons[step.icon] || FileText;
                     const colors = stepColors[idx % stepColors.length];
                     const columnContacts = contactsByStep[step.id] || [];
