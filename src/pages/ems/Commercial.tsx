@@ -183,10 +183,10 @@ const Commercial = () => {
         updated_at: new Date().toISOString(),
       };
       if (existing) {
-        const { error } = await supabase.from("commercial_contact_meta").update(data).eq("id", existing.id);
+        const { error } = await (supabase as any).from("commercial_contact_meta").update(data).eq("id", existing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("commercial_contact_meta").insert({ contact_id: payload.contactId, ...data });
+        const { error } = await (supabase as any).from("commercial_contact_meta").insert({ contact_id: payload.contactId, ...data });
         if (error) throw error;
       }
     },
