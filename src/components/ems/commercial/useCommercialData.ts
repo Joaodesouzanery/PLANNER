@@ -27,9 +27,18 @@ export const useCommercialData = () => {
   const { data: contacts = [] } = useQuery({
     queryKey: ["contacts"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("contacts").select("id, name, email, phone, company, pipeline_stage").order("name");
+      const { data, error } = await supabase.from("contacts").select("id, name, email, phone, company, pipeline_stage, created_at").order("name");
       if (error) throw error;
       return data as Contact[];
+    },
+  });
+
+  const { data: allMeta = [] } = useQuery({
+    queryKey: ["commercial-contact-meta"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("commercial_contact_meta").select("*");
+      if (error) throw error;
+      return data as ContactMeta[];
     },
   });
 
