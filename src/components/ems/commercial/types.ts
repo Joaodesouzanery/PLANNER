@@ -31,6 +31,18 @@ export interface Contact {
   phone: string | null;
   company: string | null;
   pipeline_stage: string | null;
+  created_at?: string;
+}
+
+export interface ContactMeta {
+  id: string;
+  contact_id: string;
+  tags: string[];
+  priority: string;
+  temperature: string;
+  next_action_date: string | null;
+  next_action_description: string | null;
+  last_contact_date: string | null;
 }
 
 export const statusConfig = {

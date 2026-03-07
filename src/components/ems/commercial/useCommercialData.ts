@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { Phase, Item, Tracking, Contact } from "./types";
+import type { Phase, Item, Tracking, Contact, ContactMeta } from "./types";
 
 export const useCommercialData = () => {
   const queryClient = useQueryClient();
