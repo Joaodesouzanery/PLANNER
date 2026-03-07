@@ -99,19 +99,7 @@ const Commercial = () => {
     enabled: !!selectedContact,
   });
 
-  // Fetch ALL contact meta
-  const { data: allMeta = [] } = useQuery({
-    queryKey: ["commercial-contact-meta"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("commercial_contact_meta").select("*");
-      if (error) throw error;
-      return data as ContactMeta[];
-    },
-  });
 
-  const getContactMeta = (contactId: string): ContactMeta | undefined => {
-    return allMeta.find(m => m.contact_id === contactId);
-  };
 
   const getItemStatus = (itemId: string): string => {
     const t = tracking.find(t => t.item_id === itemId);
