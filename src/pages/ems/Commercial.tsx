@@ -23,9 +23,10 @@ import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useCommercialData } from "@/components/ems/commercial/useCommercialData";
 import { statusConfig, phaseColors, phaseIconColors } from "@/components/ems/commercial/types";
-import type { Phase, Item, Tracking, Contact } from "@/components/ems/commercial/types";
+import type { Phase, Item, Tracking, Contact, ContactMeta } from "@/components/ems/commercial/types";
 import PhaseItemManager from "@/components/ems/commercial/PhaseItemManager";
 import PipelineKanban from "@/components/ems/commercial/PipelineKanban";
+import FunnelReports from "@/components/ems/commercial/FunnelReports";
 
 interface ContactMeta {
   id: string;
