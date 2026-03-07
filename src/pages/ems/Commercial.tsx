@@ -70,9 +70,9 @@ const priorityConfig: Record<string, { label: string; color: string; border: str
 
 const Commercial = () => {
   const {
-    phases, items, contacts, allTracking, leafItems,
+    phases, items, contacts, allTracking, leafItems, allMeta,
     getContactProgress, getPhaseItems, getChildItems, isLeafItem,
-    invalidateAll, queryClient,
+    getContactMeta, invalidateAll, queryClient,
   } = useCommercialData();
 
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
