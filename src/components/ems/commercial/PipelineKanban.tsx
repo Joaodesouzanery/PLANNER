@@ -12,41 +12,53 @@ import { useCommercialData } from "./useCommercialData";
 import { phaseColors, phaseIconColors } from "./types";
 import type { Contact } from "./types";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import PipelineFilters, { type PipelineFilterState } from "./PipelineFilters";
 
 const PipelineKanban = ({ onSelectContact }: { onSelectContact: (c: Contact) => void }) => {
   const { phases, contacts, allTracking, leafItems, getContactProgress, invalidateAll, queryClient } = useCommercialData();
+  const [filters, setFilters] = useState<PipelineFilterState>({ search: "", company: "", progressMin: 0, progressMax: 100, createdAfter: "", createdBefore: "" });
 
-  // Determine which phase each contact is in based on pipeline_stage or progress
+  const companies = useMemo(() => {
+    const set = new Set<string>();
+    contacts.forEach(c => { if (c.company) set.add(c.company); });
+    return Array.from(set).sort();
+  }, [contacts]);
+
   const getContactPhaseId = (contact: Contact): string => {
-    // If pipeline_stage matches a phase id, use that
     if (contact.pipeline_stage && phases.some(p => p.id === contact.pipeline_stage)) {
       return contact.pipeline_stage;
     }
-    // Otherwise assign based on progress
     const progress = getContactProgress(contact.id);
     if (phases.length === 0) return "";
     const phaseIdx = Math.min(Math.floor((progress / 100) * phases.length), phases.length - 1);
     return phases[phaseIdx]?.id || "";
   };
 
+  const filteredContacts = useMemo(() => {
+    return contacts.filter(c => {
+      if (filters.search && !c.name.toLowerCase().includes(filters.search.toLowerCase()) && !c.company?.toLowerCase().includes(filters.search.toLowerCase())) return false;
+      if (filters.company && c.company !== filters.company) return false;
+      const progress = getContactProgress(c.id);
+      if (progress < filters.progressMin || progress > filters.progressMax) return false;
+      if (filters.createdAfter && c.created_at && c.created_at < filters.createdAfter) return false;
+      if (filters.createdBefore && c.created_at && c.created_at > filters.createdBefore + "T23:59:59") return false;
+      return true;
+    });
+  }, [contacts, filters, allTracking, leafItems]);
+
   const contactsByPhase = useMemo(() => {
     const map: Record<string, Contact[]> = {};
     phases.forEach(p => { map[p.id] = []; });
-    // Also add an "unassigned" bucket
-    const unassigned: Contact[] = [];
-    contacts.forEach(c => {
+    filteredContacts.forEach(c => {
       const phaseId = getContactPhaseId(c);
       if (phaseId && map[phaseId]) {
         map[phaseId].push(c);
-      } else {
-        // Put in first phase
-        if (phases.length > 0) {
-          map[phases[0].id].push(c);
-        }
+      } else if (phases.length > 0) {
+        map[phases[0].id].push(c);
       }
     });
     return map;
-  }, [contacts, phases, allTracking, leafItems]);
+  }, [filteredContacts, phases, allTracking, leafItems]);
 
   const moveContactMutation = useMutation({
     mutationFn: async ({ contactId, newPhaseId }: { contactId: string; newPhaseId: string }) => {
@@ -77,6 +89,8 @@ const PipelineKanban = ({ onSelectContact }: { onSelectContact: (c: Contact) => 
         <p className="text-sm text-muted-foreground">Arraste contatos entre as fases do funil</p>
       </div>
 
+      <PipelineFilters companies={companies} onFiltersChange={setFilters} />
+
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex gap-3 overflow-x-auto pb-4 min-h-[400px]">
           {phases.map((phase, idx) => (
@@ -90,7 +104,6 @@ const PipelineKanban = ({ onSelectContact }: { onSelectContact: (c: Contact) => 
                     snapshot.isDraggingOver && "border-primary/50 bg-primary/5"
                   )}
                 >
-                  {/* Column header */}
                   <div className={cn("p-3 rounded-t-xl bg-gradient-to-r border-b", phaseColors[idx % phaseColors.length])}>
                     <div className="flex items-center justify-between">
                       <Badge variant="outline" className={cn("text-[10px]", phaseIconColors[idx % phaseIconColors.length])}>
@@ -103,7 +116,6 @@ const PipelineKanban = ({ onSelectContact }: { onSelectContact: (c: Contact) => 
                     <h3 className="font-semibold text-sm mt-1 truncate">{phase.title}</h3>
                   </div>
 
-                  {/* Cards */}
                   <div className="p-2 space-y-2 min-h-[100px]">
                     {(contactsByPhase[phase.id] || []).map((contact, cIdx) => {
                       const progress = getContactProgress(contact.id);
