@@ -7,17 +7,19 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Users, ChevronDown, ChevronRight, CheckCircle2, Clock, Circle,
   ArrowLeft, FileText, CreditCard, Mail, Phone, Rocket, Building2,
   Save, Send, FileCheck, Eye, Upload, MessageSquare, Target,
-  ClipboardList, AlertTriangle, CalendarClock, X
+  ClipboardList, AlertTriangle, CalendarClock, X, Kanban, GripVertical
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 
 interface OnboardingStep {
   id: string;
@@ -103,6 +105,7 @@ const Onboarding = () => {
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const [noteDialog, setNoteDialog] = useState<{ open: boolean; docId: string; currentNote: string }>({ open: false, docId: "", currentNote: "" });
   const [noteText, setNoteText] = useState("");
+  const [activeTab, setActiveTab] = useState("contacts");
 
   // Fetch steps
   const { data: steps = [] } = useQuery({
@@ -304,6 +307,98 @@ const Onboarding = () => {
   const activeOnboarding = contacts.filter(c => { const p = getContactProgress(c.id); return p > 0 && p < 100; }).length;
   const completedOnboarding = contacts.filter(c => getContactProgress(c.id) === 100).length;
   const avgProgress = contacts.length > 0 ? Math.round(contacts.reduce((sum, c) => sum + getContactProgress(c.id), 0) / contacts.length) : 0;
+
+  // Pipeline: determine which step each contact is currently on
+  const getContactCurrentStepId = (contactId: string): string => {
+    const contactSteps = allStepTracking.filter(t => t.contact_id === contactId);
+    // Find the first step that is NOT completed (current step)
+    for (const step of steps) {
+      const st = contactSteps.find(t => t.step_id === step.id);
+      if (!st || st.status !== "completed") return step.id;
+    }
+    // All completed → put in last step
+    return steps.length > 0 ? steps[steps.length - 1].id : "";
+  };
+
+  const contactsByStep = useMemo(() => {
+    const map: Record<string, Contact[]> = {};
+    // Add a "done" column
+    steps.forEach(s => { map[s.id] = []; });
+    map["__done__"] = [];
+    contacts.forEach(c => {
+      const progress = getContactProgress(c.id);
+      if (progress === 100) {
+        map["__done__"].push(c);
+      } else {
+        const stepId = getContactCurrentStepId(c.id);
+        if (stepId && map[stepId]) {
+          map[stepId].push(c);
+        } else if (steps.length > 0) {
+          map[steps[0].id].push(c);
+        }
+      }
+    });
+    return map;
+  }, [contacts, steps, allStepTracking]);
+
+  // Drag-and-drop: move contact to a step by marking all previous steps as completed
+  const moveContactToStepMutation = useMutation({
+    mutationFn: async ({ contactId, targetStepId }: { contactId: string; targetStepId: string }) => {
+      const now = new Date().toISOString();
+
+      if (targetStepId === "__done__") {
+        // Mark all steps as completed
+        for (const step of steps) {
+          const existing = allStepTracking.find(t => t.contact_id === contactId && t.step_id === step.id);
+          if (existing) {
+            if (existing.status !== "completed") {
+              const { error } = await supabase.from("contact_onboarding_tracking")
+                .update({ status: "completed", completed_at: now, updated_at: now })
+                .eq("id", existing.id);
+              if (error) throw error;
+            }
+          } else {
+            const { error } = await supabase.from("contact_onboarding_tracking")
+              .insert({ contact_id: contactId, step_id: step.id, status: "completed", completed_at: now });
+            if (error) throw error;
+          }
+        }
+        return;
+      }
+
+      const targetIdx = steps.findIndex(s => s.id === targetStepId);
+      for (let i = 0; i < steps.length; i++) {
+        const step = steps[i];
+        const existing = allStepTracking.find(t => t.contact_id === contactId && t.step_id === step.id);
+        const newStatus = i < targetIdx ? "completed" : i === targetIdx ? "in_progress" : "pending";
+        const completedAt = newStatus === "completed" ? now : null;
+
+        if (existing) {
+          const { error } = await supabase.from("contact_onboarding_tracking")
+            .update({ status: newStatus, completed_at: completedAt, updated_at: now })
+            .eq("id", existing.id);
+          if (error) throw error;
+        } else if (newStatus !== "pending") {
+          const { error } = await supabase.from("contact_onboarding_tracking")
+            .insert({ contact_id: contactId, step_id: step.id, status: newStatus, completed_at: completedAt });
+          if (error) throw error;
+        }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["onboarding-step-tracking-all"] });
+      queryClient.invalidateQueries({ queryKey: ["onboarding-step-tracking", selectedContact?.id] });
+    },
+    onError: (e: any) => toast({ title: "Erro ao mover contato", description: e?.message, variant: "destructive" }),
+  });
+
+  const onDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+    const contactId = result.draggableId;
+    const targetStepId = result.destination.droppableId;
+    if (result.source.droppableId === targetStepId) return;
+    moveContactToStepMutation.mutate({ contactId, targetStepId });
+  };
 
   // ============= CONTACT DETAIL VIEW =============
   if (selectedContact) {
@@ -542,103 +637,272 @@ const Onboarding = () => {
           ))}
         </div>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Buscar clientes..." className="pl-10" />
-        </div>
+        {/* Tabs: Contacts + Pipeline */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="contacts" className="gap-1.5"><Users className="h-4 w-4" /><span className="hidden sm:inline">Contatos</span></TabsTrigger>
+            <TabsTrigger value="pipeline" className="gap-1.5"><Kanban className="h-4 w-4" /><span className="hidden sm:inline">Pipeline</span></TabsTrigger>
+          </TabsList>
 
-        {/* Contact List */}
-        <div className="space-y-3">
-          {filteredContacts.length === 0 ? (
-            <Card className="border-dashed border-primary/20">
-              <CardContent className="py-16 text-center">
-                <div className="inline-flex p-4 rounded-2xl bg-primary/10 mb-4"><Users className="h-10 w-10 text-primary/60" /></div>
-                <p className="text-muted-foreground text-lg font-medium">Nenhum cliente encontrado</p>
-                <p className="text-muted-foreground/60 text-sm mt-1">Crie contatos na página de Contatos para começar</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <AnimatePresence>
-              {filteredContacts.map(contact => {
-                const progress = getContactProgress(contact.id);
-                const contactSteps = allStepTracking.filter(t => t.contact_id === contact.id);
-                const completed = contactSteps.filter(t => t.status === "completed").length;
-                const inProg = contactSteps.filter(t => t.status === "in_progress").length;
+          {/* Contacts Tab */}
+          <TabsContent value="contacts" className="mt-4 space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Buscar clientes..." className="pl-10" />
+            </div>
 
-                // Find current step (first non-completed)
-                const currentStep = steps.find(s => {
-                  const st = contactSteps.find(t => t.step_id === s.id);
-                  return !st || st.status !== "completed";
-                });
+            <div className="space-y-3">
+              {filteredContacts.length === 0 ? (
+                <Card className="border-dashed border-primary/20">
+                  <CardContent className="py-16 text-center">
+                    <div className="inline-flex p-4 rounded-2xl bg-primary/10 mb-4"><Users className="h-10 w-10 text-primary/60" /></div>
+                    <p className="text-muted-foreground text-lg font-medium">Nenhum cliente encontrado</p>
+                    <p className="text-muted-foreground/60 text-sm mt-1">Crie contatos na página de Contatos para começar</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <AnimatePresence>
+                  {filteredContacts.map(contact => {
+                    const progress = getContactProgress(contact.id);
+                    const contactSteps = allStepTracking.filter(t => t.contact_id === contact.id);
+                    const completed = contactSteps.filter(t => t.status === "completed").length;
+                    const inProg = contactSteps.filter(t => t.status === "in_progress").length;
 
-                return (
-                  <motion.div key={contact.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                    <Card
-                      className="hover:border-primary/30 transition-all duration-300 hover:shadow-md hover:shadow-primary/5 cursor-pointer"
-                      onClick={() => { setSelectedContact(contact); setExpandedSteps(new Set()); }}
-                    >
-                      <CardContent className="p-4 sm:p-5">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <h3 className="font-semibold text-sm sm:text-base">{contact.name}</h3>
-                              {contact.company && (
-                                <Badge variant="outline" className="text-[10px] sm:text-xs truncate max-w-[140px]">
-                                  <Building2 className="h-3 w-3 mr-1" />{contact.company}
-                                </Badge>
-                              )}
-                              {currentStep && (
-                                <Badge variant="outline" className="text-[10px] sm:text-xs bg-primary/10 text-primary border-primary/30">
-                                  <ClipboardList className="h-2.5 w-2.5 mr-0.5" />{currentStep.title}
-                                </Badge>
-                              )}
+                    const currentStep = steps.find(s => {
+                      const st = contactSteps.find(t => t.step_id === s.id);
+                      return !st || st.status !== "completed";
+                    });
+
+                    return (
+                      <motion.div key={contact.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                        <Card
+                          className="hover:border-primary/30 transition-all duration-300 hover:shadow-md hover:shadow-primary/5 cursor-pointer"
+                          onClick={() => { setSelectedContact(contact); setExpandedSteps(new Set()); }}
+                        >
+                          <CardContent className="p-4 sm:p-5">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                  <h3 className="font-semibold text-sm sm:text-base">{contact.name}</h3>
+                                  {contact.company && (
+                                    <Badge variant="outline" className="text-[10px] sm:text-xs truncate max-w-[140px]">
+                                      <Building2 className="h-3 w-3 mr-1" />{contact.company}
+                                    </Badge>
+                                  )}
+                                  {currentStep && (
+                                    <Badge variant="outline" className="text-[10px] sm:text-xs bg-primary/10 text-primary border-primary/30">
+                                      <ClipboardList className="h-2.5 w-2.5 mr-0.5" />{currentStep.title}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                                  {contact.email && <span className="flex items-center gap-1 truncate max-w-[180px] sm:max-w-none"><Mail className="h-3 w-3" />{contact.email}</span>}
+                                  {contact.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{contact.phone}</span>}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+                                <div className="flex items-center gap-1">
+                                  {steps.map((s) => {
+                                    const st = contactSteps.find(t => t.step_id === s.id);
+                                    const status = st?.status || "pending";
+                                    return (
+                                      <div
+                                        key={s.id}
+                                        className={cn(
+                                          "h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full transition-colors",
+                                          status === "completed" ? "bg-emerald-500" :
+                                          status === "in_progress" ? "bg-amber-500" :
+                                          "bg-muted-foreground/30"
+                                        )}
+                                        title={`${s.title}: ${stepStatusConfig[status]?.label || "Pendente"}`}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-emerald-500" />{completed}</span>
+                                  <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-amber-500" />{inProg}</span>
+                                </div>
+                                <div className="flex items-center gap-2 min-w-[80px] sm:min-w-[120px]">
+                                  <Progress value={progress} className="h-2 flex-1" />
+                                  <span className="text-xs sm:text-sm font-bold w-9 text-right">{progress}%</span>
+                                </div>
+                                <ChevronRight className="h-4 w-4 text-muted-foreground hidden sm:block" />
+                              </div>
                             </div>
-                            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                              {contact.email && <span className="flex items-center gap-1 truncate max-w-[180px] sm:max-w-none"><Mail className="h-3 w-3" />{contact.email}</span>}
-                              {contact.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{contact.phone}</span>}
-                            </div>
-                          </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              )}
+            </div>
+          </TabsContent>
 
-                          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-                            {/* Step indicators */}
-                            <div className="flex items-center gap-1">
-                              {steps.map((s, i) => {
-                                const st = contactSteps.find(t => t.step_id === s.id);
-                                const status = st?.status || "pending";
+          {/* Pipeline Tab */}
+          <TabsContent value="pipeline" className="mt-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+              <div>
+                <h2 className="text-lg font-heading font-bold text-foreground flex items-center gap-2">
+                  <Kanban className="h-5 w-5 text-primary" /> Pipeline de Onboarding
+                </h2>
+                <p className="text-sm text-muted-foreground">Arraste clientes entre as etapas do onboarding</p>
+              </div>
+
+              <DragDropContext onDragEnd={onDragEnd}>
+                <div className="flex gap-3 overflow-x-auto pb-4 min-h-[400px]">
+                  {/* Step columns */}
+                  {steps.map((step, idx) => {
+                    const StepIcon = stepIcons[step.icon] || FileText;
+                    const colors = stepColors[idx % stepColors.length];
+                    const columnContacts = contactsByStep[step.id] || [];
+
+                    return (
+                      <Droppable droppableId={step.id} key={step.id}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={cn(
+                              "flex-shrink-0 w-[240px] sm:w-[270px] rounded-xl border bg-card/50 transition-colors",
+                              snapshot.isDraggingOver && "border-primary/50 bg-primary/5"
+                            )}
+                          >
+                            {/* Column header */}
+                            <div className={cn("p-3 rounded-t-xl bg-gradient-to-r border-b", colors.gradient, colors.border)}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <StepIcon className={cn("h-3.5 w-3.5", colors.icon)} />
+                                  <Badge variant="outline" className={cn("text-[10px]", colors.icon)}>
+                                    Etapa {idx + 1}
+                                  </Badge>
+                                </div>
+                                <Badge variant="secondary" className="text-[10px]">
+                                  {columnContacts.length}
+                                </Badge>
+                              </div>
+                              <h3 className="font-semibold text-sm mt-1 truncate">{step.title}</h3>
+                            </div>
+
+                            {/* Cards */}
+                            <div className="p-2 space-y-2 min-h-[80px]">
+                              {columnContacts.map((contact, cIdx) => {
+                                const progress = getContactProgress(contact.id);
                                 return (
-                                  <div
-                                    key={s.id}
-                                    className={cn(
-                                      "h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full transition-colors",
-                                      status === "completed" ? "bg-emerald-500" :
-                                      status === "in_progress" ? "bg-amber-500" :
-                                      "bg-muted-foreground/30"
+                                  <Draggable draggableId={contact.id} index={cIdx} key={contact.id}>
+                                    {(dragProvided, dragSnapshot) => (
+                                      <div
+                                        ref={dragProvided.innerRef}
+                                        {...dragProvided.draggableProps}
+                                        {...dragProvided.dragHandleProps}
+                                        className={cn(
+                                          "rounded-lg border bg-card p-3 cursor-grab active:cursor-grabbing transition-shadow",
+                                          dragSnapshot.isDragging && "shadow-lg shadow-primary/10 border-primary/40"
+                                        )}
+                                        onClick={() => { setSelectedContact(contact); setExpandedSteps(new Set()); }}
+                                      >
+                                        <div className="flex items-start gap-2">
+                                          <GripVertical className="h-4 w-4 text-muted-foreground/30 shrink-0 mt-0.5" />
+                                          <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-sm truncate">{contact.name}</p>
+                                            {contact.company && (
+                                              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
+                                                <Building2 className="h-3 w-3 shrink-0" />{contact.company}
+                                              </p>
+                                            )}
+                                            <div className="flex gap-2 mt-1.5 text-[10px] text-muted-foreground">
+                                              {contact.email && <span className="flex items-center gap-0.5 truncate"><Mail className="h-2.5 w-2.5" /></span>}
+                                              {contact.phone && <span className="flex items-center gap-0.5"><Phone className="h-2.5 w-2.5" /></span>}
+                                            </div>
+                                            <div className="flex items-center gap-2 mt-2">
+                                              <Progress value={progress} className="h-1.5 flex-1" />
+                                              <span className="text-[10px] font-bold text-muted-foreground">{progress}%</span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
                                     )}
-                                    title={`${s.title}: ${stepStatusConfig[status]?.label || "Pendente"}`}
-                                  />
+                                  </Draggable>
                                 );
                               })}
+                              {provided.placeholder}
                             </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-emerald-500" />{completed}</span>
-                              <span className="flex items-center gap-1"><Clock className="h-3 w-3 text-amber-500" />{inProg}</span>
-                            </div>
-                            <div className="flex items-center gap-2 min-w-[80px] sm:min-w-[120px]">
-                              <Progress value={progress} className="h-2 flex-1" />
-                              <span className="text-xs sm:text-sm font-bold w-9 text-right">{progress}%</span>
-                            </div>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground hidden sm:block" />
                           </div>
+                        )}
+                      </Droppable>
+                    );
+                  })}
+
+                  {/* Done column */}
+                  <Droppable droppableId="__done__">
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        className={cn(
+                          "flex-shrink-0 w-[240px] sm:w-[270px] rounded-xl border bg-card/50 transition-colors",
+                          snapshot.isDraggingOver && "border-emerald-500/50 bg-emerald-500/5"
+                        )}
+                      >
+                        <div className="p-3 rounded-t-xl bg-gradient-to-r from-emerald-500/20 to-emerald-600/5 border-b border-emerald-500/30">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                              <Badge variant="outline" className="text-[10px] text-emerald-500">
+                                Concluído
+                              </Badge>
+                            </div>
+                            <Badge variant="secondary" className="text-[10px]">
+                              {(contactsByStep["__done__"] || []).length}
+                            </Badge>
+                          </div>
+                          <h3 className="font-semibold text-sm mt-1">Onboarding Completo</h3>
                         </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          )}
-        </div>
+                        <div className="p-2 space-y-2 min-h-[80px]">
+                          {(contactsByStep["__done__"] || []).map((contact, cIdx) => (
+                            <Draggable draggableId={contact.id} index={cIdx} key={contact.id}>
+                              {(dragProvided, dragSnapshot) => (
+                                <div
+                                  ref={dragProvided.innerRef}
+                                  {...dragProvided.draggableProps}
+                                  {...dragProvided.dragHandleProps}
+                                  className={cn(
+                                    "rounded-lg border border-emerald-500/20 bg-card p-3 cursor-grab active:cursor-grabbing transition-shadow",
+                                    dragSnapshot.isDragging && "shadow-lg shadow-emerald-500/10 border-emerald-500/40"
+                                  )}
+                                  onClick={() => { setSelectedContact(contact); setExpandedSteps(new Set()); }}
+                                >
+                                  <div className="flex items-start gap-2">
+                                    <GripVertical className="h-4 w-4 text-muted-foreground/30 shrink-0 mt-0.5" />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium text-sm truncate">{contact.name}</p>
+                                      {contact.company && (
+                                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
+                                          <Building2 className="h-3 w-3 shrink-0" />{contact.company}
+                                        </p>
+                                      )}
+                                      <div className="flex items-center gap-2 mt-2">
+                                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                                        <span className="text-[10px] font-bold text-emerald-500">100%</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </div>
+                      </div>
+                    )}
+                  </Droppable>
+                </div>
+              </DragDropContext>
+            </motion.div>
+          </TabsContent>
+        </Tabs>
       </motion.div>
     </EMSLayout>
   );
