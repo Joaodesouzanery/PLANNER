@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -108,7 +108,7 @@ const Onboarding = () => {
   const [activeTab, setActiveTab] = useState("contacts");
 
   // Fetch steps
-  const { data: steps = [] } = useQuery({
+  const { data: steps = [], isSuccess: stepsLoaded } = useQuery({
     queryKey: ["onboarding-steps"],
     queryFn: async () => {
       const { data, error } = await supabase.from("onboarding_steps").select("*").order("order_index");
@@ -116,6 +116,26 @@ const Onboarding = () => {
       return data as OnboardingStep[];
     },
   });
+
+  // Auto-seed default onboarding steps if table is empty
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (!stepsLoaded || steps.length > 0 || seededRef.current) return;
+    seededRef.current = true;
+    const defaultSteps = [
+      { title: "Enviar Contrato", description: "Preparar e enviar contrato para assinatura", icon: "file-text", order_index: 0 },
+      { title: "Enviar Fatura", description: "Gerar e enviar primeira fatura/cobrança", icon: "credit-card", order_index: 1 },
+      { title: "Boas-Vindas", description: "Enviar e-mail/kit de boas-vindas ao cliente", icon: "mail", order_index: 2 },
+      { title: "Call Estratégica", description: "Agendar e realizar call de alinhamento estratégico", icon: "phone", order_index: 3 },
+      { title: "Remover Remorso", description: "Follow-up para garantir satisfação e reter o cliente", icon: "rocket", order_index: 4 },
+    ];
+    (async () => {
+      const { error } = await supabase.from("onboarding_steps").insert(defaultSteps);
+      if (!error) {
+        queryClient.invalidateQueries({ queryKey: ["onboarding-steps"] });
+      }
+    })();
+  }, [stepsLoaded, steps.length]);
 
   // Fetch documents
   const { data: documents = [] } = useQuery({
