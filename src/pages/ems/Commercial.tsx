@@ -642,10 +642,11 @@ const Commercial = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="contacts" className="gap-1.5"><Users className="h-4 w-4" /><span className="hidden sm:inline">Contatos</span></TabsTrigger>
             <TabsTrigger value="pipeline" className="gap-1.5"><Kanban className="h-4 w-4" /><span className="hidden sm:inline">Pipeline</span></TabsTrigger>
-            <TabsTrigger value="manage" className="gap-1.5"><Settings2 className="h-4 w-4" /><span className="hidden sm:inline">Gerenciar Funil</span></TabsTrigger>
+            <TabsTrigger value="reports" className="gap-1.5"><BarChart3 className="h-4 w-4" /><span className="hidden sm:inline">Relatórios</span></TabsTrigger>
+            <TabsTrigger value="manage" className="gap-1.5"><Settings2 className="h-4 w-4" /><span className="hidden sm:inline">Gerenciar</span></TabsTrigger>
           </TabsList>
 
           <TabsContent value="contacts" className="mt-4 space-y-4">
