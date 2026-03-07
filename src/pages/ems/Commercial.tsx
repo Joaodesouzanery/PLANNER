@@ -804,6 +804,10 @@ const Commercial = () => {
             <PipelineKanban onSelectContact={(c) => { setSelectedContact(c); setExpandedPhases(new Set()); }} />
           </TabsContent>
 
+          <TabsContent value="reports" className="mt-4">
+            <FunnelReports />
+          </TabsContent>
+
           <TabsContent value="manage" className="mt-4">
             <PhaseItemManager />
           </TabsContent>
