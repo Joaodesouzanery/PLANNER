@@ -20,6 +20,7 @@ import RoadMap from "./pages/ems/RoadMap";
 import QuickNotes from "./pages/ems/QuickNotes";
 import CalendarPage from "./pages/ems/Calendar";
 import Commercial from "./pages/ems/Commercial";
+import Onboarding from "./pages/ems/Onboarding";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -50,6 +51,7 @@ const App = () => (
             <Route path="/ems/quick-notes" element={<QuickNotes />} />
             <Route path="/ems/calendar" element={<CalendarPage />} />
             <Route path="/ems/comercial" element={<Commercial />} />
+            <Route path="/ems/onboarding" element={<Onboarding />} />
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
