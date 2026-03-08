@@ -86,42 +86,17 @@ const Projects = () => {
   const [executionForm, setExecutionForm] = useState<ExecutionRecord>({ action_taken: "", result_obtained: "", lessons_learned: "", tags: [] });
   const [tagInput, setTagInput] = useState("");
 
-  useEffect(() => { initializeColumnsAndFetch(); }, [selectedCompanyId]);
-
-  const initializeColumnsAndFetch = async () => {
-    const { data: existingColumns } = await supabase.from("kanban_columns").select("*").order("order_index");
-    if (!existingColumns || existingColumns.length === 0) {
-      for (const col of defaultColumns) {
-        await supabase.from("kanban_columns").insert({ id: col.id, title: col.title, order_index: col.order_index });
-      }
-      setColumns(defaultColumns);
-    } else {
-      const mappedColumns = existingColumns.map(col => {
-        const defaultCol = defaultColumns.find(d => d.title === col.title);
-        return defaultCol ? { ...col, id: defaultCol.id } : col;
-      });
-      setColumns(mappedColumns);
-    }
-    await fetchProjects();
+  useEffect(() => { 
+    setColumns(defaultColumns);
+    fetchProjects(); 
     setIsInitialized(true);
-  };
+  }, [selectedCompanyId]);
 
   const fetchProjects = async () => {
     let query = supabase.from("projects").select("*").order("column_order", { ascending: true, nullsFirst: false });
     if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
     const { data } = await query;
     if (data) setProjects(data as Project[]);
-  };
-
-  const fetchColumns = async () => {
-    const { data } = await supabase.from("kanban_columns").select("*").order("order_index");
-    if (data && data.length > 0) {
-      const mappedColumns = data.map(col => {
-        const defaultCol = defaultColumns.find(d => d.title === col.title);
-        return defaultCol ? { ...col, id: defaultCol.id } : col;
-      });
-      setColumns(mappedColumns);
-    }
   };
 
   const uniqueClients = [...new Set(projects.map(p => p.client).filter(Boolean))] as string[];
@@ -169,11 +144,7 @@ const Projects = () => {
       const newColumns = Array.from(columns);
       const [removed] = newColumns.splice(source.index, 1);
       newColumns.splice(destination.index, 0, removed);
-      const updatedColumns = newColumns.map((col, index) => ({ ...col, order_index: index }));
-      setColumns(updatedColumns);
-      for (const col of updatedColumns) {
-        await supabase.from("kanban_columns").update({ order_index: col.order_index }).eq("id", col.id);
-      }
+      setColumns(newColumns.map((col, index) => ({ ...col, order_index: index })));
       return;
     }
 
@@ -224,18 +195,17 @@ const Projects = () => {
     setExecutionForm({ ...executionForm, tags: executionForm.tags.filter(t => t !== tag) });
   };
 
-  const addColumn = async () => {
+  const addColumn = () => {
     if (!newColumnTitle) return;
-    await supabase.from("kanban_columns").insert({ title: newColumnTitle, order_index: columns.length });
+    const newCol: KanbanColumn = { id: newColumnTitle.toLowerCase().replace(/\s+/g, "_"), title: newColumnTitle, order_index: columns.length };
+    setColumns([...columns, newCol]);
     setNewColumnTitle("");
     setShowColumnModal(false);
-    fetchColumns();
     toast({ title: "Coluna adicionada!" });
   };
 
-  const deleteColumn = async (columnId: string) => {
-    await supabase.from("kanban_columns").delete().eq("id", columnId);
-    fetchColumns();
+  const deleteColumn = (columnId: string) => {
+    setColumns(columns.filter(c => c.id !== columnId));
     toast({ title: "Coluna removida!" });
   };
 
