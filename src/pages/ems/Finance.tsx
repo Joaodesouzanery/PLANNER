@@ -40,6 +40,7 @@ const PIE_COLORS = ["hsl(var(--primary))", "hsl(142.1, 76.2%, 36.3%)", "hsl(0, 8
 
 const Finance = () => {
   const { toast } = useToast();
+  const { selectedCompanyId } = useCompany();
   const [okrs, setOkrs] = useState<OKR[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [showOkrModal, setShowOkrModal] = useState(false);
