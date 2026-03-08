@@ -632,6 +632,53 @@ const Projects = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        {/* Projects Report Dialog */}
+        <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-primary" />Relatório de Projetos Concluídos</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label>Data Início</Label><Input type="date" value={reportFrom} onChange={e => setReportFrom(e.target.value)} /></div>
+                <div><Label>Data Fim</Label><Input type="date" value={reportTo} onChange={e => setReportTo(e.target.value)} /></div>
+              </div>
+              <div>
+                <Label>Empresa</Label>
+                <Select value={reportCompanyId} onValueChange={setReportCompanyId}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="current">Empresa Atual</SelectItem>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {companies.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
+                <p className="text-sm text-muted-foreground">{reportProjects.length} projeto(s) encontrado(s)</p>
+              </div>
+              {reportProjects.length > 0 && (
+                <div className="max-h-48 overflow-y-auto space-y-1">
+                  {reportProjects.map(p => (
+                    <div key={p.id} className="flex items-center justify-between text-sm p-2 rounded bg-card border border-border/30">
+                      <span className="truncate flex-1">{p.title}</span>
+                      <span className="text-xs text-muted-foreground ml-2">{p.client || "—"}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setReportOpen(false)}>Fechar</Button>
+              <Button variant="outline" onClick={generateProjectsCSV} disabled={reportProjects.length === 0}>
+                <Download className="h-4 w-4 mr-2" />CSV
+              </Button>
+              <Button onClick={generateProjectsPDF} disabled={reportProjects.length === 0}>
+                <Download className="h-4 w-4 mr-2" />PDF
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </motion.div>
     </EMSLayout>
   );
