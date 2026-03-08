@@ -403,7 +403,7 @@ const Projects = () => {
                 {(provided) => (
                   <div ref={provided.innerRef} {...provided.droppableProps} className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory">
                     {columns.map((column, columnIndex) => {
-                      const colStyle = columnColors[column.id] || { header: "from-muted/30 to-transparent", accent: "text-muted-foreground" };
+                      const colStyle = getColumnStyle(column);
                       const colProjects = getProjectsByStatus(column.id);
 
                       return (
@@ -411,9 +411,9 @@ const Projects = () => {
                           {(provided, snapshot) => (
                             <div ref={provided.innerRef} {...provided.draggableProps} className={cn("flex-shrink-0 w-[75vw] sm:w-80 snap-center", snapshot.isDragging && "opacity-75")}>
                               <Card className="bg-card/60 backdrop-blur-sm border-border/50 overflow-hidden">
-                                <CardHeader {...provided.dragHandleProps} className={cn("py-3 px-4 flex flex-row items-center justify-between cursor-grab active:cursor-grabbing bg-gradient-to-r", colStyle.header)}>
+                                <CardHeader {...provided.dragHandleProps} className={cn("py-3 px-4 flex flex-row items-center justify-between cursor-grab active:cursor-grabbing bg-gradient-to-r", colStyle.bg)}>
                                   <div className="flex items-center gap-2">
-                                    <div className={cn("h-2 w-2 rounded-full", column.id === "done" ? "bg-emerald-400" : column.id === "in_progress" ? "bg-amber-400" : "bg-blue-400")} />
+                                    <div className={cn("h-2 w-2 rounded-full", colStyle.dot)} />
                                     <CardTitle className="text-sm font-medium">{column.title}</CardTitle>
                                   </div>
                                   <div className="flex items-center gap-2">
