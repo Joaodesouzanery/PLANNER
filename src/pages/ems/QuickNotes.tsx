@@ -78,6 +78,7 @@ const QuickNotes = () => {
         content,
         color: "default",
         pinned: false,
+        company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
       });
       if (error) throw error;
     },

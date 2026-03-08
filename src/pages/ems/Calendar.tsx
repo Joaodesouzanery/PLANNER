@@ -60,7 +60,7 @@ const CalendarPage = () => {
 
   const handleCreateEvent = async () => {
     if (!eventForm.title.trim() || !eventForm.date) { toast({ title: "Erro", description: "Preencha o titulo e a data", variant: "destructive" }); return; }
-    const { error } = await supabase.from("calendar_events").insert({ title: eventForm.title, start_date: eventForm.date, all_day: true, color: eventForm.color });
+    const { error } = await supabase.from("calendar_events").insert({ title: eventForm.title, start_date: eventForm.date, all_day: true, color: eventForm.color, company_id: selectedCompanyId !== "all" ? selectedCompanyId : null });
     if (error) { toast({ title: "Erro ao criar evento", variant: "destructive" }); return; }
     toast({ title: "Evento criado!" });
     setEventForm({ title: "", date: "", color: "blue" });

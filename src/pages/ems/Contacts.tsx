@@ -116,7 +116,7 @@ const Contacts = () => {
   });
   const saveTaskMutation = useMutation({
     mutationFn: async () => {
-      const payload = { title: taskForm.title, description: taskForm.description || null, priority: taskForm.priority, due_date: taskForm.due_date ? format(taskForm.due_date, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"), contact_id: taskForm.contact_id || null, project_id: taskForm.project_id || null };
+      const payload = { title: taskForm.title, description: taskForm.description || null, priority: taskForm.priority, due_date: taskForm.due_date ? format(taskForm.due_date, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"), contact_id: taskForm.contact_id || null, project_id: taskForm.project_id || null, company_id: selectedCompanyId !== "all" ? selectedCompanyId : null };
       if (editingTask) { const { error } = await supabase.from("tasks").update(payload).eq("id", editingTask.id); if (error) throw error; }
       else { const { error } = await supabase.from("tasks").insert(payload); if (error) throw error; }
     },
