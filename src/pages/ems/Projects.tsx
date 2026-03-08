@@ -308,6 +308,9 @@ const Projects = () => {
             <p className="text-sm md:text-base text-muted-foreground mt-1">Gerencie seus projetos com visão Kanban</p>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={openReport} className="border-border/50">
+              <FileText className="h-4 w-4 mr-2" />Relatório
+            </Button>
             <Button variant="outline" onClick={() => setShowColumnModal(true)} className="border-border/50">
               <Plus className="h-4 w-4 mr-2" />Coluna
             </Button>
