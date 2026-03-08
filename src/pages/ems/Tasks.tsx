@@ -57,7 +57,7 @@ const priorityConfig: Record<string, { label: string; color: string; bgCard: str
 const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
 
 const Tasks = () => {
-  const { selectedCompanyId } = useCompany();
+  const { selectedCompanyId, companies } = useCompany();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
