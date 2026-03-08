@@ -29,6 +29,7 @@ const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [isMagicLink, setIsMagicLink] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { user, isAdmin, loading, signIn, signUp, signInWithMagicLink } = useAuth();
   const navigate = useNavigate();
 
