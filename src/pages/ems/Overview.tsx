@@ -95,6 +95,7 @@ const Overview = () => {
   const [projectCount, setProjectCount] = useState(0);
   const [contactCount, setContactCount] = useState(0);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
+  const [overdueItems, setOverdueItems] = useState<{id: string; title: string; type: string; dueDate: string; daysOverdue: number}[]>([]);
 
   useEffect(() => {
     fetchData();
