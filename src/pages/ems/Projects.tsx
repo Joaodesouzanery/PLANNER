@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,12 +16,15 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import {
   Plus, LayoutGrid, GanttChart, Trash2, Edit2, CheckCircle, Calendar, X,
   GripVertical, Building2, FolderKanban, Clock, TrendingUp, AlertTriangle,
+  FileText, Download,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface Project {
   id: string;
@@ -81,6 +84,11 @@ const Projects = () => {
   const [newColumnTitle, setNewColumnTitle] = useState("");
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [isInitialized, setIsInitialized] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportFrom, setReportFrom] = useState("");
+  const [reportTo, setReportTo] = useState("");
+  const [reportCompanyId, setReportCompanyId] = useState<string>("current");
+  const [allProjects, setAllProjects] = useState<(Project & { company_id?: string | null })[]>([]);
 
   const [projectForm, setProjectForm] = useState({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "" });
   const [executionForm, setExecutionForm] = useState<ExecutionRecord>({ action_taken: "", result_obtained: "", lessons_learned: "", tags: [] });
@@ -92,11 +100,79 @@ const Projects = () => {
     setIsInitialized(true);
   }, [selectedCompanyId]);
 
+  const { companies } = useCompany();
+
   const fetchProjects = async () => {
     let query = supabase.from("projects").select("*").order("column_order", { ascending: true, nullsFirst: false });
     if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
     const { data } = await query;
     if (data) setProjects(data as Project[]);
+  };
+
+  const fetchReportProjects = async () => {
+    const { data } = await supabase.from("projects").select("*").eq("status", "done");
+    if (data) setAllProjects(data as any[]);
+  };
+
+  const openReport = () => {
+    fetchReportProjects();
+    setReportOpen(true);
+  };
+
+  const reportProjects = useMemo(() => {
+    let filtered = allProjects;
+    if (reportCompanyId === "current" && selectedCompanyId !== "all") {
+      filtered = filtered.filter(p => p.company_id === selectedCompanyId);
+    } else if (reportCompanyId !== "current" && reportCompanyId !== "all") {
+      filtered = filtered.filter(p => p.company_id === reportCompanyId);
+    }
+    if (reportFrom) filtered = filtered.filter(p => p.created_at >= reportFrom);
+    if (reportTo) filtered = filtered.filter(p => p.created_at <= reportTo + "T23:59:59");
+    return filtered;
+  }, [allProjects, reportCompanyId, reportFrom, reportTo, selectedCompanyId]);
+
+  const getCompanyName = (companyId: string | null | undefined) => {
+    if (!companyId) return "—";
+    return companies.find(c => c.id === companyId)?.name || "—";
+  };
+
+  const generateProjectsPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("Relatório de Projetos Concluídos", 14, 20);
+    doc.setFontSize(10);
+    const period = [reportFrom && `De: ${format(new Date(reportFrom), "dd/MM/yyyy")}`, reportTo && `Até: ${format(new Date(reportTo), "dd/MM/yyyy")}`].filter(Boolean).join("  ");
+    if (period) doc.text(period, 14, 28);
+    doc.text(`Total: ${reportProjects.length} projetos`, 14, period ? 34 : 28);
+
+    autoTable(doc, {
+      startY: period ? 40 : 34,
+      head: [["Título", "Cliente", "Prioridade", "Empresa", "Data Criação"]],
+      body: reportProjects.map(p => [
+        p.title,
+        p.client || "—",
+        priorityConfig[p.priority]?.label || p.priority,
+        getCompanyName(p.company_id),
+        format(new Date(p.created_at), "dd/MM/yyyy"),
+      ]),
+    });
+    doc.save("projetos-concluidos.pdf");
+    toast({ title: "PDF gerado com sucesso!" });
+  };
+
+  const generateProjectsCSV = () => {
+    const header = "Título;Cliente;Prioridade;Empresa;Data Criação\n";
+    const rows = reportProjects.map(p =>
+      `"${p.title}";"${p.client || ""}";"${priorityConfig[p.priority]?.label || p.priority}";"${getCompanyName(p.company_id)}";"${format(new Date(p.created_at), "dd/MM/yyyy")}"`
+    ).join("\n");
+    const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "projetos-concluidos.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "CSV gerado com sucesso!" });
   };
 
   const uniqueClients = [...new Set(projects.map(p => p.client).filter(Boolean))] as string[];
@@ -232,6 +308,9 @@ const Projects = () => {
             <p className="text-sm md:text-base text-muted-foreground mt-1">Gerencie seus projetos com visão Kanban</p>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={openReport} className="border-border/50">
+              <FileText className="h-4 w-4 mr-2" />Relatório
+            </Button>
             <Button variant="outline" onClick={() => setShowColumnModal(true)} className="border-border/50">
               <Plus className="h-4 w-4 mr-2" />Coluna
             </Button>
@@ -550,6 +629,53 @@ const Projects = () => {
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowColumnModal(false)}>Cancelar</Button>
               <Button onClick={addColumn}>Criar Coluna</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        {/* Projects Report Dialog */}
+        <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-primary" />Relatório de Projetos Concluídos</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label>Data Início</Label><Input type="date" value={reportFrom} onChange={e => setReportFrom(e.target.value)} /></div>
+                <div><Label>Data Fim</Label><Input type="date" value={reportTo} onChange={e => setReportTo(e.target.value)} /></div>
+              </div>
+              <div>
+                <Label>Empresa</Label>
+                <Select value={reportCompanyId} onValueChange={setReportCompanyId}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="current">Empresa Atual</SelectItem>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {companies.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
+                <p className="text-sm text-muted-foreground">{reportProjects.length} projeto(s) encontrado(s)</p>
+              </div>
+              {reportProjects.length > 0 && (
+                <div className="max-h-48 overflow-y-auto space-y-1">
+                  {reportProjects.map(p => (
+                    <div key={p.id} className="flex items-center justify-between text-sm p-2 rounded bg-card border border-border/30">
+                      <span className="truncate flex-1">{p.title}</span>
+                      <span className="text-xs text-muted-foreground ml-2">{p.client || "—"}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setReportOpen(false)}>Fechar</Button>
+              <Button variant="outline" onClick={generateProjectsCSV} disabled={reportProjects.length === 0}>
+                <Download className="h-4 w-4 mr-2" />CSV
+              </Button>
+              <Button onClick={generateProjectsPDF} disabled={reportProjects.length === 0}>
+                <Download className="h-4 w-4 mr-2" />PDF
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
