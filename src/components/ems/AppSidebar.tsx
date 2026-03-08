@@ -122,6 +122,11 @@ export const AppSidebar = ({ mobileOpen, onMobileClose }: AppSidebarProps) => {
         )}
       </div>
 
+      {/* Company Selector */}
+      <div className="px-3 py-1">
+        <CompanySelector collapsed={collapsed && !isMobile} />
+      </div>
+
       {/* Navigation */}
       <nav className="flex-1 px-3 py-2 overflow-y-auto space-y-5">
         {menuGroups.map((group) => (
