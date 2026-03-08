@@ -93,9 +93,26 @@ interface AppSidebarProps {
 
 export const AppSidebar = ({ mobileOpen, onMobileClose }: AppSidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const location = useLocation();
+  const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUserEmail(session?.user?.email ?? null);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+      setUserEmail(s?.user?.email ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/ems/login");
+  };
 
   const handleNavClick = () => {
     if (isMobile && onMobileClose) onMobileClose();
