@@ -19,7 +19,7 @@
 @layer base {
   :root {
     /* Warm dark theme - high contrast */
-    --background: 20 14% 4%;
+    --background: 20 10% 12%;
     --foreground: 40 20% 93%;
 
     --card: 20 10% 8%;
