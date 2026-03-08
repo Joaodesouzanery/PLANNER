@@ -656,7 +656,25 @@ const Tasks = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Selecione o período para gerar o relatório em PDF com todas as tarefas concluídas.</p>
+            <p className="text-sm text-muted-foreground">Selecione o período e a empresa para gerar o relatório.</p>
+            
+            {/* Company filter */}
+            <div>
+              <label className="text-sm font-medium mb-1 block">Empresa</label>
+              <Select value={reportCompanyId} onValueChange={setReportCompanyId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="current">Empresa atual ({selectedCompanyId === "all" ? "Todas" : companies.find(c => c.id === selectedCompanyId)?.name || "Todas"})</SelectItem>
+                  <SelectItem value="all">Todas as empresas</SelectItem>
+                  {companies.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-1 block">De</label>
@@ -705,10 +723,13 @@ const Tasks = () => {
               </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setReportOpen(false)}>Fechar</Button>
+            <Button variant="outline" onClick={generateCSV} disabled={!reportFrom || !reportTo || reportTasks.length === 0} className="gap-2">
+              <Download className="h-4 w-4" /> CSV
+            </Button>
             <Button onClick={generatePDF} disabled={!reportFrom || !reportTo || reportTasks.length === 0} className="gap-2">
-              <FileText className="h-4 w-4" /> Gerar PDF
+              <FileText className="h-4 w-4" /> PDF
             </Button>
           </DialogFooter>
         </DialogContent>
