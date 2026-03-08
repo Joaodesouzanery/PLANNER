@@ -394,12 +394,12 @@ const Projects = () => {
                                                     )}
                                                     {isOverdue && <Badge variant="destructive" className="text-[10px] px-1 py-0 animate-pulse">Atrasado</Badge>}
                                                   </div>
-                                                </motion.div>
+                                                </div>
                                               )}
                                             </Draggable>
                                           );
                                         })}
-                                      </AnimatePresence>
+
                                       {provided.placeholder}
                                     </CardContent>
                                   )}
