@@ -49,17 +49,11 @@ interface ExecutionRecord {
   tags: string[];
 }
 
-const defaultColumnDefs = [
-  { title: "A Fazer", order_index: 0, status: "todo" },
-  { title: "Em Progresso", order_index: 1, status: "in_progress" },
-  { title: "Concluído", order_index: 2, status: "done" },
+const defaultColumns: KanbanColumn[] = [
+  { id: "todo", title: "A Fazer", order_index: 0 },
+  { id: "in_progress", title: "Em Progresso", order_index: 1 },
+  { id: "done", title: "Concluído", order_index: 2 },
 ];
-
-const columnTitleToStatus: Record<string, string> = {
-  "A Fazer": "todo",
-  "Em Progresso": "in_progress",
-  "Concluído": "done",
-};
 
 const priorityConfig: Record<string, { label: string; color: string; border: string }> = {
   low: { label: "Baixa", color: "text-blue-400 bg-blue-500/10 border-blue-500/30", border: "border-l-blue-500" },
