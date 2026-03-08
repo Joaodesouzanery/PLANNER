@@ -79,6 +79,7 @@ interface MonthlyData {
 
 const Overview = () => {
   const { toast } = useToast();
+  const { selectedCompanyId } = useCompany();
   const [pillars, setPillars] = useState<Pillar[]>([]);
   const [monthlyFocus, setMonthlyFocus] = useState<MonthlyFocus | null>(null);
   const [pendingTasks, setPendingTasks] = useState(0);
@@ -100,7 +101,7 @@ const Overview = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [selectedCompanyId]);
 
   const fetchData = async () => {
     const { data: pillarsData } = await supabase.from("strategic_pillars").select("*").order("order_index");
