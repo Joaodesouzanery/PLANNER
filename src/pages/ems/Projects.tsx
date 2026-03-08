@@ -26,6 +26,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { AttachmentManager } from "@/components/ems/AttachmentManager";
 
 interface Project {
   id: string;
@@ -748,6 +749,11 @@ const Projects = () => {
                 <div><Label className="text-xs md:text-sm">Data de Entrega</Label><Input type="date" value={projectForm.due_date} onChange={(e) => setProjectForm({ ...projectForm, due_date: e.target.value })} className="text-sm" /></div>
               </div>
             </div>
+              {editingProject && (
+                <div className="border-t border-border pt-3">
+                  <AttachmentManager entityType="project" entityId={editingProject.id} companyId={editingProject.company_id} />
+                </div>
+              )}
             <DialogFooter className="gap-2">
               <Button variant="outline" size="sm" onClick={() => { setShowAddProject(false); setEditingProject(null); }}>Cancelar</Button>
               <Button size="sm" onClick={editingProject ? handleUpdateProject : handleAddProject}>{editingProject ? "Salvar" : "Criar"}</Button>

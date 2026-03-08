@@ -53,6 +53,53 @@ export type Database = {
         }
         Relationships: []
       }
+      attachments: {
+        Row: {
+          company_id: string | null
+          content_type: string | null
+          created_at: string
+          entity_id: string
+          entity_type: string
+          file_name: string
+          file_size: number | null
+          file_url: string
+          id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          content_type?: string | null
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          content_type?: string | null
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attachments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendar_events: {
         Row: {
           all_day: boolean | null
@@ -1361,6 +1408,67 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      time_entries: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          date: string
+          description: string | null
+          hours: number
+          id: string
+          project_id: string | null
+          task_id: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          date?: string
+          description?: string | null
+          hours?: number
+          id?: string
+          project_id?: string | null
+          task_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          date?: string
+          description?: string | null
+          hours?: number
+          id?: string
+          project_id?: string | null
+          task_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_entries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_entries_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
         ]

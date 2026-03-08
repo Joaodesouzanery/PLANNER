@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  LayoutDashboard,
+  LayoutDashboard, Gauge, Clock,
   Building2,
   FolderKanban,
   BookOpen,
@@ -45,6 +45,7 @@ const menuGroups: MenuGroup[] = [
     label: "Principal",
     items: [
       { icon: LayoutDashboard, label: "Dashboard", path: "/ems" },
+      { icon: Gauge, label: "Executivo", path: "/ems/executive" },
       { icon: FolderKanban, label: "Projetos", path: "/ems/projects" },
       { icon: ListTodo, label: "Tarefas", path: "/ems/tasks" },
       { icon: TrendingUp, label: "Finanças", path: "/ems/finance" },
@@ -65,6 +66,7 @@ const menuGroups: MenuGroup[] = [
   {
     label: "Ferramentas",
     items: [
+      { icon: Clock, label: "Timesheet", path: "/ems/timesheet" },
       { icon: CalendarDays, label: "Calendário", path: "/ems/calendar" },
       { icon: StickyNote, label: "Notas Rápidas", path: "/ems/quick-notes" },
       { icon: BookOpen, label: "Knowledge Base", path: "/ems/knowledge" },
