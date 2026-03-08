@@ -70,6 +70,7 @@ const kanbanStatuses = [
 const Contacts = () => {
   const queryClient = useQueryClient();
   const { selectedCompanyId } = useCompany();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("contacts");
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
