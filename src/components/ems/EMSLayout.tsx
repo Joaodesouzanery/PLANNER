@@ -1,5 +1,6 @@
 import { ReactNode, useState, useEffect } from "react";
 import { AppSidebar, MobileHeader } from "./AppSidebar";
+import { GlobalSearch } from "./GlobalSearch";
 import { motion } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
 
