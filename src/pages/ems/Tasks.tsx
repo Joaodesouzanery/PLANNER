@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,16 +13,18 @@ import { Progress } from "@/components/ui/progress";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Trash2, Calendar, Flag, ListTodo, CheckCircle2, Clock, AlertTriangle,
-  Tag, MessageSquare, ChevronDown, ChevronRight, X, TrendingUp,
+  Tag, MessageSquare, ChevronDown, ChevronRight, X, TrendingUp, Edit2, FileText,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { format } from "date-fns";
+import { format, isWithinInterval, parseISO, startOfDay, endOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface Task {
   id: string;
@@ -58,6 +60,7 @@ const Tasks = () => {
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [filter, setFilter] = useState<"all" | "pending" | "completed">("all");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [form, setForm] = useState({ title: "", description: "", priority: "medium", due_date: null as Date | null, tags: [] as string[] });
@@ -65,6 +68,11 @@ const Tasks = () => {
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [subtaskInput, setSubtaskInput] = useState("");
   const [noteInput, setNoteInput] = useState("");
+
+  // Report state
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportFrom, setReportFrom] = useState<Date | undefined>(undefined);
+  const [reportTo, setReportTo] = useState<Date | undefined>(undefined);
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["tasks", selectedCompanyId],
@@ -95,6 +103,28 @@ const Tasks = () => {
   const getSubtasks = (parentId: string) => tasks.filter((t) => t.parent_task_id === parentId);
   const allTags = [...new Set(tasks.flatMap((t) => t.tags || []))].sort();
 
+  const resetForm = () => {
+    setForm({ title: "", description: "", priority: "medium", due_date: null, tags: [] });
+    setEditingTask(null);
+  };
+
+  const openCreate = () => {
+    resetForm();
+    setDialogOpen(true);
+  };
+
+  const openEdit = (task: Task) => {
+    setEditingTask(task);
+    setForm({
+      title: task.title,
+      description: task.description || "",
+      priority: task.priority,
+      due_date: task.due_date ? new Date(task.due_date + "T00:00:00") : null,
+      tags: task.tags || [],
+    });
+    setDialogOpen(true);
+  };
+
   const createMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from("tasks").insert({
@@ -110,8 +140,28 @@ const Tasks = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       setDialogOpen(false);
-      setForm({ title: "", description: "", priority: "medium", due_date: null, tags: [] });
+      resetForm();
       toast({ title: "Tarefa criada!" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingTask) return;
+      const { error } = await supabase.from("tasks").update({
+        title: form.title,
+        description: form.description || null,
+        priority: form.priority,
+        due_date: form.due_date ? format(form.due_date, "yyyy-MM-dd") : null,
+        tags: form.tags.length > 0 ? form.tags : null,
+      }).eq("id", editingTask.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      setDialogOpen(false);
+      resetForm();
+      toast({ title: "Tarefa atualizada!" });
     },
   });
 
@@ -176,6 +226,50 @@ const Tasks = () => {
 
   const completionRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
 
+  // Report logic
+  const reportTasks = useMemo(() => {
+    if (!reportFrom || !reportTo) return [];
+    return tasks.filter((t) => {
+      if (t.status !== "completed" || !t.completed_at) return false;
+      const completedDate = parseISO(t.completed_at);
+      return isWithinInterval(completedDate, { start: startOfDay(reportFrom), end: endOfDay(reportTo) });
+    });
+  }, [tasks, reportFrom, reportTo]);
+
+  const generatePDF = () => {
+    if (reportTasks.length === 0) {
+      toast({ title: "Nenhuma tarefa no período", description: "Selecione um período com tarefas concluídas.", variant: "destructive" });
+      return;
+    }
+    const doc = new jsPDF();
+    const fromStr = reportFrom ? format(reportFrom, "dd/MM/yyyy") : "";
+    const toStr = reportTo ? format(reportTo, "dd/MM/yyyy") : "";
+
+    doc.setFontSize(18);
+    doc.text("Relatório de Tarefas Concluídas", 14, 20);
+    doc.setFontSize(11);
+    doc.text(`Período: ${fromStr} — ${toStr}`, 14, 28);
+    doc.text(`Total: ${reportTasks.length} tarefas`, 14, 35);
+
+    const tableData = reportTasks.map((t) => [
+      t.title,
+      (priorityConfig[t.priority] || priorityConfig.medium).label,
+      t.completed_at ? format(parseISO(t.completed_at), "dd/MM/yyyy HH:mm") : "-",
+      (t.tags || []).join(", ") || "-",
+    ]);
+
+    autoTable(doc, {
+      startY: 42,
+      head: [["Tarefa", "Prioridade", "Concluída em", "Tags"]],
+      body: tableData,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [59, 130, 246] },
+    });
+
+    doc.save(`tarefas-concluidas-${fromStr}-${toStr}.pdf`);
+    toast({ title: "PDF gerado com sucesso!" });
+  };
+
   return (
     <EMSLayout>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
@@ -185,9 +279,14 @@ const Tasks = () => {
             <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">Tarefas</h1>
             <p className="text-sm md:text-base text-muted-foreground mt-1">Gerencie suas tarefas diárias por prioridade</p>
           </div>
-          <Button onClick={() => setDialogOpen(true)} className="gap-2 w-full sm:w-auto">
-            <Plus className="h-4 w-4" /> Nova Tarefa
-          </Button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button variant="outline" onClick={() => setReportOpen(true)} className="gap-2 flex-1 sm:flex-none">
+              <FileText className="h-4 w-4" /> Relatório
+            </Button>
+            <Button onClick={openCreate} className="gap-2 flex-1 sm:flex-none">
+              <Plus className="h-4 w-4" /> Nova Tarefa
+            </Button>
+          </div>
         </div>
 
         {/* Stats */}
@@ -212,7 +311,6 @@ const Tasks = () => {
               </div>
             </motion.div>
           ))}
-          {/* Progress card */}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="col-span-2 lg:col-span-1">
             <div className="stat-card">
               <div className="flex items-center gap-3 mb-2">
@@ -275,7 +373,7 @@ const Tasks = () => {
                 </div>
                 <p className="text-muted-foreground mb-1">Nenhuma tarefa encontrada</p>
                 <p className="text-xs text-muted-foreground/60 mb-4">Crie sua primeira tarefa para começar</p>
-                <Button variant="outline" onClick={() => setDialogOpen(true)}>
+                <Button variant="outline" onClick={openCreate}>
                   <Plus className="h-4 w-4 mr-2" /> Criar primeira tarefa
                 </Button>
               </div>
@@ -342,6 +440,9 @@ const Tasks = () => {
                                 {format(new Date(task.due_date + "T00:00:00"), "dd/MM", { locale: ptBR })}
                               </span>
                             )}
+                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-primary" onClick={(e) => { e.stopPropagation(); openEdit(task); }}>
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
                             <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => deleteMutation.mutate(task.id)}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
@@ -352,7 +453,6 @@ const Tasks = () => {
                             {isExpanded && (
                               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                                 <div className="mt-3 ml-7 space-y-4 border-t border-border/30 pt-3">
-                                  {/* Subtask progress */}
                                   {subtasks.length > 0 && (
                                     <div>
                                       <div className="flex items-center justify-between mb-1.5">
@@ -363,7 +463,6 @@ const Tasks = () => {
                                     </div>
                                   )}
 
-                                  {/* Subtasks */}
                                   <div>
                                     <p className="text-xs font-medium text-muted-foreground mb-2">Subtarefas</p>
                                     {subtasks.map((sub) => (
@@ -387,7 +486,6 @@ const Tasks = () => {
                                     </div>
                                   </div>
 
-                                  {/* Notes */}
                                   <div>
                                     <p className="text-xs font-medium text-muted-foreground mb-2">
                                       <MessageSquare className="h-3 w-3 inline mr-1" />Notas
@@ -420,11 +518,11 @@ const Tasks = () => {
         </Card>
       </motion.div>
 
-      {/* Create Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {/* Create / Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nova Tarefa</DialogTitle>
+            <DialogTitle>{editingTask ? "Editar Tarefa" : "Nova Tarefa"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -482,8 +580,81 @@ const Tasks = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={() => createMutation.mutate()} disabled={!form.title.trim()}>Criar Tarefa</Button>
+            <Button variant="outline" onClick={() => { setDialogOpen(false); resetForm(); }}>Cancelar</Button>
+            <Button
+              onClick={() => editingTask ? updateMutation.mutate() : createMutation.mutate()}
+              disabled={!form.title.trim()}
+            >
+              {editingTask ? "Salvar Alterações" : "Criar Tarefa"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Report Dialog */}
+      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              Relatório de Tarefas Concluídas
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">Selecione o período para gerar o relatório em PDF com todas as tarefas concluídas.</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium mb-1 block">De</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !reportFrom && "text-muted-foreground")}>
+                      <Calendar className="h-4 w-4 mr-2" />
+                      {reportFrom ? format(reportFrom, "dd/MM/yyyy") : "Início"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent mode="single" selected={reportFrom} onSelect={setReportFrom} className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1 block">Até</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !reportTo && "text-muted-foreground")}>
+                      <Calendar className="h-4 w-4 mr-2" />
+                      {reportTo ? format(reportTo, "dd/MM/yyyy") : "Fim"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent mode="single" selected={reportTo} onSelect={setReportTo} className="p-3 pointer-events-auto" />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            {reportFrom && reportTo && (
+              <div className="rounded-lg border border-border/50 bg-muted/30 p-4">
+                <p className="text-sm font-medium mb-1">{reportTasks.length} tarefas concluídas no período</p>
+                {reportTasks.length > 0 && (
+                  <div className="space-y-1 mt-2 max-h-40 overflow-y-auto">
+                    {reportTasks.map((t) => (
+                      <div key={t.id} className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <CheckCircle2 className="h-3 w-3 text-emerald-400 shrink-0" />
+                        <span className="truncate flex-1">{t.title}</span>
+                        <span className="font-mono shrink-0">{t.completed_at ? format(parseISO(t.completed_at), "dd/MM") : ""}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReportOpen(false)}>Fechar</Button>
+            <Button onClick={generatePDF} disabled={!reportFrom || !reportTo || reportTasks.length === 0} className="gap-2">
+              <FileText className="h-4 w-4" /> Gerar PDF
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
