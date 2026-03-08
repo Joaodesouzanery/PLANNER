@@ -69,6 +69,7 @@ const columnColors: Record<string, { header: string; accent: string }> = {
 
 const Projects = () => {
   const { toast } = useToast();
+  const { selectedCompanyId } = useCompany();
   const [view, setView] = useState<"kanban" | "timeline">("kanban");
   const [projects, setProjects] = useState<Project[]>([]);
   const [columns, setColumns] = useState<KanbanColumn[]>(defaultColumns);
