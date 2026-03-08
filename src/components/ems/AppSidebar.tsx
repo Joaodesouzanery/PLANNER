@@ -45,6 +45,7 @@ const menuGroups: MenuGroup[] = [
     label: "Principal",
     items: [
       { icon: LayoutDashboard, label: "Dashboard", path: "/ems" },
+      { icon: Gauge, label: "Executivo", path: "/ems/executive" },
       { icon: FolderKanban, label: "Projetos", path: "/ems/projects" },
       { icon: ListTodo, label: "Tarefas", path: "/ems/tasks" },
       { icon: TrendingUp, label: "Finanças", path: "/ems/finance" },
