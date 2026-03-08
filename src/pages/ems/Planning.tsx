@@ -91,10 +91,12 @@ const Planning = () => {
     if (projectsRes.data) setProjects(projectsRes.data);
   };
 
-  useEffect(() => { fetchGoals(); fetchMilestones(); fetchOkrsAndProjects(); }, []);
+  useEffect(() => { fetchGoals(); fetchMilestones(); fetchOkrsAndProjects(); }, [selectedCompanyId]);
 
   const fetchGoals = async () => {
-    const { data } = await supabase.from("planning_goals").select("*").order("order_index");
+    let q = supabase.from("planning_goals").select("*").order("order_index");
+    if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
+    const { data } = await q;
     if (data) setGoals(data);
     setLoading(false);
   };

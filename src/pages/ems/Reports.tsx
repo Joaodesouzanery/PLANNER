@@ -67,6 +67,7 @@ const COLORS = ["hsl(var(--primary))", "hsl(142.1, 76.2%, 36.3%)", "hsl(0, 84.2%
 
 const Reports = () => {
   const { toast } = useToast();
+  const { selectedCompanyId } = useCompany();
   const [okrs, setOkrs] = useState<OKR[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -75,14 +76,15 @@ const Reports = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [selectedCompanyId]);
 
   const fetchData = async () => {
-    const [okrsRes, transactionsRes, projectsRes] = await Promise.all([
-      supabase.from("okrs").select("*").order("created_at", { ascending: false }),
-      supabase.from("financial_transactions").select("*").order("date", { ascending: false }),
-      supabase.from("projects").select("*").order("created_at", { ascending: false }),
-    ]);
+    const cf = selectedCompanyId !== "all";
+    let oq = supabase.from("okrs").select("*").order("created_at", { ascending: false });
+    let tq = supabase.from("financial_transactions").select("*").order("date", { ascending: false });
+    let pq = supabase.from("projects").select("*").order("created_at", { ascending: false });
+    if (cf) { oq = oq.eq("company_id", selectedCompanyId); tq = tq.eq("company_id", selectedCompanyId); pq = pq.eq("company_id", selectedCompanyId); }
+    const [okrsRes, transactionsRes, projectsRes] = await Promise.all([oq, tq, pq]);
 
     if (okrsRes.data) setOkrs(okrsRes.data);
     if (transactionsRes.data) setTransactions(transactionsRes.data as Transaction[]);

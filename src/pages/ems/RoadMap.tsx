@@ -90,6 +90,7 @@ const fromDbRow = (row: any): RoadMapData => ({
 
 const RoadMap = () => {
   const { toast } = useToast();
+  const { selectedCompanyId } = useCompany();
   const [roadmaps, setRoadmaps] = useState<RoadMapData[]>([]);
   const [selectedRoadmap, setSelectedRoadmap] = useState<RoadMapData | null>(null);
   const [showNewRoadmap, setShowNewRoadmap] = useState(false);

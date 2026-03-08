@@ -76,6 +76,7 @@ const departmentOptions = [
 
 const OrgChart = () => {
   const { toast } = useToast();
+  const { selectedCompanyId } = useCompany();
   const [nodes, setNodes] = useState<OrgChartNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
