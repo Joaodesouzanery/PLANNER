@@ -33,7 +33,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { RecentActivity } from "@/components/ems/RecentActivity";
 import { Link } from "react-router-dom";
-import { formatDistanceToNow, differenceInDays, parseISO, isBefore, startOfWeek, endOfWeek, format } from "date-fns";
+import { formatDistanceToNow, parseISO, isBefore, startOfWeek, endOfWeek, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
@@ -97,7 +97,7 @@ const Overview = () => {
   const [projectCount, setProjectCount] = useState(0);
   const [contactCount, setContactCount] = useState(0);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
-  const [overdueItems, setOverdueItems] = useState<{id: string; title: string; type: string; dueDate: string; daysOverdue: number}[]>([]);
+  
 
   useEffect(() => {
     fetchData();
@@ -197,23 +197,6 @@ const Overview = () => {
     const { count: contCount } = await ccQ;
     setContactCount(contCount || 0);
 
-    // Fetch overdue items
-    const today = new Date();
-    const overdue: {id: string; title: string; type: string; dueDate: string; daysOverdue: number}[] = [];
-    let otQ = supabase.from("tasks").select("id, title, due_date").not("due_date", "is", null).neq("status", "completed").lt("due_date", format(today, "yyyy-MM-dd"));
-    if (cf) otQ = otQ.eq("company_id", cid);
-    const { data: overdueTasks } = await otQ;
-    overdueTasks?.forEach((t: any) => { const days = differenceInDays(today, parseISO(t.due_date)); overdue.push({ id: t.id, title: t.title, type: "Tarefa", dueDate: t.due_date, daysOverdue: days }); });
-    let opQ = supabase.from("projects").select("id, title, due_date").not("due_date", "is", null).neq("status", "done").lt("due_date", format(today, "yyyy-MM-dd"));
-    if (cf) opQ = opQ.eq("company_id", cid);
-    const { data: overdueProjects } = await opQ;
-    overdueProjects?.forEach((p: any) => { const days = differenceInDays(today, parseISO(p.due_date)); overdue.push({ id: p.id, title: p.title, type: "Projeto", dueDate: p.due_date, daysOverdue: days }); });
-    let omQ = supabase.from("planning_milestones").select("id, title, due_date").not("due_date", "is", null).eq("completed", false).lt("due_date", format(today, "yyyy-MM-dd"));
-    if (cf) omQ = omQ.eq("company_id", cid);
-    const { data: overdueMilestones } = await omQ;
-    overdueMilestones?.forEach((m: any) => { const days = differenceInDays(today, parseISO(m.due_date)); overdue.push({ id: m.id, title: m.title, type: "Marco", dueDate: m.due_date, daysOverdue: days }); });
-    overdue.sort((a, b) => b.daysOverdue - a.daysOverdue);
-    setOverdueItems(overdue);
   };
 
   const saveFocus = async () => {
@@ -351,39 +334,8 @@ const Overview = () => {
           </div>
         </motion.div>
 
-        {/* Overdue Alerts */}
-        {overdueItems.length > 0 && (
-          <motion.div variants={itemVariants}>
-            <Card className="border-destructive/30 bg-destructive/5">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-destructive" />
-                    <CardTitle className="text-sm text-destructive">Itens Atrasados</CardTitle>
-                    <Badge variant="destructive" className="text-xs">{overdueItems.length}</Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {overdueItems.slice(0, 6).map(item => (
-                    <div key={`${item.type}-${item.id}`} className="flex items-center gap-2 p-2.5 rounded-lg border border-destructive/20 bg-card/50">
-                      <div className="w-1.5 h-8 rounded-full bg-destructive flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{item.title}</p>
-                        <div className="flex items-center gap-1.5">
-                          <Badge variant="outline" className="text-[10px] border-border/50">{item.type}</Badge>
-                          <span className="text-[10px] text-destructive font-medium">{item.daysOverdue}d atrasado</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {overdueItems.length > 6 && <p className="text-xs text-muted-foreground text-center mt-2">+{overdueItems.length - 6} itens atrasados</p>}
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
+
+
 
         {/* Financial Trend Chart */}
         <motion.div variants={itemVariants}>
