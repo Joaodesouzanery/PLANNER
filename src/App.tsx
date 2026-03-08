@@ -57,6 +57,8 @@ const App = () => (
             <Route path="/ems/calendar" element={<CalendarPage />} />
             <Route path="/ems/comercial" element={<Commercial />} />
             <Route path="/ems/onboarding" element={<Onboarding />} />
+            <Route path="/ems/executive" element={<Executive />} />
+            <Route path="/ems/timesheet" element={<Timesheet />} />
             <Route path="/ems/companies" element={<Companies />} />
 
             {/* Catch-all */}

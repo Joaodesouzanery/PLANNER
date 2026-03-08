@@ -56,7 +56,10 @@ export const EMSLayout = ({ children }: EMSLayoutProps) => {
           transition={{ duration: 0.3, ease: "easeInOut" }}
           className="min-h-screen"
         >
-          <div className="p-6 lg:p-8">
+          <div className="flex justify-end p-3 pb-0">
+            <GlobalSearch />
+          </div>
+          <div className="p-6 lg:p-8 pt-3">
             {children}
           </div>
         </motion.main>
