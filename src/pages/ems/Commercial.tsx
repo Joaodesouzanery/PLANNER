@@ -75,6 +75,8 @@ const Commercial = () => {
     getContactProgress, getPhaseItems, getChildItems, isLeafItem,
     getContactMeta, invalidateAll, queryClient,
   } = useCommercialData();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
