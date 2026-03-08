@@ -38,6 +38,7 @@ interface Project {
   column_order: number | null;
   client: string | null;
   labels: string[] | null;
+  company_id: string | null;
 }
 
 interface KanbanColumn {
