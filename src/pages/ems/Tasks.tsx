@@ -66,9 +66,11 @@ const Tasks = () => {
   const [noteInput, setNoteInput] = useState("");
 
   const { data: tasks = [], isLoading } = useQuery({
-    queryKey: ["tasks"],
+    queryKey: ["tasks", selectedCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tasks").select("*").is("contact_id", null).order("order_index");
+      let query = supabase.from("tasks").select("*").is("contact_id", null).order("order_index");
+      if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
+      const { data, error } = await query;
       if (error) throw error;
       return (data as Task[]).sort((a, b) => {
         if (a.status === "completed" && b.status !== "completed") return 1;
