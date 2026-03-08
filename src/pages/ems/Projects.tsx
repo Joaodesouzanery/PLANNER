@@ -393,10 +393,11 @@ const Projects = () => {
         </div>
 
         {/* View Toggle */}
-        <Tabs value={view} onValueChange={(v) => setView(v as "kanban" | "timeline")}>
+        <Tabs value={view} onValueChange={(v) => setView(v as "kanban" | "timeline" | "dashboard")}>
           <TabsList>
             <TabsTrigger value="kanban" className="gap-2"><LayoutGrid className="h-4 w-4" />Kanban</TabsTrigger>
             <TabsTrigger value="timeline" className="gap-2"><GanttChart className="h-4 w-4" />Timeline</TabsTrigger>
+            <TabsTrigger value="dashboard" className="gap-2"><BarChart3 className="h-4 w-4" />Dashboard</TabsTrigger>
           </TabsList>
 
           <TabsContent value="kanban" className="mt-6">
