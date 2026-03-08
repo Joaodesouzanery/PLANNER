@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { motion } from "framer-motion";
 import {
-  Plus, DollarSign, Target, Edit2, Trash2, ArrowUpRight, ArrowDownRight,
+  Plus, DollarSign, Target, Edit2, Trash2, ArrowUpRight, ArrowDownRight, ShoppingCart,
   TrendingUp, BarChart3, Wallet, Calculator, Clock, Percent, PiggyBank,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
