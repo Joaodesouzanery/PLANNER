@@ -73,6 +73,7 @@ const menuGroups: MenuGroup[] = [
     label: "Configuração",
     items: [
       { icon: Settings, label: "Configurações", path: "/ems/settings" },
+      { icon: Building2, label: "Empresas", path: "/ems/companies" },
     ],
   },
 ];
