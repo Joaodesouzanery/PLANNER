@@ -192,17 +192,25 @@ const Overview = () => {
     const { count: projCount } = await pcQ;
     setProjectCount(projCount || 0);
 
-    const { count: contCount } = await supabase.from("contacts").select("*", { count: "exact", head: true });
+    let ccQ = supabase.from("contacts").select("*", { count: "exact", head: true });
+    if (cf) ccQ = ccQ.eq("company_id", cid);
+    const { count: contCount } = await ccQ;
     setContactCount(contCount || 0);
 
     // Fetch overdue items
     const today = new Date();
     const overdue: {id: string; title: string; type: string; dueDate: string; daysOverdue: number}[] = [];
-    const { data: overdueTasks } = await supabase.from("tasks").select("id, title, due_date").not("due_date", "is", null).neq("status", "completed").lt("due_date", format(today, "yyyy-MM-dd"));
+    let otQ = supabase.from("tasks").select("id, title, due_date").not("due_date", "is", null).neq("status", "completed").lt("due_date", format(today, "yyyy-MM-dd"));
+    if (cf) otQ = otQ.eq("company_id", cid);
+    const { data: overdueTasks } = await otQ;
     overdueTasks?.forEach((t: any) => { const days = differenceInDays(today, parseISO(t.due_date)); overdue.push({ id: t.id, title: t.title, type: "Tarefa", dueDate: t.due_date, daysOverdue: days }); });
-    const { data: overdueProjects } = await supabase.from("projects").select("id, title, due_date").not("due_date", "is", null).neq("status", "done").lt("due_date", format(today, "yyyy-MM-dd"));
+    let opQ = supabase.from("projects").select("id, title, due_date").not("due_date", "is", null).neq("status", "done").lt("due_date", format(today, "yyyy-MM-dd"));
+    if (cf) opQ = opQ.eq("company_id", cid);
+    const { data: overdueProjects } = await opQ;
     overdueProjects?.forEach((p: any) => { const days = differenceInDays(today, parseISO(p.due_date)); overdue.push({ id: p.id, title: p.title, type: "Projeto", dueDate: p.due_date, daysOverdue: days }); });
-    const { data: overdueMilestones } = await supabase.from("planning_milestones").select("id, title, due_date").not("due_date", "is", null).eq("completed", false).lt("due_date", format(today, "yyyy-MM-dd"));
+    let omQ = supabase.from("planning_milestones").select("id, title, due_date").not("due_date", "is", null).eq("completed", false).lt("due_date", format(today, "yyyy-MM-dd"));
+    if (cf) omQ = omQ.eq("company_id", cid);
+    const { data: overdueMilestones } = await omQ;
     overdueMilestones?.forEach((m: any) => { const days = differenceInDays(today, parseISO(m.due_date)); overdue.push({ id: m.id, title: m.title, type: "Marco", dueDate: m.due_date, daysOverdue: days }); });
     overdue.sort((a, b) => b.daysOverdue - a.daysOverdue);
     setOverdueItems(overdue);

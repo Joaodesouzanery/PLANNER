@@ -90,7 +90,7 @@ const Finance = () => {
 
   const handleSaveTransaction = async () => {
     if (editingTransaction) { await supabase.from("financial_transactions").update(transactionForm).eq("id", editingTransaction.id); }
-    else { await supabase.from("financial_transactions").insert(transactionForm); }
+    else { await supabase.from("financial_transactions").insert({ ...transactionForm, company_id: selectedCompanyId !== "all" ? selectedCompanyId : null }); }
     setShowTransactionModal(false); setEditingTransaction(null);
     setTransactionForm({ description: "", amount: 0, type: "income", category: "", date: format(new Date(), "yyyy-MM-dd") });
     fetchTransactions(); toast({ title: editingTransaction ? "Transação atualizada!" : "Transação criada!" });

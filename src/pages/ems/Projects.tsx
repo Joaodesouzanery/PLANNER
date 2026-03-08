@@ -132,6 +132,7 @@ const Projects = () => {
     await supabase.from("projects").insert({
       title: projectForm.title, description: projectForm.description || null, priority: projectForm.priority,
       due_date: projectForm.due_date || null, status: "todo", column_order: maxOrder,
+      company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
       client: projectForm.client || null, labels: projectForm.labels ? projectForm.labels.split(",").map(l => l.trim()).filter(Boolean) : [],
     });
     setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "" });
