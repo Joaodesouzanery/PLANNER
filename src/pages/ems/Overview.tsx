@@ -104,7 +104,12 @@ const Overview = () => {
   }, [selectedCompanyId]);
 
   const fetchData = async () => {
-    const { data: pillarsData } = await supabase.from("strategic_pillars").select("*").order("order_index");
+    const cf = selectedCompanyId !== "all";
+    const cid = selectedCompanyId;
+
+    let pillarsQ = supabase.from("strategic_pillars").select("*").order("order_index");
+    if (cf) pillarsQ = pillarsQ.eq("company_id", cid);
+    const { data: pillarsData } = await pillarsQ;
     if (pillarsData) setPillars(pillarsData);
 
     const currentMonth = new Date().getMonth() + 1;
