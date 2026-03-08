@@ -64,10 +64,20 @@ const Finance = () => {
   const [simMonthlyIncome, setSimMonthlyIncome] = useState(0);
   const [simMonthlyExpenses, setSimMonthlyExpenses] = useState(0);
 
-  useEffect(() => { fetchOkrs(); fetchTransactions(); }, []);
+  useEffect(() => { fetchOkrs(); fetchTransactions(); }, [selectedCompanyId]);
 
-  const fetchOkrs = async () => { const { data } = await supabase.from("okrs").select("*").order("created_at", { ascending: false }); if (data) setOkrs(data); };
-  const fetchTransactions = async () => { const { data } = await supabase.from("financial_transactions").select("*").order("date", { ascending: false }); if (data) setTransactions(data as Transaction[]); };
+  const fetchOkrs = async () => {
+    let q = supabase.from("okrs").select("*").order("created_at", { ascending: false });
+    if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
+    const { data } = await q;
+    if (data) setOkrs(data);
+  };
+  const fetchTransactions = async () => {
+    let q = supabase.from("financial_transactions").select("*").order("date", { ascending: false });
+    if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
+    const { data } = await q;
+    if (data) setTransactions(data as Transaction[]);
+  };
 
   const handleSaveOkr = async () => {
     if (editingOkr) { await supabase.from("okrs").update(okrForm).eq("id", editingOkr.id); }
