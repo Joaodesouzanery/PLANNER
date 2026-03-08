@@ -495,6 +495,162 @@ const Finance = () => {
               </div>
             </div>
           </TabsContent>
+
+          {/* ============ INSTALLMENT SIMULATOR ============ */}
+          <TabsContent value="simulator" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Input */}
+              <div className="space-y-4">
+                <Card className="border border-border/50 bg-card/80">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base flex items-center gap-2"><ShoppingCart className="h-4 w-4 text-primary" />O que quer comprar?</CardTitle>
+                      <Button variant="outline" size="sm" className="rounded-xl text-xs border-primary/30 hover:bg-primary/10" onClick={autoFillSim}>Auto-preencher renda</Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label className="text-sm">Nome do item</Label>
+                      <Input value={simItemName} onChange={e => setSimItemName(e.target.value)} placeholder="Ex: Computador, iPhone, Carro..." className="mt-1 rounded-xl" />
+                    </div>
+                    <div>
+                      <Label className="text-sm">Preço total (R$)</Label>
+                      <Input type="number" value={simItemPrice || ""} onChange={e => setSimItemPrice(Number(e.target.value))} placeholder="0,00" className="mt-1 rounded-xl font-mono" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-sm">Renda mensal (R$)</Label>
+                        <Input type="number" value={simMonthlyIncome || ""} onChange={e => setSimMonthlyIncome(Number(e.target.value))} placeholder="0,00" className="mt-1 rounded-xl font-mono" />
+                      </div>
+                      <div>
+                        <Label className="text-sm">Despesas fixas (R$)</Label>
+                        <Input type="number" value={simMonthlyExpenses || ""} onChange={e => setSimMonthlyExpenses(Number(e.target.value))} placeholder="0,00" className="mt-1 rounded-xl font-mono" />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/50">
+                      <span className="text-sm text-muted-foreground">Sobra mensal</span>
+                      <span className={cn("font-bold font-mono", simAvailable > 0 ? "text-emerald-400" : "text-destructive")}>{fmtCurrency(simAvailable)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Quick tip */}
+                <Card className="border border-amber-500/20 bg-amber-500/5">
+                  <CardContent className="p-4">
+                    <p className="text-sm font-medium text-amber-400 mb-1">💡 Regra de ouro</p>
+                    <p className="text-xs text-muted-foreground">Parcelas não devem comprometer mais de <span className="text-amber-400 font-bold">30%</span> da sua renda. O ideal é ficar entre 10-20% para manter saúde financeira.</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Results */}
+              <div className="space-y-4">
+                {simItemPrice > 0 && simMonthlyIncome > 0 ? (
+                  <>
+                    <Card className="border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Calculator className="h-4 w-4 text-primary" />
+                          Opções de parcelamento {simItemName && <Badge variant="outline" className="border-primary/30 text-primary ml-1">{simItemName}</Badge>}
+                        </CardTitle>
+                        <p className="text-xs text-muted-foreground">Preço: <span className="font-mono font-bold text-foreground">{fmtCurrency(simItemPrice)}</span></p>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {simResults.map(r => (
+                          <motion.div key={r.label} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                            className={cn("p-4 rounded-xl border transition-all", r.border, r.bg, !r.healthy && "opacity-50")}>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span>{r.emoji}</span>
+                                <span className={cn("font-medium text-sm", r.color)}>{r.label}</span>
+                                <Badge variant="outline" className={cn("text-[10px]", r.border)}>{r.percent}% da renda</Badge>
+                              </div>
+                              {!r.healthy && <Badge variant="destructive" className="text-[10px]">Não recomendado</Badge>}
+                            </div>
+                            <div className="grid grid-cols-3 gap-3 text-center">
+                              <div>
+                                <p className="text-2xl font-bold font-mono text-foreground">{r.installments}x</p>
+                                <p className="text-[10px] text-muted-foreground">parcelas</p>
+                              </div>
+                              <div>
+                                <p className={cn("text-lg font-bold font-mono", r.color)}>{fmtCurrency(r.monthlyPayment)}</p>
+                                <p className="text-[10px] text-muted-foreground">por mês</p>
+                              </div>
+                              <div>
+                                <p className="text-lg font-bold font-mono text-foreground">{r.percentOfIncome.toFixed(1)}%</p>
+                                <p className="text-[10px] text-muted-foreground">da renda</p>
+                              </div>
+                            </div>
+                            {r.healthy && (
+                              <div className="mt-2 pt-2 border-t border-border/30 flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">Sobra após parcela:</span>
+                                <span className={cn("font-mono font-medium", r.remainsAfter >= 0 ? "text-emerald-400" : "text-destructive")}>{fmtCurrency(r.remainsAfter)}</span>
+                              </div>
+                            )}
+                            <Progress value={r.percentOfIncome} className="h-1.5 mt-2" />
+                          </motion.div>
+                        ))}
+                      </CardContent>
+                    </Card>
+
+                    {/* Best recommendation */}
+                    {(() => {
+                      const best = simResults.find(r => r.healthy && r.percent <= 20) || simResults.find(r => r.healthy);
+                      if (!best) return (
+                        <Card className="border border-destructive/30 bg-destructive/5">
+                          <CardContent className="p-4 text-center">
+                            <p className="text-destructive font-medium">⚠️ Este item está acima do seu orçamento atual</p>
+                            <p className="text-xs text-muted-foreground mt-1">Considere economizar antes ou buscar uma alternativa mais acessível</p>
+                          </CardContent>
+                        </Card>
+                      );
+                      return (
+                        <Card className="border border-emerald-500/30 bg-emerald-500/5">
+                          <CardContent className="p-4">
+                            <p className="text-emerald-400 font-medium mb-2">✅ Recomendação saudável</p>
+                            <p className="text-sm text-muted-foreground">
+                              Compre {simItemName || "o item"} em <span className="text-emerald-400 font-bold font-mono">{best.installments}x</span> de{" "}
+                              <span className="text-emerald-400 font-bold font-mono">{fmtCurrency(best.monthlyPayment)}</span>,
+                              comprometendo apenas <span className="text-emerald-400 font-bold">{best.percentOfIncome.toFixed(1)}%</span> da sua renda.
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-2">Você ainda terá <span className="text-emerald-400 font-mono font-bold">{fmtCurrency(best.remainsAfter)}</span>/mês de sobra</p>
+                          </CardContent>
+                        </Card>
+                      );
+                    })()}
+
+                    {/* Custom installment input */}
+                    <Card className="border border-border/50 bg-card/80">
+                      <CardHeader className="pb-2"><CardTitle className="text-sm">Simular parcelas personalizadas</CardTitle></CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-4 gap-2">
+                          {[3, 6, 10, 12, 18, 24, 36, 48].map(n => {
+                            const monthly = simItemPrice / n;
+                            const pct = simMonthlyIncome > 0 ? (monthly / simMonthlyIncome) * 100 : 0;
+                            const isHealthy = pct <= 30 && monthly <= simAvailable;
+                            return (
+                              <div key={n} className={cn("p-2 rounded-lg border text-center transition-all", isHealthy ? "border-emerald-500/30 bg-emerald-500/5" : "border-destructive/20 bg-destructive/5 opacity-60")}>
+                                <p className="text-lg font-bold font-mono">{n}x</p>
+                                <p className={cn("text-xs font-mono", isHealthy ? "text-emerald-400" : "text-destructive")}>{fmtCurrency(monthly)}</p>
+                                <p className="text-[10px] text-muted-foreground">{pct.toFixed(0)}%</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </>
+                ) : (
+                  <Card className="border border-border/50 bg-card/80">
+                    <CardContent className="py-16 text-center">
+                      <div className="inline-flex p-4 rounded-2xl bg-muted/30 mb-3"><ShoppingCart className="h-8 w-8 text-muted-foreground/50" /></div>
+                      <p className="text-muted-foreground text-sm">Preencha o preço do item e sua renda para ver as opções de parcelamento saudáveis</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          </TabsContent>
         </Tabs>
 
         {/* OKR Modal */}
