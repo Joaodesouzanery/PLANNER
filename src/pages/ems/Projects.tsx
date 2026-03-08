@@ -630,9 +630,9 @@ const Projects = () => {
                   {(() => {
                     const companyData = companies.map(c => ({
                       name: c.name,
-                      total: projects.filter(p => (p as any).company_id === c.id).length,
-                      concluidos: projects.filter(p => (p as any).company_id === c.id && p.status === "done").length,
-                      em_progresso: projects.filter(p => (p as any).company_id === c.id && p.status === "in_progress").length,
+                      total: projects.filter(p => p.company_id === c.id).length,
+                      concluidos: projects.filter(p => p.company_id === c.id && p.status === "done").length,
+                      em_progresso: projects.filter(p => p.company_id === c.id && p.status === "in_progress").length,
                     })).filter(d => d.total > 0);
                     return companyData.length > 0 ? (
                       <ResponsiveContainer width="100%" height={300}>
