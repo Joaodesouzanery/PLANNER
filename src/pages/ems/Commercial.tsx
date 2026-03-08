@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -74,6 +75,8 @@ const Commercial = () => {
     getContactProgress, getPhaseItems, getChildItems, isLeafItem,
     getContactMeta, invalidateAll, queryClient,
   } = useCommercialData();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -86,6 +89,18 @@ const Commercial = () => {
   const [customTagInput, setCustomTagInput] = useState("");
   const [filterTag, setFilterTag] = useState<string>("");
   const [filterTemperature, setFilterTemperature] = useState<string>("");
+
+  // Auto-select contact from query param
+  useEffect(() => {
+    const contactId = searchParams.get("contact");
+    if (contactId && contacts.length > 0 && !selectedContact) {
+      const found = contacts.find(c => c.id === contactId);
+      if (found) {
+        setSelectedContact(found);
+        setExpandedPhases(new Set());
+      }
+    }
+  }, [searchParams, contacts]);
 
   // Fetch tracking for selected contact
   const { data: tracking = [] } = useQuery({
@@ -339,7 +354,7 @@ const Commercial = () => {
       <EMSLayout>
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 sm:space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl shrink-0 self-start" onClick={() => setSelectedContact(null)}>
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl shrink-0 self-start" onClick={() => { setSelectedContact(null); navigate("/ems/commercial", { replace: true }); }}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex-1 min-w-0">
@@ -369,6 +384,9 @@ const Commercial = () => {
               )}
             </div>
             <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+              <Button variant="outline" size="sm" className="rounded-xl text-xs" onClick={() => navigate("/ems/contacts")}>
+                <Users className="h-3.5 w-3.5 mr-1" />Ver em Contatos
+              </Button>
               <Button variant="outline" size="sm" className="rounded-xl text-xs" onClick={() => openMetaDialog(selectedContact)}>
                 <Tag className="h-3.5 w-3.5 mr-1" />Tags
               </Button>
