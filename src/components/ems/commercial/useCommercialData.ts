@@ -2,9 +2,11 @@ import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Phase, Item, Tracking, Contact, ContactMeta } from "./types";
+import { useCompany } from "@/contexts/CompanyContext";
 
 export const useCommercialData = () => {
   const queryClient = useQueryClient();
+  const { selectedCompanyId } = useCompany();
 
   const { data: phases = [] } = useQuery({
     queryKey: ["commercial-phases"],
