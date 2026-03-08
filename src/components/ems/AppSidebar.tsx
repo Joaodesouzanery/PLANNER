@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
+  Building2,
   FolderKanban,
   BookOpen,
   TrendingUp,
