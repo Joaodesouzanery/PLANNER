@@ -558,7 +558,10 @@ const Tasks = () => {
                                         <MessageSquare className="h-3 w-3" />
                                       </Button>
                                     </div>
-                                  </div>
+
+                                  {/* Attachments */}
+                                  <AttachmentManager entityType="task" entityId={task.id} companyId={task.company_id} />
+                                </div>
                                 </div>
                               </motion.div>
                             )}
