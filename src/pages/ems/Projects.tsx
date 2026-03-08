@@ -144,11 +144,7 @@ const Projects = () => {
       const newColumns = Array.from(columns);
       const [removed] = newColumns.splice(source.index, 1);
       newColumns.splice(destination.index, 0, removed);
-      const updatedColumns = newColumns.map((col, index) => ({ ...col, order_index: index }));
-      setColumns(updatedColumns);
-      for (const col of updatedColumns) {
-        await supabase.from("kanban_columns").update({ order_index: col.order_index }).eq("id", col.id);
-      }
+      setColumns(newColumns.map((col, index) => ({ ...col, order_index: index })));
       return;
     }
 
