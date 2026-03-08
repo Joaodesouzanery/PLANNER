@@ -90,6 +90,18 @@ const Commercial = () => {
   const [filterTag, setFilterTag] = useState<string>("");
   const [filterTemperature, setFilterTemperature] = useState<string>("");
 
+  // Auto-select contact from query param
+  useEffect(() => {
+    const contactId = searchParams.get("contact");
+    if (contactId && contacts.length > 0 && !selectedContact) {
+      const found = contacts.find(c => c.id === contactId);
+      if (found) {
+        setSelectedContact(found);
+        setExpandedPhases(new Set());
+      }
+    }
+  }, [searchParams, contacts]);
+
   // Fetch tracking for selected contact
   const { data: tracking = [] } = useQuery({
     queryKey: ["commercial-tracking", selectedContact?.id],
