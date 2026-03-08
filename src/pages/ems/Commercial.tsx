@@ -384,6 +384,9 @@ const Commercial = () => {
               )}
             </div>
             <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+              <Button variant="outline" size="sm" className="rounded-xl text-xs" onClick={() => navigate("/ems/contacts")}>
+                <Users className="h-3.5 w-3.5 mr-1" />Ver em Contatos
+              </Button>
               <Button variant="outline" size="sm" className="rounded-xl text-xs" onClick={() => openMetaDialog(selectedContact)}>
                 <Tag className="h-3.5 w-3.5 mr-1" />Tags
               </Button>

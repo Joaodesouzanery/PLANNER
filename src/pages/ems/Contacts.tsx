@@ -321,6 +321,7 @@ const Contacts = () => {
                                 {contact.notes && <p className="text-xs text-muted-foreground/70 mt-1.5 truncate italic">{contact.notes}</p>}
                               </div>
                               <div className="flex gap-0.5 shrink-0">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-emerald-500/10 hover:text-emerald-500" onClick={(e) => { e.stopPropagation(); navigate(`/ems/commercial?contact=${contact.id}`); }} title="Ver no Comercial"><ExternalLink className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary" onClick={() => { setInteractionContactId(contact.id); setInteractionDialogOpen(true); }} title="Registrar interação"><MessageSquare className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-blue-500/10 hover:text-blue-400" onClick={() => setExpandedContact(expandedContact === contact.id ? null : contact.id)} title="Histórico"><Clock className="h-4 w-4" /></Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-muted" onClick={() => openEditContact(contact)}><Edit2 className="h-4 w-4" /></Button>
