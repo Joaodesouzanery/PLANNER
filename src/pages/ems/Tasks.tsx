@@ -228,15 +228,39 @@ const Tasks = () => {
 
   const completionRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
 
+  // Report: fetch ALL tasks (ignoring company filter) for cross-company reporting
+  const { data: allTasks = [] } = useQuery({
+    queryKey: ["all-tasks-report"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tasks").select("*").is("contact_id", null).eq("status", "completed").order("completed_at", { ascending: false });
+      if (error) throw error;
+      return data as Task[];
+    },
+    enabled: reportOpen,
+  });
+
   // Report logic
   const reportTasks = useMemo(() => {
     if (!reportFrom || !reportTo) return [];
-    return tasks.filter((t) => {
+    const source = allTasks;
+    return source.filter((t) => {
       if (t.status !== "completed" || !t.completed_at) return false;
+      // Company filter
+      if (reportCompanyId === "current" && selectedCompanyId !== "all") {
+        if (t.company_id !== selectedCompanyId) return false;
+      } else if (reportCompanyId !== "all" && reportCompanyId !== "current") {
+        if (t.company_id !== reportCompanyId) return false;
+      }
       const completedDate = parseISO(t.completed_at);
       return isWithinInterval(completedDate, { start: startOfDay(reportFrom), end: endOfDay(reportTo) });
     });
-  }, [tasks, reportFrom, reportTo]);
+  }, [allTasks, reportFrom, reportTo, reportCompanyId, selectedCompanyId]);
+
+  const getCompanyName = (companyId: string | null) => {
+    if (!companyId) return "Sem empresa";
+    const company = companies.find(c => c.id === companyId);
+    return company?.name || "Sem empresa";
+  };
 
   const generatePDF = () => {
     if (reportTasks.length === 0) {
@@ -258,11 +282,12 @@ const Tasks = () => {
       (priorityConfig[t.priority] || priorityConfig.medium).label,
       t.completed_at ? format(parseISO(t.completed_at), "dd/MM/yyyy HH:mm") : "-",
       (t.tags || []).join(", ") || "-",
+      getCompanyName((t as any).company_id),
     ]);
 
     autoTable(doc, {
       startY: 42,
-      head: [["Tarefa", "Prioridade", "Concluída em", "Tags"]],
+      head: [["Tarefa", "Prioridade", "Concluída em", "Tags", "Empresa"]],
       body: tableData,
       styles: { fontSize: 9 },
       headStyles: { fillColor: [59, 130, 246] },
@@ -270,6 +295,33 @@ const Tasks = () => {
 
     doc.save(`tarefas-concluidas-${fromStr}-${toStr}.pdf`);
     toast({ title: "PDF gerado com sucesso!" });
+  };
+
+  const generateCSV = () => {
+    if (reportTasks.length === 0) {
+      toast({ title: "Nenhuma tarefa no período", variant: "destructive" });
+      return;
+    }
+    const header = "Tarefa,Prioridade,Concluída em,Tags,Empresa";
+    const rows = reportTasks.map((t) => {
+      const title = `"${t.title.replace(/"/g, '""')}"`;
+      const priority = (priorityConfig[t.priority] || priorityConfig.medium).label;
+      const completed = t.completed_at ? format(parseISO(t.completed_at), "dd/MM/yyyy HH:mm") : "-";
+      const tags = `"${(t.tags || []).join(", ")}"`;
+      const company = `"${getCompanyName((t as any).company_id)}"`;
+      return `${title},${priority},${completed},${tags},${company}`;
+    });
+    const csv = [header, ...rows].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const fromStr = reportFrom ? format(reportFrom, "dd-MM-yyyy") : "";
+    const toStr = reportTo ? format(reportTo, "dd-MM-yyyy") : "";
+    link.href = url;
+    link.download = `tarefas-concluidas-${fromStr}-${toStr}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "CSV exportado com sucesso!" });
   };
 
   return (
