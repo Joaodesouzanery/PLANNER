@@ -70,9 +70,11 @@ const Tasks = () => {
   const [noteInput, setNoteInput] = useState("");
 
   // Report state
+  // Report state
   const [reportOpen, setReportOpen] = useState(false);
   const [reportFrom, setReportFrom] = useState<Date | undefined>(undefined);
   const [reportTo, setReportTo] = useState<Date | undefined>(undefined);
+  const [reportCompanyId, setReportCompanyId] = useState<string>("current");
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["tasks", selectedCompanyId],
