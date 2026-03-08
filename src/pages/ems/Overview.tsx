@@ -128,7 +128,9 @@ const Overview = () => {
       setCompletedTasks(tasksData.filter(t => t.status === "done").length);
     }
 
-    const { data: financialData } = await supabase.from("financial_transactions").select("amount, type, date");
+    let finQ = supabase.from("financial_transactions").select("amount, type, date");
+    if (cf) finQ = finQ.eq("company_id", cid);
+    const { data: financialData } = await finQ;
     if (financialData) {
       let inc = 0, exp = 0;
       financialData.forEach(t => {
