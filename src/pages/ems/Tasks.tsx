@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Trash2, Calendar, Flag, ListTodo, CheckCircle2, Clock, AlertTriangle,
-  Tag, MessageSquare, ChevronDown, ChevronRight, X, TrendingUp, Edit2, FileText,
+  Tag, MessageSquare, ChevronDown, ChevronRight, X, TrendingUp, Edit2, FileText, Download,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,6 +38,7 @@ interface Task {
   tags: string[] | null;
   parent_task_id: string | null;
   created_at: string;
+  company_id: string | null;
 }
 
 interface TaskNote {
@@ -57,7 +58,7 @@ const priorityConfig: Record<string, { label: string; color: string; bgCard: str
 const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
 
 const Tasks = () => {
-  const { selectedCompanyId } = useCompany();
+  const { selectedCompanyId, companies } = useCompany();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -70,9 +71,11 @@ const Tasks = () => {
   const [noteInput, setNoteInput] = useState("");
 
   // Report state
+  // Report state
   const [reportOpen, setReportOpen] = useState(false);
   const [reportFrom, setReportFrom] = useState<Date | undefined>(undefined);
   const [reportTo, setReportTo] = useState<Date | undefined>(undefined);
+  const [reportCompanyId, setReportCompanyId] = useState<string>("current");
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["tasks", selectedCompanyId],
@@ -226,15 +229,39 @@ const Tasks = () => {
 
   const completionRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
 
+  // Report: fetch ALL tasks (ignoring company filter) for cross-company reporting
+  const { data: allTasks = [] } = useQuery({
+    queryKey: ["all-tasks-report"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tasks").select("*").is("contact_id", null).eq("status", "completed").order("completed_at", { ascending: false });
+      if (error) throw error;
+      return data as Task[];
+    },
+    enabled: reportOpen,
+  });
+
   // Report logic
   const reportTasks = useMemo(() => {
     if (!reportFrom || !reportTo) return [];
-    return tasks.filter((t) => {
+    const source = allTasks;
+    return source.filter((t) => {
       if (t.status !== "completed" || !t.completed_at) return false;
+      // Company filter
+      if (reportCompanyId === "current" && selectedCompanyId !== "all") {
+        if (t.company_id !== selectedCompanyId) return false;
+      } else if (reportCompanyId !== "all" && reportCompanyId !== "current") {
+        if (t.company_id !== reportCompanyId) return false;
+      }
       const completedDate = parseISO(t.completed_at);
       return isWithinInterval(completedDate, { start: startOfDay(reportFrom), end: endOfDay(reportTo) });
     });
-  }, [tasks, reportFrom, reportTo]);
+  }, [allTasks, reportFrom, reportTo, reportCompanyId, selectedCompanyId]);
+
+  const getCompanyName = (companyId: string | null) => {
+    if (!companyId) return "Sem empresa";
+    const company = companies.find(c => c.id === companyId);
+    return company?.name || "Sem empresa";
+  };
 
   const generatePDF = () => {
     if (reportTasks.length === 0) {
@@ -256,11 +283,12 @@ const Tasks = () => {
       (priorityConfig[t.priority] || priorityConfig.medium).label,
       t.completed_at ? format(parseISO(t.completed_at), "dd/MM/yyyy HH:mm") : "-",
       (t.tags || []).join(", ") || "-",
+      getCompanyName(t.company_id),
     ]);
 
     autoTable(doc, {
       startY: 42,
-      head: [["Tarefa", "Prioridade", "Concluída em", "Tags"]],
+      head: [["Tarefa", "Prioridade", "Concluída em", "Tags", "Empresa"]],
       body: tableData,
       styles: { fontSize: 9 },
       headStyles: { fillColor: [59, 130, 246] },
@@ -268,6 +296,33 @@ const Tasks = () => {
 
     doc.save(`tarefas-concluidas-${fromStr}-${toStr}.pdf`);
     toast({ title: "PDF gerado com sucesso!" });
+  };
+
+  const generateCSV = () => {
+    if (reportTasks.length === 0) {
+      toast({ title: "Nenhuma tarefa no período", variant: "destructive" });
+      return;
+    }
+    const header = "Tarefa,Prioridade,Concluída em,Tags,Empresa";
+    const rows = reportTasks.map((t) => {
+      const title = `"${t.title.replace(/"/g, '""')}"`;
+      const priority = (priorityConfig[t.priority] || priorityConfig.medium).label;
+      const completed = t.completed_at ? format(parseISO(t.completed_at), "dd/MM/yyyy HH:mm") : "-";
+      const tags = `"${(t.tags || []).join(", ")}"`;
+      const company = `"${getCompanyName(t.company_id)}"`;
+      return `${title},${priority},${completed},${tags},${company}`;
+    });
+    const csv = [header, ...rows].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const fromStr = reportFrom ? format(reportFrom, "dd-MM-yyyy") : "";
+    const toStr = reportTo ? format(reportTo, "dd-MM-yyyy") : "";
+    link.href = url;
+    link.download = `tarefas-concluidas-${fromStr}-${toStr}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "CSV exportado com sucesso!" });
   };
 
   return (
@@ -601,7 +656,25 @@ const Tasks = () => {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Selecione o período para gerar o relatório em PDF com todas as tarefas concluídas.</p>
+            <p className="text-sm text-muted-foreground">Selecione o período e a empresa para gerar o relatório.</p>
+            
+            {/* Company filter */}
+            <div>
+              <label className="text-sm font-medium mb-1 block">Empresa</label>
+              <Select value={reportCompanyId} onValueChange={setReportCompanyId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="current">Empresa atual ({selectedCompanyId === "all" ? "Todas" : companies.find(c => c.id === selectedCompanyId)?.name || "Todas"})</SelectItem>
+                  <SelectItem value="all">Todas as empresas</SelectItem>
+                  {companies.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-1 block">De</label>
@@ -650,10 +723,13 @@ const Tasks = () => {
               </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setReportOpen(false)}>Fechar</Button>
+            <Button variant="outline" onClick={generateCSV} disabled={!reportFrom || !reportTo || reportTasks.length === 0} className="gap-2">
+              <Download className="h-4 w-4" /> CSV
+            </Button>
             <Button onClick={generatePDF} disabled={!reportFrom || !reportTo || reportTasks.length === 0} className="gap-2">
-              <FileText className="h-4 w-4" /> Gerar PDF
+              <FileText className="h-4 w-4" /> PDF
             </Button>
           </DialogFooter>
         </DialogContent>
