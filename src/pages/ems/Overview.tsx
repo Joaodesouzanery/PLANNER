@@ -156,13 +156,15 @@ const Overview = () => {
       setMonthlyData(months.map((m, i) => ({ month: m, income: monthMap[i].income, expense: monthMap[i].expense })));
     }
 
-    const { data: contactTasksData } = await supabase
+    let ctQ = supabase
       .from("tasks")
       .select("id, title, priority, due_date, status, contacts(id, name, company)")
       .not("contact_id", "is", null)
       .neq("status", "completed")
       .order("due_date", { ascending: true })
       .limit(10);
+    if (cf) ctQ = ctQ.eq("company_id", cid);
+    const { data: contactTasksData } = await ctQ;
     if (contactTasksData) {
       setContactTasks(contactTasksData.map((t: any) => ({ id: t.id, title: t.title, priority: t.priority, due_date: t.due_date, status: t.status, contact: t.contacts })));
     }
