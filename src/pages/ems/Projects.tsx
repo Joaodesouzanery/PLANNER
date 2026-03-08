@@ -8,25 +8,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { motion, AnimatePresence } from "framer-motion";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import {
-  Plus,
-  LayoutGrid,
-  GanttChart,
-  Trash2,
-  Edit2,
-  CheckCircle,
-  Calendar,
-  X,
-  GripVertical,
-  Building2,
+  Plus, LayoutGrid, GanttChart, Trash2, Edit2, CheckCircle, Calendar, X,
+  GripVertical, Building2, FolderKanban, Clock, TrendingUp, AlertTriangle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 interface Project {
   id: string;
@@ -60,6 +54,18 @@ const defaultColumns: KanbanColumn[] = [
   { id: "done", title: "Concluído", order_index: 2 },
 ];
 
+const priorityConfig: Record<string, { label: string; color: string; border: string }> = {
+  low: { label: "Baixa", color: "text-blue-400 bg-blue-500/10 border-blue-500/30", border: "border-l-blue-500" },
+  medium: { label: "Média", color: "text-yellow-400 bg-yellow-500/10 border-yellow-500/30", border: "border-l-yellow-500" },
+  high: { label: "Alta", color: "text-red-400 bg-red-500/10 border-red-500/30", border: "border-l-red-500" },
+};
+
+const columnColors: Record<string, { header: string; accent: string }> = {
+  todo: { header: "from-blue-500/10 to-transparent", accent: "text-blue-400" },
+  in_progress: { header: "from-amber-500/10 to-transparent", accent: "text-amber-400" },
+  done: { header: "from-emerald-500/10 to-transparent", accent: "text-emerald-400" },
+};
+
 const Projects = () => {
   const { toast } = useToast();
   const [view, setView] = useState<"kanban" | "timeline">("kanban");
@@ -73,107 +79,57 @@ const Projects = () => {
   const [newColumnTitle, setNewColumnTitle] = useState("");
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [isInitialized, setIsInitialized] = useState(false);
-  
-  const [projectForm, setProjectForm] = useState({
-    title: "",
-    description: "",
-    priority: "medium",
-    due_date: "",
-    client: "",
-    labels: "",
-  });
 
-  const [executionForm, setExecutionForm] = useState<ExecutionRecord>({
-    action_taken: "",
-    result_obtained: "",
-    lessons_learned: "",
-    tags: [],
-  });
+  const [projectForm, setProjectForm] = useState({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "" });
+  const [executionForm, setExecutionForm] = useState<ExecutionRecord>({ action_taken: "", result_obtained: "", lessons_learned: "", tags: [] });
   const [tagInput, setTagInput] = useState("");
 
-  useEffect(() => {
-    initializeColumnsAndFetch();
-  }, []);
+  useEffect(() => { initializeColumnsAndFetch(); }, []);
 
   const initializeColumnsAndFetch = async () => {
-    // First check if columns exist in database
-    const { data: existingColumns } = await supabase
-      .from("kanban_columns")
-      .select("*")
-      .order("order_index");
-
-    // If no columns exist, insert the default ones with our specific IDs
+    const { data: existingColumns } = await supabase.from("kanban_columns").select("*").order("order_index");
     if (!existingColumns || existingColumns.length === 0) {
       for (const col of defaultColumns) {
-        await supabase.from("kanban_columns").insert({
-          id: col.id,
-          title: col.title,
-          order_index: col.order_index,
-        });
+        await supabase.from("kanban_columns").insert({ id: col.id, title: col.title, order_index: col.order_index });
       }
       setColumns(defaultColumns);
     } else {
-      // Map existing columns, keeping the default IDs for default columns
       const mappedColumns = existingColumns.map(col => {
-        // Check if this is a default column by title
         const defaultCol = defaultColumns.find(d => d.title === col.title);
-        if (defaultCol) {
-          return { ...col, id: defaultCol.id };
-        }
-        return col;
+        return defaultCol ? { ...col, id: defaultCol.id } : col;
       });
       setColumns(mappedColumns);
     }
-    
     await fetchProjects();
     setIsInitialized(true);
   };
 
   const fetchProjects = async () => {
-    const { data } = await supabase
-      .from("projects")
-      .select("*")
-      .order("column_order", { ascending: true, nullsFirst: false });
+    const { data } = await supabase.from("projects").select("*").order("column_order", { ascending: true, nullsFirst: false });
     if (data) setProjects(data as Project[]);
   };
 
   const fetchColumns = async () => {
-    const { data } = await supabase
-      .from("kanban_columns")
-      .select("*")
-      .order("order_index");
+    const { data } = await supabase.from("kanban_columns").select("*").order("order_index");
     if (data && data.length > 0) {
-      // Map existing columns, keeping the default IDs for default columns
       const mappedColumns = data.map(col => {
         const defaultCol = defaultColumns.find(d => d.title === col.title);
-        if (defaultCol) {
-          return { ...col, id: defaultCol.id };
-        }
-        return col;
+        return defaultCol ? { ...col, id: defaultCol.id } : col;
       });
       setColumns(mappedColumns);
     }
   };
 
-  // Get unique clients for filter
   const uniqueClients = [...new Set(projects.map(p => p.client).filter(Boolean))] as string[];
 
   const handleAddProject = async () => {
     if (!projectForm.title) return;
-    
     const maxOrder = projects.filter(p => p.status === "todo").length;
-    
     await supabase.from("projects").insert({
-      title: projectForm.title,
-      description: projectForm.description || null,
-      priority: projectForm.priority,
-      due_date: projectForm.due_date || null,
-      status: "todo",
-      column_order: maxOrder,
-      client: projectForm.client || null,
-      labels: projectForm.labels ? projectForm.labels.split(",").map(l => l.trim()).filter(Boolean) : [],
+      title: projectForm.title, description: projectForm.description || null, priority: projectForm.priority,
+      due_date: projectForm.due_date || null, status: "todo", column_order: maxOrder,
+      client: projectForm.client || null, labels: projectForm.labels ? projectForm.labels.split(",").map(l => l.trim()).filter(Boolean) : [],
     });
-
     setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "" });
     setShowAddProject(false);
     fetchProjects();
@@ -182,19 +138,11 @@ const Projects = () => {
 
   const handleUpdateProject = async () => {
     if (!editingProject) return;
-    
-    await supabase
-      .from("projects")
-      .update({
-        title: projectForm.title,
-        description: projectForm.description,
-        priority: projectForm.priority,
-        due_date: projectForm.due_date || null,
-        client: projectForm.client || null,
-        labels: projectForm.labels ? projectForm.labels.split(",").map(l => l.trim()).filter(Boolean) : [],
-      })
-      .eq("id", editingProject.id);
-
+    await supabase.from("projects").update({
+      title: projectForm.title, description: projectForm.description, priority: projectForm.priority,
+      due_date: projectForm.due_date || null, client: projectForm.client || null,
+      labels: projectForm.labels ? projectForm.labels.split(",").map(l => l.trim()).filter(Boolean) : [],
+    }).eq("id", editingProject.id);
     setEditingProject(null);
     setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "" });
     fetchProjects();
@@ -209,65 +157,36 @@ const Projects = () => {
 
   const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId, type } = result;
-
     if (!destination) return;
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
 
-    if (
-      destination.droppableId === source.droppableId &&
-      destination.index === source.index
-    ) {
-      return;
-    }
-
-    // Handle column reordering
     if (type === "COLUMN") {
       const newColumns = Array.from(columns);
       const [removed] = newColumns.splice(source.index, 1);
       newColumns.splice(destination.index, 0, removed);
-      
-      // Update order_index
-      const updatedColumns = newColumns.map((col, index) => ({
-        ...col,
-        order_index: index,
-      }));
-      
+      const updatedColumns = newColumns.map((col, index) => ({ ...col, order_index: index }));
       setColumns(updatedColumns);
-      
-      // Update in database
       for (const col of updatedColumns) {
-        await supabase
-          .from("kanban_columns")
-          .update({ order_index: col.order_index })
-          .eq("id", col.id);
+        await supabase.from("kanban_columns").update({ order_index: col.order_index }).eq("id", col.id);
       }
       return;
     }
 
-    // Handle card reordering
     const project = projects.find(p => p.id === draggableId);
     if (!project) return;
-
     const newStatus = destination.droppableId;
 
-    // If moving to done, open execution modal
     if (newStatus === "done" && project.status !== "done") {
       setSelectedProject(project);
       setShowExecutionModal(true);
       return;
     }
 
-    // Optimistic update
     const newProjects = [...projects];
     const projectIndex = newProjects.findIndex(p => p.id === draggableId);
     newProjects[projectIndex] = { ...newProjects[projectIndex], status: newStatus };
     setProjects(newProjects);
-
-    // Update in database
-    await supabase
-      .from("projects")
-      .update({ status: newStatus, column_order: destination.index })
-      .eq("id", draggableId);
-
+    await supabase.from("projects").update({ status: newStatus, column_order: destination.index }).eq("id", draggableId);
     fetchProjects();
   };
 
@@ -277,22 +196,11 @@ const Projects = () => {
       toast({ title: "Preencha todos os campos obrigatórios", variant: "destructive" });
       return;
     }
-
-    // Save execution record
     await supabase.from("execution_records").insert({
-      project_id: selectedProject.id,
-      action_taken: executionForm.action_taken,
-      result_obtained: executionForm.result_obtained,
-      lessons_learned: executionForm.lessons_learned,
-      tags: executionForm.tags,
+      project_id: selectedProject.id, action_taken: executionForm.action_taken,
+      result_obtained: executionForm.result_obtained, lessons_learned: executionForm.lessons_learned, tags: executionForm.tags,
     });
-
-    // Update project status
-    await supabase
-      .from("projects")
-      .update({ status: "done" })
-      .eq("id", selectedProject.id);
-
+    await supabase.from("projects").update({ status: "done" }).eq("id", selectedProject.id);
     setShowExecutionModal(false);
     setSelectedProject(null);
     setExecutionForm({ action_taken: "", result_obtained: "", lessons_learned: "", tags: [] });
@@ -313,10 +221,7 @@ const Projects = () => {
 
   const addColumn = async () => {
     if (!newColumnTitle) return;
-    await supabase.from("kanban_columns").insert({
-      title: newColumnTitle,
-      order_index: columns.length,
-    });
+    await supabase.from("kanban_columns").insert({ title: newColumnTitle, order_index: columns.length });
     setNewColumnTitle("");
     setShowColumnModal(false);
     fetchColumns();
@@ -331,41 +236,72 @@ const Projects = () => {
 
   const getProjectsByStatus = (status: string) => {
     let filteredProjects = projects.filter(p => p.status === status);
-    if (clientFilter !== "all") {
-      filteredProjects = filteredProjects.filter(p => p.client === clientFilter);
-    }
+    if (clientFilter !== "all") filteredProjects = filteredProjects.filter(p => p.client === clientFilter);
     return filteredProjects.sort((a, b) => (a.column_order ?? 0) - (b.column_order ?? 0));
   };
 
-  const priorityColors: Record<string, string> = {
-    low: "bg-muted text-muted-foreground",
-    medium: "bg-amber-500/10 text-amber-500",
-    high: "bg-destructive/10 text-destructive",
-  };
+  // Stats
+  const totalProjects = projects.length;
+  const doneProjects = projects.filter(p => p.status === "done").length;
+  const inProgressProjects = projects.filter(p => p.status === "in_progress").length;
+  const overdueProjects = projects.filter(p => p.due_date && new Date(p.due_date) < new Date() && p.status !== "done").length;
+  const completionRate = totalProjects > 0 ? Math.round((doneProjects / totalProjects) * 100) : 0;
 
   return (
     <EMSLayout>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="space-y-6"
-      >
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">Gestão de Projetos</h1>
-            <p className="text-sm md:text-base text-muted-foreground mt-1">Gerencie suas tarefas e projetos</p>
+            <p className="text-sm md:text-base text-muted-foreground mt-1">Gerencie seus projetos com visão Kanban</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowColumnModal(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Coluna
+            <Button variant="outline" onClick={() => setShowColumnModal(true)} className="border-border/50">
+              <Plus className="h-4 w-4 mr-2" />Coluna
             </Button>
             <Button onClick={() => setShowAddProject(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Novo Projeto
+              <Plus className="h-4 w-4 mr-2" />Novo Projeto
             </Button>
           </div>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          {[
+            { label: "Total", value: totalProjects, icon: FolderKanban, color: "text-primary", gradient: "from-primary/10 to-primary/5" },
+            { label: "Em Progresso", value: inProgressProjects, icon: Clock, color: "text-amber-400", gradient: "from-amber-500/10 to-amber-500/5" },
+            { label: "Concluídos", value: doneProjects, icon: CheckCircle, color: "text-emerald-400", gradient: "from-emerald-500/10 to-emerald-500/5" },
+            { label: "Atrasados", value: overdueProjects, icon: AlertTriangle, color: "text-red-400", gradient: "from-red-500/10 to-red-500/5" },
+          ].map((s, i) => (
+            <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+              <div className="stat-card">
+                <div className="flex items-center gap-3">
+                  <div className={cn("p-2 rounded-lg bg-gradient-to-br", s.gradient)}>
+                    <s.icon className={cn("h-4 w-4", s.color)} />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold font-mono">{s.value}</p>
+                    <p className="text-xs text-muted-foreground">{s.label}</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="col-span-2 lg:col-span-1">
+            <div className="stat-card">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold font-mono">{completionRate}%</p>
+                  <p className="text-xs text-muted-foreground">Conclusão</p>
+                </div>
+              </div>
+              <Progress value={completionRate} className="h-1.5" />
+            </div>
+          </motion.div>
         </div>
 
         {/* Filters */}
@@ -373,7 +309,7 @@ const Projects = () => {
           <div className="flex items-center gap-2">
             <Building2 className="h-4 w-4 text-muted-foreground" />
             <Select value={clientFilter} onValueChange={setClientFilter}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[180px] border-border/50">
                 <SelectValue placeholder="Filtrar por cliente" />
               </SelectTrigger>
               <SelectContent>
@@ -389,161 +325,121 @@ const Projects = () => {
         {/* View Toggle */}
         <Tabs value={view} onValueChange={(v) => setView(v as "kanban" | "timeline")}>
           <TabsList>
-            <TabsTrigger value="kanban" className="gap-2">
-              <LayoutGrid className="h-4 w-4" />
-              Kanban
-            </TabsTrigger>
-            <TabsTrigger value="timeline" className="gap-2">
-              <GanttChart className="h-4 w-4" />
-              Timeline
-            </TabsTrigger>
+            <TabsTrigger value="kanban" className="gap-2"><LayoutGrid className="h-4 w-4" />Kanban</TabsTrigger>
+            <TabsTrigger value="timeline" className="gap-2"><GanttChart className="h-4 w-4" />Timeline</TabsTrigger>
           </TabsList>
 
           <TabsContent value="kanban" className="mt-6">
             <DragDropContext onDragEnd={handleDragEnd}>
               <Droppable droppableId="columns" direction="horizontal" type="COLUMN">
                 {(provided) => (
-                  <div 
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory"
-                  >
-                    {columns.map((column, columnIndex) => (
-                      <Draggable key={column.id} draggableId={`column-${column.id}`} index={columnIndex}>
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            className={`flex-shrink-0 w-[75vw] sm:w-80 snap-center ${snapshot.isDragging ? "opacity-75" : ""}`}
-                          >
-                            <Card className="bg-card/50">
-                              <CardHeader 
-                                {...provided.dragHandleProps}
-                                className="py-3 px-4 flex flex-row items-center justify-between cursor-grab active:cursor-grabbing"
-                              >
-                                <CardTitle className="text-sm font-medium">{column.title}</CardTitle>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="secondary" className="text-xs">
-                                    {getProjectsByStatus(column.id).length}
-                                  </Badge>
-                                  {!defaultColumns.find(c => c.id === column.id) && (
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6"
-                                      onClick={() => deleteColumn(column.id)}
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </CardHeader>
-                              <Droppable droppableId={column.id} type="CARD">
-                                {(provided, snapshot) => (
-                                  <CardContent
-                                    ref={provided.innerRef}
-                                    {...provided.droppableProps}
-                                    className={`p-2 space-y-2 min-h-[200px] transition-colors ${
-                                      snapshot.isDraggingOver ? "bg-primary/5" : ""
-                                    }`}
-                                  >
-                                    <AnimatePresence mode="popLayout">
-                                      {getProjectsByStatus(column.id).map((project, index) => (
-                                        <Draggable key={project.id} draggableId={project.id} index={index}>
-                                          {(provided, snapshot) => (
-                                            <motion.div
-                                              ref={provided.innerRef}
-                                              {...provided.draggableProps}
-                                              layout
-                                              initial={{ opacity: 0, scale: 0.8 }}
-                                              animate={{ opacity: 1, scale: 1 }}
-                                              exit={{ opacity: 0, scale: 0.8 }}
-                                              className={`bg-card border border-border rounded-lg p-3 transition-all ${
-                                                snapshot.isDragging 
-                                                  ? "shadow-lg border-primary/50 rotate-2" 
-                                                  : "hover:border-primary/30"
-                                              }`}
-                                            >
-                                              <div className="flex items-start justify-between gap-2">
-                                                <div className="flex items-start gap-2 flex-1">
-                                                  <div
-                                                    {...provided.dragHandleProps}
-                                                    className="mt-1 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
-                                                  >
-                                                    <GripVertical className="h-4 w-4" />
+                  <div ref={provided.innerRef} {...provided.droppableProps} className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory">
+                    {columns.map((column, columnIndex) => {
+                      const colStyle = columnColors[column.id] || { header: "from-muted/30 to-transparent", accent: "text-muted-foreground" };
+                      const colProjects = getProjectsByStatus(column.id);
+
+                      return (
+                        <Draggable key={column.id} draggableId={`column-${column.id}`} index={columnIndex}>
+                          {(provided, snapshot) => (
+                            <div ref={provided.innerRef} {...provided.draggableProps} className={cn("flex-shrink-0 w-[75vw] sm:w-80 snap-center", snapshot.isDragging && "opacity-75")}>
+                              <Card className="bg-card/60 backdrop-blur-sm border-border/50 overflow-hidden">
+                                <CardHeader {...provided.dragHandleProps} className={cn("py-3 px-4 flex flex-row items-center justify-between cursor-grab active:cursor-grabbing bg-gradient-to-r", colStyle.header)}>
+                                  <div className="flex items-center gap-2">
+                                    <div className={cn("h-2 w-2 rounded-full", column.id === "done" ? "bg-emerald-400" : column.id === "in_progress" ? "bg-amber-400" : "bg-blue-400")} />
+                                    <CardTitle className="text-sm font-medium">{column.title}</CardTitle>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="secondary" className="text-xs font-mono bg-background/50">{colProjects.length}</Badge>
+                                    {!defaultColumns.find(c => c.id === column.id) && (
+                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => deleteColumn(column.id)}>
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </CardHeader>
+                                <Droppable droppableId={column.id} type="CARD">
+                                  {(provided, snapshot) => (
+                                    <CardContent ref={provided.innerRef} {...provided.droppableProps} className={cn("p-2 space-y-2 min-h-[200px] transition-colors", snapshot.isDraggingOver && "bg-primary/5")}>
+                                      <AnimatePresence mode="popLayout">
+                                        {colProjects.map((project, index) => {
+                                          const pConfig = priorityConfig[project.priority] || priorityConfig.medium;
+                                          const isOverdue = project.due_date && new Date(project.due_date) < new Date() && project.status !== "done";
+
+                                          return (
+                                            <Draggable key={project.id} draggableId={project.id} index={index}>
+                                              {(provided, snapshot) => (
+                                                <motion.div
+                                                  ref={provided.innerRef}
+                                                  {...provided.draggableProps}
+                                                  layout
+                                                  initial={{ opacity: 0, scale: 0.8 }}
+                                                  animate={{ opacity: 1, scale: 1 }}
+                                                  exit={{ opacity: 0, scale: 0.8 }}
+                                                  className={cn(
+                                                    "bg-card border-l-[3px] border border-border/50 rounded-lg p-3 transition-all",
+                                                    snapshot.isDragging ? "shadow-lg shadow-primary/10 border-primary/50 rotate-1" : "hover:border-border hover:bg-muted/20",
+                                                    pConfig.border,
+                                                    isOverdue && "ring-1 ring-red-500/20"
+                                                  )}
+                                                >
+                                                  <div className="flex items-start justify-between gap-2">
+                                                    <div className="flex items-start gap-2 flex-1">
+                                                      <div {...provided.dragHandleProps} className="mt-1 cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-foreground">
+                                                        <GripVertical className="h-4 w-4" />
+                                                      </div>
+                                                      <div className="flex-1 min-w-0">
+                                                        <h4 className="font-medium text-sm">{project.title}</h4>
+                                                        {project.client && (
+                                                          <p className="text-xs text-primary/80 mt-0.5 flex items-center gap-1">
+                                                            <Building2 className="h-3 w-3" />{project.client}
+                                                          </p>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                    <div className="flex gap-0.5">
+                                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => {
+                                                        setEditingProject(project);
+                                                        setProjectForm({ title: project.title, description: project.description || "", priority: project.priority, due_date: project.due_date || "", client: project.client || "", labels: project.labels?.join(", ") || "" });
+                                                      }}>
+                                                        <Edit2 className="h-3 w-3" />
+                                                      </Button>
+                                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteProject(project.id)}>
+                                                        <Trash2 className="h-3 w-3" />
+                                                      </Button>
+                                                    </div>
                                                   </div>
-                                                  <div className="flex-1">
-                                                    <h4 className="font-medium text-sm">{project.title}</h4>
-                                                    {project.client && (
-                                                      <p className="text-xs text-primary mt-0.5 flex items-center gap-1">
-                                                        <Building2 className="h-3 w-3" />
-                                                        {project.client}
-                                                      </p>
+                                                  {project.description && (
+                                                    <p className="text-xs text-muted-foreground mt-1.5 ml-6 line-clamp-2">{project.description}</p>
+                                                  )}
+                                                  <div className="flex items-center gap-2 mt-3 ml-6 flex-wrap">
+                                                    <Badge className={cn("text-[10px] border", pConfig.color)} variant="secondary">{pConfig.label}</Badge>
+                                                    {project.labels?.map(label => (
+                                                      <Badge key={label} variant="outline" className="text-[10px] border-border/50">{label}</Badge>
+                                                    ))}
+                                                    {project.due_date && (
+                                                      <span className={cn("text-[10px] flex items-center gap-1", isOverdue ? "text-red-400" : "text-muted-foreground")}>
+                                                        <Calendar className="h-2.5 w-2.5" />
+                                                        {format(new Date(project.due_date), "dd MMM", { locale: ptBR })}
+                                                      </span>
                                                     )}
+                                                    {isOverdue && <Badge variant="destructive" className="text-[10px] px-1 py-0 animate-pulse">Atrasado</Badge>}
                                                   </div>
-                                                </div>
-                                                <div className="flex gap-1">
-                                                  <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-6 w-6"
-                                                    onClick={() => {
-                                                      setEditingProject(project);
-                                                      setProjectForm({
-                                                        title: project.title,
-                                                        description: project.description || "",
-                                                        priority: project.priority,
-                                                        due_date: project.due_date || "",
-                                                        client: project.client || "",
-                                                        labels: project.labels?.join(", ") || "",
-                                                      });
-                                                    }}
-                                                  >
-                                                    <Edit2 className="h-3 w-3" />
-                                                  </Button>
-                                                  <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-6 w-6 text-destructive"
-                                                    onClick={() => handleDeleteProject(project.id)}
-                                                  >
-                                                    <Trash2 className="h-3 w-3" />
-                                                  </Button>
-                                                </div>
-                                              </div>
-                                              {project.description && (
-                                                <p className="text-xs text-muted-foreground mt-1 ml-6 line-clamp-2">
-                                                  {project.description}
-                                                </p>
+                                                </motion.div>
                                               )}
-                                              <div className="flex items-center gap-2 mt-3 ml-6">
-                                                <Badge className={priorityColors[project.priority]} variant="secondary">
-                                                  {project.priority === "low" ? "Baixa" : project.priority === "medium" ? "Média" : "Alta"}
-                                                </Badge>
-                                                {project.labels && project.labels.length > 0 && project.labels.map(label => (
-                                                  <Badge key={label} variant="outline" className="text-xs">{label}</Badge>
-                                                ))}
-                                                {project.due_date && (
-                                                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                                    <Calendar className="h-3 w-3" />
-                                                    {format(new Date(project.due_date), "dd MMM", { locale: ptBR })}
-                                                  </span>
-                                                )}
-                                              </div>
-                                            </motion.div>
-                                          )}
-                                        </Draggable>
-                                      ))}
-                                    </AnimatePresence>
-                                    {provided.placeholder}
-                                  </CardContent>
-                                )}
-                              </Droppable>
-                            </Card>
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
+                                            </Draggable>
+                                          );
+                                        })}
+                                      </AnimatePresence>
+                                      {provided.placeholder}
+                                    </CardContent>
+                                  )}
+                                </Droppable>
+                              </Card>
+                            </div>
+                          )}
+                        </Draggable>
+                      );
+                    })}
                     {provided.placeholder}
                   </div>
                 )}
@@ -552,56 +448,57 @@ const Projects = () => {
           </TabsContent>
 
           <TabsContent value="timeline" className="mt-6">
-            <Card>
+            <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
               <CardContent className="p-6">
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {projects
                     .filter(p => p.due_date)
                     .filter(p => clientFilter === "all" || p.client === clientFilter)
                     .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())
-                    .map((project, index) => (
-                      <motion.div
-                        key={project.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                        className="flex items-center gap-4 p-4 border border-border rounded-lg"
-                      >
-                        <div className="flex-shrink-0 w-24 text-center">
-                          <p className="text-sm font-medium">
-                            {format(new Date(project.due_date!), "dd MMM", { locale: ptBR })}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {format(new Date(project.due_date!), "yyyy")}
-                          </p>
-                        </div>
-                        <div className="w-px h-12 bg-border" />
-                        <div className="flex-1">
-                          <h4 className="font-medium">{project.title}</h4>
-                          {project.client && (
-                            <p className="text-xs text-primary flex items-center gap-1 mt-0.5">
-                              <Building2 className="h-3 w-3" />
-                              {project.client}
-                            </p>
+                    .map((project, index) => {
+                      const pConfig = priorityConfig[project.priority] || priorityConfig.medium;
+                      const isOverdue = project.due_date && new Date(project.due_date) < new Date() && project.status !== "done";
+
+                      return (
+                        <motion.div
+                          key={project.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.03 }}
+                          className={cn(
+                            "flex items-center gap-4 p-4 border-l-[3px] border border-border/50 rounded-lg bg-card hover:bg-muted/20 transition-colors",
+                            pConfig.border,
+                            isOverdue && "ring-1 ring-red-500/20"
                           )}
-                          {project.description && (
-                            <p className="text-sm text-muted-foreground">{project.description}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge className={priorityColors[project.priority]} variant="secondary">
-                            {project.status === "done" ? "Concluído" : project.status === "in_progress" ? "Em Progresso" : "A Fazer"}
-                          </Badge>
-                          {project.labels && project.labels.length > 0 && project.labels.map(label => (
-                            <Badge key={label} variant="outline" className="text-xs">{label}</Badge>
-                          ))}
-                        </div>
-                      </motion.div>
-                    ))}
+                        >
+                          <div className="flex-shrink-0 w-20 text-center">
+                            <p className="text-sm font-bold font-mono">{format(new Date(project.due_date!), "dd MMM", { locale: ptBR })}</p>
+                            <p className="text-[10px] text-muted-foreground font-mono">{format(new Date(project.due_date!), "yyyy")}</p>
+                          </div>
+                          <div className="w-px h-10 bg-border/50" />
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-sm">{project.title}</h4>
+                            {project.client && (
+                              <p className="text-xs text-primary/80 flex items-center gap-1 mt-0.5"><Building2 className="h-3 w-3" />{project.client}</p>
+                            )}
+                            {project.description && <p className="text-xs text-muted-foreground truncate mt-0.5">{project.description}</p>}
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap shrink-0">
+                            <Badge variant="secondary" className={cn("text-[10px]", project.status === "done" ? "bg-emerald-500/10 text-emerald-400" : project.status === "in_progress" ? "bg-amber-500/10 text-amber-400" : "bg-blue-500/10 text-blue-400")}>
+                              {project.status === "done" ? "Concluído" : project.status === "in_progress" ? "Em Progresso" : "A Fazer"}
+                            </Badge>
+                            {isOverdue && <Badge variant="destructive" className="text-[10px] px-1 py-0">Atrasado</Badge>}
+                          </div>
+                        </motion.div>
+                      );
+                    })}
                   {projects.filter(p => p.due_date).filter(p => clientFilter === "all" || p.client === clientFilter).length === 0 && (
-                    <p className="text-center text-muted-foreground py-8">
-                      Nenhum projeto com data de entrega definida.
-                    </p>
+                    <div className="text-center py-12">
+                      <div className="p-4 rounded-full bg-muted/50 w-fit mx-auto mb-4">
+                        <Calendar className="h-8 w-8 text-muted-foreground/50" />
+                      </div>
+                      <p className="text-muted-foreground">Nenhum projeto com data de entrega definida.</p>
+                    </div>
                   )}
                 </div>
               </CardContent>
@@ -609,84 +506,35 @@ const Projects = () => {
           </TabsContent>
         </Tabs>
 
-        {/* Add Project Dialog */}
+        {/* Add/Edit Project Dialog */}
         <Dialog open={showAddProject || !!editingProject} onOpenChange={(open) => {
-          if (!open) {
-            setShowAddProject(false);
-            setEditingProject(null);
-            setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "" });
-          }
+          if (!open) { setShowAddProject(false); setEditingProject(null); setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "" }); }
         }}>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingProject ? "Editar Projeto" : "Novo Projeto"}</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>{editingProject ? "Editar Projeto" : "Novo Projeto"}</DialogTitle></DialogHeader>
             <div className="space-y-4 py-4">
-              <div>
-                <Label>Título</Label>
-                <Input
-                  value={projectForm.title}
-                  onChange={(e) => setProjectForm({ ...projectForm, title: e.target.value })}
-                  placeholder="Nome do projeto"
-                />
-              </div>
-              <div>
-                <Label>Descrição</Label>
-                <Textarea
-                  value={projectForm.description}
-                  onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
-                  placeholder="Descrição do projeto"
-                />
-              </div>
-              <div>
-                <Label>Cliente / Empresa</Label>
-                <Input
-                  value={projectForm.client}
-                  onChange={(e) => setProjectForm({ ...projectForm, client: e.target.value })}
-                  placeholder="Nome do cliente ou empresa"
-                />
-              </div>
-              <div>
-                <Label>Labels</Label>
-                <Input
-                  value={projectForm.labels}
-                  onChange={(e) => setProjectForm({ ...projectForm, labels: e.target.value })}
-                  placeholder="Ex: frontend, urgente, redesign (separados por vírgula)"
-                />
-              </div>
+              <div><Label>Título</Label><Input value={projectForm.title} onChange={(e) => setProjectForm({ ...projectForm, title: e.target.value })} placeholder="Nome do projeto" /></div>
+              <div><Label>Descrição</Label><Textarea value={projectForm.description} onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })} placeholder="Descrição do projeto" /></div>
+              <div><Label>Cliente / Empresa</Label><Input value={projectForm.client} onChange={(e) => setProjectForm({ ...projectForm, client: e.target.value })} placeholder="Nome do cliente ou empresa" /></div>
+              <div><Label>Labels</Label><Input value={projectForm.labels} onChange={(e) => setProjectForm({ ...projectForm, labels: e.target.value })} placeholder="Ex: frontend, urgente, redesign (separados por vírgula)" /></div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>Prioridade</Label>
-                  <select
-                    value={projectForm.priority}
-                    onChange={(e) => setProjectForm({ ...projectForm, priority: e.target.value })}
-                    className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="low">Baixa</option>
-                    <option value="medium">Média</option>
-                    <option value="high">Alta</option>
-                  </select>
+                  <Select value={projectForm.priority} onValueChange={(v) => setProjectForm({ ...projectForm, priority: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Baixa</SelectItem>
+                      <SelectItem value="medium">Média</SelectItem>
+                      <SelectItem value="high">Alta</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div>
-                  <Label>Data de Entrega</Label>
-                  <Input
-                    type="date"
-                    value={projectForm.due_date}
-                    onChange={(e) => setProjectForm({ ...projectForm, due_date: e.target.value })}
-                  />
-                </div>
+                <div><Label>Data de Entrega</Label><Input type="date" value={projectForm.due_date} onChange={(e) => setProjectForm({ ...projectForm, due_date: e.target.value })} /></div>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => {
-                setShowAddProject(false);
-                setEditingProject(null);
-              }}>
-                Cancelar
-              </Button>
-              <Button onClick={editingProject ? handleUpdateProject : handleAddProject}>
-                {editingProject ? "Salvar" : "Criar"}
-              </Button>
+              <Button variant="outline" onClick={() => { setShowAddProject(false); setEditingProject(null); }}>Cancelar</Button>
+              <Button onClick={editingProject ? handleUpdateProject : handleAddProject}>{editingProject ? "Salvar" : "Criar"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -695,73 +543,31 @@ const Projects = () => {
         <Dialog open={showExecutionModal} onOpenChange={setShowExecutionModal}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-primary" />
-                Registro de Execução
-              </DialogTitle>
+              <DialogTitle className="flex items-center gap-2"><CheckCircle className="h-5 w-5 text-primary" />Registro de Execução</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              <p className="text-sm text-muted-foreground">
-                Complete o registro para arquivar este projeto na Knowledge Base.
-              </p>
-              <div>
-                <Label>Ação Realizada *</Label>
-                <Textarea
-                  value={executionForm.action_taken}
-                  onChange={(e) => setExecutionForm({ ...executionForm, action_taken: e.target.value })}
-                  placeholder="O que foi feito para concluir este projeto?"
-                />
-              </div>
-              <div>
-                <Label>Resultado Obtido *</Label>
-                <Textarea
-                  value={executionForm.result_obtained}
-                  onChange={(e) => setExecutionForm({ ...executionForm, result_obtained: e.target.value })}
-                  placeholder="Quais métricas ou resultados foram alcançados?"
-                />
-              </div>
-              <div>
-                <Label>Lições Aprendidas *</Label>
-                <Textarea
-                  value={executionForm.lessons_learned}
-                  onChange={(e) => setExecutionForm({ ...executionForm, lessons_learned: e.target.value })}
-                  placeholder="O que você aprendeu com este projeto?"
-                />
-              </div>
+              <p className="text-sm text-muted-foreground">Complete o registro para arquivar este projeto na Knowledge Base.</p>
+              <div><Label>Ação Realizada *</Label><Textarea value={executionForm.action_taken} onChange={(e) => setExecutionForm({ ...executionForm, action_taken: e.target.value })} placeholder="O que foi feito para concluir este projeto?" /></div>
+              <div><Label>Resultado Obtido *</Label><Textarea value={executionForm.result_obtained} onChange={(e) => setExecutionForm({ ...executionForm, result_obtained: e.target.value })} placeholder="Quais métricas ou resultados foram alcançados?" /></div>
+              <div><Label>Lições Aprendidas *</Label><Textarea value={executionForm.lessons_learned} onChange={(e) => setExecutionForm({ ...executionForm, lessons_learned: e.target.value })} placeholder="O que você aprendeu com este projeto?" /></div>
               <div>
                 <Label>Tags</Label>
                 <div className="flex gap-2">
-                  <Input
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    placeholder="Adicionar tag"
-                    onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
-                  />
-                  <Button type="button" variant="outline" onClick={addTag}>
-                    <Plus className="h-4 w-4" />
-                  </Button>
+                  <Input value={tagInput} onChange={(e) => setTagInput(e.target.value)} placeholder="Adicionar tag" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }} />
+                  <Button type="button" variant="outline" onClick={addTag}><Plus className="h-4 w-4" /></Button>
                 </div>
                 {executionForm.tags.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {executionForm.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="gap-1">
-                        {tag}
-                        <button onClick={() => removeTag(tag)}>
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
+                      <Badge key={tag} variant="secondary" className="gap-1">{tag}<button onClick={() => removeTag(tag)}><X className="h-3 w-3" /></button></Badge>
                     ))}
                   </div>
                 )}
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowExecutionModal(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleCompleteWithExecution}>
-                Concluir e Registrar
-              </Button>
+              <Button variant="outline" onClick={() => setShowExecutionModal(false)}>Cancelar</Button>
+              <Button onClick={handleCompleteWithExecution}>Concluir e Registrar</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -769,21 +575,10 @@ const Projects = () => {
         {/* Add Column Modal */}
         <Dialog open={showColumnModal} onOpenChange={setShowColumnModal}>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Nova Coluna</DialogTitle>
-            </DialogHeader>
-            <div className="py-4">
-              <Label>Nome da Coluna</Label>
-              <Input
-                value={newColumnTitle}
-                onChange={(e) => setNewColumnTitle(e.target.value)}
-                placeholder="Ex: Em Revisão"
-              />
-            </div>
+            <DialogHeader><DialogTitle>Nova Coluna</DialogTitle></DialogHeader>
+            <div className="py-4"><Label>Nome da Coluna</Label><Input value={newColumnTitle} onChange={(e) => setNewColumnTitle(e.target.value)} placeholder="Ex: Em Revisão" /></div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowColumnModal(false)}>
-                Cancelar
-              </Button>
+              <Button variant="outline" onClick={() => setShowColumnModal(false)}>Cancelar</Button>
               <Button onClick={addColumn}>Criar Coluna</Button>
             </DialogFooter>
           </DialogContent>
