@@ -641,7 +641,22 @@ const Projects = () => {
         <Dialog open={showColumnModal} onOpenChange={setShowColumnModal}>
           <DialogContent>
             <DialogHeader><DialogTitle>Nova Coluna</DialogTitle></DialogHeader>
-            <div className="py-4"><Label>Nome da Coluna</Label><Input value={newColumnTitle} onChange={(e) => setNewColumnTitle(e.target.value)} placeholder="Ex: Em Revisão" /></div>
+            <div className="space-y-4 py-4">
+              <div><Label>Nome da Coluna</Label><Input value={newColumnTitle} onChange={(e) => setNewColumnTitle(e.target.value)} placeholder="Ex: Em Revisão" /></div>
+              <div>
+                <Label>Cor</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {COLUMN_COLORS.map(c => (
+                    <button
+                      key={c.value}
+                      onClick={() => setNewColumnColor(c.value)}
+                      className={cn("h-8 w-8 rounded-full border-2 transition-all", c.dot, newColumnColor === c.value ? "border-foreground scale-110" : "border-transparent opacity-60 hover:opacity-100")}
+                      title={c.label}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowColumnModal(false)}>Cancelar</Button>
               <Button onClick={addColumn}>Criar Coluna</Button>
