@@ -48,6 +48,7 @@ const getColorClasses = (color: string) =>
 const QuickNotes = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { selectedCompanyId } = useCompany();
   const [newNoteContent, setNewNoteContent] = useState("");
   const [editingNote, setEditingNote] = useState<QuickNote | null>(null);
   const [editContent, setEditContent] = useState("");
