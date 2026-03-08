@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,17 +6,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { motion, AnimatePresence } from "framer-motion";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, CheckCircle2, Flag, Target } from "lucide-react";
+import { motion } from "framer-motion";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, CheckCircle2, Flag, Target, Eye } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, subMonths, eachDayOfInterval, isSameMonth, isSameDay, isToday, } from "date-fns";
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays, eachDayOfInterval, isSameMonth, isSameDay, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
 interface CalendarEvent { id: string; title: string; description: string | null; start_date: string; end_date: string | null; all_day: boolean; color: string; }
 interface Task { id: string; title: string; status: string; priority: string; due_date: string | null; }
 interface Milestone { id: string; title: string; due_date: string | null; completed: boolean; }
+interface TimeEntry { id: string; date: string; hours: number; description: string | null; }
+
+type ViewMode = "month" | "week" | "day";
 
 const eventColors = [
   { value: "blue", label: "Azul", class: "bg-blue-500" },
@@ -32,69 +36,187 @@ const getColorClass = (color: string) => eventColors.find((c) => c.value === col
 const CalendarPage = () => {
   const { toast } = useToast();
   const { selectedCompanyId } = useCompany();
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const queryClient = useQueryClient();
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [milestones, setMilestones] = useState<Milestone[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showEventModal, setShowEventModal] = useState(false);
   const [showDayModal, setShowDayModal] = useState(false);
   const [eventForm, setEventForm] = useState({ title: "", date: "", color: "blue" });
+  const [draggedEvent, setDraggedEvent] = useState<string | null>(null);
 
-  useEffect(() => { fetchData(); }, [selectedCompanyId]);
+  const cf = selectedCompanyId !== "all";
 
-  const fetchData = async () => {
-    setLoading(true);
-    const cf = selectedCompanyId !== "all";
-    let eq = supabase.from("calendar_events").select("*");
-    let tq = supabase.from("tasks").select("id, title, status, priority, due_date").not("due_date", "is", null);
-    let mq = supabase.from("planning_milestones").select("id, title, due_date, completed").not("due_date", "is", null);
-    if (cf) { eq = eq.eq("company_id", selectedCompanyId); tq = tq.eq("company_id", selectedCompanyId); mq = mq.eq("company_id", selectedCompanyId); }
-    const [eventsRes, tasksRes, milestonesRes] = await Promise.all([eq, tq, mq]);
-    if (eventsRes.data) setEvents(eventsRes.data as CalendarEvent[]);
-    if (tasksRes.data) setTasks(tasksRes.data as Task[]);
-    if (milestonesRes.data) setMilestones(milestonesRes.data as Milestone[]);
-    setLoading(false);
-  };
+  const { data: events = [] } = useQuery({
+    queryKey: ["calendar-events", selectedCompanyId],
+    queryFn: async () => {
+      let q = supabase.from("calendar_events").select("*");
+      if (cf) q = q.eq("company_id", selectedCompanyId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data as CalendarEvent[];
+    },
+  });
 
-  const handleCreateEvent = async () => {
-    if (!eventForm.title.trim() || !eventForm.date) { toast({ title: "Erro", description: "Preencha o titulo e a data", variant: "destructive" }); return; }
-    const { error } = await supabase.from("calendar_events").insert({ title: eventForm.title, start_date: eventForm.date, all_day: true, color: eventForm.color, company_id: selectedCompanyId !== "all" ? selectedCompanyId : null });
-    if (error) { toast({ title: "Erro ao criar evento", variant: "destructive" }); return; }
-    toast({ title: "Evento criado!" });
-    setEventForm({ title: "", date: "", color: "blue" });
-    setShowEventModal(false);
-    fetchData();
-  };
+  const { data: tasks = [] } = useQuery({
+    queryKey: ["calendar-tasks", selectedCompanyId],
+    queryFn: async () => {
+      let q = supabase.from("tasks").select("id, title, status, priority, due_date").not("due_date", "is", null);
+      if (cf) q = q.eq("company_id", selectedCompanyId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data as Task[];
+    },
+  });
+
+  const { data: milestones = [] } = useQuery({
+    queryKey: ["calendar-milestones", selectedCompanyId],
+    queryFn: async () => {
+      let q = supabase.from("planning_milestones").select("id, title, due_date, completed").not("due_date", "is", null);
+      if (cf) q = q.eq("company_id", selectedCompanyId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data as Milestone[];
+    },
+  });
+
+  const { data: timeEntries = [] } = useQuery({
+    queryKey: ["calendar-time-entries", selectedCompanyId],
+    queryFn: async () => {
+      let q = supabase.from("time_entries").select("id, date, hours, description");
+      if (cf) q = q.eq("company_id", selectedCompanyId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data as TimeEntry[];
+    },
+  });
+
+  const moveEventMutation = useMutation({
+    mutationFn: async ({ eventId, newDate }: { eventId: string; newDate: string }) => {
+      const { error } = await supabase.from("calendar_events").update({ start_date: newDate }).eq("id", eventId);
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["calendar-events"] }); toast({ title: "Evento movido!" }); },
+  });
+
+  const createEventMutation = useMutation({
+    mutationFn: async () => {
+      if (!eventForm.title.trim() || !eventForm.date) throw new Error("Preencha título e data");
+      const { error } = await supabase.from("calendar_events").insert({ title: eventForm.title, start_date: eventForm.date, all_day: true, color: eventForm.color, company_id: cf ? selectedCompanyId : null });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["calendar-events"] });
+      toast({ title: "Evento criado!" });
+      setEventForm({ title: "", date: "", color: "blue" }); setShowEventModal(false);
+    },
+    onError: (e: any) => toast({ title: "Erro", description: e?.message, variant: "destructive" }),
+  });
 
   const dateItemsMap = useMemo(() => {
-    const map = new Map<string, { tasks: Task[]; milestones: Milestone[]; events: CalendarEvent[] }>();
-    const getOrCreate = (key: string) => { if (!map.has(key)) map.set(key, { tasks: [], milestones: [], events: [] }); return map.get(key)!; };
+    const map = new Map<string, { tasks: Task[]; milestones: Milestone[]; events: CalendarEvent[]; hours: number }>();
+    const getOrCreate = (key: string) => { if (!map.has(key)) map.set(key, { tasks: [], milestones: [], events: [], hours: 0 }); return map.get(key)!; };
     tasks.forEach((t) => { if (t.due_date) getOrCreate(t.due_date).tasks.push(t); });
     milestones.forEach((m) => { if (m.due_date) getOrCreate(m.due_date).milestones.push(m); });
     events.forEach((e) => { const dateKey = e.start_date.slice(0, 10); getOrCreate(dateKey).events.push(e); });
+    timeEntries.forEach((te) => { const entry = getOrCreate(te.date); entry.hours += Number(te.hours); });
     return map;
-  }, [tasks, milestones, events]);
+  }, [tasks, milestones, events, timeEntries]);
 
-  const getItemsForDate = (date: Date) => { const key = format(date, "yyyy-MM-dd"); return dateItemsMap.get(key) || { tasks: [], milestones: [], events: [] }; };
+  const getItemsForDate = (date: Date) => {
+    const key = format(date, "yyyy-MM-dd");
+    return dateItemsMap.get(key) || { tasks: [], milestones: [], events: [], hours: 0 };
+  };
 
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
+  // Navigation
+  const goNext = () => {
+    if (viewMode === "month") setCurrentDate(addMonths(currentDate, 1));
+    else if (viewMode === "week") setCurrentDate(addWeeks(currentDate, 1));
+    else setCurrentDate(addDays(currentDate, 1));
+  };
+  const goPrev = () => {
+    if (viewMode === "month") setCurrentDate(subMonths(currentDate, 1));
+    else if (viewMode === "week") setCurrentDate(subWeeks(currentDate, 1));
+    else setCurrentDate(subDays(currentDate, 1));
+  };
+  const goToday = () => setCurrentDate(new Date());
+
+  // Calendar days computation
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(currentDate);
   const calendarStart = startOfWeek(monthStart, { locale: ptBR });
   const calendarEnd = endOfWeek(monthEnd, { locale: ptBR });
-  const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-  const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
+  const monthDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+
+  const weekStart = startOfWeek(currentDate, { locale: ptBR });
+  const weekEnd = endOfWeek(currentDate, { locale: ptBR });
+  const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
+
+  const weekDayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
+  const hours = Array.from({ length: 13 }, (_, i) => i + 8); // 8-20
 
   const handleDayClick = (date: Date) => { setSelectedDate(date); setShowDayModal(true); };
-  const selectedDayItems = selectedDate ? getItemsForDate(selectedDate) : { tasks: [], milestones: [], events: [] };
+  const selectedDayItems = selectedDate ? getItemsForDate(selectedDate) : { tasks: [], milestones: [], events: [], hours: 0 };
+
+  // Drag & drop handlers
+  const handleDragStart = (eventId: string) => setDraggedEvent(eventId);
+  const handleDragOver = (e: React.DragEvent) => e.preventDefault();
+  const handleDrop = (date: Date) => {
+    if (draggedEvent) {
+      moveEventMutation.mutate({ eventId: draggedEvent, newDate: format(date, "yyyy-MM-dd") });
+      setDraggedEvent(null);
+    }
+  };
 
   // Stats
-  const totalEvents = events.length;
-  const totalTasksDue = tasks.length;
-  const totalMilestones = milestones.length;
   const todayItems = getItemsForDate(new Date());
   const todayCount = todayItems.tasks.length + todayItems.milestones.length + todayItems.events.length;
+
+  const navigationLabel = viewMode === "month"
+    ? format(currentDate, "MMMM yyyy", { locale: ptBR })
+    : viewMode === "week"
+    ? `${format(weekStart, "dd MMM", { locale: ptBR })} — ${format(weekEnd, "dd MMM yyyy", { locale: ptBR })}`
+    : format(currentDate, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR });
+
+  const renderDayCell = (day: Date, inCurrentMonth: boolean = true) => {
+    const items = getItemsForDate(day);
+    const hasItems = items.tasks.length > 0 || items.milestones.length > 0 || items.events.length > 0;
+    const today = isToday(day);
+
+    return (
+      <div
+        key={day.toISOString()}
+        onClick={() => handleDayClick(day)}
+        onDragOver={handleDragOver}
+        onDrop={() => handleDrop(day)}
+        className={cn(
+          "relative rounded-xl p-1 md:p-2 text-sm transition-all cursor-pointer flex flex-col items-center justify-start gap-1 border min-h-[60px]",
+          inCurrentMonth ? "text-foreground" : "text-muted-foreground/30",
+          today ? "bg-primary/10 border-primary/30 font-bold shadow-md shadow-primary/10" : "border-transparent hover:bg-muted/30 hover:border-border/50",
+          hasItems && inCurrentMonth && !today ? "bg-muted/10" : ""
+        )}
+      >
+        <span className={cn("text-xs md:text-sm font-mono", today ? "text-primary" : "")}>{format(day, "d")}</span>
+        {items.hours > 0 && inCurrentMonth && (
+          <Badge variant="outline" className="text-[8px] px-1 py-0 border-primary/30 text-primary">{items.hours.toFixed(1)}h</Badge>
+        )}
+        {hasItems && inCurrentMonth && (
+          <div className="flex gap-0.5 flex-wrap justify-center">
+            {items.tasks.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50" />}
+            {items.milestones.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-sm shadow-amber-500/50" />}
+            {items.events.slice(0, 2).map((ev) => (
+              <div
+                key={ev.id}
+                draggable
+                onDragStart={() => handleDragStart(ev.id)}
+                className={cn("w-1.5 h-1.5 rounded-full shadow-sm cursor-grab", getColorClass(ev.color))}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <EMSLayout>
@@ -108,18 +230,21 @@ const CalendarPage = () => {
             </h1>
             <p className="text-muted-foreground mt-1 text-sm">Visualize tarefas, marcos e eventos em um só lugar</p>
           </div>
-          <Button onClick={() => setShowEventModal(true)} className="rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/40">
-            <Plus className="h-4 w-4 mr-2" /> Novo Evento
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="rounded-xl" onClick={goToday}>Hoje</Button>
+            <Button onClick={() => setShowEventModal(true)} className="rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/40">
+              <Plus className="h-4 w-4 mr-2" /> Novo Evento
+            </Button>
+          </div>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: "Hoje", value: todayCount, icon: Clock, color: "text-primary", bg: "bg-primary/10", border: "border-primary/20" },
-            { label: "Eventos", value: totalEvents, icon: CalendarIcon, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
-            { label: "Tarefas", value: totalTasksDue, icon: Flag, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
-            { label: "Marcos", value: totalMilestones, icon: Target, color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20" },
+            { label: "Eventos", value: events.length, icon: CalendarIcon, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
+            { label: "Tarefas", value: tasks.length, icon: Flag, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
+            { label: "Marcos", value: milestones.length, icon: Target, color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20" },
           ].map((s, i) => (
             <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
               <Card className={cn("border transition-all duration-300 hover:scale-[1.03]", s.border)}>
@@ -136,50 +261,120 @@ const CalendarPage = () => {
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
           <Card className="border border-border/50 bg-card/80 overflow-hidden">
             <CardContent className="p-4 md:p-6">
-              {/* Month navigation */}
+              {/* Navigation + View Toggle */}
               <div className="flex items-center justify-between mb-6">
-                <Button variant="ghost" size="icon" className="rounded-xl hover:bg-primary/10 hover:text-primary" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}><ChevronLeft className="h-5 w-5" /></Button>
-                <h2 className="text-lg md:text-xl font-semibold capitalize text-foreground">{format(currentMonth, "MMMM yyyy", { locale: ptBR })}</h2>
-                <Button variant="ghost" size="icon" className="rounded-xl hover:bg-primary/10 hover:text-primary" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}><ChevronRight className="h-5 w-5" /></Button>
+                <Button variant="ghost" size="icon" className="rounded-xl hover:bg-primary/10 hover:text-primary" onClick={goPrev}><ChevronLeft className="h-5 w-5" /></Button>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg md:text-xl font-semibold capitalize text-foreground">{navigationLabel}</h2>
+                </div>
+                <Button variant="ghost" size="icon" className="rounded-xl hover:bg-primary/10 hover:text-primary" onClick={goNext}><ChevronRight className="h-5 w-5" /></Button>
               </div>
 
-              {/* Week day headers */}
-              <div className="grid grid-cols-7 mb-2">
-                {weekDays.map((day) => (
-                  <div key={day} className="text-center text-xs font-medium text-muted-foreground py-2">{day}</div>
+              {/* View Mode Toggle */}
+              <div className="flex items-center gap-1 mb-4 bg-muted/30 rounded-xl p-1 w-fit">
+                {(["month", "week", "day"] as ViewMode[]).map(mode => (
+                  <Button key={mode} variant={viewMode === mode ? "default" : "ghost"} size="sm" className={cn("rounded-lg text-xs", viewMode === mode && "shadow-sm")} onClick={() => setViewMode(mode)}>
+                    {mode === "month" ? "Mês" : mode === "week" ? "Semana" : "Dia"}
+                  </Button>
                 ))}
               </div>
 
-              {/* Calendar grid */}
-              {loading ? (
-                <div className="grid grid-cols-7 gap-1">{[...Array(35)].map((_, i) => <div key={i} className="aspect-square bg-muted/20 rounded-lg animate-pulse" />)}</div>
-              ) : (
-                <div className="grid grid-cols-7 gap-1">
-                  {calendarDays.map((day, index) => {
-                    const items = getItemsForDate(day);
-                    const hasItems = items.tasks.length > 0 || items.milestones.length > 0 || items.events.length > 0;
-                    const inCurrentMonth = isSameMonth(day, currentMonth);
-                    const today = isToday(day);
+              {/* MONTHLY VIEW */}
+              {viewMode === "month" && (
+                <>
+                  <div className="grid grid-cols-7 mb-2">
+                    {weekDayNames.map((day) => (
+                      <div key={day} className="text-center text-xs font-medium text-muted-foreground py-2">{day}</div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {monthDays.map((day) => renderDayCell(day, isSameMonth(day, currentDate)))}
+                  </div>
+                </>
+              )}
+
+              {/* WEEKLY VIEW */}
+              {viewMode === "week" && (
+                <div className="overflow-x-auto">
+                  <div className="grid grid-cols-8 gap-1 min-w-[700px]">
+                    <div className="text-xs text-muted-foreground font-medium p-2">Hora</div>
+                    {weekDays.map(day => (
+                      <div key={day.toISOString()} className={cn("text-center text-xs font-medium p-2 rounded-lg", isToday(day) ? "bg-primary/10 text-primary" : "text-muted-foreground")}
+                        onDragOver={handleDragOver} onDrop={() => handleDrop(day)}>
+                        <div>{format(day, "EEE", { locale: ptBR })}</div>
+                        <div className="text-lg font-bold font-mono">{format(day, "d")}</div>
+                        {(() => { const items = getItemsForDate(day); return items.hours > 0 ? <Badge variant="outline" className="text-[8px] mt-1 border-primary/30 text-primary">{items.hours.toFixed(1)}h</Badge> : null; })()}
+                      </div>
+                    ))}
+                    {hours.map(hour => (
+                      <div key={hour} className="contents">
+                        <div className="text-[10px] text-muted-foreground font-mono p-1 border-t border-border/30 flex items-start">{hour}:00</div>
+                        {weekDays.map(day => {
+                          const items = getItemsForDate(day);
+                          return (
+                            <div key={`${day.toISOString()}-${hour}`} className="border-t border-border/20 p-0.5 min-h-[32px] hover:bg-muted/20 cursor-pointer rounded" onClick={() => handleDayClick(day)} onDragOver={handleDragOver} onDrop={() => handleDrop(day)}>
+                              {hour === 8 && items.events.map(ev => (
+                                <div key={ev.id} draggable onDragStart={() => handleDragStart(ev.id)} className={cn("text-[9px] px-1 py-0.5 rounded text-white truncate mb-0.5 cursor-grab", getColorClass(ev.color))}>{ev.title}</div>
+                              ))}
+                              {hour === 9 && items.tasks.map(t => (
+                                <div key={t.id} className="text-[9px] px-1 py-0.5 rounded bg-blue-500/15 text-blue-400 truncate mb-0.5">{t.title}</div>
+                              ))}
+                              {hour === 10 && items.milestones.map(m => (
+                                <div key={m.id} className="text-[9px] px-1 py-0.5 rounded bg-amber-500/15 text-amber-400 truncate mb-0.5">{m.title}</div>
+                              ))}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* DAILY VIEW */}
+              {viewMode === "day" && (
+                <div className="space-y-2">
+                  {(() => {
+                    const items = getItemsForDate(currentDate);
                     return (
-                      <motion.button key={day.toISOString()} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: index * 0.006 }}
-                        onClick={() => handleDayClick(day)}
-                        className={cn(
-                          "relative aspect-square rounded-xl p-1 md:p-2 text-sm transition-all cursor-pointer flex flex-col items-center justify-start gap-1 border",
-                          inCurrentMonth ? "text-foreground" : "text-muted-foreground/30",
-                          today ? "bg-primary/10 border-primary/30 font-bold shadow-md shadow-primary/10" : "border-transparent hover:bg-muted/30 hover:border-border/50",
-                          hasItems && inCurrentMonth && !today ? "bg-muted/10" : ""
-                        )}>
-                        <span className={cn("text-xs md:text-sm font-mono", today ? "text-primary" : "")}>{format(day, "d")}</span>
-                        {hasItems && inCurrentMonth && (
-                          <div className="flex gap-0.5 flex-wrap justify-center">
-                            {items.tasks.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50" />}
-                            {items.milestones.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-sm shadow-amber-500/50" />}
-                            {items.events.slice(0, 2).map((ev) => <div key={ev.id} className={cn("w-1.5 h-1.5 rounded-full shadow-sm", getColorClass(ev.color))} />)}
+                      <>
+                        {items.hours > 0 && (
+                          <div className="flex items-center gap-2 p-3 rounded-xl bg-primary/5 border border-primary/20">
+                            <Clock className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-medium">Horas registradas: <span className="font-mono text-primary font-bold">{items.hours.toFixed(1)}h</span></span>
                           </div>
                         )}
-                      </motion.button>
+                        {hours.map(hour => {
+                          const hourEvents = hour === 8 ? items.events : [];
+                          const hourTasks = hour === 9 ? items.tasks : [];
+                          const hourMilestones = hour === 10 ? items.milestones : [];
+                          const hasContent = hourEvents.length > 0 || hourTasks.length > 0 || hourMilestones.length > 0;
+                          return (
+                            <div key={hour} className={cn("flex gap-3 p-2 rounded-lg border border-transparent", hasContent && "border-border/30 bg-muted/10")}>
+                              <span className="text-xs text-muted-foreground font-mono w-12 shrink-0 pt-1">{hour}:00</span>
+                              <div className="flex-1 min-h-[28px] space-y-1">
+                                {hourEvents.map(ev => (
+                                  <div key={ev.id} draggable onDragStart={() => handleDragStart(ev.id)} className={cn("text-xs px-2 py-1 rounded-lg text-white cursor-grab", getColorClass(ev.color))}>{ev.title}</div>
+                                ))}
+                                {hourTasks.map(t => (
+                                  <div key={t.id} className="text-xs px-2 py-1 rounded-lg bg-blue-500/15 text-blue-400 flex items-center gap-1">
+                                    <Flag className="h-3 w-3" />{t.title}
+                                    {t.status === "completed" && <CheckCircle2 className="h-3 w-3 text-emerald-400 ml-auto" />}
+                                  </div>
+                                ))}
+                                {hourMilestones.map(m => (
+                                  <div key={m.id} className="text-xs px-2 py-1 rounded-lg bg-amber-500/15 text-amber-400 flex items-center gap-1">
+                                    <Target className="h-3 w-3" />{m.title}
+                                    {m.completed && <CheckCircle2 className="h-3 w-3 text-emerald-400 ml-auto" />}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </>
                     );
-                  })}
+                  })()}
                 </div>
               )}
 
@@ -189,6 +384,7 @@ const CalendarPage = () => {
                   { label: "Tarefas", color: "bg-blue-500" },
                   { label: "Marcos", color: "bg-amber-500" },
                   { label: "Eventos", color: "bg-emerald-500" },
+                  { label: "Timesheet", color: "bg-primary" },
                 ].map(l => (
                   <div key={l.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <div className={cn("w-2 h-2 rounded-full", l.color)} />{l.label}
@@ -209,6 +405,12 @@ const CalendarPage = () => {
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+              {selectedDayItems.hours > 0 && (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-primary/5 border border-primary/20">
+                  <Clock className="h-4 w-4 text-primary" />
+                  <span className="text-sm">Horas registradas: <span className="font-mono text-primary font-bold">{selectedDayItems.hours.toFixed(1)}h</span></span>
+                </div>
+              )}
               {selectedDayItems.events.length > 0 && (
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground mb-2">Eventos</h4>
@@ -297,7 +499,7 @@ const CalendarPage = () => {
               </div>
               <div className="flex justify-end gap-2 pt-4">
                 <Button variant="outline" className="rounded-xl" onClick={() => setShowEventModal(false)}>Cancelar</Button>
-                <Button className="rounded-xl shadow-lg shadow-primary/20" onClick={handleCreateEvent}>Criar Evento</Button>
+                <Button className="rounded-xl shadow-lg shadow-primary/20" onClick={() => createEventMutation.mutate()}>Criar Evento</Button>
               </div>
             </div>
           </DialogContent>
