@@ -97,6 +97,7 @@ const Projects = () => {
   const [showColumnModal, setShowColumnModal] = useState(false);
   const [newColumnTitle, setNewColumnTitle] = useState("");
   const [newColumnColor, setNewColumnColor] = useState("purple");
+  const [clientFilter, setClientFilter] = useState<string>("all");
   const [isInitialized, setIsInitialized] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportFrom, setReportFrom] = useState("");
