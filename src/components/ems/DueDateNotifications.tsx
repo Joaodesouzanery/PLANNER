@@ -1,232 +1,156 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, X, Calendar, AlertTriangle, Clock } from "lucide-react";
+import { Bell, Calendar, AlertTriangle, Clock, Target, ListTodo, FolderKanban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { formatDistanceToNow, differenceInDays, parseISO, isAfter, isBefore, addDays } from "date-fns";
+import { formatDistanceToNow, differenceInDays, parseISO, isBefore } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
-interface Project {
+interface NotificationItem {
   id: string;
   title: string;
-  due_date: string | null;
-  status: string;
-  priority: string;
-  client: string | null;
-}
-
-interface DueDateNotification {
-  project: Project;
+  type: "project" | "task" | "milestone";
+  dueDate: string;
   daysUntilDue: number;
   isOverdue: boolean;
+  priority?: string;
+  client?: string | null;
 }
 
 export const DueDateNotifications = () => {
-  const [notifications, setNotifications] = useState<DueDateNotification[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [hasNewNotifications, setHasNewNotifications] = useState(false);
 
-  const fetchUpcomingTasks = async () => {
-    const { data } = await supabase
-      .from("projects")
-      .select("*")
-      .not("due_date", "is", null)
-      .neq("status", "done")
-      .order("due_date", { ascending: true });
+  const fetchAll = async () => {
+    const today = new Date();
+    const items: NotificationItem[] = [];
 
-    if (data) {
-      const today = new Date();
-      const upcomingNotifications: DueDateNotification[] = [];
+    const [projectsRes, tasksRes, milestonesRes] = await Promise.all([
+      supabase.from("projects").select("*").not("due_date", "is", null).neq("status", "done").order("due_date"),
+      supabase.from("tasks").select("id, title, due_date, status, priority").not("due_date", "is", null).neq("status", "completed").order("due_date"),
+      supabase.from("planning_milestones").select("id, title, due_date, completed").not("due_date", "is", null).eq("completed", false).order("due_date"),
+    ]);
 
-      data.forEach((project: Project) => {
-        if (!project.due_date) return;
-        
-        const dueDate = parseISO(project.due_date);
-        const daysUntilDue = differenceInDays(dueDate, today);
-        const isOverdue = isBefore(dueDate, today);
-        
-        // Show notifications for overdue tasks and tasks due within 7 days
-        if (isOverdue || daysUntilDue <= 7) {
-          upcomingNotifications.push({
-            project,
-            daysUntilDue,
-            isOverdue,
-          });
-        }
-      });
+    projectsRes.data?.forEach((p: any) => {
+      if (!p.due_date) return;
+      const days = differenceInDays(parseISO(p.due_date), today);
+      const overdue = isBefore(parseISO(p.due_date), today);
+      if (overdue || days <= 7) items.push({ id: p.id, title: p.title, type: "project", dueDate: p.due_date, daysUntilDue: days, isOverdue: overdue, priority: p.priority, client: p.client });
+    });
 
-      setNotifications(upcomingNotifications);
-      setHasNewNotifications(upcomingNotifications.length > 0);
-    }
+    tasksRes.data?.forEach((t: any) => {
+      if (!t.due_date) return;
+      const days = differenceInDays(parseISO(t.due_date), today);
+      const overdue = isBefore(parseISO(t.due_date), today);
+      if (overdue || days <= 5) items.push({ id: t.id, title: t.title, type: "task", dueDate: t.due_date, daysUntilDue: days, isOverdue: overdue, priority: t.priority });
+    });
+
+    milestonesRes.data?.forEach((m: any) => {
+      if (!m.due_date) return;
+      const days = differenceInDays(parseISO(m.due_date), today);
+      const overdue = isBefore(parseISO(m.due_date), today);
+      if (overdue || days <= 7) items.push({ id: m.id, title: m.title, type: "milestone", dueDate: m.due_date, daysUntilDue: days, isOverdue: overdue });
+    });
+
+    items.sort((a, b) => a.daysUntilDue - b.daysUntilDue);
+    setNotifications(items);
+    setHasNewNotifications(items.length > 0);
   };
 
   useEffect(() => {
-    fetchUpcomingTasks();
-    
-    // Set up realtime subscription
-    const channel = supabase
-      .channel("projects-notifications")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "projects" },
-        () => {
-          fetchUpcomingTasks();
-        }
-      )
-      .subscribe();
-
-    // Check every minute for new notifications
-    const interval = setInterval(fetchUpcomingTasks, 60000);
-
-    return () => {
-      supabase.removeChannel(channel);
-      clearInterval(interval);
-    };
+    fetchAll();
+    const channels = [
+      supabase.channel("notif-projects").on("postgres_changes", { event: "*", schema: "public", table: "projects" }, fetchAll).subscribe(),
+      supabase.channel("notif-tasks").on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, fetchAll).subscribe(),
+      supabase.channel("notif-milestones").on("postgres_changes", { event: "*", schema: "public", table: "planning_milestones" }, fetchAll).subscribe(),
+    ];
+    const interval = setInterval(fetchAll, 60000);
+    return () => { channels.forEach(ch => supabase.removeChannel(ch)); clearInterval(interval); };
   }, []);
 
-  const getNotificationColor = (notification: DueDateNotification) => {
-    if (notification.isOverdue) return "text-destructive bg-destructive/10 border-destructive/30";
-    if (notification.daysUntilDue <= 1) return "text-destructive bg-destructive/10 border-destructive/30";
-    if (notification.daysUntilDue <= 3) return "text-amber-500 bg-amber-500/10 border-amber-500/30";
-    return "text-primary bg-primary/10 border-primary/30";
+  const getTimeText = (n: NotificationItem) => {
+    if (n.isOverdue) return `Atrasado há ${formatDistanceToNow(parseISO(n.dueDate), { locale: ptBR })}`;
+    if (n.daysUntilDue === 0) return "Vence hoje!";
+    if (n.daysUntilDue === 1) return "Vence amanhã!";
+    return `Vence em ${n.daysUntilDue} dias`;
   };
 
-  const getTimeText = (notification: DueDateNotification) => {
-    if (notification.isOverdue) {
-      return `Atrasado há ${formatDistanceToNow(parseISO(notification.project.due_date!), { locale: ptBR })}`;
-    }
-    if (notification.daysUntilDue === 0) return "Vence hoje!";
-    if (notification.daysUntilDue === 1) return "Vence amanhã!";
-    return `Vence em ${notification.daysUntilDue} dias`;
+  const getTypeIcon = (type: string) => {
+    if (type === "project") return <FolderKanban className="h-4 w-4" />;
+    if (type === "task") return <ListTodo className="h-4 w-4" />;
+    return <Target className="h-4 w-4" />;
   };
+
+  const getTypeLabel = (type: string) => type === "project" ? "Projeto" : type === "task" ? "Tarefa" : "Marco";
 
   const overdueCount = notifications.filter(n => n.isOverdue).length;
-  const urgentCount = notifications.filter(n => !n.isOverdue && n.daysUntilDue <= 3).length;
+  const urgentCount = notifications.filter(n => !n.isOverdue && n.daysUntilDue <= 2).length;
 
   return (
     <div className="relative">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="relative h-9 w-9"
-        onClick={() => {
-          setIsOpen(!isOpen);
-          setHasNewNotifications(false);
-        }}
-      >
+      <Button variant="ghost" size="icon" className="relative h-9 w-9" onClick={() => { setIsOpen(!isOpen); setHasNewNotifications(false); }}>
         <Bell className="h-4 w-4" />
         {notifications.length > 0 && (
-          <span className={cn(
-            "absolute -top-1 -right-1 h-5 w-5 rounded-full text-xs flex items-center justify-center font-medium",
-            overdueCount > 0 
-              ? "bg-destructive text-destructive-foreground" 
-              : "bg-amber-500 text-white"
-          )}>
-            {notifications.length}
-          </span>
+          <span className={cn("absolute -top-1 -right-1 h-5 w-5 rounded-full text-xs flex items-center justify-center font-medium",
+            overdueCount > 0 ? "bg-destructive text-destructive-foreground" : "bg-amber-500 text-white"
+          )}>{notifications.length}</span>
         )}
-        {hasNewNotifications && (
-          <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-destructive animate-pulse" />
-        )}
+        {hasNewNotifications && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-destructive animate-pulse" />}
       </Button>
 
       <AnimatePresence>
         {isOpen && (
           <>
-            {/* Backdrop */}
-            <div 
-              className="fixed inset-0 z-40" 
-              onClick={() => setIsOpen(false)}
-            />
-            
-            {/* Notification Panel */}
-            <motion.div
-              initial={{ opacity: 0, y: 10, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden"
-            >
+            <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+            <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }}
+              className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
               {/* Header */}
               <div className="px-4 py-3 border-b border-border bg-muted/50 flex items-center justify-between">
+                <div className="flex items-center gap-2"><Bell className="h-4 w-4 text-primary" /><span className="font-medium">Notificações</span></div>
                 <div className="flex items-center gap-2">
-                  <Bell className="h-4 w-4 text-primary" />
-                  <span className="font-medium">Notificações</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {overdueCount > 0 && (
-                    <Badge variant="destructive" className="text-xs">
-                      {overdueCount} atrasado{overdueCount > 1 ? "s" : ""}
-                    </Badge>
-                  )}
-                  {urgentCount > 0 && (
-                    <Badge className="bg-amber-500 text-white text-xs">
-                      {urgentCount} urgente{urgentCount > 1 ? "s" : ""}
-                    </Badge>
-                  )}
+                  {overdueCount > 0 && <Badge variant="destructive" className="text-xs">{overdueCount} atrasado{overdueCount > 1 ? "s" : ""}</Badge>}
+                  {urgentCount > 0 && <Badge className="bg-amber-500 text-white text-xs">{urgentCount} urgente{urgentCount > 1 ? "s" : ""}</Badge>}
                 </div>
               </div>
 
-              {/* Notifications List */}
+              {/* List */}
               <div className="max-h-[400px] overflow-y-auto">
                 {notifications.length === 0 ? (
                   <div className="p-6 text-center text-muted-foreground">
                     <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">Nenhuma tarefa próxima do vencimento</p>
+                    <p className="text-sm">Nenhum prazo próximo 🎉</p>
                   </div>
                 ) : (
                   <div className="divide-y divide-border">
-                    {notifications.map((notification) => (
-                      <motion.div
-                        key={notification.project.id}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className={cn(
-                          "p-4 hover:bg-muted/50 transition-colors border-l-4",
-                          notification.isOverdue 
-                            ? "border-l-destructive" 
-                            : notification.daysUntilDue <= 3 
-                              ? "border-l-amber-500" 
-                              : "border-l-primary"
-                        )}
-                      >
+                    {notifications.map((n) => (
+                      <motion.div key={`${n.type}-${n.id}`} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                        className={cn("p-4 hover:bg-muted/50 transition-colors border-l-4",
+                          n.isOverdue ? "border-l-destructive" : n.daysUntilDue <= 2 ? "border-l-amber-500" : "border-l-primary"
+                        )}>
                         <div className="flex items-start gap-3">
-                          <div className={cn(
-                            "p-2 rounded-lg flex-shrink-0",
-                            getNotificationColor(notification)
+                          <div className={cn("p-2 rounded-lg flex-shrink-0",
+                            n.isOverdue ? "text-destructive bg-destructive/10" : n.daysUntilDue <= 2 ? "text-amber-500 bg-amber-500/10" : "text-primary bg-primary/10"
                           )}>
-                            {notification.isOverdue ? (
-                              <AlertTriangle className="h-4 w-4" />
-                            ) : (
-                              <Calendar className="h-4 w-4" />
-                            )}
+                            {n.isOverdue ? <AlertTriangle className="h-4 w-4" /> : getTypeIcon(n.type)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">
-                              {notification.project.title}
-                            </p>
-                            {notification.project.client && (
-                              <p className="text-xs text-muted-foreground truncate">
-                                {notification.project.client}
-                              </p>
-                            )}
-                            <p className={cn(
-                              "text-xs mt-1 font-medium",
-                              notification.isOverdue 
-                                ? "text-destructive" 
-                                : notification.daysUntilDue <= 3 
-                                  ? "text-amber-500" 
-                                  : "text-muted-foreground"
-                            )}>
-                              {getTimeText(notification)}
-                            </p>
+                            <p className="font-medium text-sm truncate">{n.title}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <Badge variant="outline" className="text-[10px] border-border/50">{getTypeLabel(n.type)}</Badge>
+                              {n.client && <span className="text-[10px] text-muted-foreground truncate">{n.client}</span>}
+                            </div>
+                            <p className={cn("text-xs mt-1 font-medium",
+                              n.isOverdue ? "text-destructive" : n.daysUntilDue <= 2 ? "text-amber-500" : "text-muted-foreground"
+                            )}>{getTimeText(n)}</p>
                           </div>
-                          <Badge variant="outline" className="text-xs flex-shrink-0">
-                            {notification.project.priority === "high" && "Alta"}
-                            {notification.project.priority === "medium" && "Média"}
-                            {notification.project.priority === "low" && "Baixa"}
-                          </Badge>
+                          {n.priority && (
+                            <Badge variant="outline" className="text-[10px] flex-shrink-0">
+                              {n.priority === "urgent" ? "Urgente" : n.priority === "high" ? "Alta" : n.priority === "medium" ? "Média" : "Baixa"}
+                            </Badge>
+                          )}
                         </div>
                       </motion.div>
                     ))}
@@ -234,17 +158,9 @@ export const DueDateNotifications = () => {
                 )}
               </div>
 
-              {/* Footer */}
               {notifications.length > 0 && (
                 <div className="px-4 py-3 border-t border-border bg-muted/50">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="w-full text-xs"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    Fechar
-                  </Button>
+                  <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => setIsOpen(false)}>Fechar</Button>
                 </div>
               )}
             </motion.div>
