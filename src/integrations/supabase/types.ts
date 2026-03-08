@@ -677,6 +677,8 @@ export type Database = {
           date: string
           description: string
           id: string
+          is_recurring: boolean | null
+          recurrence_interval: string | null
           type: string
           user_id: string | null
         }
@@ -688,6 +690,8 @@ export type Database = {
           date?: string
           description: string
           id?: string
+          is_recurring?: boolean | null
+          recurrence_interval?: string | null
           type: string
           user_id?: string | null
         }
@@ -699,6 +703,8 @@ export type Database = {
           date?: string
           description?: string
           id?: string
+          is_recurring?: boolean | null
+          recurrence_interval?: string | null
           type?: string
           user_id?: string | null
         }
