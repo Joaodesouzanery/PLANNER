@@ -13,8 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { motion } from "framer-motion";
 import {
   Plus, DollarSign, Target, Edit2, Trash2, ArrowUpRight, ArrowDownRight, ShoppingCart,
-  TrendingUp, BarChart3, Wallet, Calculator, Clock, Percent, PiggyBank,
+  TrendingUp, BarChart3, Wallet, Calculator, Clock, Percent, PiggyBank, Download, Copy, FileText,
 } from "lucide-react";
+import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, subMonths, addMonths } from "date-fns";
@@ -547,6 +548,68 @@ const Finance = () => {
               <div className="space-y-4">
                 {simItemPrice > 0 && simMonthlyIncome > 0 ? (
                   <>
+                    {/* Export buttons */}
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="outline" size="sm" className="rounded-xl text-xs border-primary/30 hover:bg-primary/10 gap-1.5" onClick={() => {
+                        const best = simResults.find(r => r.healthy && r.percent <= 20) || simResults.find(r => r.healthy);
+                        const lines = [
+                          `📊 Simulação de Parcelas — ${simItemName || "Item"}`,
+                          `Preço: ${fmtCurrency(simItemPrice)}`,
+                          `Renda: ${fmtCurrency(simMonthlyIncome)} | Despesas: ${fmtCurrency(simMonthlyExpenses)} | Sobra: ${fmtCurrency(simAvailable)}`,
+                          "",
+                          ...simResults.map(r => `${r.emoji} ${r.label} (${r.percent}%): ${r.installments}x de ${fmtCurrency(r.monthlyPayment)} — ${r.healthy ? "✅ Saudável" : "❌ Não recomendado"}`),
+                          "",
+                          best ? `✅ Recomendação: ${best.installments}x de ${fmtCurrency(best.monthlyPayment)} (${best.percentOfIncome.toFixed(1)}% da renda)` : "⚠️ Item acima do orçamento",
+                        ];
+                        navigator.clipboard.writeText(lines.join("\n"));
+                        toast({ title: "Copiado!", description: "Resultado copiado para a área de transferência" });
+                      }}>
+                        <Copy className="h-3.5 w-3.5" />Copiar
+                      </Button>
+                      <Button variant="outline" size="sm" className="rounded-xl text-xs border-primary/30 hover:bg-primary/10 gap-1.5" onClick={() => {
+                        const doc = new jsPDF();
+                        const best = simResults.find(r => r.healthy && r.percent <= 20) || simResults.find(r => r.healthy);
+                        doc.setFontSize(18);
+                        doc.text(`Simulação de Parcelas`, 20, 20);
+                        doc.setFontSize(12);
+                        doc.text(`Item: ${simItemName || "Não informado"}`, 20, 32);
+                        doc.text(`Preço: ${fmtCurrency(simItemPrice)}`, 20, 40);
+                        doc.text(`Renda mensal: ${fmtCurrency(simMonthlyIncome)}`, 20, 48);
+                        doc.text(`Despesas fixas: ${fmtCurrency(simMonthlyExpenses)}`, 20, 56);
+                        doc.text(`Sobra mensal: ${fmtCurrency(simAvailable)}`, 20, 64);
+                        doc.setFontSize(14);
+                        doc.text("Opções de Parcelamento", 20, 80);
+                        doc.setFontSize(11);
+                        let y = 90;
+                        simResults.forEach(r => {
+                          const status = r.healthy ? "Saudável" : "Não recomendado";
+                          doc.text(`${r.label} (${r.percent}%): ${r.installments}x de ${fmtCurrency(r.monthlyPayment)} — ${status}`, 20, y);
+                          y += 8;
+                        });
+                        y += 8;
+                        doc.setFontSize(14);
+                        doc.text("Parcelas Personalizadas", 20, y);
+                        y += 10;
+                        doc.setFontSize(11);
+                        [3, 6, 10, 12, 18, 24, 36, 48].forEach(n => {
+                          const monthly = simItemPrice / n;
+                          const pct = (monthly / simMonthlyIncome) * 100;
+                          const ok = pct <= 30 && monthly <= simAvailable;
+                          doc.text(`${n}x de ${fmtCurrency(monthly)} (${pct.toFixed(0)}%) — ${ok ? "Saudável" : "Não recomendado"}`, 20, y);
+                          y += 7;
+                        });
+                        y += 8;
+                        if (best) {
+                          doc.setFontSize(12);
+                          doc.text(`Recomendação: ${best.installments}x de ${fmtCurrency(best.monthlyPayment)} (${best.percentOfIncome.toFixed(1)}% da renda)`, 20, y);
+                        }
+                        doc.save(`simulacao-parcelas-${(simItemName || "item").toLowerCase().replace(/\s+/g, "-")}.pdf`);
+                        toast({ title: "PDF gerado!", description: "O arquivo foi salvo automaticamente" });
+                      }}>
+                        <FileText className="h-3.5 w-3.5" />Exportar PDF
+                      </Button>
+                    </div>
+
                     <Card className="border border-primary/30 bg-gradient-to-br from-primary/5 to-transparent">
                       <CardHeader className="pb-3">
                         <CardTitle className="text-base flex items-center gap-2">
