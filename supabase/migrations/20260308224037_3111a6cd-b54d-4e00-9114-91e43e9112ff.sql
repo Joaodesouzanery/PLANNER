@@ -1,0 +1,1 @@
+ALTER TABLE public.kanban_columns ADD COLUMN IF NOT EXISTS color text DEFAULT 'blue';
