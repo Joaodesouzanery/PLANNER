@@ -87,7 +87,7 @@ const CHART_COLORS = ["hsl(var(--primary))", "#f59e0b", "#10b981", "#8b5cf6", "#
 const Projects = () => {
   const { toast } = useToast();
   const { selectedCompanyId } = useCompany();
-  const [view, setView] = useState<"kanban" | "timeline">("kanban");
+  const [view, setView] = useState<"kanban" | "timeline" | "dashboard">("kanban");
   const [projects, setProjects] = useState<Project[]>([]);
   const [columns, setColumns] = useState<KanbanColumn[]>(defaultColumns);
   const [showAddProject, setShowAddProject] = useState(false);
