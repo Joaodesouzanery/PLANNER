@@ -335,24 +335,19 @@ const Projects = () => {
                                 <Droppable droppableId={column.id} type="CARD">
                                   {(provided, snapshot) => (
                                     <CardContent ref={provided.innerRef} {...provided.droppableProps} className={cn("p-2 space-y-2 min-h-[200px] transition-colors", snapshot.isDraggingOver && "bg-primary/5")}>
-                                      <AnimatePresence mode="popLayout">
-                                        {colProjects.map((project, index) => {
+                                      {colProjects.map((project, index) => {
                                           const pConfig = priorityConfig[project.priority] || priorityConfig.medium;
                                           const isOverdue = project.due_date && new Date(project.due_date) < new Date() && project.status !== "done";
 
                                           return (
                                             <Draggable key={project.id} draggableId={project.id} index={index}>
                                               {(provided, snapshot) => (
-                                                <motion.div
+                                                <div
                                                   ref={provided.innerRef}
                                                   {...provided.draggableProps}
-                                                  layout
-                                                  initial={{ opacity: 0, scale: 0.8 }}
-                                                  animate={{ opacity: 1, scale: 1 }}
-                                                  exit={{ opacity: 0, scale: 0.8 }}
                                                   className={cn(
-                                                    "bg-card border-l-[3px] border border-border/50 rounded-lg p-3 transition-all",
-                                                    snapshot.isDragging ? "shadow-lg shadow-primary/10 border-primary/50 rotate-1" : "hover:border-border hover:bg-muted/20",
+                                                    "bg-card border-l-[3px] border border-border/50 rounded-lg p-3 transition-shadow",
+                                                    snapshot.isDragging ? "shadow-lg shadow-primary/10 border-primary/50" : "hover:border-border hover:bg-muted/20",
                                                     pConfig.border,
                                                     isOverdue && "ring-1 ring-red-500/20"
                                                   )}
