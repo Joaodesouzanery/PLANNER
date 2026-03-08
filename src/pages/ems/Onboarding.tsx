@@ -157,9 +157,11 @@ const Onboarding = () => {
 
   // Fetch contacts
   const { data: contacts = [] } = useQuery({
-    queryKey: ["contacts"],
+    queryKey: ["contacts", selectedCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("contacts").select("id, name, email, phone, company, pipeline_stage").order("name");
+      let q = supabase.from("contacts").select("id, name, email, phone, company, pipeline_stage").order("name");
+      if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
+      const { data, error } = await q;
       if (error) throw error;
       return data as Contact[];
     },
