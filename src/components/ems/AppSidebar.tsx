@@ -228,6 +228,28 @@ export const AppSidebar = ({ mobileOpen, onMobileClose }: AppSidebarProps) => {
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
         </div>
+        {/* User info + Logout */}
+        {userEmail && (
+          <div className={cn("flex items-center gap-2 px-3 py-2 rounded-lg", collapsed && !isMobile ? "justify-center" : "")}>
+            {(!collapsed || isMobile) && (
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <UserIcon className="h-3 w-3 text-primary" />
+                </div>
+                <span className="text-[11px] text-muted-foreground truncate">{userEmail}</span>
+              </div>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleLogout}
+              className="h-8 w-8 text-muted-foreground hover:text-destructive flex-shrink-0"
+              title="Sair"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
         {!isMobile && (
           <button
             onClick={() => setCollapsed(!collapsed)}
