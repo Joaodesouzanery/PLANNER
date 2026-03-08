@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/components/ems/ThemeProvider";
 import { CompanyProvider } from "@/contexts/CompanyContext";
+import { ProtectedEMSRoute } from "@/components/ems/ProtectedEMSRoute";
 
 // EMS Pages
 import Overview from "./pages/ems/Overview";
@@ -25,9 +26,14 @@ import Commercial from "./pages/ems/Commercial";
 import Onboarding from "./pages/ems/Onboarding";
 import Executive from "./pages/ems/Executive";
 import Timesheet from "./pages/ems/Timesheet";
+import EMSLogin from "./pages/ems/Login";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
+  <ProtectedEMSRoute>{children}</ProtectedEMSRoute>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -41,25 +47,28 @@ const App = () => (
             {/* Redirect root to EMS */}
             <Route path="/" element={<Navigate to="/ems" replace />} />
             
-            {/* EMS Routes */}
-            <Route path="/ems" element={<Overview />} />
-            <Route path="/ems/tasks" element={<Tasks />} />
-            <Route path="/ems/contacts" element={<Contacts />} />
-            <Route path="/ems/projects" element={<Projects />} />
-            <Route path="/ems/knowledge" element={<Knowledge />} />
-            <Route path="/ems/finance" element={<Finance />} />
-            <Route path="/ems/settings" element={<Settings />} />
-            <Route path="/ems/reports" element={<Reports />} />
-            <Route path="/ems/planning" element={<Planning />} />
-            <Route path="/ems/orgchart" element={<OrgChart />} />
-            <Route path="/ems/roadmap" element={<RoadMap />} />
-            <Route path="/ems/quick-notes" element={<QuickNotes />} />
-            <Route path="/ems/calendar" element={<CalendarPage />} />
-            <Route path="/ems/comercial" element={<Commercial />} />
-            <Route path="/ems/onboarding" element={<Onboarding />} />
-            <Route path="/ems/executive" element={<Executive />} />
-            <Route path="/ems/timesheet" element={<Timesheet />} />
-            <Route path="/ems/companies" element={<Companies />} />
+            {/* EMS Login (public) */}
+            <Route path="/ems/login" element={<EMSLogin />} />
+
+            {/* EMS Routes (protected) */}
+            <Route path="/ems" element={<ProtectedPage><Overview /></ProtectedPage>} />
+            <Route path="/ems/tasks" element={<ProtectedPage><Tasks /></ProtectedPage>} />
+            <Route path="/ems/contacts" element={<ProtectedPage><Contacts /></ProtectedPage>} />
+            <Route path="/ems/projects" element={<ProtectedPage><Projects /></ProtectedPage>} />
+            <Route path="/ems/knowledge" element={<ProtectedPage><Knowledge /></ProtectedPage>} />
+            <Route path="/ems/finance" element={<ProtectedPage><Finance /></ProtectedPage>} />
+            <Route path="/ems/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
+            <Route path="/ems/reports" element={<ProtectedPage><Reports /></ProtectedPage>} />
+            <Route path="/ems/planning" element={<ProtectedPage><Planning /></ProtectedPage>} />
+            <Route path="/ems/orgchart" element={<ProtectedPage><OrgChart /></ProtectedPage>} />
+            <Route path="/ems/roadmap" element={<ProtectedPage><RoadMap /></ProtectedPage>} />
+            <Route path="/ems/quick-notes" element={<ProtectedPage><QuickNotes /></ProtectedPage>} />
+            <Route path="/ems/calendar" element={<ProtectedPage><CalendarPage /></ProtectedPage>} />
+            <Route path="/ems/comercial" element={<ProtectedPage><Commercial /></ProtectedPage>} />
+            <Route path="/ems/onboarding" element={<ProtectedPage><Onboarding /></ProtectedPage>} />
+            <Route path="/ems/executive" element={<ProtectedPage><Executive /></ProtectedPage>} />
+            <Route path="/ems/timesheet" element={<ProtectedPage><Timesheet /></ProtectedPage>} />
+            <Route path="/ems/companies" element={<ProtectedPage><Companies /></ProtectedPage>} />
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />

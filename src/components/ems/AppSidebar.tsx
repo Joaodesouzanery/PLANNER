@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -26,6 +26,8 @@ import {
   ChevronDown,
   Briefcase,
   ClipboardList,
+  LogOut,
+  User as UserIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
@@ -33,6 +35,7 @@ import { DueDateNotifications } from "./DueDateNotifications";
 import { ColorPicker } from "./ColorPicker";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { CompanySelector } from "./CompanySelector";
+import { supabase } from "@/integrations/supabase/client";
 import hiveLogo from "@/assets/hive-logo.jpg";
 
 interface MenuGroup {
@@ -90,9 +93,26 @@ interface AppSidebarProps {
 
 export const AppSidebar = ({ mobileOpen, onMobileClose }: AppSidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const location = useLocation();
+  const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUserEmail(session?.user?.email ?? null);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+      setUserEmail(s?.user?.email ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/ems/login");
+  };
 
   const handleNavClick = () => {
     if (isMobile && onMobileClose) onMobileClose();
@@ -208,6 +228,28 @@ export const AppSidebar = ({ mobileOpen, onMobileClose }: AppSidebarProps) => {
             {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
         </div>
+        {/* User info + Logout */}
+        {userEmail && (
+          <div className={cn("flex items-center gap-2 px-3 py-2 rounded-lg", collapsed && !isMobile ? "justify-center" : "")}>
+            {(!collapsed || isMobile) && (
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <UserIcon className="h-3 w-3 text-primary" />
+                </div>
+                <span className="text-[11px] text-muted-foreground truncate">{userEmail}</span>
+              </div>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleLogout}
+              className="h-8 w-8 text-muted-foreground hover:text-destructive flex-shrink-0"
+              title="Sair"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
         {!isMobile && (
           <button
             onClick={() => setCollapsed(!collapsed)}
