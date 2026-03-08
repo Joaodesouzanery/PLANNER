@@ -569,42 +569,140 @@ const Finance = () => {
                       <Button variant="outline" size="sm" className="rounded-xl text-xs border-primary/30 hover:bg-primary/10 gap-1.5" onClick={() => {
                         const doc = new jsPDF();
                         const best = simResults.find(r => r.healthy && r.percent <= 20) || simResults.find(r => r.healthy);
-                        doc.setFontSize(18);
-                        doc.text(`Simulação de Parcelas`, 20, 20);
-                        doc.setFontSize(12);
-                        doc.text(`Item: ${simItemName || "Não informado"}`, 20, 32);
-                        doc.text(`Preço: ${fmtCurrency(simItemPrice)}`, 20, 40);
-                        doc.text(`Renda mensal: ${fmtCurrency(simMonthlyIncome)}`, 20, 48);
-                        doc.text(`Despesas fixas: ${fmtCurrency(simMonthlyExpenses)}`, 20, 56);
-                        doc.text(`Sobra mensal: ${fmtCurrency(simAvailable)}`, 20, 64);
+                        const pageW = doc.internal.pageSize.getWidth();
+                        const margin = 20;
+                        const contentW = pageW - margin * 2;
+
+                        // Helper: draw progress bar
+                        const drawBar = (x: number, y: number, w: number, h: number, pct: number, healthy: boolean) => {
+                          doc.setDrawColor(200, 200, 200);
+                          doc.setFillColor(240, 240, 240);
+                          doc.roundedRect(x, y, w, h, 2, 2, "FD");
+                          const fillW = Math.min(w * (pct / 100), w);
+                          if (healthy) { doc.setFillColor(52, 211, 153); } else if (pct <= 30) { doc.setFillColor(251, 191, 36); } else { doc.setFillColor(239, 68, 68); }
+                          if (fillW > 0) doc.roundedRect(x, y, fillW, h, 2, 2, "F");
+                        };
+
+                        // Header with accent bar
+                        doc.setFillColor(99, 102, 241);
+                        doc.rect(0, 0, pageW, 8, "F");
+                        doc.setFontSize(20);
+                        doc.setTextColor(30, 30, 30);
+                        doc.text("Simulação de Parcelas", margin, 22);
+                        doc.setFontSize(10);
+                        doc.setTextColor(120, 120, 120);
+                        doc.text(`Gerado em ${new Date().toLocaleDateString("pt-BR")}`, margin, 28);
+
+                        // Summary cards
+                        let y = 38;
+                        const cardW = (contentW - 9) / 4;
+                        const summaryData = [
+                          { label: "Item", value: simItemName || "—" },
+                          { label: "Preço", value: fmtCurrency(simItemPrice) },
+                          { label: "Renda", value: fmtCurrency(simMonthlyIncome) },
+                          { label: "Sobra", value: fmtCurrency(simAvailable) },
+                        ];
+                        summaryData.forEach((s, i) => {
+                          const cx = margin + i * (cardW + 3);
+                          doc.setFillColor(245, 245, 250);
+                          doc.roundedRect(cx, y, cardW, 18, 3, 3, "F");
+                          doc.setFontSize(8);
+                          doc.setTextColor(120, 120, 120);
+                          doc.text(s.label, cx + 4, y + 7);
+                          doc.setFontSize(10);
+                          doc.setTextColor(30, 30, 30);
+                          doc.text(s.value, cx + 4, y + 14);
+                        });
+
+                        // Options with progress bars
+                        y = 66;
                         doc.setFontSize(14);
-                        doc.text("Opções de Parcelamento", 20, 80);
-                        doc.setFontSize(11);
-                        let y = 90;
+                        doc.setTextColor(30, 30, 30);
+                        doc.text("Opções de Parcelamento", margin, y);
+                        y += 8;
+
                         simResults.forEach(r => {
-                          const status = r.healthy ? "Saudável" : "Não recomendado";
-                          doc.text(`${r.label} (${r.percent}%): ${r.installments}x de ${fmtCurrency(r.monthlyPayment)} — ${status}`, 20, y);
-                          y += 8;
+                          // Card background
+                          doc.setFillColor(r.healthy ? 240 : 255, r.healthy ? 253 : 245, r.healthy ? 244 : 245);
+                          doc.roundedRect(margin, y, contentW, 22, 3, 3, "F");
+
+                          // Status dot
+                          doc.setFillColor(r.healthy ? 52 : 239, r.healthy ? 211 : 68, r.healthy ? 153 : 68);
+                          doc.circle(margin + 5, y + 6, 2, "F");
+
+                          // Label
+                          doc.setFontSize(10);
+                          doc.setTextColor(30, 30, 30);
+                          doc.text(`${r.label} (${r.percent}% da renda)`, margin + 10, y + 7);
+
+                          // Values
+                          doc.setFontSize(9);
+                          doc.setTextColor(80, 80, 80);
+                          doc.text(`${r.installments}x de ${fmtCurrency(r.monthlyPayment)}  |  ${r.percentOfIncome.toFixed(1)}% comprometido  |  Sobra: ${fmtCurrency(r.remainsAfter)}`, margin + 10, y + 13);
+
+                          // Progress bar
+                          drawBar(margin + 4, y + 16, contentW - 8, 3, r.percentOfIncome, r.healthy);
+                          y += 26;
                         });
-                        y += 8;
+
+                        // Custom installments grid
+                        y += 4;
                         doc.setFontSize(14);
-                        doc.text("Parcelas Personalizadas", 20, y);
-                        y += 10;
-                        doc.setFontSize(11);
-                        [3, 6, 10, 12, 18, 24, 36, 48].forEach(n => {
-                          const monthly = simItemPrice / n;
-                          const pct = (monthly / simMonthlyIncome) * 100;
-                          const ok = pct <= 30 && monthly <= simAvailable;
-                          doc.text(`${n}x de ${fmtCurrency(monthly)} (${pct.toFixed(0)}%) — ${ok ? "Saudável" : "Não recomendado"}`, 20, y);
-                          y += 7;
-                        });
+                        doc.setTextColor(30, 30, 30);
+                        doc.text("Parcelas Personalizadas", margin, y);
                         y += 8;
+
+                        const cols = 4;
+                        const cellW = (contentW - (cols - 1) * 3) / cols;
+                        [3, 6, 10, 12, 18, 24, 36, 48].forEach((n, i) => {
+                          const monthly = simItemPrice / n;
+                          const pct = simMonthlyIncome > 0 ? (monthly / simMonthlyIncome) * 100 : 0;
+                          const ok = pct <= 30 && monthly <= simAvailable;
+                          const col = i % cols;
+                          const row = Math.floor(i / cols);
+                          const cx = margin + col * (cellW + 3);
+                          const cy = y + row * 28;
+
+                          doc.setFillColor(ok ? 240 : 255, ok ? 253 : 245, ok ? 244 : 245);
+                          doc.roundedRect(cx, cy, cellW, 24, 3, 3, "F");
+
+                          doc.setFontSize(13);
+                          doc.setTextColor(30, 30, 30);
+                          doc.text(`${n}x`, cx + cellW / 2, cy + 8, { align: "center" });
+
+                          doc.setFontSize(9);
+                          doc.setTextColor(ok ? 16 : 185, ok ? 163 : 28, ok ? 127 : 28);
+                          doc.text(fmtCurrency(monthly), cx + cellW / 2, cy + 14, { align: "center" });
+
+                          doc.setFontSize(7);
+                          doc.setTextColor(120, 120, 120);
+                          doc.text(`${pct.toFixed(0)}%`, cx + cellW / 2, cy + 18, { align: "center" });
+
+                          drawBar(cx + 3, cy + 20, cellW - 6, 2, pct, ok);
+                        });
+
+                        y += Math.ceil(8 / cols) * 28 + 6;
+
+                        // Recommendation box
                         if (best) {
-                          doc.setFontSize(12);
-                          doc.text(`Recomendação: ${best.installments}x de ${fmtCurrency(best.monthlyPayment)} (${best.percentOfIncome.toFixed(1)}% da renda)`, 20, y);
+                          doc.setFillColor(236, 253, 245);
+                          doc.roundedRect(margin, y, contentW, 18, 3, 3, "F");
+                          doc.setFillColor(52, 211, 153);
+                          doc.roundedRect(margin, y, 3, 18, 1, 1, "F");
+                          doc.setFontSize(11);
+                          doc.setTextColor(6, 95, 70);
+                          doc.text("Recomendação Saudável", margin + 8, y + 7);
+                          doc.setFontSize(9);
+                          doc.setTextColor(30, 30, 30);
+                          doc.text(`Compre em ${best.installments}x de ${fmtCurrency(best.monthlyPayment)}, comprometendo ${best.percentOfIncome.toFixed(1)}% da renda. Sobra: ${fmtCurrency(best.remainsAfter)}/mês`, margin + 8, y + 14);
                         }
+
+                        // Footer
+                        doc.setFillColor(99, 102, 241);
+                        doc.rect(0, doc.internal.pageSize.getHeight() - 4, pageW, 4, "F");
+
                         doc.save(`simulacao-parcelas-${(simItemName || "item").toLowerCase().replace(/\s+/g, "-")}.pdf`);
-                        toast({ title: "PDF gerado!", description: "O arquivo foi salvo automaticamente" });
+                        toast({ title: "PDF gerado!", description: "O arquivo foi salvo com gráficos visuais" });
                       }}>
                         <FileText className="h-3.5 w-3.5" />Exportar PDF
                       </Button>
