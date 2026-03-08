@@ -570,6 +570,88 @@ const Projects = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="dashboard" className="mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* By Status */}
+              <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
+                <CardHeader><CardTitle className="text-base">Projetos por Status</CardTitle></CardHeader>
+                <CardContent>
+                  {(() => {
+                    const statusData = columns.map(col => ({
+                      name: col.title,
+                      value: projects.filter(p => p.status === col.id).length,
+                    })).filter(d => d.value > 0);
+                    return statusData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={250}>
+                        <PieChart>
+                          <Pie data={statusData} cx="50%" cy="50%" outerRadius={90} innerRadius={50} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
+                            {statusData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : <p className="text-center text-muted-foreground py-12">Sem dados</p>;
+                  })()}
+                </CardContent>
+              </Card>
+
+              {/* By Priority */}
+              <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
+                <CardHeader><CardTitle className="text-base">Projetos por Prioridade</CardTitle></CardHeader>
+                <CardContent>
+                  {(() => {
+                    const prioData = Object.entries(priorityConfig).map(([key, cfg]) => ({
+                      name: cfg.label,
+                      value: projects.filter(p => p.priority === key).length,
+                    })).filter(d => d.value > 0);
+                    return prioData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={250}>
+                        <BarChart data={prioData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                          <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                          <YAxis allowDecimals={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                          <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                          <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                            {prioData.map((_, i) => <Cell key={i} fill={["#3b82f6", "#f59e0b", "#ef4444"][i] || CHART_COLORS[i]} />)}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : <p className="text-center text-muted-foreground py-12">Sem dados</p>;
+                  })()}
+                </CardContent>
+              </Card>
+
+              {/* By Company */}
+              <Card className="border-border/50 bg-card/80 backdrop-blur-sm lg:col-span-2">
+                <CardHeader><CardTitle className="text-base">Projetos por Empresa</CardTitle></CardHeader>
+                <CardContent>
+                  {(() => {
+                    const companyData = companies.map(c => ({
+                      name: c.name,
+                      total: projects.filter(p => (p as any).company_id === c.id).length,
+                      concluidos: projects.filter(p => (p as any).company_id === c.id && p.status === "done").length,
+                      em_progresso: projects.filter(p => (p as any).company_id === c.id && p.status === "in_progress").length,
+                    })).filter(d => d.total > 0);
+                    return companyData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={companyData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                          <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                          <YAxis allowDecimals={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                          <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                          <Legend />
+                          <Bar dataKey="total" name="Total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="em_progresso" name="Em Progresso" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="concluidos" name="Concluídos" fill="#10b981" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : <p className="text-center text-muted-foreground py-12">Sem dados por empresa</p>;
+                  })()}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
         </Tabs>
 
         {/* Add/Edit Project Dialog */}
