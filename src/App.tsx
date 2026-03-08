@@ -4,9 +4,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/components/ems/ThemeProvider";
+import { CompanyProvider } from "@/contexts/CompanyContext";
 
 // EMS Pages
 import Overview from "./pages/ems/Overview";
+import Companies from "./pages/ems/Companies";
 import Projects from "./pages/ems/Projects";
 import Knowledge from "./pages/ems/Knowledge";
 import Finance from "./pages/ems/Finance";
