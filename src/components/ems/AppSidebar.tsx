@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  LayoutDashboard,
+  LayoutDashboard, Gauge, Clock,
   Building2,
   FolderKanban,
   BookOpen,
