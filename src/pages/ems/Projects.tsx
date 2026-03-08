@@ -100,11 +100,79 @@ const Projects = () => {
     setIsInitialized(true);
   }, [selectedCompanyId]);
 
+  const { companies } = useCompany();
+
   const fetchProjects = async () => {
     let query = supabase.from("projects").select("*").order("column_order", { ascending: true, nullsFirst: false });
     if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
     const { data } = await query;
     if (data) setProjects(data as Project[]);
+  };
+
+  const fetchReportProjects = async () => {
+    const { data } = await supabase.from("projects").select("*").eq("status", "done");
+    if (data) setAllProjects(data as any[]);
+  };
+
+  const openReport = () => {
+    fetchReportProjects();
+    setReportOpen(true);
+  };
+
+  const reportProjects = useMemo(() => {
+    let filtered = allProjects;
+    if (reportCompanyId === "current" && selectedCompanyId !== "all") {
+      filtered = filtered.filter(p => p.company_id === selectedCompanyId);
+    } else if (reportCompanyId !== "current" && reportCompanyId !== "all") {
+      filtered = filtered.filter(p => p.company_id === reportCompanyId);
+    }
+    if (reportFrom) filtered = filtered.filter(p => p.created_at >= reportFrom);
+    if (reportTo) filtered = filtered.filter(p => p.created_at <= reportTo + "T23:59:59");
+    return filtered;
+  }, [allProjects, reportCompanyId, reportFrom, reportTo, selectedCompanyId]);
+
+  const getCompanyName = (companyId: string | null | undefined) => {
+    if (!companyId) return "—";
+    return companies.find(c => c.id === companyId)?.name || "—";
+  };
+
+  const generateProjectsPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("Relatório de Projetos Concluídos", 14, 20);
+    doc.setFontSize(10);
+    const period = [reportFrom && `De: ${format(new Date(reportFrom), "dd/MM/yyyy")}`, reportTo && `Até: ${format(new Date(reportTo), "dd/MM/yyyy")}`].filter(Boolean).join("  ");
+    if (period) doc.text(period, 14, 28);
+    doc.text(`Total: ${reportProjects.length} projetos`, 14, period ? 34 : 28);
+
+    autoTable(doc, {
+      startY: period ? 40 : 34,
+      head: [["Título", "Cliente", "Prioridade", "Empresa", "Data Criação"]],
+      body: reportProjects.map(p => [
+        p.title,
+        p.client || "—",
+        priorityConfig[p.priority]?.label || p.priority,
+        getCompanyName(p.company_id),
+        format(new Date(p.created_at), "dd/MM/yyyy"),
+      ]),
+    });
+    doc.save("projetos-concluidos.pdf");
+    toast({ title: "PDF gerado com sucesso!" });
+  };
+
+  const generateProjectsCSV = () => {
+    const header = "Título;Cliente;Prioridade;Empresa;Data Criação\n";
+    const rows = reportProjects.map(p =>
+      `"${p.title}";"${p.client || ""}";"${priorityConfig[p.priority]?.label || p.priority}";"${getCompanyName(p.company_id)}";"${format(new Date(p.created_at), "dd/MM/yyyy")}"`
+    ).join("\n");
+    const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "projetos-concluidos.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "CSV gerado com sucesso!" });
   };
 
   const uniqueClients = [...new Set(projects.map(p => p.client).filter(Boolean))] as string[];
