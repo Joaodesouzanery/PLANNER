@@ -13,8 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { motion } from "framer-motion";
 import {
   Plus, DollarSign, Target, Edit2, Trash2, ArrowUpRight, ArrowDownRight, ShoppingCart,
-  TrendingUp, BarChart3, Wallet, Calculator, Clock, Percent, PiggyBank,
+  TrendingUp, BarChart3, Wallet, Calculator, Clock, Percent, PiggyBank, Download, Copy, FileText,
 } from "lucide-react";
+import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, subMonths, addMonths } from "date-fns";
