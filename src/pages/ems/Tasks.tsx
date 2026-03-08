@@ -283,7 +283,7 @@ const Tasks = () => {
       (priorityConfig[t.priority] || priorityConfig.medium).label,
       t.completed_at ? format(parseISO(t.completed_at), "dd/MM/yyyy HH:mm") : "-",
       (t.tags || []).join(", ") || "-",
-      getCompanyName((t as any).company_id),
+      getCompanyName(t.company_id),
     ]);
 
     autoTable(doc, {
