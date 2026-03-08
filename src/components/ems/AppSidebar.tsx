@@ -33,6 +33,10 @@ import { DueDateNotifications } from "./DueDateNotifications";
 import { ColorPicker } from "./ColorPicker";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { CompanySelector } from "./CompanySelector";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { LogOut, User as UserIcon } from "lucide-react";
 import hiveLogo from "@/assets/hive-logo.jpg";
 
 interface MenuGroup {
