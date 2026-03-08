@@ -294,6 +294,111 @@ export type Database = {
           },
         ]
       }
+      contact_onboarding_documents: {
+        Row: {
+          contact_id: string
+          created_at: string
+          document_id: string
+          file_url: string | null
+          id: string
+          notes: string | null
+          received_at: string | null
+          sent_at: string | null
+          signed_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          document_id: string
+          file_url?: string | null
+          id?: string
+          notes?: string | null
+          received_at?: string | null
+          sent_at?: string | null
+          signed_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          document_id?: string
+          file_url?: string | null
+          id?: string
+          notes?: string | null
+          received_at?: string | null
+          sent_at?: string | null
+          signed_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_onboarding_documents_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_onboarding_documents_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_onboarding_tracking: {
+        Row: {
+          completed_at: string | null
+          contact_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          status: string
+          step_id: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          contact_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          status?: string
+          step_id: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          contact_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          status?: string
+          step_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_onboarding_tracking_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_onboarding_tracking_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_submissions: {
         Row: {
           challenge: string
@@ -552,6 +657,77 @@ export type Database = {
           title?: string
           unit?: string | null
           updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      onboarding_documents: {
+        Row: {
+          created_at: string
+          description: string | null
+          document_url: string | null
+          id: string
+          order_index: number
+          step_id: string
+          template_url: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          document_url?: string | null
+          id?: string
+          order_index?: number
+          step_id: string
+          template_url?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          document_url?: string | null
+          id?: string
+          order_index?: number
+          step_id?: string
+          template_url?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_documents_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_steps: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string
+          id: string
+          order_index: number
+          title: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string
+          id?: string
+          order_index?: number
+          title: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string
+          id?: string
+          order_index?: number
+          title?: string
           user_id?: string | null
         }
         Relationships: []
