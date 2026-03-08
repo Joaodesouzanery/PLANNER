@@ -14,8 +14,9 @@ import { Progress } from "@/components/ui/progress";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Trash2, Calendar, Flag, Users, Phone, Mail, Building2,
-  Search, Edit2, CheckCircle2, Clock, AlertTriangle, ListTodo, MessageSquare, Sparkles
+  Search, Edit2, CheckCircle2, Clock, AlertTriangle, ListTodo, MessageSquare, Sparkles, ExternalLink
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
