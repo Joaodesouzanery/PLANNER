@@ -64,6 +64,7 @@ const horizonConfig = {
 
 const Planning = () => {
   const { toast } = useToast();
+  const { selectedCompanyId } = useCompany();
   const [goals, setGoals] = useState<PlanningGoal[]>([]);
   const [milestones, setMilestones] = useState<PlanningMilestone[]>([]);
   const [loading, setLoading] = useState(true);
