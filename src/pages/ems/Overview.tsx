@@ -172,18 +172,24 @@ const Overview = () => {
     const now = new Date();
     const weekStart = startOfWeek(now, { locale: ptBR });
     const weekEnd = endOfWeek(now, { locale: ptBR });
-    const { data: weekTasksData } = await supabase
+    let wtQ = supabase
       .from("tasks")
       .select("id, title, due_date, status, priority")
       .gte("due_date", format(weekStart, "yyyy-MM-dd"))
       .lte("due_date", format(weekEnd, "yyyy-MM-dd"))
       .order("due_date");
+    if (cf) wtQ = wtQ.eq("company_id", cid);
+    const { data: weekTasksData } = await wtQ;
     if (weekTasksData) setWeekTasks(weekTasksData);
 
-    const { count } = await supabase.from("tasks").select("*", { count: "exact", head: true });
+    let tcQ = supabase.from("tasks").select("*", { count: "exact", head: true });
+    if (cf) tcQ = tcQ.eq("company_id", cid);
+    const { count } = await tcQ;
     setTotalTasks(count || 0);
 
-    const { count: projCount } = await supabase.from("projects").select("*", { count: "exact", head: true });
+    let pcQ = supabase.from("projects").select("*", { count: "exact", head: true });
+    if (cf) pcQ = pcQ.eq("company_id", cid);
+    const { count: projCount } = await pcQ;
     setProjectCount(projCount || 0);
 
     const { count: contCount } = await supabase.from("contacts").select("*", { count: "exact", head: true });
