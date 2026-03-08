@@ -98,7 +98,6 @@ const Projects = () => {
     const { data } = await query;
     if (data) setProjects(data as Project[]);
   };
-  };
 
   const uniqueClients = [...new Set(projects.map(p => p.client).filter(Boolean))] as string[];
 
