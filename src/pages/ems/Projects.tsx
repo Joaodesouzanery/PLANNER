@@ -287,9 +287,10 @@ const Projects = () => {
 
   const addColumn = () => {
     if (!newColumnTitle) return;
-    const newCol: KanbanColumn = { id: newColumnTitle.toLowerCase().replace(/\s+/g, "_"), title: newColumnTitle, order_index: columns.length };
+    const newCol: KanbanColumn = { id: newColumnTitle.toLowerCase().replace(/\s+/g, "_"), title: newColumnTitle, order_index: columns.length, color: newColumnColor };
     setColumns([...columns, newCol]);
     setNewColumnTitle("");
+    setNewColumnColor("purple");
     setShowColumnModal(false);
     toast({ title: "Coluna adicionada!" });
   };
