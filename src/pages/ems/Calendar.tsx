@@ -31,6 +31,7 @@ const getColorClass = (color: string) => eventColors.find((c) => c.value === col
 
 const CalendarPage = () => {
   const { toast } = useToast();
+  const { selectedCompanyId } = useCompany();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -41,7 +42,7 @@ const CalendarPage = () => {
   const [showDayModal, setShowDayModal] = useState(false);
   const [eventForm, setEventForm] = useState({ title: "", date: "", color: "blue" });
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [selectedCompanyId]);
 
   const fetchData = async () => {
     setLoading(true);
