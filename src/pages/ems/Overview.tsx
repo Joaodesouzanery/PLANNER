@@ -351,39 +351,8 @@ const Overview = () => {
           </div>
         </motion.div>
 
-        {/* Overdue Alerts */}
-        {overdueItems.length > 0 && (
-          <motion.div variants={itemVariants}>
-            <Card className="border-destructive/30 bg-destructive/5">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-destructive" />
-                    <CardTitle className="text-sm text-destructive">Itens Atrasados</CardTitle>
-                    <Badge variant="destructive" className="text-xs">{overdueItems.length}</Badge>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {overdueItems.slice(0, 6).map(item => (
-                    <div key={`${item.type}-${item.id}`} className="flex items-center gap-2 p-2.5 rounded-lg border border-destructive/20 bg-card/50">
-                      <div className="w-1.5 h-8 rounded-full bg-destructive flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{item.title}</p>
-                        <div className="flex items-center gap-1.5">
-                          <Badge variant="outline" className="text-[10px] border-border/50">{item.type}</Badge>
-                          <span className="text-[10px] text-destructive font-medium">{item.daysOverdue}d atrasado</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {overdueItems.length > 6 && <p className="text-xs text-muted-foreground text-center mt-2">+{overdueItems.length - 6} itens atrasados</p>}
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
+
+
 
         {/* Financial Trend Chart */}
         <motion.div variants={itemVariants}>
