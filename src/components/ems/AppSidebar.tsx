@@ -31,6 +31,7 @@ import { useTheme } from "./ThemeProvider";
 import { DueDateNotifications } from "./DueDateNotifications";
 import { ColorPicker } from "./ColorPicker";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { CompanySelector } from "./CompanySelector";
 import hiveLogo from "@/assets/hive-logo.jpg";
 
 interface MenuGroup {
