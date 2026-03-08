@@ -16,8 +16,9 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import {
   Plus, LayoutGrid, GanttChart, Trash2, Edit2, CheckCircle, Calendar, X,
   GripVertical, Building2, FolderKanban, Clock, TrendingUp, AlertTriangle,
-  FileText, Download,
+  FileText, Download, BarChart3, Palette,
 } from "lucide-react";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
