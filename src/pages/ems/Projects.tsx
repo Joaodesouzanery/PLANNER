@@ -195,18 +195,17 @@ const Projects = () => {
     setExecutionForm({ ...executionForm, tags: executionForm.tags.filter(t => t !== tag) });
   };
 
-  const addColumn = async () => {
+  const addColumn = () => {
     if (!newColumnTitle) return;
-    await supabase.from("kanban_columns").insert({ title: newColumnTitle, order_index: columns.length });
+    const newCol: KanbanColumn = { id: newColumnTitle.toLowerCase().replace(/\s+/g, "_"), title: newColumnTitle, order_index: columns.length };
+    setColumns([...columns, newCol]);
     setNewColumnTitle("");
     setShowColumnModal(false);
-    fetchColumns();
     toast({ title: "Coluna adicionada!" });
   };
 
-  const deleteColumn = async (columnId: string) => {
-    await supabase.from("kanban_columns").delete().eq("id", columnId);
-    fetchColumns();
+  const deleteColumn = (columnId: string) => {
+    setColumns(columns.filter(c => c.id !== columnId));
     toast({ title: "Coluna removida!" });
   };
 
