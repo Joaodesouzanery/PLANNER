@@ -86,7 +86,7 @@ const Projects = () => {
   const [executionForm, setExecutionForm] = useState<ExecutionRecord>({ action_taken: "", result_obtained: "", lessons_learned: "", tags: [] });
   const [tagInput, setTagInput] = useState("");
 
-  useEffect(() => { initializeColumnsAndFetch(); }, []);
+  useEffect(() => { initializeColumnsAndFetch(); }, [selectedCompanyId]);
 
   const initializeColumnsAndFetch = async () => {
     const { data: existingColumns } = await supabase.from("kanban_columns").select("*").order("order_index");
