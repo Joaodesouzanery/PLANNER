@@ -102,7 +102,7 @@ const Contacts = () => {
   });
   const saveContactMutation = useMutation({
     mutationFn: async () => {
-      const payload = { name: contactForm.name, email: contactForm.email || null, phone: contactForm.phone || null, company: contactForm.company || null, notes: contactForm.notes || null, project_id: contactForm.project_id || null, pipeline_stage: contactForm.pipeline_stage || "lead" };
+      const payload = { name: contactForm.name, email: contactForm.email || null, phone: contactForm.phone || null, company: contactForm.company || null, notes: contactForm.notes || null, project_id: contactForm.project_id || null, pipeline_stage: contactForm.pipeline_stage || "lead", company_id: selectedCompanyId !== "all" ? selectedCompanyId : null };
       if (editingContact) { const { error } = await supabase.from("contacts").update(payload).eq("id", editingContact.id); if (error) throw error; }
       else { const { error } = await supabase.from("contacts").insert(payload); if (error) throw error; }
     },
