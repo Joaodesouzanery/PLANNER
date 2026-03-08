@@ -46,11 +46,12 @@ const CalendarPage = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    const [eventsRes, tasksRes, milestonesRes] = await Promise.all([
-      supabase.from("calendar_events").select("*"),
-      supabase.from("tasks").select("id, title, status, priority, due_date").not("due_date", "is", null),
-      supabase.from("planning_milestones").select("id, title, due_date, completed").not("due_date", "is", null),
-    ]);
+    const cf = selectedCompanyId !== "all";
+    let eq = supabase.from("calendar_events").select("*");
+    let tq = supabase.from("tasks").select("id, title, status, priority, due_date").not("due_date", "is", null);
+    let mq = supabase.from("planning_milestones").select("id, title, due_date, completed").not("due_date", "is", null);
+    if (cf) { eq = eq.eq("company_id", selectedCompanyId); tq = tq.eq("company_id", selectedCompanyId); mq = mq.eq("company_id", selectedCompanyId); }
+    const [eventsRes, tasksRes, milestonesRes] = await Promise.all([eq, tq, mq]);
     if (eventsRes.data) setEvents(eventsRes.data as CalendarEvent[]);
     if (tasksRes.data) setTasks(tasksRes.data as Task[]);
     if (milestonesRes.data) setMilestones(milestonesRes.data as Milestone[]);
