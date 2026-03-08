@@ -11,13 +11,14 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import {
   Plus, LayoutGrid, GanttChart, Trash2, Edit2, CheckCircle, Calendar, X,
   GripVertical, Building2, FolderKanban, Clock, TrendingUp, AlertTriangle,
-  FileText, Download,
+  FileText, Download, BarChart3, Palette,
 } from "lucide-react";
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -37,13 +38,26 @@ interface Project {
   column_order: number | null;
   client: string | null;
   labels: string[] | null;
+  company_id: string | null;
 }
 
 interface KanbanColumn {
   id: string;
   title: string;
   order_index: number;
+  color?: string;
 }
+
+const COLUMN_COLORS = [
+  { value: "blue", label: "Azul", bg: "from-blue-500/10 to-transparent", dot: "bg-blue-400", text: "text-blue-400" },
+  { value: "amber", label: "Âmbar", bg: "from-amber-500/10 to-transparent", dot: "bg-amber-400", text: "text-amber-400" },
+  { value: "emerald", label: "Verde", bg: "from-emerald-500/10 to-transparent", dot: "bg-emerald-400", text: "text-emerald-400" },
+  { value: "purple", label: "Roxo", bg: "from-purple-500/10 to-transparent", dot: "bg-purple-400", text: "text-purple-400" },
+  { value: "pink", label: "Rosa", bg: "from-pink-500/10 to-transparent", dot: "bg-pink-400", text: "text-pink-400" },
+  { value: "orange", label: "Laranja", bg: "from-orange-500/10 to-transparent", dot: "bg-orange-400", text: "text-orange-400" },
+  { value: "cyan", label: "Ciano", bg: "from-cyan-500/10 to-transparent", dot: "bg-cyan-400", text: "text-cyan-400" },
+  { value: "red", label: "Vermelho", bg: "from-red-500/10 to-transparent", dot: "bg-red-400", text: "text-red-400" },
+];
 
 interface ExecutionRecord {
   action_taken: string;
@@ -53,10 +67,15 @@ interface ExecutionRecord {
 }
 
 const defaultColumns: KanbanColumn[] = [
-  { id: "todo", title: "A Fazer", order_index: 0 },
-  { id: "in_progress", title: "Em Progresso", order_index: 1 },
-  { id: "done", title: "Concluído", order_index: 2 },
+  { id: "todo", title: "A Fazer", order_index: 0, color: "blue" },
+  { id: "in_progress", title: "Em Progresso", order_index: 1, color: "amber" },
+  { id: "done", title: "Concluído", order_index: 2, color: "emerald" },
 ];
+
+const getColumnStyle = (column: KanbanColumn) => {
+  const c = COLUMN_COLORS.find(cc => cc.value === (column.color || "blue"));
+  return c || COLUMN_COLORS[0];
+};
 
 const priorityConfig: Record<string, { label: string; color: string; border: string }> = {
   low: { label: "Baixa", color: "text-blue-400 bg-blue-500/10 border-blue-500/30", border: "border-l-blue-500" },
@@ -64,16 +83,12 @@ const priorityConfig: Record<string, { label: string; color: string; border: str
   high: { label: "Alta", color: "text-red-400 bg-red-500/10 border-red-500/30", border: "border-l-red-500" },
 };
 
-const columnColors: Record<string, { header: string; accent: string }> = {
-  todo: { header: "from-blue-500/10 to-transparent", accent: "text-blue-400" },
-  in_progress: { header: "from-amber-500/10 to-transparent", accent: "text-amber-400" },
-  done: { header: "from-emerald-500/10 to-transparent", accent: "text-emerald-400" },
-};
+const CHART_COLORS = ["hsl(var(--primary))", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#f97316", "#06b6d4", "#ef4444"];
 
 const Projects = () => {
   const { toast } = useToast();
   const { selectedCompanyId } = useCompany();
-  const [view, setView] = useState<"kanban" | "timeline">("kanban");
+  const [view, setView] = useState<"kanban" | "timeline" | "dashboard">("kanban");
   const [projects, setProjects] = useState<Project[]>([]);
   const [columns, setColumns] = useState<KanbanColumn[]>(defaultColumns);
   const [showAddProject, setShowAddProject] = useState(false);
@@ -82,6 +97,7 @@ const Projects = () => {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [showColumnModal, setShowColumnModal] = useState(false);
   const [newColumnTitle, setNewColumnTitle] = useState("");
+  const [newColumnColor, setNewColumnColor] = useState("purple");
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [isInitialized, setIsInitialized] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -273,9 +289,10 @@ const Projects = () => {
 
   const addColumn = () => {
     if (!newColumnTitle) return;
-    const newCol: KanbanColumn = { id: newColumnTitle.toLowerCase().replace(/\s+/g, "_"), title: newColumnTitle, order_index: columns.length };
+    const newCol: KanbanColumn = { id: newColumnTitle.toLowerCase().replace(/\s+/g, "_"), title: newColumnTitle, order_index: columns.length, color: newColumnColor };
     setColumns([...columns, newCol]);
     setNewColumnTitle("");
+    setNewColumnColor("purple");
     setShowColumnModal(false);
     toast({ title: "Coluna adicionada!" });
   };
@@ -377,10 +394,11 @@ const Projects = () => {
         </div>
 
         {/* View Toggle */}
-        <Tabs value={view} onValueChange={(v) => setView(v as "kanban" | "timeline")}>
+        <Tabs value={view} onValueChange={(v) => setView(v as "kanban" | "timeline" | "dashboard")}>
           <TabsList>
             <TabsTrigger value="kanban" className="gap-2"><LayoutGrid className="h-4 w-4" />Kanban</TabsTrigger>
             <TabsTrigger value="timeline" className="gap-2"><GanttChart className="h-4 w-4" />Timeline</TabsTrigger>
+            <TabsTrigger value="dashboard" className="gap-2"><BarChart3 className="h-4 w-4" />Dashboard</TabsTrigger>
           </TabsList>
 
           <TabsContent value="kanban" className="mt-6">
@@ -389,7 +407,7 @@ const Projects = () => {
                 {(provided) => (
                   <div ref={provided.innerRef} {...provided.droppableProps} className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory">
                     {columns.map((column, columnIndex) => {
-                      const colStyle = columnColors[column.id] || { header: "from-muted/30 to-transparent", accent: "text-muted-foreground" };
+                      const colStyle = getColumnStyle(column);
                       const colProjects = getProjectsByStatus(column.id);
 
                       return (
@@ -397,9 +415,9 @@ const Projects = () => {
                           {(provided, snapshot) => (
                             <div ref={provided.innerRef} {...provided.draggableProps} className={cn("flex-shrink-0 w-[75vw] sm:w-80 snap-center", snapshot.isDragging && "opacity-75")}>
                               <Card className="bg-card/60 backdrop-blur-sm border-border/50 overflow-hidden">
-                                <CardHeader {...provided.dragHandleProps} className={cn("py-3 px-4 flex flex-row items-center justify-between cursor-grab active:cursor-grabbing bg-gradient-to-r", colStyle.header)}>
+                                <CardHeader {...provided.dragHandleProps} className={cn("py-3 px-4 flex flex-row items-center justify-between cursor-grab active:cursor-grabbing bg-gradient-to-r", colStyle.bg)}>
                                   <div className="flex items-center gap-2">
-                                    <div className={cn("h-2 w-2 rounded-full", column.id === "done" ? "bg-emerald-400" : column.id === "in_progress" ? "bg-amber-400" : "bg-blue-400")} />
+                                    <div className={cn("h-2 w-2 rounded-full", colStyle.dot)} />
                                     <CardTitle className="text-sm font-medium">{column.title}</CardTitle>
                                   </div>
                                   <div className="flex items-center gap-2">
@@ -553,6 +571,88 @@ const Projects = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="dashboard" className="mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* By Status */}
+              <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
+                <CardHeader><CardTitle className="text-base">Projetos por Status</CardTitle></CardHeader>
+                <CardContent>
+                  {(() => {
+                    const statusData = columns.map(col => ({
+                      name: col.title,
+                      value: projects.filter(p => p.status === col.id).length,
+                    })).filter(d => d.value > 0);
+                    return statusData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={250}>
+                        <PieChart>
+                          <Pie data={statusData} cx="50%" cy="50%" outerRadius={90} innerRadius={50} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
+                            {statusData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : <p className="text-center text-muted-foreground py-12">Sem dados</p>;
+                  })()}
+                </CardContent>
+              </Card>
+
+              {/* By Priority */}
+              <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
+                <CardHeader><CardTitle className="text-base">Projetos por Prioridade</CardTitle></CardHeader>
+                <CardContent>
+                  {(() => {
+                    const prioData = Object.entries(priorityConfig).map(([key, cfg]) => ({
+                      name: cfg.label,
+                      value: projects.filter(p => p.priority === key).length,
+                    })).filter(d => d.value > 0);
+                    return prioData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={250}>
+                        <BarChart data={prioData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                          <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                          <YAxis allowDecimals={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                          <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                          <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                            {prioData.map((_, i) => <Cell key={i} fill={["#3b82f6", "#f59e0b", "#ef4444"][i] || CHART_COLORS[i]} />)}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : <p className="text-center text-muted-foreground py-12">Sem dados</p>;
+                  })()}
+                </CardContent>
+              </Card>
+
+              {/* By Company */}
+              <Card className="border-border/50 bg-card/80 backdrop-blur-sm lg:col-span-2">
+                <CardHeader><CardTitle className="text-base">Projetos por Empresa</CardTitle></CardHeader>
+                <CardContent>
+                  {(() => {
+                    const companyData = companies.map(c => ({
+                      name: c.name,
+                      total: projects.filter(p => p.company_id === c.id).length,
+                      concluidos: projects.filter(p => p.company_id === c.id && p.status === "done").length,
+                      em_progresso: projects.filter(p => p.company_id === c.id && p.status === "in_progress").length,
+                    })).filter(d => d.total > 0);
+                    return companyData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={companyData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                          <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                          <YAxis allowDecimals={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
+                          <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                          <Legend />
+                          <Bar dataKey="total" name="Total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="em_progresso" name="Em Progresso" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="concluidos" name="Concluídos" fill="#10b981" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : <p className="text-center text-muted-foreground py-12">Sem dados por empresa</p>;
+                  })()}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
         </Tabs>
 
         {/* Add/Edit Project Dialog */}
@@ -625,7 +725,22 @@ const Projects = () => {
         <Dialog open={showColumnModal} onOpenChange={setShowColumnModal}>
           <DialogContent>
             <DialogHeader><DialogTitle>Nova Coluna</DialogTitle></DialogHeader>
-            <div className="py-4"><Label>Nome da Coluna</Label><Input value={newColumnTitle} onChange={(e) => setNewColumnTitle(e.target.value)} placeholder="Ex: Em Revisão" /></div>
+            <div className="space-y-4 py-4">
+              <div><Label>Nome da Coluna</Label><Input value={newColumnTitle} onChange={(e) => setNewColumnTitle(e.target.value)} placeholder="Ex: Em Revisão" /></div>
+              <div>
+                <Label>Cor</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {COLUMN_COLORS.map(c => (
+                    <button
+                      key={c.value}
+                      onClick={() => setNewColumnColor(c.value)}
+                      className={cn("h-8 w-8 rounded-full border-2 transition-all", c.dot, newColumnColor === c.value ? "border-foreground scale-110" : "border-transparent opacity-60 hover:opacity-100")}
+                      title={c.label}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowColumnModal(false)}>Cancelar</Button>
               <Button onClick={addColumn}>Criar Coluna</Button>
