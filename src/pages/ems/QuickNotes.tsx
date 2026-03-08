@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useCompany } from "@/contexts/CompanyContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ const getColorClasses = (color: string) =>
 const QuickNotes = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { selectedCompanyId } = useCompany();
   const [newNoteContent, setNewNoteContent] = useState("");
   const [editingNote, setEditingNote] = useState<QuickNote | null>(null);
   const [editContent, setEditContent] = useState("");
@@ -55,13 +57,15 @@ const QuickNotes = () => {
 
   // Fetch notes
   const { data: notes = [], isLoading } = useQuery({
-    queryKey: ["quick_notes"],
+    queryKey: ["quick_notes", selectedCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("quick_notes")
         .select("*")
         .order("pinned", { ascending: false })
         .order("updated_at", { ascending: false });
+      if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
+      const { data, error } = await query;
       if (error) throw error;
       return data as QuickNote[];
     },
@@ -74,6 +78,7 @@ const QuickNotes = () => {
         content,
         color: "default",
         pinned: false,
+        company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
       });
       if (error) throw error;
     },

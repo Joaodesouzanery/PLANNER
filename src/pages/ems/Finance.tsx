@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useCompany } from "@/contexts/CompanyContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ const PIE_COLORS = ["hsl(var(--primary))", "hsl(142.1, 76.2%, 36.3%)", "hsl(0, 8
 
 const Finance = () => {
   const { toast } = useToast();
+  const { selectedCompanyId } = useCompany();
   const [okrs, setOkrs] = useState<OKR[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [showOkrModal, setShowOkrModal] = useState(false);
@@ -62,14 +64,24 @@ const Finance = () => {
   const [simMonthlyIncome, setSimMonthlyIncome] = useState(0);
   const [simMonthlyExpenses, setSimMonthlyExpenses] = useState(0);
 
-  useEffect(() => { fetchOkrs(); fetchTransactions(); }, []);
+  useEffect(() => { fetchOkrs(); fetchTransactions(); }, [selectedCompanyId]);
 
-  const fetchOkrs = async () => { const { data } = await supabase.from("okrs").select("*").order("created_at", { ascending: false }); if (data) setOkrs(data); };
-  const fetchTransactions = async () => { const { data } = await supabase.from("financial_transactions").select("*").order("date", { ascending: false }); if (data) setTransactions(data as Transaction[]); };
+  const fetchOkrs = async () => {
+    let q = supabase.from("okrs").select("*").order("created_at", { ascending: false });
+    if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
+    const { data } = await q;
+    if (data) setOkrs(data);
+  };
+  const fetchTransactions = async () => {
+    let q = supabase.from("financial_transactions").select("*").order("date", { ascending: false });
+    if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
+    const { data } = await q;
+    if (data) setTransactions(data as Transaction[]);
+  };
 
   const handleSaveOkr = async () => {
     if (editingOkr) { await supabase.from("okrs").update(okrForm).eq("id", editingOkr.id); }
-    else { await supabase.from("okrs").insert(okrForm); }
+    else { await supabase.from("okrs").insert({ ...okrForm, company_id: selectedCompanyId !== "all" ? selectedCompanyId : null }); }
     setShowOkrModal(false); setEditingOkr(null);
     setOkrForm({ title: "", description: "", target_value: 100, current_value: 0, unit: "%", period: "quarterly" });
     fetchOkrs(); toast({ title: editingOkr ? "OKR atualizado!" : "OKR criado!" });
@@ -78,7 +90,7 @@ const Finance = () => {
 
   const handleSaveTransaction = async () => {
     if (editingTransaction) { await supabase.from("financial_transactions").update(transactionForm).eq("id", editingTransaction.id); }
-    else { await supabase.from("financial_transactions").insert(transactionForm); }
+    else { await supabase.from("financial_transactions").insert({ ...transactionForm, company_id: selectedCompanyId !== "all" ? selectedCompanyId : null }); }
     setShowTransactionModal(false); setEditingTransaction(null);
     setTransactionForm({ description: "", amount: 0, type: "income", category: "", date: format(new Date(), "yyyy-MM-dd") });
     fetchTransactions(); toast({ title: editingTransaction ? "Transação atualizada!" : "Transação criada!" });

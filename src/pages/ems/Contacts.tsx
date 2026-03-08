@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useCompany } from "@/contexts/CompanyContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,7 @@ const kanbanStatuses = [
 
 const Contacts = () => {
   const queryClient = useQueryClient();
+  const { selectedCompanyId } = useCompany();
   const [activeTab, setActiveTab] = useState("contacts");
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
@@ -82,9 +84,9 @@ const Contacts = () => {
   const [interactionForm, setInteractionForm] = useState({ type: "note", description: "" });
   const [expandedContact, setExpandedContact] = useState<string | null>(null);
 
-  const { data: projects = [] } = useQuery({ queryKey: ["projects"], queryFn: async () => { const { data, error } = await supabase.from("projects").select("id, title").order("title"); if (error) throw error; return data as Project[]; } });
-  const { data: contacts = [], isLoading: contactsLoading } = useQuery({ queryKey: ["contacts"], queryFn: async () => { const { data, error } = await supabase.from("contacts").select("*, project:projects(title)").order("name"); if (error) throw error; return data as Contact[]; } });
-  const { data: tasks = [], isLoading: tasksLoading } = useQuery({ queryKey: ["contact-tasks"], queryFn: async () => { const { data, error } = await supabase.from("tasks").select("*, contact:contacts(name), project:projects(title)").not("contact_id", "is", null).order("created_at", { ascending: false }); if (error) throw error; return data as Task[]; } });
+  const { data: projects = [] } = useQuery({ queryKey: ["projects", selectedCompanyId], queryFn: async () => { let q = supabase.from("projects").select("id, title").order("title"); if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId); const { data, error } = await q; if (error) throw error; return data as Project[]; } });
+  const { data: contacts = [], isLoading: contactsLoading } = useQuery({ queryKey: ["contacts", selectedCompanyId], queryFn: async () => { let q = supabase.from("contacts").select("*, project:projects(title)").order("name"); if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId); const { data, error } = await q; if (error) throw error; return data as Contact[]; } });
+  const { data: tasks = [], isLoading: tasksLoading } = useQuery({ queryKey: ["contact-tasks", selectedCompanyId], queryFn: async () => { let q = supabase.from("tasks").select("*, contact:contacts(name), project:projects(title)").not("contact_id", "is", null).order("created_at", { ascending: false }); if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId); const { data, error } = await q; if (error) throw error; return data as Task[]; } });
   const { data: interactions = [] } = useQuery({ queryKey: ["contact-interactions"], queryFn: async () => { const { data, error } = await supabase.from("contact_interactions").select("*").order("date", { ascending: false }); if (error) throw error; return data as Interaction[]; } });
 
   const getContactInteractions = (contactId: string) => interactions.filter((i) => i.contact_id === contactId);
@@ -100,7 +102,7 @@ const Contacts = () => {
   });
   const saveContactMutation = useMutation({
     mutationFn: async () => {
-      const payload = { name: contactForm.name, email: contactForm.email || null, phone: contactForm.phone || null, company: contactForm.company || null, notes: contactForm.notes || null, project_id: contactForm.project_id || null, pipeline_stage: contactForm.pipeline_stage || "lead" };
+      const payload = { name: contactForm.name, email: contactForm.email || null, phone: contactForm.phone || null, company: contactForm.company || null, notes: contactForm.notes || null, project_id: contactForm.project_id || null, pipeline_stage: contactForm.pipeline_stage || "lead", company_id: selectedCompanyId !== "all" ? selectedCompanyId : null };
       if (editingContact) { const { error } = await supabase.from("contacts").update(payload).eq("id", editingContact.id); if (error) throw error; }
       else { const { error } = await supabase.from("contacts").insert(payload); if (error) throw error; }
     },
@@ -114,7 +116,7 @@ const Contacts = () => {
   });
   const saveTaskMutation = useMutation({
     mutationFn: async () => {
-      const payload = { title: taskForm.title, description: taskForm.description || null, priority: taskForm.priority, due_date: taskForm.due_date ? format(taskForm.due_date, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"), contact_id: taskForm.contact_id || null, project_id: taskForm.project_id || null };
+      const payload = { title: taskForm.title, description: taskForm.description || null, priority: taskForm.priority, due_date: taskForm.due_date ? format(taskForm.due_date, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"), contact_id: taskForm.contact_id || null, project_id: taskForm.project_id || null, company_id: selectedCompanyId !== "all" ? selectedCompanyId : null };
       if (editingTask) { const { error } = await supabase.from("tasks").update(payload).eq("id", editingTask.id); if (error) throw error; }
       else { const { error } = await supabase.from("tasks").insert(payload); if (error) throw error; }
     },

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { useCompany } from "@/contexts/CompanyContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -100,6 +101,7 @@ const stepStatusConfig: Record<string, { label: string; color: string; bg: strin
 
 const Onboarding = () => {
   const queryClient = useQueryClient();
+  const { selectedCompanyId } = useCompany();
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
@@ -155,9 +157,11 @@ const Onboarding = () => {
 
   // Fetch contacts
   const { data: contacts = [] } = useQuery({
-    queryKey: ["contacts"],
+    queryKey: ["contacts", selectedCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("contacts").select("id, name, email, phone, company, pipeline_stage").order("name");
+      let q = supabase.from("contacts").select("id, name, email, phone, company, pipeline_stage").order("name");
+      if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
+      const { data, error } = await q;
       if (error) throw error;
       return data as Contact[];
     },

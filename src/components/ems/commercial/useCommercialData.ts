@@ -2,32 +2,40 @@ import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Phase, Item, Tracking, Contact, ContactMeta } from "./types";
+import { useCompany } from "@/contexts/CompanyContext";
 
 export const useCommercialData = () => {
   const queryClient = useQueryClient();
+  const { selectedCompanyId } = useCompany();
 
   const { data: phases = [] } = useQuery({
-    queryKey: ["commercial-phases"],
+    queryKey: ["commercial-phases", selectedCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("commercial_phases").select("*").order("order_index");
+      let q = supabase.from("commercial_phases").select("*").order("order_index");
+      if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
+      const { data, error } = await q;
       if (error) throw error;
       return data as Phase[];
     },
   });
 
   const { data: items = [] } = useQuery({
-    queryKey: ["commercial-items"],
+    queryKey: ["commercial-items", selectedCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("commercial_items").select("*").order("order_index");
+      let q = supabase.from("commercial_items").select("*").order("order_index");
+      if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
+      const { data, error } = await q;
       if (error) throw error;
       return data as Item[];
     },
   });
 
   const { data: contacts = [] } = useQuery({
-    queryKey: ["contacts"],
+    queryKey: ["contacts", selectedCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("contacts").select("id, name, email, phone, company, pipeline_stage, created_at").order("name");
+      let q = supabase.from("contacts").select("id, name, email, phone, company, pipeline_stage, created_at").order("name");
+      if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
+      const { data, error } = await q;
       if (error) throw error;
       return data as Contact[];
     },

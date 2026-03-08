@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useCompany } from "@/contexts/CompanyContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ const getColorClass = (color: string) => eventColors.find((c) => c.value === col
 
 const CalendarPage = () => {
   const { toast } = useToast();
+  const { selectedCompanyId } = useCompany();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -40,15 +42,16 @@ const CalendarPage = () => {
   const [showDayModal, setShowDayModal] = useState(false);
   const [eventForm, setEventForm] = useState({ title: "", date: "", color: "blue" });
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [selectedCompanyId]);
 
   const fetchData = async () => {
     setLoading(true);
-    const [eventsRes, tasksRes, milestonesRes] = await Promise.all([
-      supabase.from("calendar_events").select("*"),
-      supabase.from("tasks").select("id, title, status, priority, due_date").not("due_date", "is", null),
-      supabase.from("planning_milestones").select("id, title, due_date, completed").not("due_date", "is", null),
-    ]);
+    const cf = selectedCompanyId !== "all";
+    let eq = supabase.from("calendar_events").select("*");
+    let tq = supabase.from("tasks").select("id, title, status, priority, due_date").not("due_date", "is", null);
+    let mq = supabase.from("planning_milestones").select("id, title, due_date, completed").not("due_date", "is", null);
+    if (cf) { eq = eq.eq("company_id", selectedCompanyId); tq = tq.eq("company_id", selectedCompanyId); mq = mq.eq("company_id", selectedCompanyId); }
+    const [eventsRes, tasksRes, milestonesRes] = await Promise.all([eq, tq, mq]);
     if (eventsRes.data) setEvents(eventsRes.data as CalendarEvent[]);
     if (tasksRes.data) setTasks(tasksRes.data as Task[]);
     if (milestonesRes.data) setMilestones(milestonesRes.data as Milestone[]);
@@ -57,7 +60,7 @@ const CalendarPage = () => {
 
   const handleCreateEvent = async () => {
     if (!eventForm.title.trim() || !eventForm.date) { toast({ title: "Erro", description: "Preencha o titulo e a data", variant: "destructive" }); return; }
-    const { error } = await supabase.from("calendar_events").insert({ title: eventForm.title, start_date: eventForm.date, all_day: true, color: eventForm.color });
+    const { error } = await supabase.from("calendar_events").insert({ title: eventForm.title, start_date: eventForm.date, all_day: true, color: eventForm.color, company_id: selectedCompanyId !== "all" ? selectedCompanyId : null });
     if (error) { toast({ title: "Erro ao criar evento", variant: "destructive" }); return; }
     toast({ title: "Evento criado!" });
     setEventForm({ title: "", date: "", color: "blue" });

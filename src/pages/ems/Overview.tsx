@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useCompany } from "@/contexts/CompanyContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -78,6 +79,7 @@ interface MonthlyData {
 
 const Overview = () => {
   const { toast } = useToast();
+  const { selectedCompanyId } = useCompany();
   const [pillars, setPillars] = useState<Pillar[]>([]);
   const [monthlyFocus, setMonthlyFocus] = useState<MonthlyFocus | null>(null);
   const [pendingTasks, setPendingTasks] = useState(0);
@@ -99,10 +101,15 @@ const Overview = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [selectedCompanyId]);
 
   const fetchData = async () => {
-    const { data: pillarsData } = await supabase.from("strategic_pillars").select("*").order("order_index");
+    const cf = selectedCompanyId !== "all";
+    const cid = selectedCompanyId;
+
+    let pillarsQ = supabase.from("strategic_pillars").select("*").order("order_index");
+    if (cf) pillarsQ = pillarsQ.eq("company_id", cid);
+    const { data: pillarsData } = await pillarsQ;
     if (pillarsData) setPillars(pillarsData);
 
     const currentMonth = new Date().getMonth() + 1;
@@ -113,13 +120,17 @@ const Overview = () => {
       setFocusForm({ title: focusData.title, description: focusData.description || "" });
     }
 
-    const { data: tasksData } = await supabase.from("projects").select("status");
+    let projQ = supabase.from("projects").select("status");
+    if (cf) projQ = projQ.eq("company_id", cid);
+    const { data: tasksData } = await projQ;
     if (tasksData) {
       setPendingTasks(tasksData.filter(t => t.status !== "done").length);
       setCompletedTasks(tasksData.filter(t => t.status === "done").length);
     }
 
-    const { data: financialData } = await supabase.from("financial_transactions").select("amount, type, date");
+    let finQ = supabase.from("financial_transactions").select("amount, type, date");
+    if (cf) finQ = finQ.eq("company_id", cid);
+    const { data: financialData } = await finQ;
     if (financialData) {
       let inc = 0, exp = 0;
       financialData.forEach(t => {
@@ -145,13 +156,15 @@ const Overview = () => {
       setMonthlyData(months.map((m, i) => ({ month: m, income: monthMap[i].income, expense: monthMap[i].expense })));
     }
 
-    const { data: contactTasksData } = await supabase
+    let ctQ = supabase
       .from("tasks")
       .select("id, title, priority, due_date, status, contacts(id, name, company)")
       .not("contact_id", "is", null)
       .neq("status", "completed")
       .order("due_date", { ascending: true })
       .limit(10);
+    if (cf) ctQ = ctQ.eq("company_id", cid);
+    const { data: contactTasksData } = await ctQ;
     if (contactTasksData) {
       setContactTasks(contactTasksData.map((t: any) => ({ id: t.id, title: t.title, priority: t.priority, due_date: t.due_date, status: t.status, contact: t.contacts })));
     }
@@ -159,31 +172,45 @@ const Overview = () => {
     const now = new Date();
     const weekStart = startOfWeek(now, { locale: ptBR });
     const weekEnd = endOfWeek(now, { locale: ptBR });
-    const { data: weekTasksData } = await supabase
+    let wtQ = supabase
       .from("tasks")
       .select("id, title, due_date, status, priority")
       .gte("due_date", format(weekStart, "yyyy-MM-dd"))
       .lte("due_date", format(weekEnd, "yyyy-MM-dd"))
       .order("due_date");
+    if (cf) wtQ = wtQ.eq("company_id", cid);
+    const { data: weekTasksData } = await wtQ;
     if (weekTasksData) setWeekTasks(weekTasksData);
 
-    const { count } = await supabase.from("tasks").select("*", { count: "exact", head: true });
+    let tcQ = supabase.from("tasks").select("*", { count: "exact", head: true });
+    if (cf) tcQ = tcQ.eq("company_id", cid);
+    const { count } = await tcQ;
     setTotalTasks(count || 0);
 
-    const { count: projCount } = await supabase.from("projects").select("*", { count: "exact", head: true });
+    let pcQ = supabase.from("projects").select("*", { count: "exact", head: true });
+    if (cf) pcQ = pcQ.eq("company_id", cid);
+    const { count: projCount } = await pcQ;
     setProjectCount(projCount || 0);
 
-    const { count: contCount } = await supabase.from("contacts").select("*", { count: "exact", head: true });
+    let ccQ = supabase.from("contacts").select("*", { count: "exact", head: true });
+    if (cf) ccQ = ccQ.eq("company_id", cid);
+    const { count: contCount } = await ccQ;
     setContactCount(contCount || 0);
 
     // Fetch overdue items
     const today = new Date();
     const overdue: {id: string; title: string; type: string; dueDate: string; daysOverdue: number}[] = [];
-    const { data: overdueTasks } = await supabase.from("tasks").select("id, title, due_date").not("due_date", "is", null).neq("status", "completed").lt("due_date", format(today, "yyyy-MM-dd"));
+    let otQ = supabase.from("tasks").select("id, title, due_date").not("due_date", "is", null).neq("status", "completed").lt("due_date", format(today, "yyyy-MM-dd"));
+    if (cf) otQ = otQ.eq("company_id", cid);
+    const { data: overdueTasks } = await otQ;
     overdueTasks?.forEach((t: any) => { const days = differenceInDays(today, parseISO(t.due_date)); overdue.push({ id: t.id, title: t.title, type: "Tarefa", dueDate: t.due_date, daysOverdue: days }); });
-    const { data: overdueProjects } = await supabase.from("projects").select("id, title, due_date").not("due_date", "is", null).neq("status", "done").lt("due_date", format(today, "yyyy-MM-dd"));
+    let opQ = supabase.from("projects").select("id, title, due_date").not("due_date", "is", null).neq("status", "done").lt("due_date", format(today, "yyyy-MM-dd"));
+    if (cf) opQ = opQ.eq("company_id", cid);
+    const { data: overdueProjects } = await opQ;
     overdueProjects?.forEach((p: any) => { const days = differenceInDays(today, parseISO(p.due_date)); overdue.push({ id: p.id, title: p.title, type: "Projeto", dueDate: p.due_date, daysOverdue: days }); });
-    const { data: overdueMilestones } = await supabase.from("planning_milestones").select("id, title, due_date").not("due_date", "is", null).eq("completed", false).lt("due_date", format(today, "yyyy-MM-dd"));
+    let omQ = supabase.from("planning_milestones").select("id, title, due_date").not("due_date", "is", null).eq("completed", false).lt("due_date", format(today, "yyyy-MM-dd"));
+    if (cf) omQ = omQ.eq("company_id", cid);
+    const { data: overdueMilestones } = await omQ;
     overdueMilestones?.forEach((m: any) => { const days = differenceInDays(today, parseISO(m.due_date)); overdue.push({ id: m.id, title: m.title, type: "Marco", dueDate: m.due_date, daysOverdue: days }); });
     overdue.sort((a, b) => b.daysOverdue - a.daysOverdue);
     setOverdueItems(overdue);

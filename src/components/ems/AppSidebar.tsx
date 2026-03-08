@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
+  Building2,
   FolderKanban,
   BookOpen,
   TrendingUp,
@@ -31,6 +32,7 @@ import { useTheme } from "./ThemeProvider";
 import { DueDateNotifications } from "./DueDateNotifications";
 import { ColorPicker } from "./ColorPicker";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { CompanySelector } from "./CompanySelector";
 import hiveLogo from "@/assets/hive-logo.jpg";
 
 interface MenuGroup {
@@ -72,6 +74,7 @@ const menuGroups: MenuGroup[] = [
     label: "Configuração",
     items: [
       { icon: Settings, label: "Configurações", path: "/ems/settings" },
+      { icon: Building2, label: "Empresas", path: "/ems/companies" },
     ],
   },
 ];
@@ -117,6 +120,11 @@ export const AppSidebar = ({ mobileOpen, onMobileClose }: AppSidebarProps) => {
             <X className="h-5 w-5" />
           </Button>
         )}
+      </div>
+
+      {/* Company Selector */}
+      <div className="px-3 py-1">
+        <CompanySelector collapsed={collapsed && !isMobile} />
       </div>
 
       {/* Navigation */}

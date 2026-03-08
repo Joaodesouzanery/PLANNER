@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useCompany } from "@/contexts/CompanyContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -68,6 +69,7 @@ const columnColors: Record<string, { header: string; accent: string }> = {
 
 const Projects = () => {
   const { toast } = useToast();
+  const { selectedCompanyId } = useCompany();
   const [view, setView] = useState<"kanban" | "timeline">("kanban");
   const [projects, setProjects] = useState<Project[]>([]);
   const [columns, setColumns] = useState<KanbanColumn[]>(defaultColumns);
@@ -84,7 +86,7 @@ const Projects = () => {
   const [executionForm, setExecutionForm] = useState<ExecutionRecord>({ action_taken: "", result_obtained: "", lessons_learned: "", tags: [] });
   const [tagInput, setTagInput] = useState("");
 
-  useEffect(() => { initializeColumnsAndFetch(); }, []);
+  useEffect(() => { initializeColumnsAndFetch(); }, [selectedCompanyId]);
 
   const initializeColumnsAndFetch = async () => {
     const { data: existingColumns } = await supabase.from("kanban_columns").select("*").order("order_index");
@@ -105,7 +107,9 @@ const Projects = () => {
   };
 
   const fetchProjects = async () => {
-    const { data } = await supabase.from("projects").select("*").order("column_order", { ascending: true, nullsFirst: false });
+    let query = supabase.from("projects").select("*").order("column_order", { ascending: true, nullsFirst: false });
+    if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
+    const { data } = await query;
     if (data) setProjects(data as Project[]);
   };
 
@@ -128,6 +132,7 @@ const Projects = () => {
     await supabase.from("projects").insert({
       title: projectForm.title, description: projectForm.description || null, priority: projectForm.priority,
       due_date: projectForm.due_date || null, status: "todo", column_order: maxOrder,
+      company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
       client: projectForm.client || null, labels: projectForm.labels ? projectForm.labels.split(",").map(l => l.trim()).filter(Boolean) : [],
     });
     setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "" });

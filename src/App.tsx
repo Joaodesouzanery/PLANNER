@@ -4,9 +4,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/components/ems/ThemeProvider";
+import { CompanyProvider } from "@/contexts/CompanyContext";
 
 // EMS Pages
 import Overview from "./pages/ems/Overview";
+import Companies from "./pages/ems/Companies";
 import Projects from "./pages/ems/Projects";
 import Knowledge from "./pages/ems/Knowledge";
 import Finance from "./pages/ems/Finance";
@@ -28,6 +30,7 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider>
+      <CompanyProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -52,12 +55,14 @@ const App = () => (
             <Route path="/ems/calendar" element={<CalendarPage />} />
             <Route path="/ems/comercial" element={<Commercial />} />
             <Route path="/ems/onboarding" element={<Onboarding />} />
+            <Route path="/ems/companies" element={<Companies />} />
 
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
+      </CompanyProvider>
     </ThemeProvider>
   </QueryClientProvider>
 );

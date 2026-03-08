@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useCompany } from "@/contexts/CompanyContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -75,6 +76,7 @@ const departmentOptions = [
 
 const OrgChart = () => {
   const { toast } = useToast();
+  const { selectedCompanyId } = useCompany();
   const [nodes, setNodes] = useState<OrgChartNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -94,17 +96,15 @@ const OrgChart = () => {
 
   useEffect(() => {
     fetchNodes();
-  }, []);
+  }, [selectedCompanyId]);
 
   const fetchNodes = async () => {
-    const { data, error } = await supabase
-      .from("org_chart_nodes")
-      .select("*")
-      .order("order_index");
+    let query = supabase.from("org_chart_nodes").select("*").order("order_index");
+    if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
+    const { data, error } = await query;
     
     if (data) {
       setNodes(data);
-      // Expand all root nodes by default
       const rootIds = data.filter((n) => !n.parent_id).map((n) => n.id);
       setExpandedNodes(new Set(rootIds));
     }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useCompany } from "@/contexts/CompanyContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ const priorityConfig: Record<string, { label: string; color: string; bgCard: str
 const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
 
 const Tasks = () => {
+  const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [filter, setFilter] = useState<"all" | "pending" | "completed">("all");
@@ -65,9 +67,11 @@ const Tasks = () => {
   const [noteInput, setNoteInput] = useState("");
 
   const { data: tasks = [], isLoading } = useQuery({
-    queryKey: ["tasks"],
+    queryKey: ["tasks", selectedCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tasks").select("*").is("contact_id", null).order("order_index");
+      let query = supabase.from("tasks").select("*").is("contact_id", null).order("order_index");
+      if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
+      const { data, error } = await query;
       if (error) throw error;
       return (data as Task[]).sort((a, b) => {
         if (a.status === "completed" && b.status !== "completed") return 1;
@@ -99,6 +103,7 @@ const Tasks = () => {
         priority: form.priority,
         due_date: form.due_date ? format(form.due_date, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
         tags: form.tags.length > 0 ? form.tags : null,
+        company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
       });
       if (error) throw error;
     },
