@@ -19,13 +19,13 @@
 @layer base {
   :root {
     /* Warm dark theme - high contrast */
-    --background: 20 14% 4%;
+    --background: 20 10% 12%;
     --foreground: 40 20% 93%;
 
-    --card: 20 10% 8%;
+    --card: 20 8% 16%;
     --card-foreground: 40 20% 93%;
 
-    --popover: 20 10% 8%;
+    --popover: 20 8% 16%;
     --popover-foreground: 40 20% 93%;
 
     /* Primary - Warm Orange/Amber */
@@ -34,32 +34,32 @@
     --primary-light: 32 100% 60%;
 
     /* Secondary */
-    --secondary: 20 8% 16%;
+    --secondary: 20 8% 22%;
     --secondary-foreground: 40 15% 90%;
-    --secondary-light: 20 8% 22%;
+    --secondary-light: 20 8% 28%;
 
     /* Accent */
     --accent: 28 100% 55%;
     --accent-foreground: 20 14% 4%;
     --accent-light: 32 100% 65%;
 
-    --muted: 20 8% 14%;
+    --muted: 20 8% 20%;
     --muted-foreground: 25 10% 75%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 25 8% 45%;
-    --input: 20 8% 16%;
+    --input: 20 8% 22%;
     --ring: 28 100% 55%;
 
     --radius: 0.75rem;
 
     /* Sidebar */
-    --sidebar: 20 12% 6%;
+    --sidebar: 20 10% 10%;
     --sidebar-foreground: 25 10% 75%;
     --sidebar-active: 28 100% 55%;
-    --sidebar-hover: 20 8% 12%;
+    --sidebar-hover: 20 8% 18%;
     --sidebar-border: 25 8% 45%;
 
     /* Chart colors */
@@ -132,41 +132,41 @@
   }
 
   .dark {
-    --background: 20 14% 4%;
+    --background: 20 10% 12%;
     --foreground: 40 20% 93%;
 
-    --card: 20 10% 8%;
+    --card: 20 8% 16%;
     --card-foreground: 40 20% 93%;
 
-    --popover: 20 10% 8%;
+    --popover: 20 8% 16%;
     --popover-foreground: 40 20% 93%;
 
     --primary: 28 100% 55%;
     --primary-foreground: 20 14% 4%;
     --primary-light: 32 100% 60%;
 
-    --secondary: 20 8% 16%;
+    --secondary: 20 8% 22%;
     --secondary-foreground: 40 15% 90%;
-    --secondary-light: 20 8% 22%;
+    --secondary-light: 20 8% 28%;
 
     --accent: 28 100% 55%;
     --accent-foreground: 20 14% 4%;
     --accent-light: 32 100% 65%;
 
-    --muted: 20 8% 14%;
+    --muted: 20 8% 20%;
     --muted-foreground: 25 10% 75%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 25 8% 45%;
-    --input: 20 8% 16%;
+    --input: 20 8% 22%;
     --ring: 28 100% 55%;
 
-    --sidebar: 20 12% 6%;
+    --sidebar: 20 10% 10%;
     --sidebar-foreground: 25 10% 75%;
     --sidebar-active: 28 100% 55%;
-    --sidebar-hover: 20 8% 12%;
+    --sidebar-hover: 20 8% 18%;
     --sidebar-border: 25 8% 45%;
 
     --chart-1: 28 100% 55%;
