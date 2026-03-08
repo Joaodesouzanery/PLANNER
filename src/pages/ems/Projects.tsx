@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,12 +16,15 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import {
   Plus, LayoutGrid, GanttChart, Trash2, Edit2, CheckCircle, Calendar, X,
   GripVertical, Building2, FolderKanban, Clock, TrendingUp, AlertTriangle,
+  FileText, Download,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface Project {
   id: string;
