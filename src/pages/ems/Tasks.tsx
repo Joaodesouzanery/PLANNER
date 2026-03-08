@@ -309,7 +309,7 @@ const Tasks = () => {
       const priority = (priorityConfig[t.priority] || priorityConfig.medium).label;
       const completed = t.completed_at ? format(parseISO(t.completed_at), "dd/MM/yyyy HH:mm") : "-";
       const tags = `"${(t.tags || []).join(", ")}"`;
-      const company = `"${getCompanyName((t as any).company_id)}"`;
+      const company = `"${getCompanyName(t.company_id)}"`;
       return `${title},${priority},${completed},${tags},${company}`;
     });
     const csv = [header, ...rows].join("\n");
