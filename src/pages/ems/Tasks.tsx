@@ -38,6 +38,7 @@ interface Task {
   tags: string[] | null;
   parent_task_id: string | null;
   created_at: string;
+  company_id: string | null;
 }
 
 interface TaskNote {
