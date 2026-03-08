@@ -57,13 +57,15 @@ const QuickNotes = () => {
 
   // Fetch notes
   const { data: notes = [], isLoading } = useQuery({
-    queryKey: ["quick_notes"],
+    queryKey: ["quick_notes", selectedCompanyId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("quick_notes")
         .select("*")
         .order("pinned", { ascending: false })
         .order("updated_at", { ascending: false });
+      if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
+      const { data, error } = await query;
       if (error) throw error;
       return data as QuickNote[];
     },
