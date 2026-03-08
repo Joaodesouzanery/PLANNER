@@ -55,6 +55,12 @@ const Finance = () => {
   const [calcIncome, setCalcIncome] = useState(0);
   const [calcCurrentExpenses, setCalcCurrentExpenses] = useState(0);
 
+  // Installment simulator state
+  const [simItemName, setSimItemName] = useState("");
+  const [simItemPrice, setSimItemPrice] = useState(0);
+  const [simMonthlyIncome, setSimMonthlyIncome] = useState(0);
+  const [simMonthlyExpenses, setSimMonthlyExpenses] = useState(0);
+
   useEffect(() => { fetchOkrs(); fetchTransactions(); }, []);
 
   const fetchOkrs = async () => { const { data } = await supabase.from("okrs").select("*").order("created_at", { ascending: false }); if (data) setOkrs(data); };
