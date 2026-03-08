@@ -96,17 +96,15 @@ const OrgChart = () => {
 
   useEffect(() => {
     fetchNodes();
-  }, []);
+  }, [selectedCompanyId]);
 
   const fetchNodes = async () => {
-    const { data, error } = await supabase
-      .from("org_chart_nodes")
-      .select("*")
-      .order("order_index");
+    let query = supabase.from("org_chart_nodes").select("*").order("order_index");
+    if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
+    const { data, error } = await query;
     
     if (data) {
       setNodes(data);
-      // Expand all root nodes by default
       const rootIds = data.filter((n) => !n.parent_id).map((n) => n.id);
       setExpandedNodes(new Set(rootIds));
     }

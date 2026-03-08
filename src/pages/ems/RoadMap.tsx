@@ -133,16 +133,15 @@ const RoadMap = () => {
 
   // Fetch all roadmaps from Supabase
   const fetchRoadmaps = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("roadmaps")
-      .select("*")
-      .order("created_at", { ascending: true });
+    let query = supabase.from("roadmaps").select("*").order("created_at", { ascending: true });
+    if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
+    const { data, error } = await query;
     if (error) {
       toast({ title: "Erro ao carregar roadmaps", description: error.message, variant: "destructive" });
       return [];
     }
     return (data || []).map(fromDbRow);
-  }, [toast]);
+  }, [toast, selectedCompanyId]);
 
   // Load on mount: migrate then fetch
   useEffect(() => {
@@ -152,10 +151,12 @@ const RoadMap = () => {
       setRoadmaps(loaded);
       if (loaded.length > 0) {
         setSelectedRoadmap(loaded[0]);
+      } else {
+        setSelectedRoadmap(null);
       }
     };
     init();
-  }, []);
+  }, [selectedCompanyId]);
 
   // Helper: update a single roadmap in Supabase and refresh local state
   const persistRoadmap = useCallback(
