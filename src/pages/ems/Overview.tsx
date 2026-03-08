@@ -29,11 +29,10 @@ import {
   Contact,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { differenceInDays, parseISO, isBefore } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { RecentActivity } from "@/components/ems/RecentActivity";
 import { Link } from "react-router-dom";
-import { formatDistanceToNow, parseISO, isBefore, startOfWeek, endOfWeek, format } from "date-fns";
+import { formatDistanceToNow, differenceInDays, parseISO, isBefore, startOfWeek, endOfWeek, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
