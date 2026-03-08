@@ -84,8 +84,11 @@ const Projects = () => {
   const [newColumnTitle, setNewColumnTitle] = useState("");
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [isInitialized, setIsInitialized] = useState(false);
-
-  const [projectForm, setProjectForm] = useState({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "" });
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportFrom, setReportFrom] = useState("");
+  const [reportTo, setReportTo] = useState("");
+  const [reportCompanyId, setReportCompanyId] = useState<string>("current");
+  const [allProjects, setAllProjects] = useState<(Project & { company_id?: string | null })[]>([]);
   const [executionForm, setExecutionForm] = useState<ExecutionRecord>({ action_taken: "", result_obtained: "", lessons_learned: "", tags: [] });
   const [tagInput, setTagInput] = useState("");
 
