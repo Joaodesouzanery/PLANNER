@@ -26,6 +26,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { AttachmentManager } from "@/components/ems/AttachmentManager";
 
 interface Project {
   id: string;
