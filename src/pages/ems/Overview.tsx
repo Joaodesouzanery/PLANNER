@@ -120,7 +120,9 @@ const Overview = () => {
       setFocusForm({ title: focusData.title, description: focusData.description || "" });
     }
 
-    const { data: tasksData } = await supabase.from("projects").select("status");
+    let projQ = supabase.from("projects").select("status");
+    if (cf) projQ = projQ.eq("company_id", cid);
+    const { data: tasksData } = await projQ;
     if (tasksData) {
       setPendingTasks(tasksData.filter(t => t.status !== "done").length);
       setCompletedTasks(tasksData.filter(t => t.status === "done").length);
