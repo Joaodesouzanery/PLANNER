@@ -1,5 +1,5 @@
-import { useEffect as _useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -26,6 +26,8 @@ import {
   ChevronDown,
   Briefcase,
   ClipboardList,
+  LogOut,
+  User as UserIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
@@ -34,9 +36,6 @@ import { ColorPicker } from "./ColorPicker";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { CompanySelector } from "./CompanySelector";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { LogOut, User as UserIcon } from "lucide-react";
 import hiveLogo from "@/assets/hive-logo.jpg";
 
 interface MenuGroup {
