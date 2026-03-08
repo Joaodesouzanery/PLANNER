@@ -33,7 +33,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { RecentActivity } from "@/components/ems/RecentActivity";
 import { Link } from "react-router-dom";
-import { formatDistanceToNow, startOfWeek, endOfWeek, format } from "date-fns";
+import { formatDistanceToNow, parseISO, isBefore, startOfWeek, endOfWeek, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
