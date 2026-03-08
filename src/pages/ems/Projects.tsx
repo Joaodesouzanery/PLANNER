@@ -83,6 +83,8 @@ const priorityConfig: Record<string, { label: string; color: string; border: str
 };
 
 const CHART_COLORS = ["hsl(var(--primary))", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#f97316", "#06b6d4", "#ef4444"];
+
+const Projects = () => {
   const { toast } = useToast();
   const { selectedCompanyId } = useCompany();
   const [view, setView] = useState<"kanban" | "timeline">("kanban");
