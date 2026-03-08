@@ -25,6 +25,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { AttachmentManager } from "@/components/ems/AttachmentManager";
 
 interface Task {
   id: string;
