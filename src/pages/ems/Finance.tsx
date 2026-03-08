@@ -193,12 +193,13 @@ const Finance = () => {
         </div>
 
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 bg-card/80 border border-border/50 rounded-xl p-1">
+          <TabsList className="grid w-full grid-cols-6 bg-card/80 border border-border/50 rounded-xl p-1">
             <TabsTrigger value="dashboard" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><BarChart3 className="h-4 w-4" /><span className="hidden sm:inline">Dashboard</span></TabsTrigger>
             <TabsTrigger value="okrs" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><Target className="h-4 w-4" /><span className="hidden sm:inline">OKRs</span></TabsTrigger>
             <TabsTrigger value="transactions" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><Wallet className="h-4 w-4" /><span className="hidden sm:inline">Transações</span></TabsTrigger>
             <TabsTrigger value="projections" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><TrendingUp className="h-4 w-4" /><span className="hidden sm:inline">Projeções</span></TabsTrigger>
             <TabsTrigger value="calculator" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><Calculator className="h-4 w-4" /><span className="hidden sm:inline">Calculadora</span></TabsTrigger>
+            <TabsTrigger value="simulator" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><ShoppingCart className="h-4 w-4" /><span className="hidden sm:inline">Parcelas</span></TabsTrigger>
           </TabsList>
 
           {/* ============ DASHBOARD ============ */}
