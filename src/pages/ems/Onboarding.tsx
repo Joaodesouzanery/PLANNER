@@ -101,6 +101,7 @@ const stepStatusConfig: Record<string, { label: string; color: string; bg: strin
 
 const Onboarding = () => {
   const queryClient = useQueryClient();
+  const { selectedCompanyId } = useCompany();
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
