@@ -354,7 +354,7 @@ const Commercial = () => {
       <EMSLayout>
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4 sm:space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl shrink-0 self-start" onClick={() => setSelectedContact(null)}>
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl shrink-0 self-start" onClick={() => { setSelectedContact(null); navigate("/ems/commercial", { replace: true }); }}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div className="flex-1 min-w-0">
