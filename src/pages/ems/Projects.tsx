@@ -82,13 +82,7 @@ const priorityConfig: Record<string, { label: string; color: string; border: str
   high: { label: "Alta", color: "text-red-400 bg-red-500/10 border-red-500/30", border: "border-l-red-500" },
 };
 
-const columnColors: Record<string, { header: string; accent: string }> = {
-  todo: { header: "from-blue-500/10 to-transparent", accent: "text-blue-400" },
-  in_progress: { header: "from-amber-500/10 to-transparent", accent: "text-amber-400" },
-  done: { header: "from-emerald-500/10 to-transparent", accent: "text-emerald-400" },
-};
-
-const Projects = () => {
+const CHART_COLORS = ["hsl(var(--primary))", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#f97316", "#06b6d4", "#ef4444"];
   const { toast } = useToast();
   const { selectedCompanyId } = useCompany();
   const [view, setView] = useState<"kanban" | "timeline">("kanban");
