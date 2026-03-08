@@ -44,7 +44,19 @@ interface KanbanColumn {
   id: string;
   title: string;
   order_index: number;
+  color?: string;
 }
+
+const COLUMN_COLORS = [
+  { value: "blue", label: "Azul", bg: "from-blue-500/10 to-transparent", dot: "bg-blue-400", text: "text-blue-400" },
+  { value: "amber", label: "Âmbar", bg: "from-amber-500/10 to-transparent", dot: "bg-amber-400", text: "text-amber-400" },
+  { value: "emerald", label: "Verde", bg: "from-emerald-500/10 to-transparent", dot: "bg-emerald-400", text: "text-emerald-400" },
+  { value: "purple", label: "Roxo", bg: "from-purple-500/10 to-transparent", dot: "bg-purple-400", text: "text-purple-400" },
+  { value: "pink", label: "Rosa", bg: "from-pink-500/10 to-transparent", dot: "bg-pink-400", text: "text-pink-400" },
+  { value: "orange", label: "Laranja", bg: "from-orange-500/10 to-transparent", dot: "bg-orange-400", text: "text-orange-400" },
+  { value: "cyan", label: "Ciano", bg: "from-cyan-500/10 to-transparent", dot: "bg-cyan-400", text: "text-cyan-400" },
+  { value: "red", label: "Vermelho", bg: "from-red-500/10 to-transparent", dot: "bg-red-400", text: "text-red-400" },
+];
 
 interface ExecutionRecord {
   action_taken: string;
