@@ -16,7 +16,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import {
   Plus, LayoutGrid, GanttChart, Trash2, Edit2, CheckCircle, Calendar, X,
   GripVertical, Building2, FolderKanban, Clock, TrendingUp, AlertTriangle,
-  FileText, Download, BarChart3, Palette,
+  FileText, Download, BarChart3,
 } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,6 +46,8 @@ interface KanbanColumn {
   title: string;
   order_index: number;
   color?: string;
+  isDefault?: boolean;
+  dbId?: string; // UUID from kanban_columns table
 }
 
 const COLUMN_COLORS = [
@@ -66,10 +68,10 @@ interface ExecutionRecord {
   tags: string[];
 }
 
-const defaultColumns: KanbanColumn[] = [
-  { id: "todo", title: "A Fazer", order_index: 0, color: "blue" },
-  { id: "in_progress", title: "Em Progresso", order_index: 1, color: "amber" },
-  { id: "done", title: "Concluído", order_index: 2, color: "emerald" },
+const DEFAULT_COLUMNS: KanbanColumn[] = [
+  { id: "todo", title: "A Fazer", order_index: 0, color: "blue", isDefault: true },
+  { id: "in_progress", title: "Em Progresso", order_index: 1, color: "amber", isDefault: true },
+  { id: "done", title: "Concluído", order_index: 2, color: "emerald", isDefault: true },
 ];
 
 const getColumnStyle = (column: KanbanColumn) => {
@@ -87,10 +89,10 @@ const CHART_COLORS = ["hsl(var(--primary))", "#f59e0b", "#10b981", "#8b5cf6", "#
 
 const Projects = () => {
   const { toast } = useToast();
-  const { selectedCompanyId } = useCompany();
+  const { selectedCompanyId, companies } = useCompany();
   const [view, setView] = useState<"kanban" | "timeline" | "dashboard">("kanban");
   const [projects, setProjects] = useState<Project[]>([]);
-  const [columns, setColumns] = useState<KanbanColumn[]>(defaultColumns);
+  const [columns, setColumns] = useState<KanbanColumn[]>(DEFAULT_COLUMNS);
   const [showAddProject, setShowAddProject] = useState(false);
   const [showExecutionModal, setShowExecutionModal] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -99,24 +101,44 @@ const Projects = () => {
   const [newColumnTitle, setNewColumnTitle] = useState("");
   const [newColumnColor, setNewColumnColor] = useState("purple");
   const [clientFilter, setClientFilter] = useState<string>("all");
-  const [isInitialized, setIsInitialized] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportFrom, setReportFrom] = useState("");
   const [reportTo, setReportTo] = useState("");
   const [reportCompanyId, setReportCompanyId] = useState<string>("current");
-  const [allProjects, setAllProjects] = useState<(Project & { company_id?: string | null })[]>([]);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [dashFrom, setDashFrom] = useState("");
+  const [dashTo, setDashTo] = useState("");
 
   const [projectForm, setProjectForm] = useState({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "" });
   const [executionForm, setExecutionForm] = useState<ExecutionRecord>({ action_taken: "", result_obtained: "", lessons_learned: "", tags: [] });
   const [tagInput, setTagInput] = useState("");
 
-  useEffect(() => { 
-    setColumns(defaultColumns);
-    fetchProjects(); 
-    setIsInitialized(true);
-  }, [selectedCompanyId]);
+  // Fetch columns from DB + merge with defaults
+  const fetchColumns = async () => {
+    const { data } = await supabase
+      .from("kanban_columns")
+      .select("*")
+      .order("order_index", { ascending: true });
+    
+    const dbCols: KanbanColumn[] = (data || []).map((c: any) => ({
+      id: c.title.toLowerCase().replace(/\s+/g, "_"),
+      title: c.title,
+      order_index: c.order_index,
+      color: c.color || "purple",
+      isDefault: false,
+      dbId: c.id,
+    }));
+    
+    // Merge: defaults first, then DB custom columns
+    const defaultIds = DEFAULT_COLUMNS.map(c => c.id);
+    const customCols = dbCols.filter(c => !defaultIds.includes(c.id));
+    setColumns([...DEFAULT_COLUMNS, ...customCols.map((c, i) => ({ ...c, order_index: DEFAULT_COLUMNS.length + i }))]);
+  };
 
-  const { companies } = useCompany();
+  useEffect(() => {
+    fetchProjects();
+    fetchColumns();
+  }, [selectedCompanyId]);
 
   const fetchProjects = async () => {
     let query = supabase.from("projects").select("*").order("column_order", { ascending: true, nullsFirst: false });
@@ -127,7 +149,7 @@ const Projects = () => {
 
   const fetchReportProjects = async () => {
     const { data } = await supabase.from("projects").select("*").eq("status", "done");
-    if (data) setAllProjects(data as any[]);
+    if (data) setAllProjects(data as Project[]);
   };
 
   const openReport = () => {
@@ -147,6 +169,14 @@ const Projects = () => {
     return filtered;
   }, [allProjects, reportCompanyId, reportFrom, reportTo, selectedCompanyId]);
 
+  // Dashboard filtered projects
+  const dashProjects = useMemo(() => {
+    let filtered = projects;
+    if (dashFrom) filtered = filtered.filter(p => p.created_at >= dashFrom);
+    if (dashTo) filtered = filtered.filter(p => p.created_at <= dashTo + "T23:59:59");
+    return filtered;
+  }, [projects, dashFrom, dashTo]);
+
   const getCompanyName = (companyId: string | null | undefined) => {
     if (!companyId) return "—";
     return companies.find(c => c.id === companyId)?.name || "—";
@@ -160,16 +190,12 @@ const Projects = () => {
     const period = [reportFrom && `De: ${format(new Date(reportFrom), "dd/MM/yyyy")}`, reportTo && `Até: ${format(new Date(reportTo), "dd/MM/yyyy")}`].filter(Boolean).join("  ");
     if (period) doc.text(period, 14, 28);
     doc.text(`Total: ${reportProjects.length} projetos`, 14, period ? 34 : 28);
-
     autoTable(doc, {
       startY: period ? 40 : 34,
       head: [["Título", "Cliente", "Prioridade", "Empresa", "Data Criação"]],
       body: reportProjects.map(p => [
-        p.title,
-        p.client || "—",
-        priorityConfig[p.priority]?.label || p.priority,
-        getCompanyName(p.company_id),
-        format(new Date(p.created_at), "dd/MM/yyyy"),
+        p.title, p.client || "—", priorityConfig[p.priority]?.label || p.priority,
+        getCompanyName(p.company_id), format(new Date(p.created_at), "dd/MM/yyyy"),
       ]),
     });
     doc.save("projetos-concluidos.pdf");
@@ -184,9 +210,7 @@ const Projects = () => {
     const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
-    a.download = "projetos-concluidos.csv";
-    a.click();
+    a.href = url; a.download = "projetos-concluidos.csv"; a.click();
     URL.revokeObjectURL(url);
     toast({ title: "CSV gerado com sucesso!" });
   };
@@ -287,9 +311,27 @@ const Projects = () => {
     setExecutionForm({ ...executionForm, tags: executionForm.tags.filter(t => t !== tag) });
   };
 
-  const addColumn = () => {
+  // Persist custom column to DB
+  const addColumn = async () => {
     if (!newColumnTitle) return;
-    const newCol: KanbanColumn = { id: newColumnTitle.toLowerCase().replace(/\s+/g, "_"), title: newColumnTitle, order_index: columns.length, color: newColumnColor };
+    const colId = newColumnTitle.toLowerCase().replace(/\s+/g, "_");
+    
+    const { data, error } = await supabase.from("kanban_columns").insert({
+      title: newColumnTitle,
+      order_index: columns.length,
+      color: newColumnColor,
+      company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
+    }).select().single();
+
+    if (error) {
+      toast({ title: "Erro ao criar coluna", variant: "destructive" });
+      return;
+    }
+
+    const newCol: KanbanColumn = {
+      id: colId, title: newColumnTitle, order_index: columns.length,
+      color: newColumnColor, isDefault: false, dbId: data.id,
+    };
     setColumns([...columns, newCol]);
     setNewColumnTitle("");
     setNewColumnColor("purple");
@@ -297,7 +339,11 @@ const Projects = () => {
     toast({ title: "Coluna adicionada!" });
   };
 
-  const deleteColumn = (columnId: string) => {
+  const deleteColumn = async (columnId: string) => {
+    const col = columns.find(c => c.id === columnId);
+    if (col?.dbId) {
+      await supabase.from("kanban_columns").delete().eq("id", col.dbId);
+    }
     setColumns(columns.filter(c => c.id !== columnId));
     toast({ title: "Coluna removida!" });
   };
@@ -317,28 +363,28 @@ const Projects = () => {
 
   return (
     <EMSLayout>
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 md:space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex flex-col gap-3">
           <div>
-            <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">Gestão de Projetos</h1>
-            <p className="text-sm md:text-base text-muted-foreground mt-1">Gerencie seus projetos com visão Kanban</p>
+            <h1 className="text-xl md:text-3xl font-heading font-bold text-foreground">Gestão de Projetos</h1>
+            <p className="text-xs md:text-base text-muted-foreground mt-1">Gerencie seus projetos com visão Kanban</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={openReport} className="border-border/50">
-              <FileText className="h-4 w-4 mr-2" />Relatório
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={openReport} className="border-border/50 text-xs md:text-sm">
+              <FileText className="h-3.5 w-3.5 mr-1.5" />Relatório
             </Button>
-            <Button variant="outline" onClick={() => setShowColumnModal(true)} className="border-border/50">
-              <Plus className="h-4 w-4 mr-2" />Coluna
+            <Button variant="outline" size="sm" onClick={() => setShowColumnModal(true)} className="border-border/50 text-xs md:text-sm">
+              <Plus className="h-3.5 w-3.5 mr-1.5" />Coluna
             </Button>
-            <Button onClick={() => setShowAddProject(true)}>
-              <Plus className="h-4 w-4 mr-2" />Novo Projeto
+            <Button size="sm" onClick={() => setShowAddProject(true)} className="text-xs md:text-sm">
+              <Plus className="h-3.5 w-3.5 mr-1.5" />Novo Projeto
             </Button>
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        {/* Stats - responsive grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-3">
           {[
             { label: "Total", value: totalProjects, icon: FolderKanban, color: "text-primary", gradient: "from-primary/10 to-primary/5" },
             { label: "Em Progresso", value: inProgressProjects, icon: Clock, color: "text-amber-400", gradient: "from-amber-500/10 to-amber-500/5" },
@@ -347,27 +393,27 @@ const Projects = () => {
           ].map((s, i) => (
             <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
               <div className="stat-card">
-                <div className="flex items-center gap-3">
-                  <div className={cn("p-2 rounded-lg bg-gradient-to-br", s.gradient)}>
-                    <s.icon className={cn("h-4 w-4", s.color)} />
+                <div className="flex items-center gap-2 md:gap-3">
+                  <div className={cn("p-1.5 md:p-2 rounded-lg bg-gradient-to-br", s.gradient)}>
+                    <s.icon className={cn("h-3.5 w-3.5 md:h-4 md:w-4", s.color)} />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold font-mono">{s.value}</p>
-                    <p className="text-xs text-muted-foreground">{s.label}</p>
+                    <p className="text-lg md:text-2xl font-bold font-mono">{s.value}</p>
+                    <p className="text-[10px] md:text-xs text-muted-foreground">{s.label}</p>
                   </div>
                 </div>
               </div>
             </motion.div>
           ))}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="col-span-2 lg:col-span-1">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="col-span-2 md:col-span-1">
             <div className="stat-card">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5">
-                  <TrendingUp className="h-4 w-4 text-primary" />
+              <div className="flex items-center gap-2 md:gap-3 mb-2">
+                <div className="p-1.5 md:p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5">
+                  <TrendingUp className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold font-mono">{completionRate}%</p>
-                  <p className="text-xs text-muted-foreground">Conclusão</p>
+                  <p className="text-lg md:text-2xl font-bold font-mono">{completionRate}%</p>
+                  <p className="text-[10px] md:text-xs text-muted-foreground">Conclusão</p>
                 </div>
               </div>
               <Progress value={completionRate} className="h-1.5" />
@@ -376,11 +422,11 @@ const Projects = () => {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap gap-4 items-center">
+        <div className="flex flex-wrap gap-2 md:gap-4 items-center">
           <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <Building2 className="h-4 w-4 text-muted-foreground hidden sm:block" />
             <Select value={clientFilter} onValueChange={setClientFilter}>
-              <SelectTrigger className="w-[180px] border-border/50">
+              <SelectTrigger className="w-[150px] md:w-[180px] border-border/50 text-xs md:text-sm h-9">
                 <SelectValue placeholder="Filtrar por cliente" />
               </SelectTrigger>
               <SelectContent>
@@ -395,17 +441,17 @@ const Projects = () => {
 
         {/* View Toggle */}
         <Tabs value={view} onValueChange={(v) => setView(v as "kanban" | "timeline" | "dashboard")}>
-          <TabsList>
-            <TabsTrigger value="kanban" className="gap-2"><LayoutGrid className="h-4 w-4" />Kanban</TabsTrigger>
-            <TabsTrigger value="timeline" className="gap-2"><GanttChart className="h-4 w-4" />Timeline</TabsTrigger>
-            <TabsTrigger value="dashboard" className="gap-2"><BarChart3 className="h-4 w-4" />Dashboard</TabsTrigger>
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="kanban" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><LayoutGrid className="h-3.5 w-3.5 md:h-4 md:w-4" />Kanban</TabsTrigger>
+            <TabsTrigger value="timeline" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><GanttChart className="h-3.5 w-3.5 md:h-4 md:w-4" />Timeline</TabsTrigger>
+            <TabsTrigger value="dashboard" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><BarChart3 className="h-3.5 w-3.5 md:h-4 md:w-4" />Dashboard</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="kanban" className="mt-6">
+          <TabsContent value="kanban" className="mt-4 md:mt-6">
             <DragDropContext onDragEnd={handleDragEnd}>
               <Droppable droppableId="columns" direction="horizontal" type="COLUMN">
                 {(provided) => (
-                  <div ref={provided.innerRef} {...provided.droppableProps} className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory">
+                  <div ref={provided.innerRef} {...provided.droppableProps} className="flex gap-3 md:gap-4 overflow-x-auto pb-4 snap-x snap-mandatory -mx-2 px-2">
                     {columns.map((column, columnIndex) => {
                       const colStyle = getColumnStyle(column);
                       const colProjects = getProjectsByStatus(column.id);
@@ -413,17 +459,17 @@ const Projects = () => {
                       return (
                         <Draggable key={column.id} draggableId={`column-${column.id}`} index={columnIndex}>
                           {(provided, snapshot) => (
-                            <div ref={provided.innerRef} {...provided.draggableProps} className={cn("flex-shrink-0 w-[75vw] sm:w-80 snap-center", snapshot.isDragging && "opacity-75")}>
+                            <div ref={provided.innerRef} {...provided.draggableProps} className={cn("flex-shrink-0 w-[72vw] sm:w-72 md:w-80 snap-center", snapshot.isDragging && "opacity-75")}>
                               <Card className="bg-card/60 backdrop-blur-sm border-border/50 overflow-hidden">
-                                <CardHeader {...provided.dragHandleProps} className={cn("py-3 px-4 flex flex-row items-center justify-between cursor-grab active:cursor-grabbing bg-gradient-to-r", colStyle.bg)}>
+                                <CardHeader {...provided.dragHandleProps} className={cn("py-2.5 md:py-3 px-3 md:px-4 flex flex-row items-center justify-between cursor-grab active:cursor-grabbing bg-gradient-to-r", colStyle.bg)}>
                                   <div className="flex items-center gap-2">
                                     <div className={cn("h-2 w-2 rounded-full", colStyle.dot)} />
-                                    <CardTitle className="text-sm font-medium">{column.title}</CardTitle>
+                                    <CardTitle className="text-xs md:text-sm font-medium">{column.title}</CardTitle>
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant="secondary" className="text-xs font-mono bg-background/50">{colProjects.length}</Badge>
-                                    {!defaultColumns.find(c => c.id === column.id) && (
-                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => deleteColumn(column.id)}>
+                                  <div className="flex items-center gap-1.5">
+                                    <Badge variant="secondary" className="text-[10px] md:text-xs font-mono bg-background/50 px-1.5">{colProjects.length}</Badge>
+                                    {!column.isDefault && (
+                                      <Button variant="ghost" size="icon" className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground hover:text-destructive" onClick={() => deleteColumn(column.id)}>
                                         <Trash2 className="h-3 w-3" />
                                       </Button>
                                     )}
@@ -431,72 +477,74 @@ const Projects = () => {
                                 </CardHeader>
                                 <Droppable droppableId={column.id} type="CARD">
                                   {(provided, snapshot) => (
-                                    <CardContent ref={provided.innerRef} {...provided.droppableProps} className={cn("p-2 space-y-2 min-h-[200px] transition-colors", snapshot.isDraggingOver && "bg-primary/5")}>
+                                    <CardContent ref={provided.innerRef} {...provided.droppableProps} className={cn("p-1.5 md:p-2 space-y-1.5 md:space-y-2 min-h-[150px] md:min-h-[200px] transition-colors", snapshot.isDraggingOver && "bg-primary/5")}>
                                       {colProjects.map((project, index) => {
-                                          const pConfig = priorityConfig[project.priority] || priorityConfig.medium;
-                                          const isOverdue = project.due_date && new Date(project.due_date) < new Date() && project.status !== "done";
+                                        const pConfig = priorityConfig[project.priority] || priorityConfig.medium;
+                                        const isOverdue = project.due_date && new Date(project.due_date) < new Date() && project.status !== "done";
 
-                                          return (
-                                            <Draggable key={project.id} draggableId={project.id} index={index}>
-                                              {(provided, snapshot) => (
-                                                <div
-                                                  ref={provided.innerRef}
-                                                  {...provided.draggableProps}
-                                                  className={cn(
-                                                    "bg-card border-l-[3px] border border-border/50 rounded-lg p-3 transition-shadow",
-                                                    snapshot.isDragging ? "shadow-lg shadow-primary/10 border-primary/50" : "hover:border-border hover:bg-muted/20",
-                                                    pConfig.border,
-                                                    isOverdue && "ring-1 ring-red-500/20"
-                                                  )}
-                                                >
-                                                  <div className="flex items-start justify-between gap-2">
-                                                    <div className="flex items-start gap-2 flex-1">
-                                                      <div {...provided.dragHandleProps} className="mt-1 cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-foreground">
-                                                        <GripVertical className="h-4 w-4" />
-                                                      </div>
-                                                      <div className="flex-1 min-w-0">
-                                                        <h4 className="font-medium text-sm">{project.title}</h4>
-                                                        {project.client && (
-                                                          <p className="text-xs text-primary/80 mt-0.5 flex items-center gap-1">
-                                                            <Building2 className="h-3 w-3" />{project.client}
-                                                          </p>
-                                                        )}
-                                                      </div>
+                                        return (
+                                          <Draggable key={project.id} draggableId={project.id} index={index}>
+                                            {(provided, snapshot) => (
+                                              <div
+                                                ref={provided.innerRef}
+                                                {...provided.draggableProps}
+                                                className={cn(
+                                                  "bg-card border-l-[3px] border border-border/50 rounded-lg p-2 md:p-3 transition-shadow",
+                                                  snapshot.isDragging ? "shadow-lg shadow-primary/10 border-primary/50" : "hover:border-border hover:bg-muted/20",
+                                                  pConfig.border,
+                                                  isOverdue && "ring-1 ring-red-500/20"
+                                                )}
+                                              >
+                                                <div className="flex items-start justify-between gap-1.5">
+                                                  <div className="flex items-start gap-1.5 flex-1 min-w-0">
+                                                    <div {...provided.dragHandleProps} className="mt-0.5 cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-foreground shrink-0">
+                                                      <GripVertical className="h-3.5 w-3.5 md:h-4 md:w-4" />
                                                     </div>
-                                                    <div className="flex gap-0.5">
-                                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => {
-                                                        setEditingProject(project);
-                                                        setProjectForm({ title: project.title, description: project.description || "", priority: project.priority, due_date: project.due_date || "", client: project.client || "", labels: project.labels?.join(", ") || "" });
-                                                      }}>
-                                                        <Edit2 className="h-3 w-3" />
-                                                      </Button>
-                                                      <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteProject(project.id)}>
-                                                        <Trash2 className="h-3 w-3" />
-                                                      </Button>
+                                                    <div className="flex-1 min-w-0">
+                                                      <h4 className="font-medium text-xs md:text-sm leading-tight">{project.title}</h4>
+                                                      {project.client && (
+                                                        <p className="text-[10px] md:text-xs text-primary/80 mt-0.5 flex items-center gap-1 truncate">
+                                                          <Building2 className="h-2.5 w-2.5 md:h-3 md:w-3 shrink-0" /><span className="truncate">{project.client}</span>
+                                                        </p>
+                                                      )}
                                                     </div>
                                                   </div>
-                                                  {project.description && (
-                                                    <p className="text-xs text-muted-foreground mt-1.5 ml-6 line-clamp-2">{project.description}</p>
-                                                  )}
-                                                  <div className="flex items-center gap-2 mt-3 ml-6 flex-wrap">
-                                                    <Badge className={cn("text-[10px] border", pConfig.color)} variant="secondary">{pConfig.label}</Badge>
-                                                    {project.labels?.map(label => (
-                                                      <Badge key={label} variant="outline" className="text-[10px] border-border/50">{label}</Badge>
-                                                    ))}
-                                                    {project.due_date && (
-                                                      <span className={cn("text-[10px] flex items-center gap-1", isOverdue ? "text-red-400" : "text-muted-foreground")}>
-                                                        <Calendar className="h-2.5 w-2.5" />
-                                                        {format(new Date(project.due_date), "dd MMM", { locale: ptBR })}
-                                                      </span>
-                                                    )}
-                                                    {isOverdue && <Badge variant="destructive" className="text-[10px] px-1 py-0 animate-pulse">Atrasado</Badge>}
+                                                  <div className="flex gap-0.5 shrink-0">
+                                                    <Button variant="ghost" size="icon" className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground hover:text-foreground" onClick={() => {
+                                                      setEditingProject(project);
+                                                      setProjectForm({ title: project.title, description: project.description || "", priority: project.priority, due_date: project.due_date || "", client: project.client || "", labels: project.labels?.join(", ") || "" });
+                                                    }}>
+                                                      <Edit2 className="h-2.5 w-2.5 md:h-3 md:w-3" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteProject(project.id)}>
+                                                      <Trash2 className="h-2.5 w-2.5 md:h-3 md:w-3" />
+                                                    </Button>
                                                   </div>
                                                 </div>
-                                              )}
-                                            </Draggable>
-                                          );
-                                        })}
-
+                                                {project.description && (
+                                                  <p className="text-[10px] md:text-xs text-muted-foreground mt-1 ml-5 md:ml-6 line-clamp-2">{project.description}</p>
+                                                )}
+                                                <div className="flex items-center gap-1.5 md:gap-2 mt-2 md:mt-3 ml-5 md:ml-6 flex-wrap">
+                                                  <Badge className={cn("text-[9px] md:text-[10px] border px-1 md:px-1.5", pConfig.color)} variant="secondary">{pConfig.label}</Badge>
+                                                  {project.labels?.slice(0, 2).map(label => (
+                                                    <Badge key={label} variant="outline" className="text-[9px] md:text-[10px] border-border/50 px-1 md:px-1.5">{label}</Badge>
+                                                  ))}
+                                                  {(project.labels?.length || 0) > 2 && (
+                                                    <Badge variant="outline" className="text-[9px] md:text-[10px] border-border/50 px-1">+{(project.labels?.length || 0) - 2}</Badge>
+                                                  )}
+                                                  {project.due_date && (
+                                                    <span className={cn("text-[9px] md:text-[10px] flex items-center gap-0.5", isOverdue ? "text-red-400" : "text-muted-foreground")}>
+                                                      <Calendar className="h-2.5 w-2.5" />
+                                                      {format(new Date(project.due_date), "dd MMM", { locale: ptBR })}
+                                                    </span>
+                                                  )}
+                                                  {isOverdue && <Badge variant="destructive" className="text-[9px] md:text-[10px] px-1 py-0 animate-pulse">Atrasado</Badge>}
+                                                </div>
+                                              </div>
+                                            )}
+                                          </Draggable>
+                                        );
+                                      })}
                                       {provided.placeholder}
                                     </CardContent>
                                   )}
@@ -514,10 +562,10 @@ const Projects = () => {
             </DragDropContext>
           </TabsContent>
 
-          <TabsContent value="timeline" className="mt-6">
+          <TabsContent value="timeline" className="mt-4 md:mt-6">
             <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
-              <CardContent className="p-6">
-                <div className="space-y-3">
+              <CardContent className="p-3 md:p-6">
+                <div className="space-y-2 md:space-y-3">
                   {projects
                     .filter(p => p.due_date)
                     .filter(p => clientFilter === "all" || p.client === clientFilter)
@@ -533,38 +581,38 @@ const Projects = () => {
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: index * 0.03 }}
                           className={cn(
-                            "flex items-center gap-4 p-4 border-l-[3px] border border-border/50 rounded-lg bg-card hover:bg-muted/20 transition-colors",
+                            "flex items-center gap-2 md:gap-4 p-2.5 md:p-4 border-l-[3px] border border-border/50 rounded-lg bg-card hover:bg-muted/20 transition-colors",
                             pConfig.border,
                             isOverdue && "ring-1 ring-red-500/20"
                           )}
                         >
-                          <div className="flex-shrink-0 w-20 text-center">
-                            <p className="text-sm font-bold font-mono">{format(new Date(project.due_date!), "dd MMM", { locale: ptBR })}</p>
-                            <p className="text-[10px] text-muted-foreground font-mono">{format(new Date(project.due_date!), "yyyy")}</p>
+                          <div className="flex-shrink-0 w-14 md:w-20 text-center">
+                            <p className="text-xs md:text-sm font-bold font-mono">{format(new Date(project.due_date!), "dd MMM", { locale: ptBR })}</p>
+                            <p className="text-[9px] md:text-[10px] text-muted-foreground font-mono">{format(new Date(project.due_date!), "yyyy")}</p>
                           </div>
-                          <div className="w-px h-10 bg-border/50" />
+                          <div className="w-px h-8 md:h-10 bg-border/50" />
                           <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-sm">{project.title}</h4>
+                            <h4 className="font-medium text-xs md:text-sm">{project.title}</h4>
                             {project.client && (
-                              <p className="text-xs text-primary/80 flex items-center gap-1 mt-0.5"><Building2 className="h-3 w-3" />{project.client}</p>
+                              <p className="text-[10px] md:text-xs text-primary/80 flex items-center gap-1 mt-0.5 truncate"><Building2 className="h-2.5 w-2.5 md:h-3 md:w-3 shrink-0" />{project.client}</p>
                             )}
-                            {project.description && <p className="text-xs text-muted-foreground truncate mt-0.5">{project.description}</p>}
+                            {project.description && <p className="text-[10px] md:text-xs text-muted-foreground truncate mt-0.5 hidden sm:block">{project.description}</p>}
                           </div>
-                          <div className="flex items-center gap-2 flex-wrap shrink-0">
-                            <Badge variant="secondary" className={cn("text-[10px]", project.status === "done" ? "bg-emerald-500/10 text-emerald-400" : project.status === "in_progress" ? "bg-amber-500/10 text-amber-400" : "bg-blue-500/10 text-blue-400")}>
+                          <div className="flex items-center gap-1 flex-wrap shrink-0">
+                            <Badge variant="secondary" className={cn("text-[9px] md:text-[10px] px-1", project.status === "done" ? "bg-emerald-500/10 text-emerald-400" : project.status === "in_progress" ? "bg-amber-500/10 text-amber-400" : "bg-blue-500/10 text-blue-400")}>
                               {project.status === "done" ? "Concluído" : project.status === "in_progress" ? "Em Progresso" : "A Fazer"}
                             </Badge>
-                            {isOverdue && <Badge variant="destructive" className="text-[10px] px-1 py-0">Atrasado</Badge>}
+                            {isOverdue && <Badge variant="destructive" className="text-[9px] md:text-[10px] px-1 py-0">Atrasado</Badge>}
                           </div>
                         </motion.div>
                       );
                     })}
                   {projects.filter(p => p.due_date).filter(p => clientFilter === "all" || p.client === clientFilter).length === 0 && (
-                    <div className="text-center py-12">
-                      <div className="p-4 rounded-full bg-muted/50 w-fit mx-auto mb-4">
-                        <Calendar className="h-8 w-8 text-muted-foreground/50" />
+                    <div className="text-center py-8 md:py-12">
+                      <div className="p-3 md:p-4 rounded-full bg-muted/50 w-fit mx-auto mb-3 md:mb-4">
+                        <Calendar className="h-6 w-6 md:h-8 md:w-8 text-muted-foreground/50" />
                       </div>
-                      <p className="text-muted-foreground">Nenhum projeto com data de entrega definida.</p>
+                      <p className="text-sm text-muted-foreground">Nenhum projeto com data de entrega definida.</p>
                     </div>
                   )}
                 </div>
@@ -572,82 +620,101 @@ const Projects = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="dashboard" className="mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <TabsContent value="dashboard" className="mt-4 md:mt-6 space-y-4 md:space-y-6">
+            {/* Period filter */}
+            <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
+              <CardContent className="p-3 md:p-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 md:gap-4">
+                  <Label className="text-xs md:text-sm text-muted-foreground whitespace-nowrap">Filtrar período:</Label>
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <Input type="date" value={dashFrom} onChange={e => setDashFrom(e.target.value)} className="h-8 md:h-9 text-xs md:text-sm flex-1 sm:w-36 md:w-40" placeholder="De" />
+                    <Input type="date" value={dashTo} onChange={e => setDashTo(e.target.value)} className="h-8 md:h-9 text-xs md:text-sm flex-1 sm:w-36 md:w-40" placeholder="Até" />
+                    {(dashFrom || dashTo) && (
+                      <Button variant="ghost" size="sm" onClick={() => { setDashFrom(""); setDashTo(""); }} className="h-8 md:h-9 px-2">
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                  <span className="text-[10px] md:text-xs text-muted-foreground">{dashProjects.length} projeto(s)</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
               {/* By Status */}
               <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
-                <CardHeader><CardTitle className="text-base">Projetos por Status</CardTitle></CardHeader>
-                <CardContent>
+                <CardHeader className="p-3 md:p-6 pb-0"><CardTitle className="text-sm md:text-base">Projetos por Status</CardTitle></CardHeader>
+                <CardContent className="p-3 md:p-6">
                   {(() => {
                     const statusData = columns.map(col => ({
                       name: col.title,
-                      value: projects.filter(p => p.status === col.id).length,
+                      value: dashProjects.filter(p => p.status === col.id).length,
                     })).filter(d => d.value > 0);
                     return statusData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={250}>
+                      <ResponsiveContainer width="100%" height={220}>
                         <PieChart>
-                          <Pie data={statusData} cx="50%" cy="50%" outerRadius={90} innerRadius={50} dataKey="value" label={({ name, value }) => `${name}: ${value}`}>
+                          <Pie data={statusData} cx="50%" cy="50%" outerRadius={70} innerRadius={40} dataKey="value" label={({ name, value }) => `${name}: ${value}`} labelLine={false}>
                             {statusData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                           </Pie>
                           <Tooltip />
                         </PieChart>
                       </ResponsiveContainer>
-                    ) : <p className="text-center text-muted-foreground py-12">Sem dados</p>;
+                    ) : <p className="text-center text-muted-foreground py-8 md:py-12 text-sm">Sem dados</p>;
                   })()}
                 </CardContent>
               </Card>
 
               {/* By Priority */}
               <Card className="border-border/50 bg-card/80 backdrop-blur-sm">
-                <CardHeader><CardTitle className="text-base">Projetos por Prioridade</CardTitle></CardHeader>
-                <CardContent>
+                <CardHeader className="p-3 md:p-6 pb-0"><CardTitle className="text-sm md:text-base">Projetos por Prioridade</CardTitle></CardHeader>
+                <CardContent className="p-3 md:p-6">
                   {(() => {
                     const prioData = Object.entries(priorityConfig).map(([key, cfg]) => ({
                       name: cfg.label,
-                      value: projects.filter(p => p.priority === key).length,
+                      value: dashProjects.filter(p => p.priority === key).length,
                     })).filter(d => d.value > 0);
                     return prioData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={250}>
+                      <ResponsiveContainer width="100%" height={220}>
                         <BarChart data={prioData}>
                           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                          <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                          <YAxis allowDecimals={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                          <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                          <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                          <YAxis allowDecimals={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} width={30} />
+                          <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
                           <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                             {prioData.map((_, i) => <Cell key={i} fill={["#3b82f6", "#f59e0b", "#ef4444"][i] || CHART_COLORS[i]} />)}
                           </Bar>
                         </BarChart>
                       </ResponsiveContainer>
-                    ) : <p className="text-center text-muted-foreground py-12">Sem dados</p>;
+                    ) : <p className="text-center text-muted-foreground py-8 md:py-12 text-sm">Sem dados</p>;
                   })()}
                 </CardContent>
               </Card>
 
               {/* By Company */}
               <Card className="border-border/50 bg-card/80 backdrop-blur-sm lg:col-span-2">
-                <CardHeader><CardTitle className="text-base">Projetos por Empresa</CardTitle></CardHeader>
-                <CardContent>
+                <CardHeader className="p-3 md:p-6 pb-0"><CardTitle className="text-sm md:text-base">Projetos por Empresa</CardTitle></CardHeader>
+                <CardContent className="p-3 md:p-6">
                   {(() => {
                     const companyData = companies.map(c => ({
                       name: c.name,
-                      total: projects.filter(p => p.company_id === c.id).length,
-                      concluidos: projects.filter(p => p.company_id === c.id && p.status === "done").length,
-                      em_progresso: projects.filter(p => p.company_id === c.id && p.status === "in_progress").length,
+                      total: dashProjects.filter(p => p.company_id === c.id).length,
+                      concluidos: dashProjects.filter(p => p.company_id === c.id && p.status === "done").length,
+                      em_progresso: dashProjects.filter(p => p.company_id === c.id && p.status === "in_progress").length,
                     })).filter(d => d.total > 0);
                     return companyData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={300}>
+                      <ResponsiveContainer width="100%" height={250}>
                         <BarChart data={companyData}>
                           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                          <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                          <YAxis allowDecimals={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} />
-                          <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                          <Legend />
+                          <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                          <YAxis allowDecimals={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} width={30} />
+                          <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
+                          <Legend wrapperStyle={{ fontSize: 11 }} />
                           <Bar dataKey="total" name="Total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                           <Bar dataKey="em_progresso" name="Em Progresso" fill="#f59e0b" radius={[4, 4, 0, 0]} />
                           <Bar dataKey="concluidos" name="Concluídos" fill="#10b981" radius={[4, 4, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
-                    ) : <p className="text-center text-muted-foreground py-12">Sem dados por empresa</p>;
+                    ) : <p className="text-center text-muted-foreground py-8 md:py-12 text-sm">Sem dados por empresa</p>;
                   })()}
                 </CardContent>
               </Card>
@@ -659,18 +726,18 @@ const Projects = () => {
         <Dialog open={showAddProject || !!editingProject} onOpenChange={(open) => {
           if (!open) { setShowAddProject(false); setEditingProject(null); setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "" }); }
         }}>
-          <DialogContent>
-            <DialogHeader><DialogTitle>{editingProject ? "Editar Projeto" : "Novo Projeto"}</DialogTitle></DialogHeader>
-            <div className="space-y-4 py-4">
-              <div><Label>Título</Label><Input value={projectForm.title} onChange={(e) => setProjectForm({ ...projectForm, title: e.target.value })} placeholder="Nome do projeto" /></div>
-              <div><Label>Descrição</Label><Textarea value={projectForm.description} onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })} placeholder="Descrição do projeto" /></div>
-              <div><Label>Cliente / Empresa</Label><Input value={projectForm.client} onChange={(e) => setProjectForm({ ...projectForm, client: e.target.value })} placeholder="Nome do cliente ou empresa" /></div>
-              <div><Label>Labels</Label><Input value={projectForm.labels} onChange={(e) => setProjectForm({ ...projectForm, labels: e.target.value })} placeholder="Ex: frontend, urgente, redesign (separados por vírgula)" /></div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <DialogContent className="max-w-[95vw] sm:max-w-lg">
+            <DialogHeader><DialogTitle className="text-base md:text-lg">{editingProject ? "Editar Projeto" : "Novo Projeto"}</DialogTitle></DialogHeader>
+            <div className="space-y-3 md:space-y-4 py-2 md:py-4">
+              <div><Label className="text-xs md:text-sm">Título</Label><Input value={projectForm.title} onChange={(e) => setProjectForm({ ...projectForm, title: e.target.value })} placeholder="Nome do projeto" className="text-sm" /></div>
+              <div><Label className="text-xs md:text-sm">Descrição</Label><Textarea value={projectForm.description} onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })} placeholder="Descrição do projeto" className="text-sm" /></div>
+              <div><Label className="text-xs md:text-sm">Cliente / Empresa</Label><Input value={projectForm.client} onChange={(e) => setProjectForm({ ...projectForm, client: e.target.value })} placeholder="Nome do cliente ou empresa" className="text-sm" /></div>
+              <div><Label className="text-xs md:text-sm">Labels</Label><Input value={projectForm.labels} onChange={(e) => setProjectForm({ ...projectForm, labels: e.target.value })} placeholder="Ex: frontend, urgente (separados por vírgula)" className="text-sm" /></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <div>
-                  <Label>Prioridade</Label>
+                  <Label className="text-xs md:text-sm">Prioridade</Label>
                   <Select value={projectForm.priority} onValueChange={(v) => setProjectForm({ ...projectForm, priority: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="low">Baixa</SelectItem>
                       <SelectItem value="medium">Média</SelectItem>
@@ -678,90 +745,91 @@ const Projects = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div><Label>Data de Entrega</Label><Input type="date" value={projectForm.due_date} onChange={(e) => setProjectForm({ ...projectForm, due_date: e.target.value })} /></div>
+                <div><Label className="text-xs md:text-sm">Data de Entrega</Label><Input type="date" value={projectForm.due_date} onChange={(e) => setProjectForm({ ...projectForm, due_date: e.target.value })} className="text-sm" /></div>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => { setShowAddProject(false); setEditingProject(null); }}>Cancelar</Button>
-              <Button onClick={editingProject ? handleUpdateProject : handleAddProject}>{editingProject ? "Salvar" : "Criar"}</Button>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" size="sm" onClick={() => { setShowAddProject(false); setEditingProject(null); }}>Cancelar</Button>
+              <Button size="sm" onClick={editingProject ? handleUpdateProject : handleAddProject}>{editingProject ? "Salvar" : "Criar"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
         {/* Execution Record Modal */}
         <Dialog open={showExecutionModal} onOpenChange={setShowExecutionModal}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-[95vw] sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2"><CheckCircle className="h-5 w-5 text-primary" />Registro de Execução</DialogTitle>
+              <DialogTitle className="flex items-center gap-2 text-base md:text-lg"><CheckCircle className="h-4 w-4 md:h-5 md:w-5 text-primary" />Registro de Execução</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <p className="text-sm text-muted-foreground">Complete o registro para arquivar este projeto na Knowledge Base.</p>
-              <div><Label>Ação Realizada *</Label><Textarea value={executionForm.action_taken} onChange={(e) => setExecutionForm({ ...executionForm, action_taken: e.target.value })} placeholder="O que foi feito para concluir este projeto?" /></div>
-              <div><Label>Resultado Obtido *</Label><Textarea value={executionForm.result_obtained} onChange={(e) => setExecutionForm({ ...executionForm, result_obtained: e.target.value })} placeholder="Quais métricas ou resultados foram alcançados?" /></div>
-              <div><Label>Lições Aprendidas *</Label><Textarea value={executionForm.lessons_learned} onChange={(e) => setExecutionForm({ ...executionForm, lessons_learned: e.target.value })} placeholder="O que você aprendeu com este projeto?" /></div>
+            <div className="space-y-3 md:space-y-4 py-2 md:py-4">
+              <p className="text-xs md:text-sm text-muted-foreground">Complete o registro para arquivar este projeto na Knowledge Base.</p>
+              <div><Label className="text-xs md:text-sm">Ação Realizada *</Label><Textarea value={executionForm.action_taken} onChange={(e) => setExecutionForm({ ...executionForm, action_taken: e.target.value })} placeholder="O que foi feito?" className="text-sm" /></div>
+              <div><Label className="text-xs md:text-sm">Resultado Obtido *</Label><Textarea value={executionForm.result_obtained} onChange={(e) => setExecutionForm({ ...executionForm, result_obtained: e.target.value })} placeholder="Quais resultados?" className="text-sm" /></div>
+              <div><Label className="text-xs md:text-sm">Lições Aprendidas *</Label><Textarea value={executionForm.lessons_learned} onChange={(e) => setExecutionForm({ ...executionForm, lessons_learned: e.target.value })} placeholder="O que aprendeu?" className="text-sm" /></div>
               <div>
-                <Label>Tags</Label>
+                <Label className="text-xs md:text-sm">Tags</Label>
                 <div className="flex gap-2">
-                  <Input value={tagInput} onChange={(e) => setTagInput(e.target.value)} placeholder="Adicionar tag" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }} />
-                  <Button type="button" variant="outline" onClick={addTag}><Plus className="h-4 w-4" /></Button>
+                  <Input value={tagInput} onChange={(e) => setTagInput(e.target.value)} placeholder="Adicionar tag" className="text-sm" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }} />
+                  <Button type="button" variant="outline" size="sm" onClick={addTag}><Plus className="h-4 w-4" /></Button>
                 </div>
                 {executionForm.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
+                  <div className="flex flex-wrap gap-1.5 mt-2">
                     {executionForm.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="gap-1">{tag}<button onClick={() => removeTag(tag)}><X className="h-3 w-3" /></button></Badge>
+                      <Badge key={tag} variant="secondary" className="gap-1 text-xs">{tag}<button onClick={() => removeTag(tag)}><X className="h-3 w-3" /></button></Badge>
                     ))}
                   </div>
                 )}
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowExecutionModal(false)}>Cancelar</Button>
-              <Button onClick={handleCompleteWithExecution}>Concluir e Registrar</Button>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowExecutionModal(false)}>Cancelar</Button>
+              <Button size="sm" onClick={handleCompleteWithExecution}>Concluir e Registrar</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
         {/* Add Column Modal */}
         <Dialog open={showColumnModal} onOpenChange={setShowColumnModal}>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Nova Coluna</DialogTitle></DialogHeader>
-            <div className="space-y-4 py-4">
-              <div><Label>Nome da Coluna</Label><Input value={newColumnTitle} onChange={(e) => setNewColumnTitle(e.target.value)} placeholder="Ex: Em Revisão" /></div>
+          <DialogContent className="max-w-[95vw] sm:max-w-md">
+            <DialogHeader><DialogTitle className="text-base md:text-lg">Nova Coluna</DialogTitle></DialogHeader>
+            <div className="space-y-4 py-2 md:py-4">
+              <div><Label className="text-xs md:text-sm">Nome da Coluna</Label><Input value={newColumnTitle} onChange={(e) => setNewColumnTitle(e.target.value)} placeholder="Ex: Em Revisão" className="text-sm" /></div>
               <div>
-                <Label>Cor</Label>
+                <Label className="text-xs md:text-sm">Cor</Label>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {COLUMN_COLORS.map(c => (
                     <button
                       key={c.value}
                       onClick={() => setNewColumnColor(c.value)}
-                      className={cn("h-8 w-8 rounded-full border-2 transition-all", c.dot, newColumnColor === c.value ? "border-foreground scale-110" : "border-transparent opacity-60 hover:opacity-100")}
+                      className={cn("h-7 w-7 md:h-8 md:w-8 rounded-full border-2 transition-all", c.dot, newColumnColor === c.value ? "border-foreground scale-110" : "border-transparent opacity-60 hover:opacity-100")}
                       title={c.label}
                     />
                   ))}
                 </div>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowColumnModal(false)}>Cancelar</Button>
-              <Button onClick={addColumn}>Criar Coluna</Button>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowColumnModal(false)}>Cancelar</Button>
+              <Button size="sm" onClick={addColumn}>Criar Coluna</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
         {/* Projects Report Dialog */}
         <Dialog open={reportOpen} onOpenChange={setReportOpen}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-[95vw] sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-primary" />Relatório de Projetos Concluídos</DialogTitle>
+              <DialogTitle className="flex items-center gap-2 text-base md:text-lg"><FileText className="h-4 w-4 md:h-5 md:w-5 text-primary" />Relatório de Projetos Concluídos</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div><Label>Data Início</Label><Input type="date" value={reportFrom} onChange={e => setReportFrom(e.target.value)} /></div>
-                <div><Label>Data Fim</Label><Input type="date" value={reportTo} onChange={e => setReportTo(e.target.value)} /></div>
+            <div className="space-y-3 md:space-y-4 py-2 md:py-4">
+              <div className="grid grid-cols-2 gap-3 md:gap-4">
+                <div><Label className="text-xs md:text-sm">Data Início</Label><Input type="date" value={reportFrom} onChange={e => setReportFrom(e.target.value)} className="text-sm" /></div>
+                <div><Label className="text-xs md:text-sm">Data Fim</Label><Input type="date" value={reportTo} onChange={e => setReportTo(e.target.value)} className="text-sm" /></div>
               </div>
               <div>
-                <Label>Empresa</Label>
+                <Label className="text-xs md:text-sm">Empresa</Label>
                 <Select value={reportCompanyId} onValueChange={setReportCompanyId}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="current">Empresa Atual</SelectItem>
                     <SelectItem value="all">Todas</SelectItem>
@@ -769,27 +837,27 @@ const Projects = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
-                <p className="text-sm text-muted-foreground">{reportProjects.length} projeto(s) encontrado(s)</p>
+              <div className="p-2.5 md:p-3 rounded-lg bg-muted/50 border border-border/50">
+                <p className="text-xs md:text-sm text-muted-foreground">{reportProjects.length} projeto(s) encontrado(s)</p>
               </div>
               {reportProjects.length > 0 && (
-                <div className="max-h-48 overflow-y-auto space-y-1">
+                <div className="max-h-36 md:max-h-48 overflow-y-auto space-y-1">
                   {reportProjects.map(p => (
-                    <div key={p.id} className="flex items-center justify-between text-sm p-2 rounded bg-card border border-border/30">
+                    <div key={p.id} className="flex items-center justify-between text-xs md:text-sm p-1.5 md:p-2 rounded bg-card border border-border/30">
                       <span className="truncate flex-1">{p.title}</span>
-                      <span className="text-xs text-muted-foreground ml-2">{p.client || "—"}</span>
+                      <span className="text-[10px] md:text-xs text-muted-foreground ml-2">{p.client || "—"}</span>
                     </div>
                   ))}
                 </div>
               )}
             </div>
             <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => setReportOpen(false)}>Fechar</Button>
-              <Button variant="outline" onClick={generateProjectsCSV} disabled={reportProjects.length === 0}>
-                <Download className="h-4 w-4 mr-2" />CSV
+              <Button variant="outline" size="sm" onClick={() => setReportOpen(false)}>Fechar</Button>
+              <Button variant="outline" size="sm" onClick={generateProjectsCSV} disabled={reportProjects.length === 0}>
+                <Download className="h-3.5 w-3.5 mr-1.5" />CSV
               </Button>
-              <Button onClick={generateProjectsPDF} disabled={reportProjects.length === 0}>
-                <Download className="h-4 w-4 mr-2" />PDF
+              <Button size="sm" onClick={generateProjectsPDF} disabled={reportProjects.length === 0}>
+                <Download className="h-3.5 w-3.5 mr-1.5" />PDF
               </Button>
             </DialogFooter>
           </DialogContent>

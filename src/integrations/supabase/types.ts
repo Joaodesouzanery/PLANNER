@@ -667,6 +667,7 @@ export type Database = {
       }
       kanban_columns: {
         Row: {
+          color: string | null
           company_id: string | null
           created_at: string
           id: string
@@ -675,6 +676,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          color?: string | null
           company_id?: string | null
           created_at?: string
           id?: string
@@ -683,6 +685,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          color?: string | null
           company_id?: string | null
           created_at?: string
           id?: string
