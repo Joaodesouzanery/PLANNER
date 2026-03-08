@@ -155,6 +155,32 @@ const Finance = () => {
   const removeCalcGoal = (id: number) => setCalcGoals(calcGoals.filter(g => g.id !== id));
   const updateCalcGoal = (id: number, field: "name" | "amount", value: string | number) => setCalcGoals(calcGoals.map(g => g.id === id ? { ...g, [field]: value } : g));
 
+  // Installment simulator
+  const simAvailable = Math.max(0, simMonthlyIncome - simMonthlyExpenses);
+  const healthyLevels = [
+    { label: "Conservador", percent: 10, color: "text-emerald-400", border: "border-emerald-500/30", bg: "bg-emerald-500/5", emoji: "🛡️" },
+    { label: "Moderado", percent: 20, color: "text-blue-400", border: "border-blue-500/30", bg: "bg-blue-500/5", emoji: "⚖️" },
+    { label: "Agressivo", percent: 30, color: "text-amber-400", border: "border-amber-500/30", bg: "bg-amber-500/5", emoji: "🔥" },
+    { label: "Limite", percent: 50, color: "text-red-400", border: "border-red-500/30", bg: "bg-red-500/5", emoji: "⚠️" },
+  ];
+  const simResults = healthyLevels.map(level => {
+    const maxInstallment = simMonthlyIncome * (level.percent / 100);
+    const installments = maxInstallment > 0 ? Math.ceil(simItemPrice / maxInstallment) : 0;
+    const monthlyPayment = installments > 0 ? simItemPrice / installments : 0;
+    const percentOfIncome = simMonthlyIncome > 0 ? (monthlyPayment / simMonthlyIncome) * 100 : 0;
+    const remainsAfter = simAvailable - monthlyPayment;
+    return { ...level, maxInstallment, installments, monthlyPayment, percentOfIncome, remainsAfter, healthy: remainsAfter >= 0 };
+  });
+
+  const autoFillSim = () => {
+    const last3 = monthlyData.slice(-3);
+    const avgInc = last3.length > 0 ? last3.reduce((a, m) => a + m.income, 0) / last3.length : 0;
+    const avgExp = last3.length > 0 ? last3.reduce((a, m) => a + m.expense, 0) / last3.length : 0;
+    setSimMonthlyIncome(Math.round(avgInc));
+    setSimMonthlyExpenses(Math.round(avgExp));
+    toast({ title: "Valores preenchidos com base na média dos últimos 3 meses" });
+  };
+
   return (
     <EMSLayout>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
