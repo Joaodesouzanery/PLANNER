@@ -81,7 +81,7 @@ const Finance = () => {
 
   const handleSaveOkr = async () => {
     if (editingOkr) { await supabase.from("okrs").update(okrForm).eq("id", editingOkr.id); }
-    else { await supabase.from("okrs").insert(okrForm); }
+    else { await supabase.from("okrs").insert({ ...okrForm, company_id: selectedCompanyId !== "all" ? selectedCompanyId : null }); }
     setShowOkrModal(false); setEditingOkr(null);
     setOkrForm({ title: "", description: "", target_value: 100, current_value: 0, unit: "%", period: "quarterly" });
     fetchOkrs(); toast({ title: editingOkr ? "OKR atualizado!" : "OKR criado!" });
