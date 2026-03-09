@@ -58,8 +58,10 @@ const Login = () => {
     }
 
     setResetFromErrorLoading(true);
-    await sendPasswordReset();
-    setAuthError("");
+    const sent = await sendPasswordReset();
+    if (sent) {
+      setAuthError("");
+    }
     setResetFromErrorLoading(false);
   };
 
