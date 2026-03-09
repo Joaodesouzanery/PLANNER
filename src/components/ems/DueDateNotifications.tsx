@@ -62,13 +62,9 @@ export const DueDateNotifications = () => {
 
   useEffect(() => {
     fetchAll();
-    const channels = [
-      supabase.channel("notif-projects").on("postgres_changes", { event: "*", schema: "public", table: "projects" }, fetchAll).subscribe(),
-      supabase.channel("notif-tasks").on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, fetchAll).subscribe(),
-      supabase.channel("notif-milestones").on("postgres_changes", { event: "*", schema: "public", table: "planning_milestones" }, fetchAll).subscribe(),
-    ];
-    const interval = setInterval(fetchAll, 60000);
-    return () => { channels.forEach(ch => supabase.removeChannel(ch)); clearInterval(interval); };
+    // Poll every 5 minutes instead of 1 minute + remove realtime channels to reduce connections
+    const interval = setInterval(fetchAll, 300000);
+    return () => { clearInterval(interval); };
   }, []);
 
   const getTimeText = (n: NotificationItem) => {
