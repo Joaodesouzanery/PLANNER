@@ -41,7 +41,7 @@ export function useCompanyQuery<T = any[]>({
   return useQuery({
     queryKey: [table, selectedCompanyId, ...extraKeys],
     queryFn: async () => {
-      let query = supabase.from(table).select(select);
+      let query: any = supabase.from(table).select(select);
 
       // Automatic company filter
       if (selectedCompanyId !== "all") {
