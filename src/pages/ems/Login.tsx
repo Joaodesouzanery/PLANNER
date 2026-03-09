@@ -89,7 +89,7 @@ const Login = () => {
       const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password: normalizedPassword });
       if (error) {
         if (error.message.toLowerCase().includes("invalid login credentials")) {
-          setAuthError("Credenciais inválidas para este email. Se necessário, use “Esqueceu sua senha?” para redefinir.");
+          setAuthError("Credenciais inválidas para este email. Você pode redefinir sua senha agora no botão abaixo.");
         } else if (error.message.toLowerCase().includes("email not confirmed")) {
           setAuthError("Seu email ainda não foi confirmado. Verifique sua caixa de entrada.");
         }
