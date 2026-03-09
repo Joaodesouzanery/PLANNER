@@ -320,6 +320,41 @@ export type Database = {
         }
         Relationships: []
       }
+      company_commercial_structure: {
+        Row: {
+          company_id: string
+          content: Json
+          created_at: string
+          id: string
+          section: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          content?: Json
+          created_at?: string
+          id?: string
+          section: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          content?: Json
+          created_at?: string
+          id?: string
+          section?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_commercial_structure_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_commercial_tracking: {
         Row: {
           company_id: string | null
