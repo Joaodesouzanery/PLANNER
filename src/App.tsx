@@ -27,6 +27,7 @@ import Onboarding from "./pages/ems/Onboarding";
 import Executive from "./pages/ems/Executive";
 import Timesheet from "./pages/ems/Timesheet";
 import CommercialStructure from "./pages/ems/CommercialStructure";
+import CommercialComparison from "./pages/ems/CommercialComparison";
 import EMSLogin from "./pages/ems/Login";
 import ResetPassword from "./pages/ems/ResetPassword";
 import NotFound from "./pages/NotFound";

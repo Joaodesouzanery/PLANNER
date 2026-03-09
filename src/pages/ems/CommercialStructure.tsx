@@ -558,7 +558,7 @@ const CommercialStructure = () => {
                 : "Referência estratégica — playbooks, funil, KPIs e comissionamento."}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {hasCompany && (
               <>
                 <Button
@@ -579,6 +579,27 @@ const CommercialStructure = () => {
                 </Button>
               </>
             )}
+            {isCompanyView && hasCompanyData && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportCommercialStructurePdf({
+                  companyName: selectedCompany?.name || "",
+                  funnel, b2g, b2b, stack, kpis: kpisData, commission: commissionData,
+                })}
+                className="text-xs"
+              >
+                <FileDown className="h-3.5 w-3.5 mr-1" /> Exportar PDF
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/ems/comparativo-comercial")}
+              className="text-xs"
+            >
+              <GitCompareArrows className="h-3.5 w-3.5 mr-1" /> Comparativo
+            </Button>
             {isCompanyView && (
               <Button
                 variant={editing ? "destructive" : "outline"}
