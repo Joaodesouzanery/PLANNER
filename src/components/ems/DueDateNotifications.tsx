@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Calendar, AlertTriangle, Clock, Target, ListTodo, FolderKanban } from "lucide-react";
+import { Bell, AlertTriangle, Clock, Target, ListTodo, FolderKanban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
@@ -62,7 +62,6 @@ export const DueDateNotifications = () => {
 
   useEffect(() => {
     fetchAll();
-    // Poll every 5 minutes instead of 1 minute + remove realtime channels to reduce connections
     const interval = setInterval(fetchAll, 300000);
     return () => { clearInterval(interval); };
   }, []);
@@ -91,7 +90,7 @@ export const DueDateNotifications = () => {
         <Bell className="h-4 w-4" />
         {notifications.length > 0 && (
           <span className={cn("absolute -top-1 -right-1 h-5 w-5 rounded-full text-xs flex items-center justify-center font-medium",
-            overdueCount > 0 ? "bg-destructive text-destructive-foreground" : "bg-amber-500 text-white"
+            overdueCount > 0 ? "bg-destructive text-destructive-foreground" : "bg-warning text-warning-foreground"
           )}>{notifications.length}</span>
         )}
         {hasNewNotifications && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-destructive animate-pulse" />}
@@ -108,7 +107,7 @@ export const DueDateNotifications = () => {
                 <div className="flex items-center gap-2"><Bell className="h-4 w-4 text-primary" /><span className="font-medium">Notificações</span></div>
                 <div className="flex items-center gap-2">
                   {overdueCount > 0 && <Badge variant="destructive" className="text-xs">{overdueCount} atrasado{overdueCount > 1 ? "s" : ""}</Badge>}
-                  {urgentCount > 0 && <Badge className="bg-amber-500 text-white text-xs">{urgentCount} urgente{urgentCount > 1 ? "s" : ""}</Badge>}
+                  {urgentCount > 0 && <Badge className="bg-warning text-warning-foreground text-xs">{urgentCount} urgente{urgentCount > 1 ? "s" : ""}</Badge>}
                 </div>
               </div>
 
@@ -124,11 +123,11 @@ export const DueDateNotifications = () => {
                     {notifications.map((n) => (
                       <motion.div key={`${n.type}-${n.id}`} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                         className={cn("p-4 hover:bg-muted/50 transition-colors border-l-4",
-                          n.isOverdue ? "border-l-destructive" : n.daysUntilDue <= 2 ? "border-l-amber-500" : "border-l-primary"
+                          n.isOverdue ? "border-l-destructive" : n.daysUntilDue <= 2 ? "border-l-warning" : "border-l-primary"
                         )}>
                         <div className="flex items-start gap-3">
                           <div className={cn("p-2 rounded-lg flex-shrink-0",
-                            n.isOverdue ? "text-destructive bg-destructive/10" : n.daysUntilDue <= 2 ? "text-amber-500 bg-amber-500/10" : "text-primary bg-primary/10"
+                            n.isOverdue ? "text-destructive bg-destructive/10" : n.daysUntilDue <= 2 ? "text-warning bg-warning/10" : "text-primary bg-primary/10"
                           )}>
                             {n.isOverdue ? <AlertTriangle className="h-4 w-4" /> : getTypeIcon(n.type)}
                           </div>
@@ -139,7 +138,7 @@ export const DueDateNotifications = () => {
                               {n.client && <span className="text-[10px] text-muted-foreground truncate">{n.client}</span>}
                             </div>
                             <p className={cn("text-xs mt-1 font-medium",
-                              n.isOverdue ? "text-destructive" : n.daysUntilDue <= 2 ? "text-amber-500" : "text-muted-foreground"
+                              n.isOverdue ? "text-destructive" : n.daysUntilDue <= 2 ? "text-warning" : "text-muted-foreground"
                             )}>{getTimeText(n)}</p>
                           </div>
                           {n.priority && (
