@@ -338,7 +338,7 @@ function FunnelEditor({ stages, onSave }: { stages: FunnelStage[]; onSave: (data
       {data.map((s, i) => (
         <Card key={i} className="border border-border">
           <CardContent className="p-4 space-y-3">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
               <div className="flex items-center justify-center w-8 h-8 rounded-full shrink-0 text-sm font-bold bg-primary/10 text-primary">{s.step}</div>
               <Input value={s.title} onChange={(e) => update(i, "title", e.target.value)} placeholder="Título da etapa" className="text-sm font-semibold h-8" />
               <Input value={s.responsible} onChange={(e) => update(i, "responsible", e.target.value)} placeholder="Responsável" className="text-xs h-8 w-32" />
