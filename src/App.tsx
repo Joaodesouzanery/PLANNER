@@ -51,6 +51,7 @@ const App = () => (
             
             {/* EMS Login (public) */}
             <Route path="/ems/login" element={<EMSLogin />} />
+            <Route path="/ems/reset-password" element={<ResetPassword />} />
 
             {/* EMS Routes (protected) */}
             <Route path="/ems" element={<ProtectedPage><Overview /></ProtectedPage>} />
