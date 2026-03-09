@@ -21,6 +21,22 @@ const Login = () => {
   const { toast } = useToast();
 
   const normalizedEmail = email.trim().toLowerCase();
+  const normalizedPassword = password.replace(/\r?\n/g, "").trimEnd();
+
+  const sendPasswordReset = async () => {
+    const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+      redirectTo: `${window.location.origin}/ems/reset-password`,
+    });
+
+    if (error) {
+      toast({ variant: "destructive", title: "Erro", description: error.message });
+      return false;
+    }
+
+    toast({ title: "Email enviado!", description: "Verifique sua caixa de entrada para redefinir sua senha." });
+    setMode("login");
+    return true;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,19 +44,11 @@ const Login = () => {
     setAuthError("");
 
     if (mode === "forgot") {
-      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
-        redirectTo: `${window.location.origin}/ems/reset-password`,
-      });
-      if (error) {
-        toast({ variant: "destructive", title: "Erro", description: error.message });
-      } else {
-        toast({ title: "Email enviado!", description: "Verifique sua caixa de entrada para redefinir a senha." });
-        setMode("login");
-      }
+      await sendPasswordReset();
     } else if (mode === "signup") {
       const { error } = await supabase.auth.signUp({
         email: normalizedEmail,
-        password,
+        password: normalizedPassword,
         options: { emailRedirectTo: `${window.location.origin}/ems/login` },
       });
       if (error) {
@@ -53,10 +61,10 @@ const Login = () => {
         setMode("login");
       }
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
+      const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password: normalizedPassword });
       if (error) {
         if (error.message.toLowerCase().includes("invalid login credentials")) {
-          setAuthError("Credenciais inválidas. Use “Esqueceu sua senha?” ou “Entrar com link mágico”.");
+          setAuthError("Credenciais inválidas para este email. Se necessário, use “Esqueceu sua senha?” para redefinir.");
         } else if (error.message.toLowerCase().includes("email not confirmed")) {
           setAuthError("Seu email ainda não foi confirmado. Verifique sua caixa de entrada.");
         }
@@ -78,7 +86,10 @@ const Login = () => {
     setMagicLinkLoading(true);
     const { error } = await supabase.auth.signInWithOtp({
       email: normalizedEmail,
-      options: { emailRedirectTo: `${window.location.origin}/ems` },
+      options: {
+        emailRedirectTo: `${window.location.origin}/ems`,
+        shouldCreateUser: false,
+      },
     });
 
     if (error) {
