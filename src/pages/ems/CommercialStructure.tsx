@@ -507,6 +507,7 @@ function SalesStackEditor({ items: initial, onSave }: { items: SalesStackItem[];
 
 const CommercialStructure = () => {
   const { selectedCompanyId, selectedCompany, companies } = useCompany();
+  const navigate = useNavigate();
   const hasCompany = selectedCompanyId !== "all" && !!selectedCompany;
   const { getSection, upsertSection, isLoading } = useCompanyCommercialStructure(hasCompany ? selectedCompanyId : null);
 
