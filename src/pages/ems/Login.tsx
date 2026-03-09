@@ -16,6 +16,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [magicLinkLoading, setMagicLinkLoading] = useState(false);
+  const [resetFromErrorLoading, setResetFromErrorLoading] = useState(false);
   const [authError, setAuthError] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -23,19 +24,45 @@ const Login = () => {
   const normalizedEmail = email.trim().toLowerCase();
   const normalizedPassword = password.replace(/\r?\n/g, "").trimEnd();
 
+  const getAuthRateLimitDescription = (message: string, fallback: string) => {
+    const secondsMatch = message.match(/after\s+(\d+)\s+seconds/i);
+    if (secondsMatch?.[1]) {
+      return `Por segurança, aguarde ${secondsMatch[1]} segundos e tente novamente.`;
+    }
+    return fallback;
+  };
+
   const sendPasswordReset = async () => {
     const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
       redirectTo: `${window.location.origin}/ems/reset-password`,
     });
 
     if (error) {
-      toast({ variant: "destructive", title: "Erro", description: error.message });
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: getAuthRateLimitDescription(error.message, "Não foi possível enviar o link agora. Tente novamente em instantes."),
+      });
       return false;
     }
 
     toast({ title: "Email enviado!", description: "Verifique sua caixa de entrada para redefinir sua senha." });
     setMode("login");
     return true;
+  };
+
+  const handleResetFromError = async () => {
+    if (!normalizedEmail) {
+      toast({ variant: "destructive", title: "Informe seu email", description: "Digite o email para receber o link." });
+      return;
+    }
+
+    setResetFromErrorLoading(true);
+    const sent = await sendPasswordReset();
+    if (sent) {
+      setAuthError("");
+    }
+    setResetFromErrorLoading(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -64,7 +91,7 @@ const Login = () => {
       const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password: normalizedPassword });
       if (error) {
         if (error.message.toLowerCase().includes("invalid login credentials")) {
-          setAuthError("Credenciais inválidas para este email. Se necessário, use “Esqueceu sua senha?” para redefinir.");
+          setAuthError("Credenciais inválidas para este email. Você pode redefinir sua senha agora no botão abaixo.");
         } else if (error.message.toLowerCase().includes("email not confirmed")) {
           setAuthError("Seu email ainda não foi confirmado. Verifique sua caixa de entrada.");
         }
@@ -93,7 +120,11 @@ const Login = () => {
     });
 
     if (error) {
-      toast({ variant: "destructive", title: "Erro ao enviar link", description: error.message });
+      toast({
+        variant: "destructive",
+        title: "Erro ao enviar link",
+        description: getAuthRateLimitDescription(error.message, "Não foi possível enviar o link agora. Tente novamente em instantes."),
+      });
     } else {
       toast({ title: "Link enviado!", description: "Confira seu email para acessar sem senha." });
     }
@@ -161,9 +192,19 @@ const Login = () => {
             )}
 
             {authError && mode === "login" && (
-              <p className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md p-2.5">
-                {authError}
-              </p>
+              <div className="space-y-2 rounded-md border border-destructive/20 bg-destructive/10 p-2.5">
+                <p className="text-xs text-destructive">{authError}</p>
+                <Button
+                  type="button"
+                  variant="link"
+                  className="h-auto p-0 text-xs"
+                  onClick={handleResetFromError}
+                  disabled={resetFromErrorLoading}
+                >
+                  {resetFromErrorLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                  Redefinir senha agora
+                </Button>
+              </div>
             )}
 
             <Button type="submit" className="w-full" disabled={loading}>
