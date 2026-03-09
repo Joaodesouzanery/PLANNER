@@ -118,7 +118,11 @@ const Login = () => {
     });
 
     if (error) {
-      toast({ variant: "destructive", title: "Erro ao enviar link", description: error.message });
+      toast({
+        variant: "destructive",
+        title: "Erro ao enviar link",
+        description: getAuthRateLimitDescription(error.message, "Não foi possível enviar o link agora. Tente novamente em instantes."),
+      });
     } else {
       toast({ title: "Link enviado!", description: "Confira seu email para acessar sem senha." });
     }
