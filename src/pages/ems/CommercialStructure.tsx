@@ -21,8 +21,10 @@ import {
   Building2, Users, Target, TrendingUp, BarChart3, Briefcase,
   CheckCircle2, ArrowRight, Lightbulb, Wrench, Star, DollarSign,
   BookOpen, Megaphone, Search, Handshake, Pencil, Save, X, Plus, Trash2,
-  Copy, Eye
+  Copy, Eye, FileDown, GitCompareArrows
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { exportCommercialStructurePdf } from "@/utils/commercialStructurePdf";
 
 // ─── Default reference data ─────────────────────────────────────────
 
@@ -505,6 +507,7 @@ function SalesStackEditor({ items: initial, onSave }: { items: SalesStackItem[];
 
 const CommercialStructure = () => {
   const { selectedCompanyId, selectedCompany, companies } = useCompany();
+  const navigate = useNavigate();
   const hasCompany = selectedCompanyId !== "all" && !!selectedCompany;
   const { getSection, upsertSection, isLoading } = useCompanyCommercialStructure(hasCompany ? selectedCompanyId : null);
 
@@ -555,7 +558,7 @@ const CommercialStructure = () => {
                 : "Referência estratégica — playbooks, funil, KPIs e comissionamento."}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {hasCompany && (
               <>
                 <Button
@@ -576,6 +579,27 @@ const CommercialStructure = () => {
                 </Button>
               </>
             )}
+            {isCompanyView && hasCompanyData && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportCommercialStructurePdf({
+                  companyName: selectedCompany?.name || "",
+                  funnel, b2g, b2b, stack, kpis: kpisData, commission: commissionData,
+                })}
+                className="text-xs"
+              >
+                <FileDown className="h-3.5 w-3.5 mr-1" /> Exportar PDF
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/ems/comparativo-comercial")}
+              className="text-xs"
+            >
+              <GitCompareArrows className="h-3.5 w-3.5 mr-1" /> Comparativo
+            </Button>
             {isCompanyView && (
               <Button
                 variant={editing ? "destructive" : "outline"}
