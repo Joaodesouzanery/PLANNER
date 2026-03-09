@@ -100,19 +100,23 @@ export const DueDateNotifications = () => {
         {isOpen && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-            <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="absolute right-0 bottom-full mb-2 w-80 sm:w-96 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+              className="fixed left-2 right-2 bottom-20 sm:absolute sm:left-full sm:right-auto sm:bottom-0 sm:ml-2 w-auto sm:w-96 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden"
+            >
               {/* Header */}
-              <div className="px-4 py-3 border-b border-border bg-muted/50 flex items-center justify-between">
-                <div className="flex items-center gap-2"><Bell className="h-4 w-4 text-primary" /><span className="font-medium">Notificações</span></div>
-                <div className="flex items-center gap-2">
-                  {overdueCount > 0 && <Badge variant="destructive" className="text-xs">{overdueCount} atrasado{overdueCount > 1 ? "s" : ""}</Badge>}
-                  {urgentCount > 0 && <Badge className="bg-warning text-warning-foreground text-xs">{urgentCount} urgente{urgentCount > 1 ? "s" : ""}</Badge>}
+              <div className="px-3 sm:px-4 py-3 border-b border-border bg-muted/50 flex items-center justify-between">
+                <div className="flex items-center gap-2"><Bell className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Notificações</span></div>
+                <div className="flex items-center gap-1.5">
+                  {overdueCount > 0 && <Badge variant="destructive" className="text-[10px] sm:text-xs">{overdueCount} atrasado{overdueCount > 1 ? "s" : ""}</Badge>}
+                  {urgentCount > 0 && <Badge className="bg-warning text-warning-foreground text-[10px] sm:text-xs">{urgentCount} urgente{urgentCount > 1 ? "s" : ""}</Badge>}
                 </div>
               </div>
 
               {/* List */}
-              <div className="max-h-[400px] overflow-y-auto">
+              <div className="max-h-[60vh] sm:max-h-[400px] overflow-y-auto">
                 {notifications.length === 0 ? (
                   <div className="p-6 text-center text-muted-foreground">
                     <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -122,22 +126,22 @@ export const DueDateNotifications = () => {
                   <div className="divide-y divide-border">
                     {notifications.map((n) => (
                       <motion.div key={`${n.type}-${n.id}`} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                        className={cn("p-4 hover:bg-muted/50 transition-colors border-l-4",
+                        className={cn("p-3 sm:p-4 hover:bg-muted/50 transition-colors border-l-4",
                           n.isOverdue ? "border-l-destructive" : n.daysUntilDue <= 2 ? "border-l-warning" : "border-l-primary"
                         )}>
-                        <div className="flex items-start gap-3">
-                          <div className={cn("p-2 rounded-lg flex-shrink-0",
+                        <div className="flex items-start gap-2 sm:gap-3">
+                          <div className={cn("p-1.5 sm:p-2 rounded-lg flex-shrink-0",
                             n.isOverdue ? "text-destructive bg-destructive/10" : n.daysUntilDue <= 2 ? "text-warning bg-warning/10" : "text-primary bg-primary/10"
                           )}>
                             {n.isOverdue ? <AlertTriangle className="h-4 w-4" /> : getTypeIcon(n.type)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{n.title}</p>
+                            <p className="font-medium text-xs sm:text-sm truncate">{n.title}</p>
                             <div className="flex items-center gap-1.5 mt-0.5">
                               <Badge variant="outline" className="text-[10px] border-border/50">{getTypeLabel(n.type)}</Badge>
                               {n.client && <span className="text-[10px] text-muted-foreground truncate">{n.client}</span>}
                             </div>
-                            <p className={cn("text-xs mt-1 font-medium",
+                            <p className={cn("text-[10px] sm:text-xs mt-1 font-medium",
                               n.isOverdue ? "text-destructive" : n.daysUntilDue <= 2 ? "text-warning" : "text-muted-foreground"
                             )}>{getTimeText(n)}</p>
                           </div>
@@ -154,7 +158,7 @@ export const DueDateNotifications = () => {
               </div>
 
               {notifications.length > 0 && (
-                <div className="px-4 py-3 border-t border-border bg-muted/50">
+                <div className="px-3 sm:px-4 py-2 sm:py-3 border-t border-border bg-muted/50">
                   <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => setIsOpen(false)}>Fechar</Button>
                 </div>
               )}
