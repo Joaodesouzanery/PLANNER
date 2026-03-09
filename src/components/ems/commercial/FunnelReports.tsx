@@ -89,6 +89,26 @@ const FunnelReports = () => {
         </h2>
         <p className="text-sm text-muted-foreground">Métricas e conversão entre fases</p>
       </div>
+      <div className="flex gap-2">
+        <Button size="sm" variant="outline" className="rounded-xl" onClick={() => {
+          const rows = contactsPerPhase.map(p => `${p.name},${p.count}`);
+          const convRows = conversionRates.map(c => `${c.from} → ${c.to},${c.rate}%`);
+          const csv = "Fase,Contatos\n" + rows.join("\n") + "\n\nConversão,Taxa\n" + convRows.join("\n");
+          const blob = new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
+          const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href=url; a.download="funil-comercial.csv"; a.click(); URL.revokeObjectURL(url);
+          toast.success("CSV exportado!");
+        }}><Download className="h-4 w-4 mr-1" />CSV</Button>
+        <Button size="sm" variant="outline" className="rounded-xl" onClick={() => {
+          const doc = new jsPDF(); doc.setFontSize(16); doc.text("Relatório do Funil Comercial", 14, 20);
+          doc.setFontSize(10); doc.text(`Exportado em ${format(new Date(),"dd/MM/yyyy HH:mm")}`, 14, 28);
+          autoTable(doc, { startY: 34, head: [["Fase","Contatos"]], body: contactsPerPhase.map(p => [p.name, p.count]), styles:{fontSize:9}, headStyles:{fillColor:[59,130,246]} });
+          const y1 = (doc as any).lastAutoTable?.finalY || 60;
+          autoTable(doc, { startY: y1+10, head: [["De","Para","Taxa"]], body: conversionRates.map(c => [c.from, c.to, `${c.rate}%`]), styles:{fontSize:9}, headStyles:{fillColor:[139,92,246]} });
+          const y2 = (doc as any).lastAutoTable?.finalY || 100;
+          autoTable(doc, { startY: y2+10, head: [["Fase","Dias Médios"]], body: avgTimePerPhase.map(p => [p.name, p.days]), styles:{fontSize:9}, headStyles:{fillColor:[245,158,11]} });
+          doc.save("funil-comercial.pdf"); toast.success("PDF exportado!");
+        }}><FileText className="h-4 w-4 mr-1" />PDF</Button>
+      </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
