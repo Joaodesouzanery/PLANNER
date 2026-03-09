@@ -21,8 +21,10 @@ import {
   Building2, Users, Target, TrendingUp, BarChart3, Briefcase,
   CheckCircle2, ArrowRight, Lightbulb, Wrench, Star, DollarSign,
   BookOpen, Megaphone, Search, Handshake, Pencil, Save, X, Plus, Trash2,
-  Copy, Eye
+  Copy, Eye, FileDown, GitCompareArrows
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { exportCommercialStructurePdf } from "@/utils/commercialStructurePdf";
 
 // ─── Default reference data ─────────────────────────────────────────
 
