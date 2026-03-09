@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { LogIn, UserPlus, Loader2, Eye, EyeOff } from "lucide-react";
+import { LogIn, UserPlus, Loader2, Eye, EyeOff, Mail, ArrowLeft } from "lucide-react";
 import hiveLogo from "@/assets/hive-logo.jpg";
 
 const Login = () => {
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -22,7 +22,17 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
 
-    if (isSignUp) {
+    if (mode === "forgot") {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/ems/reset-password`,
+      });
+      if (error) {
+        toast({ variant: "destructive", title: "Erro", description: error.message });
+      } else {
+        toast({ title: "Email enviado!", description: "Verifique sua caixa de entrada para redefinir a senha." });
+        setMode("login");
+      }
+    } else if (mode === "signup") {
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -55,7 +65,14 @@ const Login = () => {
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-medium">EMS</p>
-            <CardTitle className="text-xl">Hive Tech</CardTitle>
+            <CardTitle className="text-xl">
+              {mode === "forgot" ? "Recuperar Senha" : "Hive Tech"}
+            </CardTitle>
+            {mode === "forgot" && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Enviaremos um link para redefinir sua senha.
+              </p>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -71,33 +88,40 @@ const Login = () => {
                 required
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  tabIndex={-1}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+            {mode !== "forgot" && (
+              <div className="space-y-2">
+                <Label htmlFor="password">Senha</Label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
-              ) : isSignUp ? (
+              ) : mode === "forgot" ? (
+                <>
+                  <Mail className="h-4 w-4 mr-2" />
+                  Enviar Link de Recuperação
+                </>
+              ) : mode === "signup" ? (
                 <>
                   <UserPlus className="h-4 w-4 mr-2" />
                   Criar Conta
@@ -109,13 +133,35 @@ const Login = () => {
                 </>
               )}
             </Button>
-            <button
-              type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              {isSignUp ? "Já tem conta? Faça login" : "Não tem conta? Cadastre-se"}
-            </button>
+
+            {mode === "login" && (
+              <button
+                type="button"
+                onClick={() => setMode("forgot")}
+                className="w-full text-center text-sm text-primary hover:underline transition-colors"
+              >
+                Esqueceu sua senha?
+              </button>
+            )}
+
+            {mode === "forgot" ? (
+              <button
+                type="button"
+                onClick={() => setMode("login")}
+                className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center gap-1"
+              >
+                <ArrowLeft className="h-3 w-3" />
+                Voltar ao login
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setMode(mode === "signup" ? "login" : "signup")}
+                className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {mode === "signup" ? "Já tem conta? Faça login" : "Não tem conta? Cadastre-se"}
+              </button>
+            )}
           </form>
         </CardContent>
       </Card>
