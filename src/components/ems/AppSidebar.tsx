@@ -60,6 +60,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { icon: Contact, label: "Contatos", path: "/ems/contacts" },
       { icon: Briefcase, label: "Comercial", path: "/ems/comercial" },
+      { icon: BookOpen, label: "Estrutura Comercial", path: "/ems/estrutura-comercial" },
       { icon: ClipboardList, label: "Onboarding", path: "/ems/onboarding" },
       { icon: Target, label: "Planejamento", path: "/ems/planning" },
       { icon: Route, label: "RoadMap", path: "/ems/roadmap" },

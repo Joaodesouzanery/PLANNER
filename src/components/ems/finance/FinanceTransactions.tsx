@@ -8,10 +8,13 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit2, Trash2, RefreshCw } from "lucide-react";
+import { Plus, Edit2, Trash2, RefreshCw, Download, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useFinanceData, fmtCurrency, type Transaction } from "./useFinanceData";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { toast } from "sonner";
 
 const FinanceTransactions = () => {
   const { transactions, allCategories, saveTransactionMutation, deleteTransactionMutation } = useFinanceData();
@@ -44,7 +47,22 @@ const FinanceTransactions = () => {
           <Select value={filterType || "all"} onValueChange={v => setFilterType(v === "all" ? "" : v)}><SelectTrigger className="w-[140px] rounded-xl bg-card/50 border-border/50"><SelectValue placeholder="Tipo" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="income">Entradas</SelectItem><SelectItem value="expense">Saídas</SelectItem></SelectContent></Select>
           <Select value={filterCategory || "all"} onValueChange={v => setFilterCategory(v === "all" ? "" : v)}><SelectTrigger className="w-[160px] rounded-xl bg-card/50 border-border/50"><SelectValue placeholder="Categoria" /></SelectTrigger><SelectContent><SelectItem value="all">Todas</SelectItem>{allCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
         </div>
-        <Button size="sm" onClick={() => setShowModal(true)} className="rounded-xl shadow-lg shadow-primary/20"><Plus className="h-4 w-4 mr-2" />Nova Transação</Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" className="rounded-xl" onClick={() => {
+            const rows = filteredTransactions.map(t => `${format(new Date(t.date),"dd/MM/yyyy")},${t.description.replace(/,/g," ")},${t.category||""},${t.type==="income"?"Entrada":"Saída"},${t.amount}`);
+            const csv = "Data,Descrição,Categoria,Tipo,Valor\n" + rows.join("\n");
+            const blob = new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
+            const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href=url; a.download="transacoes.csv"; a.click(); URL.revokeObjectURL(url);
+            toast.success("CSV exportado!");
+          }}><Download className="h-4 w-4 mr-1" />CSV</Button>
+          <Button size="sm" variant="outline" className="rounded-xl" onClick={() => {
+            const doc = new jsPDF(); doc.setFontSize(16); doc.text("Transações Financeiras", 14, 20);
+            doc.setFontSize(10); doc.text(`Exportado em ${format(new Date(),"dd/MM/yyyy HH:mm")}`, 14, 28);
+            autoTable(doc, { startY: 34, head: [["Data","Descrição","Categoria","Tipo","Valor"]], body: filteredTransactions.map(t => [format(new Date(t.date),"dd/MM/yyyy"), t.description, t.category||"-", t.type==="income"?"Entrada":"Saída", fmtCurrency(Number(t.amount))]), styles:{fontSize:9}, headStyles:{fillColor:[59,130,246]} });
+            doc.save("transacoes.pdf"); toast.success("PDF exportado!");
+          }}><FileText className="h-4 w-4 mr-1" />PDF</Button>
+          <Button size="sm" onClick={() => setShowModal(true)} className="rounded-xl shadow-lg shadow-primary/20"><Plus className="h-4 w-4 mr-2" />Nova Transação</Button>
+        </div>
       </div>
       <Card className="border border-border/50 bg-card/80">
         <CardContent className="p-0">
