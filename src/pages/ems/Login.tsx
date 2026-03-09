@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { LogIn, UserPlus, Loader2, Eye, EyeOff, Mail, ArrowLeft } from "lucide-react";
+import { LogIn, UserPlus, Loader2, Eye, EyeOff, Mail, ArrowLeft, Link2 } from "lucide-react";
 import hiveLogo from "@/assets/hive-logo.jpg";
 
 const Login = () => {
@@ -15,15 +15,20 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [magicLinkLoading, setMagicLinkLoading] = useState(false);
+  const [authError, setAuthError] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const normalizedEmail = email.trim().toLowerCase();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setAuthError("");
 
     if (mode === "forgot") {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
         redirectTo: `${window.location.origin}/ems/reset-password`,
       });
       if (error) {
@@ -34,20 +39,28 @@ const Login = () => {
       }
     } else if (mode === "signup") {
       const { error } = await supabase.auth.signUp({
-        email,
+        email: normalizedEmail,
         password,
-        options: { emailRedirectTo: `${window.location.origin}/ems` },
+        options: { emailRedirectTo: `${window.location.origin}/ems/login` },
       });
       if (error) {
         toast({ variant: "destructive", title: "Erro no cadastro", description: error.message });
       } else {
-        toast({ title: "Conta criada!", description: "Você já pode acessar o sistema." });
-        navigate("/ems");
+        toast({
+          title: "Conta criada!",
+          description: "Confirme seu email para fazer login.",
+        });
+        setMode("login");
       }
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
       if (error) {
-        toast({ variant: "destructive", title: "Erro no login", description: "Email ou senha incorretos." });
+        if (error.message.toLowerCase().includes("invalid login credentials")) {
+          setAuthError("Credenciais inválidas. Use “Esqueceu sua senha?” ou “Entrar com link mágico”.");
+        } else if (error.message.toLowerCase().includes("email not confirmed")) {
+          setAuthError("Seu email ainda não foi confirmado. Verifique sua caixa de entrada.");
+        }
+        toast({ variant: "destructive", title: "Erro no login", description: error.message });
       } else {
         navigate("/ems");
       }
@@ -56,25 +69,43 @@ const Login = () => {
     setLoading(false);
   };
 
+  const handleMagicLink = async () => {
+    if (!normalizedEmail) {
+      toast({ variant: "destructive", title: "Informe seu email", description: "Digite o email para receber o link." });
+      return;
+    }
+
+    setMagicLinkLoading(true);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: normalizedEmail,
+      options: { emailRedirectTo: `${window.location.origin}/ems` },
+    });
+
+    if (error) {
+      toast({ variant: "destructive", title: "Erro ao enviar link", description: error.message });
+    } else {
+      toast({ title: "Link enviado!", description: "Confira seu email para acessar sem senha." });
+    }
+
+    setMagicLinkLoading(false);
+  };
+
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center space-y-3">
+    <div className="min-h-screen bg-background flex items-center justify-center p-3 sm:p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center space-y-3 pb-4">
           <div className="mx-auto h-14 w-14 rounded-xl overflow-hidden border border-border">
-            <img src={hiveLogo} alt="Hive Tech" className="h-full w-full object-cover" />
+            <img src={hiveLogo} alt="Hive Tech" className="h-full w-full object-cover" loading="lazy" />
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-medium">EMS</p>
-            <CardTitle className="text-xl">
-              {mode === "forgot" ? "Recuperar Senha" : "Hive Tech"}
-            </CardTitle>
+            <CardTitle className="text-xl">{mode === "forgot" ? "Recuperar Senha" : "Hive Tech"}</CardTitle>
             {mode === "forgot" && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Enviaremos um link para redefinir sua senha.
-              </p>
+              <p className="text-sm text-muted-foreground mt-1">Enviaremos um link para redefinir sua senha.</p>
             )}
           </div>
         </CardHeader>
+
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -82,12 +113,16 @@ const Login = () => {
               <Input
                 id="email"
                 type="email"
+                inputMode="email"
+                autoCapitalize="none"
+                autoCorrect="off"
                 placeholder="seu@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
+
             {mode !== "forgot" && (
               <div className="space-y-2">
                 <Label htmlFor="password">Senha</Label>
@@ -113,6 +148,13 @@ const Login = () => {
                 </div>
               </div>
             )}
+
+            {authError && mode === "login" && (
+              <p className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md p-2.5">
+                {authError}
+              </p>
+            )}
+
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -133,6 +175,18 @@ const Login = () => {
                 </>
               )}
             </Button>
+
+            {mode === "login" && (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={magicLinkLoading}
+                onClick={handleMagicLink}
+              >
+                {magicLinkLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Link2 className="h-4 w-4 mr-2" />Entrar com link mágico</>}
+              </Button>
+            )}
 
             {mode === "login" && (
               <button
