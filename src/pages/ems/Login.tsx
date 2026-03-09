@@ -24,19 +24,43 @@ const Login = () => {
   const normalizedEmail = email.trim().toLowerCase();
   const normalizedPassword = password.replace(/\r?\n/g, "").trimEnd();
 
+  const getAuthRateLimitDescription = (message: string, fallback: string) => {
+    const secondsMatch = message.match(/after\s+(\d+)\s+seconds/i);
+    if (secondsMatch?.[1]) {
+      return `Por segurança, aguarde ${secondsMatch[1]} segundos e tente novamente.`;
+    }
+    return fallback;
+  };
+
   const sendPasswordReset = async () => {
     const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
       redirectTo: `${window.location.origin}/ems/reset-password`,
     });
 
     if (error) {
-      toast({ variant: "destructive", title: "Erro", description: error.message });
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: getAuthRateLimitDescription(error.message, "Não foi possível enviar o link agora. Tente novamente em instantes."),
+      });
       return false;
     }
 
     toast({ title: "Email enviado!", description: "Verifique sua caixa de entrada para redefinir sua senha." });
     setMode("login");
     return true;
+  };
+
+  const handleResetFromError = async () => {
+    if (!normalizedEmail) {
+      toast({ variant: "destructive", title: "Informe seu email", description: "Digite o email para receber o link." });
+      return;
+    }
+
+    setResetFromErrorLoading(true);
+    await sendPasswordReset();
+    setAuthError("");
+    setResetFromErrorLoading(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

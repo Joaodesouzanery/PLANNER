@@ -93,6 +93,19 @@ const ResetPassword = () => {
     setLoading(false);
   };
 
+  if (isCheckingRecovery) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-sm">
+          <CardContent className="py-8 flex flex-col items-center gap-3">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Validando link de recuperação...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (!isRecovery) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
