@@ -2,10 +2,14 @@ import { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
-import { BarChart3, TrendingUp, Clock, Users, ArrowRight } from "lucide-react";
+import { BarChart3, TrendingUp, Clock, Users, ArrowRight, Download, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCommercialData } from "./useCommercialData";
 import { phaseColors, phaseIconColors } from "./types";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { toast } from "sonner";
+import { format } from "date-fns";
 import {
   ChartContainer, ChartTooltip, ChartTooltipContent,
 } from "@/components/ui/chart";
