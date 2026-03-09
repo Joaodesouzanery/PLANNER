@@ -16,6 +16,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [magicLinkLoading, setMagicLinkLoading] = useState(false);
+  const [resetFromErrorLoading, setResetFromErrorLoading] = useState(false);
   const [authError, setAuthError] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();

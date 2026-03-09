@@ -16,24 +16,55 @@ const ResetPassword = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [isRecovery, setIsRecovery] = useState(false);
+  const [isCheckingRecovery, setIsCheckingRecovery] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Listen for the PASSWORD_RECOVERY event
+    let mounted = true;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (!mounted) return;
+
       if (event === "PASSWORD_RECOVERY") {
         setIsRecovery(true);
+        setIsCheckingRecovery(false);
       }
     });
 
-    // Check URL hash for recovery type
-    const hash = window.location.hash;
-    if (hash.includes("type=recovery")) {
-      setIsRecovery(true);
-    }
+    const validateRecoveryLink = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const queryParams = new URLSearchParams(window.location.search);
 
-    return () => subscription.unsubscribe();
+      const hashType = hashParams.get("type");
+      const queryType = queryParams.get("type");
+      const hasAccessToken = hashParams.has("access_token");
+      const code = queryParams.get("code");
+
+      let validRecoveryContext =
+        hashType === "recovery" ||
+        queryType === "recovery" ||
+        hasAccessToken;
+
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (!error) {
+          validRecoveryContext = true;
+        }
+      }
+
+      if (mounted) {
+        setIsRecovery(validRecoveryContext);
+        setIsCheckingRecovery(false);
+      }
+    };
+
+    void validateRecoveryLink();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
