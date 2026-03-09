@@ -190,9 +190,19 @@ const Login = () => {
             )}
 
             {authError && mode === "login" && (
-              <p className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md p-2.5">
-                {authError}
-              </p>
+              <div className="space-y-2 rounded-md border border-destructive/20 bg-destructive/10 p-2.5">
+                <p className="text-xs text-destructive">{authError}</p>
+                <Button
+                  type="button"
+                  variant="link"
+                  className="h-auto p-0 text-xs"
+                  onClick={handleResetFromError}
+                  disabled={resetFromErrorLoading}
+                >
+                  {resetFromErrorLoading ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                  Redefinir senha agora
+                </Button>
+              </div>
             )}
 
             <Button type="submit" className="w-full" disabled={loading}>
