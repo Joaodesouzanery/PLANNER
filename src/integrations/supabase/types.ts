@@ -1547,14 +1547,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      owns_company: {
-        Args: { _company_id: string; _user_id: string }
-        Returns: boolean
-      }
-      user_can_access: {
-        Args: { _resource_company_id: string; _resource_user_id: string }
-        Returns: boolean
-      }
     }
     Enums: {
       app_role: "admin" | "user"

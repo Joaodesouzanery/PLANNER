@@ -1,12 +1,12 @@
-import { useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, AlertTriangle, Clock, Target, ListTodo, FolderKanban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow, differenceInDays, parseISO, isBefore } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { useCompanyQuery } from "@/hooks/useCompanyQuery";
 
 interface NotificationItem {
   id: string;
@@ -20,77 +20,51 @@ interface NotificationItem {
 }
 
 export const DueDateNotifications = () => {
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
-  const [hasNewNotifications, setHasNewNotifications] = useState(true);
+  const [hasNewNotifications, setHasNewNotifications] = useState(false);
 
-  const { data: projects = [] } = useCompanyQuery({
-    table: "projects",
-    filters: [
-      { column: "due_date", operator: "not", value: null },
-      { column: "status", operator: "neq", value: "done" },
-    ],
-    orderBy: { column: "due_date" },
-    staleTime: 300000,
-    refetchInterval: 300000,
-    extraKeys: ["notifications"],
-  });
-
-  const { data: tasks = [] } = useCompanyQuery({
-    table: "tasks",
-    select: "id, title, due_date, status, priority",
-    filters: [
-      { column: "due_date", operator: "not", value: null },
-      { column: "status", operator: "neq", value: "completed" },
-    ],
-    orderBy: { column: "due_date" },
-    staleTime: 300000,
-    refetchInterval: 300000,
-    extraKeys: ["notifications"],
-  });
-
-  const { data: milestones = [] } = useCompanyQuery({
-    table: "planning_milestones",
-    filters: [
-      { column: "due_date", operator: "not", value: null },
-      { column: "completed", operator: "eq", value: false },
-    ],
-    orderBy: { column: "due_date" },
-    staleTime: 300000,
-    refetchInterval: 300000,
-    extraKeys: ["notifications"],
-  });
-
-  const notifications = useMemo(() => {
+  const fetchAll = async () => {
     const today = new Date();
     const items: NotificationItem[] = [];
 
-    (projects as any[]).forEach((p) => {
+    const [projectsRes, tasksRes, milestonesRes] = await Promise.all([
+      supabase.from("projects").select("*").not("due_date", "is", null).neq("status", "done").order("due_date"),
+      supabase.from("tasks").select("id, title, due_date, status, priority").not("due_date", "is", null).neq("status", "completed").order("due_date"),
+      supabase.from("planning_milestones").select("id, title, due_date, completed").not("due_date", "is", null).eq("completed", false).order("due_date"),
+    ]);
+
+    projectsRes.data?.forEach((p: any) => {
       if (!p.due_date) return;
       const days = differenceInDays(parseISO(p.due_date), today);
       const overdue = isBefore(parseISO(p.due_date), today);
-      if (overdue || days <= 7)
-        items.push({ id: p.id, title: p.title, type: "project", dueDate: p.due_date, daysUntilDue: days, isOverdue: overdue, priority: p.priority, client: p.client });
+      if (overdue || days <= 7) items.push({ id: p.id, title: p.title, type: "project", dueDate: p.due_date, daysUntilDue: days, isOverdue: overdue, priority: p.priority, client: p.client });
     });
 
-    (tasks as any[]).forEach((t) => {
+    tasksRes.data?.forEach((t: any) => {
       if (!t.due_date) return;
       const days = differenceInDays(parseISO(t.due_date), today);
       const overdue = isBefore(parseISO(t.due_date), today);
-      if (overdue || days <= 5)
-        items.push({ id: t.id, title: t.title, type: "task", dueDate: t.due_date, daysUntilDue: days, isOverdue: overdue, priority: t.priority });
+      if (overdue || days <= 5) items.push({ id: t.id, title: t.title, type: "task", dueDate: t.due_date, daysUntilDue: days, isOverdue: overdue, priority: t.priority });
     });
 
-    (milestones as any[]).forEach((m) => {
+    milestonesRes.data?.forEach((m: any) => {
       if (!m.due_date) return;
       const days = differenceInDays(parseISO(m.due_date), today);
       const overdue = isBefore(parseISO(m.due_date), today);
-      if (overdue || days <= 7)
-        items.push({ id: m.id, title: m.title, type: "milestone", dueDate: m.due_date, daysUntilDue: days, isOverdue: overdue });
+      if (overdue || days <= 7) items.push({ id: m.id, title: m.title, type: "milestone", dueDate: m.due_date, daysUntilDue: days, isOverdue: overdue });
     });
 
     items.sort((a, b) => a.daysUntilDue - b.daysUntilDue);
-    return items;
-  }, [projects, tasks, milestones]);
+    setNotifications(items);
+    setHasNewNotifications(items.length > 0);
+  };
+
+  useEffect(() => {
+    fetchAll();
+    const interval = setInterval(fetchAll, 300000);
+    return () => { clearInterval(interval); };
+  }, []);
 
   const getTimeText = (n: NotificationItem) => {
     if (n.isOverdue) return `Atrasado há ${formatDistanceToNow(parseISO(n.dueDate), { locale: ptBR })}`;
@@ -119,7 +93,7 @@ export const DueDateNotifications = () => {
             overdueCount > 0 ? "bg-destructive text-destructive-foreground" : "bg-warning text-warning-foreground"
           )}>{notifications.length}</span>
         )}
-        {hasNewNotifications && notifications.length > 0 && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-destructive animate-pulse" />}
+        {hasNewNotifications && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-destructive animate-pulse" />}
       </Button>
 
       <AnimatePresence>
@@ -132,6 +106,7 @@ export const DueDateNotifications = () => {
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
               className="fixed left-2 right-2 bottom-20 sm:absolute sm:left-full sm:right-auto sm:bottom-0 sm:ml-2 w-auto sm:w-96 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden"
             >
+              {/* Header */}
               <div className="px-3 sm:px-4 py-3 border-b border-border bg-muted/50 flex items-center justify-between">
                 <div className="flex items-center gap-2"><Bell className="h-4 w-4 text-primary" /><span className="font-medium text-sm">Notificações</span></div>
                 <div className="flex items-center gap-1.5">
@@ -140,6 +115,7 @@ export const DueDateNotifications = () => {
                 </div>
               </div>
 
+              {/* List */}
               <div className="max-h-[60vh] sm:max-h-[400px] overflow-y-auto">
                 {notifications.length === 0 ? (
                   <div className="p-6 text-center text-muted-foreground">
