@@ -102,7 +102,7 @@ export const DueDateNotifications = () => {
           <>
             <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
             <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
+              className="absolute right-0 bottom-full mb-2 w-80 sm:w-96 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
               {/* Header */}
               <div className="px-4 py-3 border-b border-border bg-muted/50 flex items-center justify-between">
                 <div className="flex items-center gap-2"><Bell className="h-4 w-4 text-primary" /><span className="font-medium">Notificações</span></div>
