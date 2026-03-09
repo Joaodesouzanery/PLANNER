@@ -8,10 +8,13 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Edit2, Trash2, RefreshCw } from "lucide-react";
+import { Plus, Edit2, Trash2, RefreshCw, Download, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useFinanceData, fmtCurrency, type Transaction } from "./useFinanceData";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { toast } from "sonner";
 
 const FinanceTransactions = () => {
   const { transactions, allCategories, saveTransactionMutation, deleteTransactionMutation } = useFinanceData();
