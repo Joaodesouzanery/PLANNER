@@ -703,6 +703,127 @@ export type Database = {
           },
         ]
       }
+      faculdade_disciplinas: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          professor: string | null
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          professor?: string | null
+          user_id?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          professor?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      faculdade_provas: {
+        Row: {
+          created_at: string
+          disciplina_id: string | null
+          exam_date: string
+          grade: number | null
+          id: string
+          notes: string | null
+          priority: string
+          status: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          disciplina_id?: string | null
+          exam_date: string
+          grade?: number | null
+          id?: string
+          notes?: string | null
+          priority?: string
+          status?: string
+          title: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          disciplina_id?: string | null
+          exam_date?: string
+          grade?: number | null
+          id?: string
+          notes?: string | null
+          priority?: string
+          status?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "faculdade_provas_disciplina_id_fkey"
+            columns: ["disciplina_id"]
+            isOneToOne: false
+            referencedRelation: "faculdade_disciplinas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      faculdade_tarefas: {
+        Row: {
+          created_at: string
+          description: string | null
+          disciplina_id: string | null
+          due_date: string | null
+          id: string
+          priority: string
+          status: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          disciplina_id?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string
+          status?: string
+          title: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          disciplina_id?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string
+          status?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "faculdade_tarefas_disciplina_id_fkey"
+            columns: ["disciplina_id"]
+            isOneToOne: false
+            referencedRelation: "faculdade_disciplinas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_transactions: {
         Row: {
           amount: number
@@ -1158,6 +1279,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          checklist: Json | null
           client: string | null
           column_order: number | null
           company_id: string | null
@@ -1166,6 +1288,7 @@ export type Database = {
           due_date: string | null
           id: string
           labels: string[] | null
+          notes: string | null
           priority: string | null
           status: string
           title: string
@@ -1173,6 +1296,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          checklist?: Json | null
           client?: string | null
           column_order?: number | null
           company_id?: string | null
@@ -1181,6 +1305,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           labels?: string[] | null
+          notes?: string | null
           priority?: string | null
           status?: string
           title: string
@@ -1188,6 +1313,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          checklist?: Json | null
           client?: string | null
           column_order?: number | null
           company_id?: string | null
@@ -1196,6 +1322,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           labels?: string[] | null
+          notes?: string | null
           priority?: string | null
           status?: string
           title?: string
