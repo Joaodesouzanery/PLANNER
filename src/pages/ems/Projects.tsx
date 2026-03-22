@@ -40,6 +40,8 @@ interface Project {
   client: string | null;
   labels: string[] | null;
   company_id: string | null;
+  notes: string | null;
+  checklist: ChecklistItem[] | null;
 }
 
 interface KanbanColumn {
@@ -67,6 +69,12 @@ interface ExecutionRecord {
   result_obtained: string;
   lessons_learned: string;
   tags: string[];
+}
+
+interface ChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
 }
 
 const DEFAULT_COLUMNS: KanbanColumn[] = [
@@ -110,7 +118,11 @@ const Projects = () => {
   const [dashFrom, setDashFrom] = useState("");
   const [dashTo, setDashTo] = useState("");
 
-  const [projectForm, setProjectForm] = useState({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "" });
+  const [projectForm, setProjectForm] = useState({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "", status: "todo", notes: "" });
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
+  const [newCheckItem, setNewCheckItem] = useState("");
+  const [editingColumn, setEditingColumn] = useState<string | null>(null);
+  const [editColumnTitle, setEditColumnTitle] = useState("");
   const [executionForm, setExecutionForm] = useState<ExecutionRecord>({ action_taken: "", result_obtained: "", lessons_learned: "", tags: [] });
   const [tagInput, setTagInput] = useState("");
 
@@ -235,13 +247,22 @@ const Projects = () => {
 
   const handleUpdateProject = async () => {
     if (!editingProject) return;
+    const newStatus = projectForm.status;
+    if (newStatus === "done" && editingProject.status !== "done") {
+      setSelectedProject({ ...editingProject, status: newStatus });
+      setEditingProject(null);
+      setShowExecutionModal(true);
+      return;
+    }
     await supabase.from("projects").update({
       title: projectForm.title, description: projectForm.description, priority: projectForm.priority,
       due_date: projectForm.due_date || null, client: projectForm.client || null,
       labels: projectForm.labels ? projectForm.labels.split(",").map(l => l.trim()).filter(Boolean) : [],
+      status: newStatus, notes: projectForm.notes || null, checklist: checklistItems,
     }).eq("id", editingProject.id);
     setEditingProject(null);
-    setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "" });
+    setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "", status: "todo", notes: "" });
+    setChecklistItems([]);
     fetchProjects();
     toast({ title: "Projeto atualizado!" });
   };
@@ -347,6 +368,32 @@ const Projects = () => {
     }
     setColumns(columns.filter(c => c.id !== columnId));
     toast({ title: "Coluna removida!" });
+  };
+
+  const renameColumn = async (columnId: string, newTitle: string) => {
+    if (!newTitle.trim()) return;
+    const col = columns.find(c => c.id === columnId);
+    if (col?.dbId) {
+      await supabase.from("kanban_columns").update({ title: newTitle }).eq("id", col.dbId);
+    }
+    setColumns(columns.map(c => c.id === columnId ? { ...c, title: newTitle } : c));
+    setEditingColumn(null);
+    setEditColumnTitle("");
+    toast({ title: "Coluna renomeada!" });
+  };
+
+  const addChecklistItem = () => {
+    if (!newCheckItem.trim()) return;
+    setChecklistItems([...checklistItems, { id: Date.now().toString(), text: newCheckItem.trim(), done: false }]);
+    setNewCheckItem("");
+  };
+
+  const toggleChecklistItem = (id: string) => {
+    setChecklistItems(checklistItems.map(item => item.id === id ? { ...item, done: !item.done } : item));
+  };
+
+  const removeChecklistItem = (id: string) => {
+    setChecklistItems(checklistItems.filter(item => item.id !== id));
   };
 
   const getProjectsByStatus = (status: string) => {
@@ -463,12 +510,27 @@ const Projects = () => {
                             <div ref={provided.innerRef} {...provided.draggableProps} className={cn("flex-shrink-0 w-[72vw] sm:w-72 md:w-80 snap-center", snapshot.isDragging && "opacity-75")}>
                               <Card className="bg-card/60 backdrop-blur-sm border-border/50 overflow-hidden">
                                 <CardHeader {...provided.dragHandleProps} className={cn("py-2.5 md:py-3 px-3 md:px-4 flex flex-row items-center justify-between cursor-grab active:cursor-grabbing bg-gradient-to-r", colStyle.bg)}>
-                                  <div className="flex items-center gap-2">
-                                    <div className={cn("h-2 w-2 rounded-full", colStyle.dot)} />
-                                    <CardTitle className="text-xs md:text-sm font-medium">{column.title}</CardTitle>
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <div className={cn("h-2 w-2 rounded-full shrink-0", colStyle.dot)} />
+                                    {editingColumn === column.id ? (
+                                      <Input
+                                        value={editColumnTitle}
+                                        onChange={e => setEditColumnTitle(e.target.value)}
+                                        onKeyDown={e => { if (e.key === "Enter") renameColumn(column.id, editColumnTitle); if (e.key === "Escape") setEditingColumn(null); }}
+                                        onBlur={() => renameColumn(column.id, editColumnTitle)}
+                                        className="h-6 text-xs px-1 py-0 font-medium"
+                                        autoFocus
+                                        onClick={e => e.stopPropagation()}
+                                      />
+                                    ) : (
+                                      <CardTitle className="text-xs md:text-sm font-medium truncate">{column.title}</CardTitle>
+                                    )}
                                   </div>
-                                  <div className="flex items-center gap-1.5">
+                                  <div className="flex items-center gap-1">
                                     <Badge variant="secondary" className="text-[10px] md:text-xs font-mono bg-background/50 px-1.5">{colProjects.length}</Badge>
+                                    <Button variant="ghost" size="icon" className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground hover:text-foreground" onClick={e => { e.stopPropagation(); setEditingColumn(column.id); setEditColumnTitle(column.title); }}>
+                                      <Edit2 className="h-3 w-3" />
+                                    </Button>
                                     {!column.isDefault && (
                                       <Button variant="ghost" size="icon" className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground hover:text-destructive" onClick={() => deleteColumn(column.id)}>
                                         <Trash2 className="h-3 w-3" />
@@ -513,7 +575,8 @@ const Projects = () => {
                                                   <div className="flex gap-0.5 shrink-0">
                                                     <Button variant="ghost" size="icon" className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground hover:text-foreground" onClick={() => {
                                                       setEditingProject(project);
-                                                      setProjectForm({ title: project.title, description: project.description || "", priority: project.priority, due_date: project.due_date || "", client: project.client || "", labels: project.labels?.join(", ") || "" });
+                                                      setProjectForm({ title: project.title, description: project.description || "", priority: project.priority, due_date: project.due_date || "", client: project.client || "", labels: project.labels?.join(", ") || "", status: project.status, notes: project.notes || "" });
+                                                      setChecklistItems(Array.isArray(project.checklist) ? project.checklist : []);
                                                     }}>
                                                       <Edit2 className="h-2.5 w-2.5 md:h-3 md:w-3" />
                                                     </Button>
@@ -540,6 +603,12 @@ const Projects = () => {
                                                     </span>
                                                   )}
                                                   {isOverdue && <Badge variant="destructive" className="text-[9px] md:text-[10px] px-1 py-0 animate-pulse">Atrasado</Badge>}
+                                                  {project.notes && <span title="Tem notas" className="text-muted-foreground/60"><FileText className="h-2.5 w-2.5" /></span>}
+                                                  {Array.isArray(project.checklist) && project.checklist.length > 0 && (
+                                                    <span className="text-[9px] md:text-[10px] text-muted-foreground font-mono">
+                                                      ☑ {project.checklist.filter(i => i.done).length}/{project.checklist.length}
+                                                    </span>
+                                                  )}
                                                 </div>
                                               </div>
                                             )}
@@ -725,11 +794,11 @@ const Projects = () => {
 
         {/* Add/Edit Project Dialog */}
         <Dialog open={showAddProject || !!editingProject} onOpenChange={(open) => {
-          if (!open) { setShowAddProject(false); setEditingProject(null); setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "" }); }
+          if (!open) { setShowAddProject(false); setEditingProject(null); setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "", status: "todo", notes: "" }); setChecklistItems([]); setNewCheckItem(""); }
         }}>
-          <DialogContent className="max-w-[95vw] sm:max-w-lg">
+          <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] flex flex-col">
             <DialogHeader><DialogTitle className="text-base md:text-lg">{editingProject ? "Editar Projeto" : "Novo Projeto"}</DialogTitle></DialogHeader>
-            <div className="space-y-3 md:space-y-4 py-2 md:py-4">
+            <div className="space-y-3 md:space-y-4 py-2 md:py-4 overflow-y-auto flex-1 pr-1">
               <div><Label className="text-xs md:text-sm">Título</Label><Input value={projectForm.title} onChange={(e) => setProjectForm({ ...projectForm, title: e.target.value })} placeholder="Nome do projeto" className="text-sm" /></div>
               <div><Label className="text-xs md:text-sm">Descrição</Label><Textarea value={projectForm.description} onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })} placeholder="Descrição do projeto" className="text-sm" /></div>
               <div><Label className="text-xs md:text-sm">Cliente / Empresa</Label><Input value={projectForm.client} onChange={(e) => setProjectForm({ ...projectForm, client: e.target.value })} placeholder="Nome do cliente ou empresa" className="text-sm" /></div>
@@ -747,6 +816,38 @@ const Projects = () => {
                   </Select>
                 </div>
                 <div><Label className="text-xs md:text-sm">Data de Entrega</Label><Input type="date" value={projectForm.due_date} onChange={(e) => setProjectForm({ ...projectForm, due_date: e.target.value })} className="text-sm" /></div>
+              </div>
+              {editingProject && (
+                <div>
+                  <Label className="text-xs md:text-sm">Coluna / Status</Label>
+                  <Select value={projectForm.status} onValueChange={(v) => setProjectForm({ ...projectForm, status: v })}>
+                    <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {columns.map(col => (
+                        <SelectItem key={col.id} value={col.id}>{col.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div><Label className="text-xs md:text-sm">Notas internas</Label><Textarea value={projectForm.notes} onChange={(e) => setProjectForm({ ...projectForm, notes: e.target.value })} placeholder="Anotações, contexto, observações..." className="text-sm" rows={3} /></div>
+              <div>
+                <Label className="text-xs md:text-sm">Checklist</Label>
+                <div className="flex gap-2 mt-1.5">
+                  <Input value={newCheckItem} onChange={e => setNewCheckItem(e.target.value)} placeholder="Novo item..." className="text-sm" onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addChecklistItem(); } }} />
+                  <Button type="button" variant="outline" size="sm" onClick={addChecklistItem}><Plus className="h-3.5 w-3.5" /></Button>
+                </div>
+                {checklistItems.length > 0 && (
+                  <div className="space-y-1 mt-2 max-h-32 overflow-y-auto">
+                    {checklistItems.map(item => (
+                      <div key={item.id} className="flex items-center gap-2 p-1.5 rounded bg-muted/30">
+                        <input type="checkbox" checked={item.done} onChange={() => toggleChecklistItem(item.id)} className="h-3.5 w-3.5 accent-primary" />
+                        <span className={cn("flex-1 text-xs", item.done && "line-through text-muted-foreground")}>{item.text}</span>
+                        <Button type="button" variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-destructive" onClick={() => removeChecklistItem(item.id)}><X className="h-3 w-3" /></Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
               {editingProject && (

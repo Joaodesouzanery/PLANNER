@@ -30,6 +30,7 @@ const Executive = lazy(() => import("./pages/ems/Executive"));
 const Timesheet = lazy(() => import("./pages/ems/Timesheet"));
 const CommercialStructure = lazy(() => import("./pages/ems/CommercialStructure"));
 const CommercialComparison = lazy(() => import("./pages/ems/CommercialComparison"));
+const Faculdade = lazy(() => import("./pages/ems/Faculdade"));
 const EMSLogin = lazy(() => import("./pages/ems/Login"));
 const ResetPassword = lazy(() => import("./pages/ems/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -97,6 +98,7 @@ const App = () => (
               <Route path="/ems/executive" element={<ProtectedPage><Executive /></ProtectedPage>} />
               <Route path="/ems/timesheet" element={<ProtectedPage><Timesheet /></ProtectedPage>} />
               <Route path="/ems/companies" element={<ProtectedPage><Companies /></ProtectedPage>} />
+              <Route path="/ems/faculdade" element={<ProtectedPage><Faculdade /></ProtectedPage>} />
 
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />

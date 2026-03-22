@@ -5,12 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { motion } from "framer-motion";
-import { Plus, Trash2, DollarSign, PiggyBank, Calculator, Clock, Percent } from "lucide-react";
+import { Plus, Trash2, DollarSign, PiggyBank, Calculator, Clock, Percent, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFinanceData, fmtCurrency } from "./useFinanceData";
+import { usePlanningData } from "@/hooks/usePlanningData";
 
 const FinanceCalculator = () => {
   const { monthlyData, toast } = useFinanceData();
+  const { saveGoalMutation } = usePlanningData();
   const [calcGoals, setCalcGoals] = useState<{ id: number; name: string; amount: number }[]>([{ id: 1, name: "", amount: 0 }]);
   const [calcIncome, setCalcIncome] = useState(0);
   const [calcCurrentExpenses, setCalcCurrentExpenses] = useState(0);
@@ -32,6 +34,26 @@ const FinanceCalculator = () => {
   const addCalcGoal = () => setCalcGoals([...calcGoals, { id: Date.now(), name: "", amount: 0 }]);
   const removeCalcGoal = (id: number) => setCalcGoals(calcGoals.filter(g => g.id !== id));
   const updateCalcGoal = (id: number, field: "name" | "amount", value: string | number) => setCalcGoals(calcGoals.map(g => g.id === id ? { ...g, [field]: value } : g));
+
+  const saveAsPlanningGoal = (goal: { name: string; amount: number }) => {
+    if (!goal.name.trim()) {
+      toast({ title: "Erro", description: "Nome da meta é obrigatório", variant: "destructive" });
+      return;
+    }
+    saveGoalMutation.mutate({
+      form: {
+        title: goal.name,
+        description: `Meta de gasto: ${fmtCurrency(goal.amount)}`,
+        category: "financial",
+        status: "pending",
+        start_date: "",
+        end_date: "",
+        parent_id: "",
+        okr_id: "",
+        project_id: "",
+      }
+    });
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -65,6 +87,7 @@ const FinanceCalculator = () => {
               <motion.div key={goal.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex gap-2 items-end">
                 <div className="flex-1"><Label className="text-xs text-muted-foreground">Com o quê?</Label><Input value={goal.name} onChange={e => updateCalcGoal(goal.id, "name", e.target.value)} placeholder="Ex: Carro, Viagem..." className="mt-1 rounded-xl text-sm" /></div>
                 <div className="w-32"><Label className="text-xs text-muted-foreground">Quanto? (R$)</Label><Input type="number" value={goal.amount || ""} onChange={e => updateCalcGoal(goal.id, "amount", Number(e.target.value))} placeholder="0,00" className="mt-1 rounded-xl font-mono text-sm" /></div>
+                {goal.name && goal.amount > 0 && <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl" onClick={() => saveAsPlanningGoal(goal)} title="Salvar como Meta de Planejamento"><Target className="h-3.5 w-3.5" /></Button>}
                 {calcGoals.length > 1 && <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl" onClick={() => removeCalcGoal(goal.id)}><Trash2 className="h-3.5 w-3.5" /></Button>}
               </motion.div>
             ))}

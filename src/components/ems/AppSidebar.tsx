@@ -27,6 +27,7 @@ import {
   Briefcase,
   ClipboardList,
   LogOut,
+  GraduationCap,
   User as UserIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -74,6 +75,7 @@ const menuGroups: MenuGroup[] = [
       { icon: CalendarDays, label: "Calendário", path: "/ems/calendar" },
       { icon: StickyNote, label: "Notas Rápidas", path: "/ems/quick-notes" },
       { icon: BookOpen, label: "Knowledge Base", path: "/ems/knowledge" },
+      { icon: GraduationCap, label: "Faculdade", path: "/ems/faculdade" },
     ],
   },
   {

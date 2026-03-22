@@ -6,14 +6,16 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
-import { ShoppingCart, Calculator, Copy, FileText } from "lucide-react";
+import { ShoppingCart, Calculator, Copy, FileText, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResponsiveContainer, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip } from "recharts";
 import jsPDF from "jspdf";
 import { useFinanceData, fmtCurrency, tooltipStyle } from "./useFinanceData";
+import { usePlanningData } from "@/hooks/usePlanningData";
 
 const FinanceSimulator = () => {
   const { monthlyData, toast } = useFinanceData();
+  const { saveGoalMutation } = usePlanningData();
   const [simItemName, setSimItemName] = useState("");
   const [simItemPrice, setSimItemPrice] = useState(0);
   const [simMonthlyIncome, setSimMonthlyIncome] = useState(0);
@@ -56,6 +58,30 @@ const FinanceSimulator = () => {
     setSimMonthlyIncome(Math.round(avgInc));
     setSimMonthlyExpenses(Math.round(avgExp));
     toast({ title: "Valores preenchidos com base na média dos últimos 3 meses" });
+  };
+
+  const saveAsPlanningGoal = () => {
+    if (!simItemName.trim()) {
+      toast({ title: "Erro", description: "Nome do item é obrigatório", variant: "destructive" });
+      return;
+    }
+    if (simItemPrice <= 0) {
+      toast({ title: "Erro", description: "Preço deve ser maior que zero", variant: "destructive" });
+      return;
+    }
+    saveGoalMutation.mutate({
+      form: {
+        title: simItemName,
+        description: `Meta de compra: ${fmtCurrency(simItemPrice)}`,
+        category: "financial",
+        status: "pending",
+        start_date: "",
+        end_date: "",
+        parent_id: "",
+        okr_id: "",
+        project_id: "",
+      }
+    });
   };
 
   const handleCopy = () => {
@@ -136,6 +162,11 @@ const FinanceSimulator = () => {
             <p className="text-xs text-muted-foreground">Parcelas não devem comprometer mais de <span className="text-amber-400 font-bold">30%</span> da sua renda.</p>
           </CardContent>
         </Card>
+        {simItemName && simItemPrice > 0 && (
+          <Button variant="outline" className="w-full rounded-xl border-primary/30 hover:bg-primary/10" onClick={saveAsPlanningGoal}>
+            <Target className="h-4 w-4 mr-2" />Salvar Item como Meta de Planejamento
+          </Button>
+        )}
       </div>
 
       <div className="space-y-4">
