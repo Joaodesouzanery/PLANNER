@@ -15,7 +15,7 @@ import { usePlanningData } from "@/hooks/usePlanningData";
 
 const FinanceSimulator = () => {
   const { monthlyData, toast } = useFinanceData();
-  const { saveGoalMutation } = usePlanningData();
+  const { saveGoal } = usePlanningData();
   const [simItemName, setSimItemName] = useState("");
   const [simItemPrice, setSimItemPrice] = useState(0);
   const [simMonthlyIncome, setSimMonthlyIncome] = useState(0);
@@ -69,7 +69,7 @@ const FinanceSimulator = () => {
       toast({ title: "Erro", description: "Preço deve ser maior que zero", variant: "destructive" });
       return;
     }
-    saveGoalMutation.mutate({
+    saveGoal({
       form: {
         title: simItemName,
         description: `Meta de compra: ${fmtCurrency(simItemPrice)}`,

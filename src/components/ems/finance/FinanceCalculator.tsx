@@ -12,7 +12,7 @@ import { usePlanningData } from "@/hooks/usePlanningData";
 
 const FinanceCalculator = () => {
   const { monthlyData, toast } = useFinanceData();
-  const { saveGoalMutation } = usePlanningData();
+  const { saveGoal } = usePlanningData();
   const [calcGoals, setCalcGoals] = useState<{ id: number; name: string; amount: number }[]>([{ id: 1, name: "", amount: 0 }]);
   const [calcIncome, setCalcIncome] = useState(0);
   const [calcCurrentExpenses, setCalcCurrentExpenses] = useState(0);
@@ -40,7 +40,7 @@ const FinanceCalculator = () => {
       toast({ title: "Erro", description: "Nome da meta é obrigatório", variant: "destructive" });
       return;
     }
-    saveGoalMutation.mutate({
+    saveGoal({
       form: {
         title: goal.name,
         description: `Meta de gasto: ${fmtCurrency(goal.amount)}`,

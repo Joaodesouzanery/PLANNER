@@ -19,7 +19,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 };
 
 const FinanceMetas = () => {
-  const { goals, deleteGoal, saveGoalMutation } = usePlanningData();
+  const { goals, deleteGoal, saveGoal } = usePlanningData();
   const navigate = useNavigate();
   const [filter, setFilter] = useState<"all" | "pending" | "in_progress" | "completed">("all");
 
@@ -27,8 +27,8 @@ const FinanceMetas = () => {
   const filtered = filter === "all" ? financialGoals : financialGoals.filter(g => g.status === filter);
 
   const markCompleted = (id: string, currentGoal: typeof goals[0]) => {
-    saveGoalMutation.mutate({
-      id,
+    saveGoal({
+      editId: id,
       form: {
         title: currentGoal.title,
         description: currentGoal.description || "",
@@ -127,7 +127,7 @@ const FinanceMetas = () => {
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" title="Ver em Planejamento" onClick={() => navigate("/ems/planning")}>
                         <ExternalLink className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" title="Excluir" onClick={() => deleteGoal.mutate(goal.id)}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" title="Excluir" onClick={() => deleteGoal(goal.id)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
