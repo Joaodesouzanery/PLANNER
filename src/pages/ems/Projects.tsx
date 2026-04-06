@@ -157,12 +157,12 @@ const Projects = () => {
     let query = supabase.from("projects").select("*").order("column_order", { ascending: true, nullsFirst: false });
     if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
     const { data } = await query;
-    if (data) setProjects(data as Project[]);
+    if (data) setProjects(data as unknown as Project[]);
   };
 
   const fetchReportProjects = async () => {
     const { data } = await supabase.from("projects").select("*").eq("status", "done");
-    if (data) setAllProjects(data as Project[]);
+    if (data) setAllProjects(data as unknown as Project[]);
   };
 
   const openReport = () => {
@@ -239,7 +239,7 @@ const Projects = () => {
       company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
       client: projectForm.client || null, labels: projectForm.labels ? projectForm.labels.split(",").map(l => l.trim()).filter(Boolean) : [],
     });
-    setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "" });
+    setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "", status: "todo", notes: "" });
     setShowAddProject(false);
     fetchProjects();
     toast({ title: "Projeto criado!" });
@@ -258,7 +258,7 @@ const Projects = () => {
       title: projectForm.title, description: projectForm.description, priority: projectForm.priority,
       due_date: projectForm.due_date || null, client: projectForm.client || null,
       labels: projectForm.labels ? projectForm.labels.split(",").map(l => l.trim()).filter(Boolean) : [],
-      status: newStatus, notes: projectForm.notes || null, checklist: checklistItems,
+      status: newStatus, notes: projectForm.notes || null, checklist: checklistItems as unknown as any,
     }).eq("id", editingProject.id);
     setEditingProject(null);
     setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "", status: "todo", notes: "" });

@@ -57,7 +57,7 @@ const PageLoader = () => (
 );
 
 const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
-  <>{children}</>
+  <ProtectedEMSRoute>{children}</ProtectedEMSRoute>
 );
 
 const App = () => (
