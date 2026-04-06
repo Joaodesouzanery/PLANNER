@@ -157,7 +157,7 @@ const Projects = () => {
     let query = supabase.from("projects").select("*").order("column_order", { ascending: true, nullsFirst: false });
     if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
     const { data } = await query;
-    if (data) setProjects(data as Project[]);
+    if (data) setProjects(data as unknown as Project[]);
   };
 
   const fetchReportProjects = async () => {
