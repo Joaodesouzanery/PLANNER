@@ -239,7 +239,7 @@ const Projects = () => {
       company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
       client: projectForm.client || null, labels: projectForm.labels ? projectForm.labels.split(",").map(l => l.trim()).filter(Boolean) : [],
     });
-    setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "" });
+    setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "", status: "todo", notes: "" });
     setShowAddProject(false);
     fetchProjects();
     toast({ title: "Projeto criado!" });
