@@ -705,8 +705,8 @@ export type Database = {
       }
       faculdade_disciplinas: {
         Row: {
-          color: string
-          created_at: string
+          color: string | null
+          created_at: string | null
           id: string
           name: string
           notes: string | null
@@ -714,8 +714,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          color?: string
-          created_at?: string
+          color?: string | null
+          created_at?: string | null
           id?: string
           name: string
           notes?: string | null
@@ -723,8 +723,8 @@ export type Database = {
           user_id?: string
         }
         Update: {
-          color?: string
-          created_at?: string
+          color?: string | null
+          created_at?: string | null
           id?: string
           name?: string
           notes?: string | null
@@ -735,38 +735,38 @@ export type Database = {
       }
       faculdade_provas: {
         Row: {
-          created_at: string
+          created_at: string | null
           disciplina_id: string | null
           exam_date: string
           grade: number | null
           id: string
           notes: string | null
-          priority: string
-          status: string
+          priority: string | null
+          status: string | null
           title: string
           user_id: string
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           disciplina_id?: string | null
           exam_date: string
           grade?: number | null
           id?: string
           notes?: string | null
-          priority?: string
-          status?: string
+          priority?: string | null
+          status?: string | null
           title: string
           user_id?: string
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           disciplina_id?: string | null
           exam_date?: string
           grade?: number | null
           id?: string
           notes?: string | null
-          priority?: string
-          status?: string
+          priority?: string | null
+          status?: string | null
           title?: string
           user_id?: string
         }
@@ -782,35 +782,35 @@ export type Database = {
       }
       faculdade_tarefas: {
         Row: {
-          created_at: string
+          created_at: string | null
           description: string | null
           disciplina_id: string | null
           due_date: string | null
           id: string
-          priority: string
-          status: string
+          priority: string | null
+          status: string | null
           title: string
           user_id: string
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           disciplina_id?: string | null
           due_date?: string | null
           id?: string
-          priority?: string
-          status?: string
+          priority?: string | null
+          status?: string | null
           title: string
           user_id?: string
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           disciplina_id?: string | null
           due_date?: string | null
           id?: string
-          priority?: string
-          status?: string
+          priority?: string | null
+          status?: string | null
           title?: string
           user_id?: string
         }
