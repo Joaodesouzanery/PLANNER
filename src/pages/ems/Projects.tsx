@@ -162,7 +162,7 @@ const Projects = () => {
 
   const fetchReportProjects = async () => {
     const { data } = await supabase.from("projects").select("*").eq("status", "done");
-    if (data) setAllProjects(data as Project[]);
+    if (data) setAllProjects(data as unknown as Project[]);
   };
 
   const openReport = () => {
