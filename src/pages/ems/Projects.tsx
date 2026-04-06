@@ -258,7 +258,7 @@ const Projects = () => {
       title: projectForm.title, description: projectForm.description, priority: projectForm.priority,
       due_date: projectForm.due_date || null, client: projectForm.client || null,
       labels: projectForm.labels ? projectForm.labels.split(",").map(l => l.trim()).filter(Boolean) : [],
-      status: newStatus, notes: projectForm.notes || null, checklist: checklistItems,
+      status: newStatus, notes: projectForm.notes || null, checklist: checklistItems as unknown as any,
     }).eq("id", editingProject.id);
     setEditingProject(null);
     setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "", status: "todo", notes: "" });
