@@ -431,12 +431,50 @@ const Tasks = () => {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
           {(["all", "pending", "completed"] as const).map((f) => (
             <Button key={f} variant={filter === f ? "default" : "outline"} size="sm" onClick={() => setFilter(f)}>
               {f === "all" ? "Todas" : f === "pending" ? "Pendentes" : "Concluídas"}
             </Button>
           ))}
+
+          <div className="w-px h-6 bg-border self-center mx-1" />
+
+          {/* Project filter */}
+          <Select value={projectFilter} onValueChange={setProjectFilter}>
+            <SelectTrigger className="h-8 w-[200px] text-xs">
+              <FolderKanban className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+              <SelectValue placeholder="Projeto" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os projetos</SelectItem>
+              <SelectItem value="none">Sem projeto</SelectItem>
+              {projects.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* View mode toggle */}
+          <div className="inline-flex rounded-md border border-border overflow-hidden">
+            <Button
+              size="sm"
+              variant={viewMode === "list" ? "default" : "ghost"}
+              className="h-8 rounded-none gap-1"
+              onClick={() => setViewMode("list")}
+            >
+              <LayoutList className="h-3.5 w-3.5" /> Lista
+            </Button>
+            <Button
+              size="sm"
+              variant={viewMode === "byProject" ? "default" : "ghost"}
+              className="h-8 rounded-none gap-1"
+              onClick={() => setViewMode("byProject")}
+            >
+              <FolderTree className="h-3.5 w-3.5" /> Por Projeto
+            </Button>
+          </div>
+
           {allTags.length > 0 && (
             <>
               <div className="w-px h-6 bg-border self-center mx-1" />
