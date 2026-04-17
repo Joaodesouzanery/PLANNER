@@ -17,6 +17,7 @@ import {
   FolderKanban, LayoutList, FolderTree,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { format, isWithinInterval, parseISO, startOfDay, endOfDay } from "date-fns";
@@ -215,6 +216,26 @@ const Tasks = () => {
       toast({ title: "Tarefa removida" });
     },
   });
+
+  const reassignProjectMutation = useMutation({
+    mutationFn: async ({ taskId, projectId }: { taskId: string; projectId: string | null }) => {
+      const { error } = await supabase.from("tasks").update({ project_id: projectId }).eq("id", taskId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects-pending-task-counts"] });
+      toast({ title: "Projeto da tarefa atualizado!" });
+    },
+  });
+
+  const handleDragEndByProject = (result: DropResult) => {
+    const { destination, source, draggableId } = result;
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId) return;
+    const newProjectId = destination.droppableId === "__none__" ? null : destination.droppableId;
+    reassignProjectMutation.mutate({ taskId: draggableId, projectId: newProjectId });
+  };
 
   const addSubtask = async (parentId: string) => {
     if (!subtaskInput.trim()) return;
