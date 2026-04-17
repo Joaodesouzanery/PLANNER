@@ -115,6 +115,7 @@ const Projects = () => {
   const [reportTo, setReportTo] = useState("");
   const [reportCompanyId, setReportCompanyId] = useState<string>("current");
   const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [pendingTaskCounts, setPendingTaskCounts] = useState<Record<string, number>>({});
   const [dashFrom, setDashFrom] = useState("");
   const [dashTo, setDashTo] = useState("");
 
@@ -151,7 +152,20 @@ const Projects = () => {
   useEffect(() => {
     fetchProjects();
     fetchColumns();
+    fetchPendingTaskCounts();
   }, [selectedCompanyId]);
+
+  const fetchPendingTaskCounts = async () => {
+    let q = supabase.from("tasks").select("project_id").neq("status", "completed").not("project_id", "is", null);
+    if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
+    const { data } = await q;
+    if (!data) return;
+    const counts: Record<string, number> = {};
+    for (const row of data as { project_id: string | null }[]) {
+      if (row.project_id) counts[row.project_id] = (counts[row.project_id] || 0) + 1;
+    }
+    setPendingTaskCounts(counts);
+  };
 
   const fetchProjects = async () => {
     let query = supabase.from("projects").select("*").order("column_order", { ascending: true, nullsFirst: false });
@@ -608,6 +622,12 @@ const Projects = () => {
                                                     <span className="text-[9px] md:text-[10px] text-muted-foreground font-mono">
                                                       ☑ {project.checklist.filter(i => i.done).length}/{project.checklist.length}
                                                     </span>
+                                                  )}
+                                                  {(pendingTaskCounts[project.id] || 0) > 0 && (
+                                                    <Badge variant="secondary" className="text-[9px] md:text-[10px] px-1 md:px-1.5 gap-0.5 bg-primary/10 text-primary border border-primary/20">
+                                                      <Clock className="h-2.5 w-2.5" />
+                                                      {pendingTaskCounts[project.id]} {pendingTaskCounts[project.id] === 1 ? "tarefa" : "tarefas"}
+                                                    </Badge>
                                                   )}
                                                 </div>
                                               </div>

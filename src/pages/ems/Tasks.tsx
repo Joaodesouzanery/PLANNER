@@ -17,6 +17,7 @@ import {
   FolderKanban, LayoutList, FolderTree,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { format, isWithinInterval, parseISO, startOfDay, endOfDay } from "date-fns";
@@ -215,6 +216,26 @@ const Tasks = () => {
       toast({ title: "Tarefa removida" });
     },
   });
+
+  const reassignProjectMutation = useMutation({
+    mutationFn: async ({ taskId, projectId }: { taskId: string; projectId: string | null }) => {
+      const { error } = await supabase.from("tasks").update({ project_id: projectId }).eq("id", taskId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects-pending-task-counts"] });
+      toast({ title: "Projeto da tarefa atualizado!" });
+    },
+  });
+
+  const handleDragEndByProject = (result: DropResult) => {
+    const { destination, source, draggableId } = result;
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId) return;
+    const newProjectId = destination.droppableId === "__none__" ? null : destination.droppableId;
+    reassignProjectMutation.mutate({ taskId: draggableId, projectId: newProjectId });
+  };
 
   const addSubtask = async (parentId: string) => {
     if (!subtaskInput.trim()) return;
@@ -660,22 +681,50 @@ const Tasks = () => {
 
                 if (viewMode === "byProject") {
                   return (
-                    <div className="space-y-4">
-                      {groupedByProject.map((group) => (
-                        <div key={group.id || "__none__"} className="space-y-1.5">
-                          <div className="flex items-center gap-2 px-1 py-1.5 sticky top-0 bg-card/90 backdrop-blur-sm z-10 border-b border-border/40">
-                            <FolderKanban className={cn("h-4 w-4", group.id ? "text-primary" : "text-muted-foreground")} />
-                            <h3 className="font-semibold text-sm text-foreground">{group.title}</h3>
-                            <Badge variant="outline" className="ml-auto font-mono text-[10px]">{group.tasks.length}</Badge>
-                          </div>
-                          <div className="space-y-1.5">
-                            <AnimatePresence>
-                              {group.tasks.map((t) => renderTaskItem(t))}
-                            </AnimatePresence>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <DragDropContext onDragEnd={handleDragEndByProject}>
+                      <div className="space-y-4">
+                        {groupedByProject.map((group) => {
+                          const droppableId = group.id || "__none__";
+                          return (
+                            <Droppable key={droppableId} droppableId={droppableId} type="TASK">
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.droppableProps}
+                                  className={cn(
+                                    "space-y-1.5 rounded-lg p-1 transition-colors",
+                                    snapshot.isDraggingOver && "bg-primary/5 ring-1 ring-primary/30"
+                                  )}
+                                >
+                                  <div className="flex items-center gap-2 px-1 py-1.5 sticky top-0 bg-card/90 backdrop-blur-sm z-10 border-b border-border/40">
+                                    <FolderKanban className={cn("h-4 w-4", group.id ? "text-primary" : "text-muted-foreground")} />
+                                    <h3 className="font-semibold text-sm text-foreground">{group.title}</h3>
+                                    <Badge variant="outline" className="ml-auto font-mono text-[10px]">{group.tasks.length}</Badge>
+                                  </div>
+                                  <div className="space-y-1.5 min-h-[40px]">
+                                    {group.tasks.map((t, idx) => (
+                                      <Draggable key={t.id} draggableId={t.id} index={idx}>
+                                        {(prov, snap) => (
+                                          <div
+                                            ref={prov.innerRef}
+                                            {...prov.draggableProps}
+                                            {...prov.dragHandleProps}
+                                            className={cn(snap.isDragging && "opacity-80 shadow-lg")}
+                                          >
+                                            {renderTaskItem(t)}
+                                          </div>
+                                        )}
+                                      </Draggable>
+                                    ))}
+                                    {provided.placeholder}
+                                  </div>
+                                </div>
+                              )}
+                            </Droppable>
+                          );
+                        })}
+                      </div>
+                    </DragDropContext>
                   );
                 }
 
