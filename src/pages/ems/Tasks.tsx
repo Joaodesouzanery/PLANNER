@@ -243,8 +243,30 @@ const Tasks = () => {
     if (filter === "pending" && t.status === "completed") return false;
     if (filter === "completed" && t.status !== "completed") return false;
     if (tagFilter && !(t.tags || []).includes(tagFilter)) return false;
+    if (projectFilter === "none" && t.project_id) return false;
+    if (projectFilter !== "all" && projectFilter !== "none" && t.project_id !== projectFilter) return false;
     return true;
   });
+
+  const projectName = (id: string | null) => projects.find((p) => p.id === id)?.title || "Sem projeto";
+
+  // Group filtered tasks by project (preserving sorted order within group)
+  const groupedByProject = useMemo(() => {
+    const groups = new Map<string, { id: string | null; title: string; tasks: typeof filteredTasks }>();
+    for (const t of filteredTasks) {
+      const key = t.project_id || "__none__";
+      if (!groups.has(key)) {
+        groups.set(key, { id: t.project_id, title: projectName(t.project_id), tasks: [] });
+      }
+      groups.get(key)!.tasks.push(t);
+    }
+    // Sort: real projects alphabetically, "Sem projeto" last
+    return Array.from(groups.values()).sort((a, b) => {
+      if (!a.id && b.id) return 1;
+      if (a.id && !b.id) return -1;
+      return a.title.localeCompare(b.title);
+    });
+  }, [filteredTasks, projects]);
 
   const stats = {
     total: parentTasks.length,
