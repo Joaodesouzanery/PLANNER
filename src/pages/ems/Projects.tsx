@@ -623,6 +623,12 @@ const Projects = () => {
                                                       ☑ {project.checklist.filter(i => i.done).length}/{project.checklist.length}
                                                     </span>
                                                   )}
+                                                  {(pendingTaskCounts[project.id] || 0) > 0 && (
+                                                    <Badge variant="secondary" className="text-[9px] md:text-[10px] px-1 md:px-1.5 gap-0.5 bg-primary/10 text-primary border border-primary/20">
+                                                      <Clock className="h-2.5 w-2.5" />
+                                                      {pendingTaskCounts[project.id]} {pendingTaskCounts[project.id] === 1 ? "tarefa" : "tarefas"}
+                                                    </Badge>
+                                                  )}
                                                 </div>
                                               </div>
                                             )}
