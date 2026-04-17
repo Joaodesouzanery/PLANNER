@@ -104,6 +104,17 @@ const Tasks = () => {
     },
   });
 
+  const { data: projects = [] } = useQuery({
+    queryKey: ["tasks-projects", selectedCompanyId],
+    queryFn: async () => {
+      let q = supabase.from("projects").select("id, title, company_id").order("title");
+      if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data || []) as ProjectLite[];
+    },
+  });
+
   const { data: taskNotes = [] } = useQuery({
     queryKey: ["task-notes", expandedTask],
     queryFn: async () => {
