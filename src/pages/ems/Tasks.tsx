@@ -519,144 +519,174 @@ const Tasks = () => {
                 </Button>
               </div>
             ) : (
-              <div className="space-y-1.5">
-                <AnimatePresence>
-                  {filteredTasks.map((task) => {
-                    const pConfig = priorityConfig[task.priority] || priorityConfig.medium;
-                    const PIcon = pConfig.icon;
-                    const subtasks = getSubtasks(task.id);
-                    const completedSubs = subtasks.filter((s) => s.status === "completed").length;
-                    const isExpanded = expandedTask === task.id;
-                    const isOverdue = task.due_date && new Date(task.due_date + "T23:59:59") < new Date() && task.status !== "completed";
+              (() => {
+                const renderTaskItem = (task: Task) => {
+                  const pConfig = priorityConfig[task.priority] || priorityConfig.medium;
+                  const PIcon = pConfig.icon;
+                  const subtasks = getSubtasks(task.id);
+                  const completedSubs = subtasks.filter((s) => s.status === "completed").length;
+                  const isExpanded = expandedTask === task.id;
+                  const isOverdue = task.due_date && new Date(task.due_date + "T23:59:59") < new Date() && task.status !== "completed";
 
-                    return (
-                      <motion.div key={task.id} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -100 }}>
-                        <div className={cn(
-                          "p-3 rounded-lg border-l-[3px] border border-border/50 transition-all duration-200",
-                          task.status === "completed"
-                            ? "opacity-40 bg-muted/20 border-l-muted-foreground/30"
-                            : cn("bg-card hover:bg-muted/30 hover:border-border", pConfig.bgCard),
-                          isOverdue && "ring-1 ring-red-500/20"
-                        )}>
-                          <div className="flex items-center gap-3">
-                            <Checkbox
-                              checked={task.status === "completed"}
-                              onCheckedChange={(checked) => toggleMutation.mutate({ id: task.id, completed: !!checked })}
-                              className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
-                            />
-                            <button className="flex-1 min-w-0 text-left" onClick={() => setExpandedTask(isExpanded ? null : task.id)}>
-                              <div className="flex items-center gap-2">
-                                {subtasks.length > 0 && (
-                                  isExpanded ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                                )}
-                                <p className={cn("font-medium truncate text-sm", task.status === "completed" && "line-through text-muted-foreground")}>
-                                  {task.title}
-                                </p>
-                              </div>
-                              {task.description && (
-                                <p className="text-xs text-muted-foreground truncate mt-0.5 ml-5">{task.description}</p>
+                  return (
+                    <motion.div key={task.id} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -100 }}>
+                      <div className={cn(
+                        "p-3 rounded-lg border-l-[3px] border border-border/50 transition-all duration-200",
+                        task.status === "completed"
+                          ? "opacity-40 bg-muted/20 border-l-muted-foreground/30"
+                          : cn("bg-card hover:bg-muted/30 hover:border-border", pConfig.bgCard),
+                        isOverdue && "ring-1 ring-destructive/20"
+                      )}>
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={task.status === "completed"}
+                            onCheckedChange={(checked) => toggleMutation.mutate({ id: task.id, completed: !!checked })}
+                            className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
+                          />
+                          <button className="flex-1 min-w-0 text-left" onClick={() => setExpandedTask(isExpanded ? null : task.id)}>
+                            <div className="flex items-center gap-2">
+                              {subtasks.length > 0 && (
+                                isExpanded ? <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" /> : <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
                               )}
-                              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap ml-5">
-                                {(task.tags || []).map((tag) => (
-                                  <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0 bg-secondary/50">{tag}</Badge>
-                                ))}
-                                {subtasks.length > 0 && (
-                                  <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                    <CheckCircle2 className="h-2.5 w-2.5" />
-                                    {completedSubs}/{subtasks.length}
-                                  </span>
-                                )}
-                                {isOverdue && (
-                                  <Badge variant="destructive" className="text-[10px] px-1.5 py-0 animate-pulse">Atrasada</Badge>
-                                )}
-                              </div>
-                            </button>
-                            <Badge variant="outline" className={cn("text-xs shrink-0 hidden sm:flex border", pConfig.color)}>
-                              <PIcon className="h-3 w-3 mr-1" />
-                              {pConfig.label}
-                            </Badge>
-                            {task.due_date && (
-                              <span className={cn("text-xs shrink-0 hidden sm:flex items-center gap-1", isOverdue ? "text-red-400" : "text-muted-foreground")}>
-                                <Calendar className="h-3 w-3" />
-                                {format(new Date(task.due_date + "T00:00:00"), "dd/MM", { locale: ptBR })}
-                              </span>
+                              <p className={cn("font-medium truncate text-sm", task.status === "completed" && "line-through text-muted-foreground")}>
+                                {task.title}
+                              </p>
+                            </div>
+                            {task.description && (
+                              <p className="text-xs text-muted-foreground truncate mt-0.5 ml-5">{task.description}</p>
                             )}
-                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-primary" onClick={(e) => { e.stopPropagation(); openEdit(task); }}>
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => deleteMutation.mutate(task.id)}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-
-                          {/* Expanded area */}
-                          <AnimatePresence>
-                            {isExpanded && (
-                              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                                <div className="mt-3 ml-7 space-y-4 border-t border-border/30 pt-3">
-                                  {subtasks.length > 0 && (
-                                    <div>
-                                      <div className="flex items-center justify-between mb-1.5">
-                                        <p className="text-xs font-medium text-muted-foreground">Progresso das subtarefas</p>
-                                        <span className="text-xs font-mono text-primary">{subtasks.length > 0 ? Math.round((completedSubs / subtasks.length) * 100) : 0}%</span>
-                                      </div>
-                                      <Progress value={subtasks.length > 0 ? (completedSubs / subtasks.length) * 100 : 0} className="h-1.5" />
-                                    </div>
-                                  )}
-
-                                  <div>
-                                    <p className="text-xs font-medium text-muted-foreground mb-2">Subtarefas</p>
-                                    {subtasks.map((sub) => (
-                                      <div key={sub.id} className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-muted/30 transition-colors">
-                                        <Checkbox
-                                          className="h-3.5 w-3.5 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
-                                          checked={sub.status === "completed"}
-                                          onCheckedChange={(checked) => toggleMutation.mutate({ id: sub.id, completed: !!checked })}
-                                        />
-                                        <span className={cn("text-sm flex-1", sub.status === "completed" && "line-through text-muted-foreground")}>{sub.title}</span>
-                                        <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-destructive" onClick={() => deleteMutation.mutate(sub.id)}>
-                                          <Trash2 className="h-3 w-3" />
-                                        </Button>
-                                      </div>
-                                    ))}
-                                    <div className="flex gap-2 mt-2">
-                                      <Input className="h-8 text-sm bg-muted/30 border-border/50" placeholder="Adicionar subtarefa..." value={subtaskInput} onChange={(e) => setSubtaskInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addSubtask(task.id)} />
-                                      <Button size="sm" variant="outline" className="h-8 border-border/50" onClick={() => addSubtask(task.id)}>
-                                        <Plus className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                  </div>
-
-                                  <div>
-                                    <p className="text-xs font-medium text-muted-foreground mb-2">
-                                      <MessageSquare className="h-3 w-3 inline mr-1" />Notas
-                                    </p>
-                                    {taskNotes.map((note) => (
-                                      <div key={note.id} className="text-sm text-muted-foreground bg-muted/30 rounded-md p-2.5 mb-1.5 border border-border/30">
-                                        <p>{note.content}</p>
-                                        <p className="text-[10px] mt-1 opacity-60 font-mono">{format(new Date(note.created_at), "dd/MM HH:mm", { locale: ptBR })}</p>
-                                      </div>
-                                    ))}
-                                    <div className="flex gap-2 mt-1">
-                                      <Input className="h-8 text-sm bg-muted/30 border-border/50" placeholder="Adicionar nota..." value={noteInput} onChange={(e) => setNoteInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addNote(task.id)} />
-                                      <Button size="sm" variant="outline" className="h-8 border-border/50" onClick={() => addNote(task.id)}>
-                                        <MessageSquare className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-
-                                  {/* Attachments */}
-                                  <AttachmentManager entityType="task" entityId={task.id} companyId={task.company_id} />
-                                </div>
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
+                            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap ml-5">
+                              {viewMode === "list" && task.project_id && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 gap-1">
+                                  <FolderKanban className="h-2.5 w-2.5" />{projectName(task.project_id)}
+                                </Badge>
+                              )}
+                              {(task.tags || []).map((tag) => (
+                                <Badge key={tag} variant="secondary" className="text-[10px] px-1.5 py-0 bg-secondary/50">{tag}</Badge>
+                              ))}
+                              {subtasks.length > 0 && (
+                                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                  <CheckCircle2 className="h-2.5 w-2.5" />
+                                  {completedSubs}/{subtasks.length}
+                                </span>
+                              )}
+                              {isOverdue && (
+                                <Badge variant="destructive" className="text-[10px] px-1.5 py-0 animate-pulse">Atrasada</Badge>
+                              )}
+                            </div>
+                          </button>
+                          <Badge variant="outline" className={cn("text-xs shrink-0 hidden sm:flex border", pConfig.color)}>
+                            <PIcon className="h-3 w-3 mr-1" />
+                            {pConfig.label}
+                          </Badge>
+                          {task.due_date && (
+                            <span className={cn("text-xs shrink-0 hidden sm:flex items-center gap-1", isOverdue ? "text-destructive" : "text-muted-foreground")}>
+                              <Calendar className="h-3 w-3" />
+                              {format(new Date(task.due_date + "T00:00:00"), "dd/MM", { locale: ptBR })}
+                            </span>
+                          )}
+                          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-primary" onClick={(e) => { e.stopPropagation(); openEdit(task); }}>
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => deleteMutation.mutate(task.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
+
+                        <AnimatePresence>
+                          {isExpanded && (
+                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                              <div className="mt-3 ml-7 space-y-4 border-t border-border/30 pt-3">
+                                {subtasks.length > 0 && (
+                                  <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                      <p className="text-xs font-medium text-muted-foreground">Progresso das subtarefas</p>
+                                      <span className="text-xs font-mono text-primary">{subtasks.length > 0 ? Math.round((completedSubs / subtasks.length) * 100) : 0}%</span>
+                                    </div>
+                                    <Progress value={subtasks.length > 0 ? (completedSubs / subtasks.length) * 100 : 0} className="h-1.5" />
+                                  </div>
+                                )}
+
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground mb-2">Subtarefas</p>
+                                  {subtasks.map((sub) => (
+                                    <div key={sub.id} className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-muted/30 transition-colors">
+                                      <Checkbox
+                                        className="h-3.5 w-3.5 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
+                                        checked={sub.status === "completed"}
+                                        onCheckedChange={(checked) => toggleMutation.mutate({ id: sub.id, completed: !!checked })}
+                                      />
+                                      <span className={cn("text-sm flex-1", sub.status === "completed" && "line-through text-muted-foreground")}>{sub.title}</span>
+                                      <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground hover:text-destructive" onClick={() => deleteMutation.mutate(sub.id)}>
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                  <div className="flex gap-2 mt-2">
+                                    <Input className="h-8 text-sm bg-muted/30 border-border/50" placeholder="Adicionar subtarefa..." value={subtaskInput} onChange={(e) => setSubtaskInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addSubtask(task.id)} />
+                                    <Button size="sm" variant="outline" className="h-8 border-border/50" onClick={() => addSubtask(task.id)}>
+                                      <Plus className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                                    <MessageSquare className="h-3 w-3 inline mr-1" />Notas
+                                  </p>
+                                  {taskNotes.map((note) => (
+                                    <div key={note.id} className="text-sm text-muted-foreground bg-muted/30 rounded-md p-2.5 mb-1.5 border border-border/30">
+                                      <p>{note.content}</p>
+                                      <p className="text-[10px] mt-1 opacity-60 font-mono">{format(new Date(note.created_at), "dd/MM HH:mm", { locale: ptBR })}</p>
+                                    </div>
+                                  ))}
+                                  <div className="flex gap-2 mt-1">
+                                    <Input className="h-8 text-sm bg-muted/30 border-border/50" placeholder="Adicionar nota..." value={noteInput} onChange={(e) => setNoteInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addNote(task.id)} />
+                                    <Button size="sm" variant="outline" className="h-8 border-border/50" onClick={() => addNote(task.id)}>
+                                      <MessageSquare className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                <AttachmentManager entityType="task" entityId={task.id} companyId={task.company_id} />
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </motion.div>
+                  );
+                };
+
+                if (viewMode === "byProject") {
+                  return (
+                    <div className="space-y-4">
+                      {groupedByProject.map((group) => (
+                        <div key={group.id || "__none__"} className="space-y-1.5">
+                          <div className="flex items-center gap-2 px-1 py-1.5 sticky top-0 bg-card/90 backdrop-blur-sm z-10 border-b border-border/40">
+                            <FolderKanban className={cn("h-4 w-4", group.id ? "text-primary" : "text-muted-foreground")} />
+                            <h3 className="font-semibold text-sm text-foreground">{group.title}</h3>
+                            <Badge variant="outline" className="ml-auto font-mono text-[10px]">{group.tasks.length}</Badge>
+                          </div>
+                          <div className="space-y-1.5">
+                            <AnimatePresence>
+                              {group.tasks.map((t) => renderTaskItem(t))}
+                            </AnimatePresence>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-1.5">
+                    <AnimatePresence>
+                      {filteredTasks.map((task) => renderTaskItem(task))}
+                    </AnimatePresence>
+                  </div>
+                );
+              })()
             )}
           </CardContent>
         </Card>
