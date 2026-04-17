@@ -147,6 +147,7 @@ const Tasks = () => {
       priority: task.priority,
       due_date: task.due_date ? new Date(task.due_date + "T00:00:00") : null,
       tags: task.tags || [],
+      project_id: task.project_id || "none",
     });
     setDialogOpen(true);
   };
