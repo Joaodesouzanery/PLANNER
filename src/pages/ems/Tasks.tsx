@@ -182,6 +182,7 @@ const Tasks = () => {
         priority: form.priority,
         due_date: form.due_date ? format(form.due_date, "yyyy-MM-dd") : null,
         tags: form.tags.length > 0 ? form.tags : null,
+        project_id: form.project_id !== "none" ? form.project_id : null,
       }).eq("id", editingTask.id);
       if (error) throw error;
     },
