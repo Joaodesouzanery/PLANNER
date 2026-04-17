@@ -130,7 +130,7 @@ const Tasks = () => {
   const allTags = [...new Set(tasks.flatMap((t) => t.tags || []))].sort();
 
   const resetForm = () => {
-    setForm({ title: "", description: "", priority: "medium", due_date: null, tags: [] });
+    setForm({ title: "", description: "", priority: "medium", due_date: null, tags: [], project_id: "none" });
     setEditingTask(null);
   };
 
