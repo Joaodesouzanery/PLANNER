@@ -73,13 +73,16 @@ const Tasks = () => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [filter, setFilter] = useState<"all" | "pending" | "completed">("all");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
-  const [form, setForm] = useState({ title: "", description: "", priority: "medium", due_date: null as Date | null, tags: [] as string[] });
+  const [form, setForm] = useState({ title: "", description: "", priority: "medium", due_date: null as Date | null, tags: [] as string[], project_id: "none" as string });
   const [tagInput, setTagInput] = useState("");
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [subtaskInput, setSubtaskInput] = useState("");
   const [noteInput, setNoteInput] = useState("");
 
-  // Report state
+  // Project filter & view mode
+  const [projectFilter, setProjectFilter] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"list" | "byProject">("list");
+
   // Report state
   const [reportOpen, setReportOpen] = useState(false);
   const [reportFrom, setReportFrom] = useState<Date | undefined>(undefined);
