@@ -39,7 +39,14 @@ interface Task {
   order_index: number;
   tags: string[] | null;
   parent_task_id: string | null;
+  project_id: string | null;
   created_at: string;
+  company_id: string | null;
+}
+
+interface ProjectLite {
+  id: string;
+  title: string;
   company_id: string | null;
 }
 
