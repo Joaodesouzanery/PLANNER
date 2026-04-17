@@ -160,6 +160,7 @@ const Tasks = () => {
         priority: form.priority,
         due_date: form.due_date ? format(form.due_date, "yyyy-MM-dd") : format(new Date(), "yyyy-MM-dd"),
         tags: form.tags.length > 0 ? form.tags : null,
+        project_id: form.project_id !== "none" ? form.project_id : null,
         company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
       });
       if (error) throw error;
