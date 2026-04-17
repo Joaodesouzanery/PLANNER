@@ -736,6 +736,20 @@ const Tasks = () => {
               </div>
             </div>
             <div>
+              <label className="text-sm font-medium">Projeto</label>
+              <Select value={form.project_id} onValueChange={(v) => setForm({ ...form, project_id: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um projeto (opcional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem projeto</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <label className="text-sm font-medium">Tags</label>
               <div className="flex gap-2">
                 <Input value={tagInput} onChange={(e) => setTagInput(e.target.value)} placeholder="Ex: marketing, dev, vendas" onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTagToForm(); } }} />
