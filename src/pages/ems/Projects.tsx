@@ -115,6 +115,7 @@ const Projects = () => {
   const [reportTo, setReportTo] = useState("");
   const [reportCompanyId, setReportCompanyId] = useState<string>("current");
   const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [pendingTaskCounts, setPendingTaskCounts] = useState<Record<string, number>>({});
   const [dashFrom, setDashFrom] = useState("");
   const [dashTo, setDashTo] = useState("");
 
@@ -151,7 +152,20 @@ const Projects = () => {
   useEffect(() => {
     fetchProjects();
     fetchColumns();
+    fetchPendingTaskCounts();
   }, [selectedCompanyId]);
+
+  const fetchPendingTaskCounts = async () => {
+    let q = supabase.from("tasks").select("project_id").neq("status", "completed").not("project_id", "is", null);
+    if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
+    const { data } = await q;
+    if (!data) return;
+    const counts: Record<string, number> = {};
+    for (const row of data as { project_id: string | null }[]) {
+      if (row.project_id) counts[row.project_id] = (counts[row.project_id] || 0) + 1;
+    }
+    setPendingTaskCounts(counts);
+  };
 
   const fetchProjects = async () => {
     let query = supabase.from("projects").select("*").order("column_order", { ascending: true, nullsFirst: false });
