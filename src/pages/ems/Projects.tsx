@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useCompany } from "@/contexts/CompanyContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -98,6 +99,7 @@ const CHART_COLORS = ["hsl(var(--primary))", "#f59e0b", "#10b981", "#8b5cf6", "#
 
 const Projects = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const { selectedCompanyId, companies } = useCompany();
   const [view, setView] = useState<"kanban" | "timeline" | "dashboard">("kanban");
   const [projects, setProjects] = useState<Project[]>([]);
@@ -624,10 +626,16 @@ const Projects = () => {
                                                     </span>
                                                   )}
                                                   {(pendingTaskCounts[project.id] || 0) > 0 && (
-                                                    <Badge variant="secondary" className="text-[9px] md:text-[10px] px-1 md:px-1.5 gap-0.5 bg-primary/10 text-primary border border-primary/20">
-                                                      <Clock className="h-2.5 w-2.5" />
-                                                      {pendingTaskCounts[project.id]} {pendingTaskCounts[project.id] === 1 ? "tarefa" : "tarefas"}
-                                                    </Badge>
+                                                    <button
+                                                      type="button"
+                                                      onClick={(e) => { e.stopPropagation(); navigate(`/ems/tasks?project=${project.id}`); }}
+                                                      title="Ver tarefas pendentes deste projeto"
+                                                    >
+                                                      <Badge variant="secondary" className="text-[9px] md:text-[10px] px-1 md:px-1.5 gap-0.5 bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 cursor-pointer transition-colors">
+                                                        <Clock className="h-2.5 w-2.5" />
+                                                        {pendingTaskCounts[project.id]} {pendingTaskCounts[project.id] === 1 ? "tarefa" : "tarefas"}
+                                                      </Badge>
+                                                    </button>
                                                   )}
                                                 </div>
                                               </div>
