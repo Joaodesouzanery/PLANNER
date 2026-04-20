@@ -791,7 +791,7 @@ const OrgChart = () => {
             </CardContent>
           </Card>
         ) : viewMode === "tree" ? (
-          <div className="space-y-3">
+          <div ref={treeRef} className="space-y-3 p-2 bg-background">
             {getRootNodes().map((node) => renderTreeNode(node))}
           </div>
         ) : (
