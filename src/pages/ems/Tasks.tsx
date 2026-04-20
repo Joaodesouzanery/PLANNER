@@ -311,6 +311,24 @@ const Tasks = () => {
     });
   }, [filteredTasks, projects]);
 
+  // Group filtered tasks by client (uses the project's client field)
+  const groupedByClient = useMemo(() => {
+    const projectClient = (id: string | null) =>
+      (projects.find((p) => p.id === id)?.client || "").trim();
+    const groups = new Map<string, { client: string; tasks: typeof filteredTasks }>();
+    for (const t of filteredTasks) {
+      const c = projectClient(t.project_id) || "__none__";
+      const label = c === "__none__" ? "Sem cliente" : c;
+      if (!groups.has(c)) groups.set(c, { client: label, tasks: [] });
+      groups.get(c)!.tasks.push(t);
+    }
+    return Array.from(groups.values()).sort((a, b) => {
+      if (a.client === "Sem cliente" && b.client !== "Sem cliente") return 1;
+      if (a.client !== "Sem cliente" && b.client === "Sem cliente") return -1;
+      return a.client.localeCompare(b.client);
+    });
+  }, [filteredTasks, projects]);
+
   const stats = {
     total: parentTasks.length,
     pending: parentTasks.filter((t) => t.status !== "completed").length,
@@ -520,6 +538,14 @@ const Tasks = () => {
               onClick={() => setViewMode("byProject")}
             >
               <FolderTree className="h-3.5 w-3.5" /> Por Projeto
+            </Button>
+            <Button
+              size="sm"
+              variant={viewMode === "byClient" ? "default" : "ghost"}
+              className="h-8 rounded-none gap-1"
+              onClick={() => setViewMode("byClient")}
+            >
+              <Building2 className="h-3.5 w-3.5" /> Por Cliente
             </Button>
           </div>
 
