@@ -781,6 +781,27 @@ const Tasks = () => {
                   );
                 }
 
+                if (viewMode === "byClient") {
+                  return (
+                    <div className="space-y-4">
+                      {groupedByClient.map((group) => (
+                        <div key={group.client} className="space-y-1.5 rounded-lg p-1">
+                          <div className="flex items-center gap-2 px-1 py-1.5 sticky top-0 bg-card/90 backdrop-blur-sm z-10 border-b border-border/40">
+                            <Building2 className={cn("h-4 w-4", group.client !== "Sem cliente" ? "text-primary" : "text-muted-foreground")} />
+                            <h3 className="font-semibold text-sm text-foreground">{group.client}</h3>
+                            <Badge variant="outline" className="ml-auto font-mono text-[10px]">{group.tasks.length}</Badge>
+                          </div>
+                          <div className="space-y-1.5">
+                            <AnimatePresence>
+                              {group.tasks.map((t) => renderTaskItem(t))}
+                            </AnimatePresence>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+
                 return (
                   <div className="space-y-1.5">
                     <AnimatePresence>
