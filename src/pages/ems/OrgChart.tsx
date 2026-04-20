@@ -32,6 +32,10 @@ import {
   User,
   UserCircle,
   Briefcase,
+  Search,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -83,6 +87,9 @@ const OrgChart = () => {
   const [editingNode, setEditingNode] = useState<OrgChartNode | null>(null);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<"tree" | "grid">("tree");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState<string>("all");
+  const [zoom, setZoom] = useState(1);
 
   const [nodeForm, setNodeForm] = useState({
     name: "",
@@ -180,13 +187,47 @@ const OrgChart = () => {
     setExpandedNodes(newExpanded);
   };
 
-  const getRootNodes = () => nodes.filter((n) => !n.parent_id);
-  const getChildNodes = (parentId: string) => nodes.filter((n) => n.parent_id === parentId);
+  // Filter nodes by search/department - if a node matches, include all its ancestors
+  const filteredNodeIds = useMemo(() => {
+    if (!searchTerm.trim() && departmentFilter === "all") return null; // null = no filter
+    const term = searchTerm.trim().toLowerCase();
+    const matches = new Set<string>();
+    for (const n of nodes) {
+      const matchSearch = !term || n.name.toLowerCase().includes(term) || n.position.toLowerCase().includes(term) || (n.email || "").toLowerCase().includes(term);
+      const matchDept = departmentFilter === "all" || n.department === departmentFilter;
+      if (matchSearch && matchDept) {
+        matches.add(n.id);
+        // Add all ancestors so tree path stays visible
+        let cur: OrgChartNode | undefined = n;
+        while (cur?.parent_id) {
+          matches.add(cur.parent_id);
+          cur = nodes.find((x) => x.id === cur!.parent_id);
+        }
+      }
+    }
+    return matches;
+  }, [nodes, searchTerm, departmentFilter]);
+
+  // Auto-expand matching ancestors when searching
+  useEffect(() => {
+    if (filteredNodeIds && filteredNodeIds.size > 0) {
+      setExpandedNodes(new Set(filteredNodeIds));
+    }
+  }, [filteredNodeIds]);
+
+  const isVisible = (id: string) => filteredNodeIds === null || filteredNodeIds.has(id);
+  const getRootNodes = () => nodes.filter((n) => !n.parent_id && isVisible(n.id));
+  const getChildNodes = (parentId: string) => nodes.filter((n) => n.parent_id === parentId && isVisible(n.id));
 
   const getColorClass = (color: string) => {
     const colorOption = colorOptions.find((c) => c.value === color);
     return colorOption?.class || "bg-primary";
   };
+
+  const allDepartments = useMemo(
+    () => Array.from(new Set(nodes.map((n) => n.department).filter(Boolean))) as string[],
+    [nodes]
+  );
 
   const stats = {
     total: nodes.length,
