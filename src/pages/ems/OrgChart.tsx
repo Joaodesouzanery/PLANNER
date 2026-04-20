@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -521,6 +521,30 @@ const OrgChart = () => {
               Adicionar Membro
             </Button>
           </div>
+        </div>
+
+        {/* Search + Department filter */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar por nome, cargo ou e-mail..."
+              className="pl-9"
+            />
+          </div>
+          <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectValue placeholder="Departamento" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os departamentos</SelectItem>
+              {allDepartments.map((d) => (
+                <SelectItem key={d} value={d}>{d}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Stats */}
