@@ -497,17 +497,48 @@ const OrgChart = () => {
     
     const renderVisualNode = (node: OrgChartNode): React.ReactNode => {
       const children = getChildNodes(node.id);
-      
+      const isDragOver = dragOverNodeId === node.id;
+      const isDragging = draggedNodeId === node.id;
+
       return (
         <div key={node.id} className="flex flex-col items-center">
           {/* Node card */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
+            draggable
+            onDragStart={(e) => {
+              e.stopPropagation();
+              (e as unknown as DragEvent).dataTransfer?.setData("text/plain", node.id);
+              setDraggedNodeId(node.id);
+            }}
+            onDragEnd={() => {
+              setDraggedNodeId(null);
+              setDragOverNodeId(null);
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (draggedNodeId && draggedNodeId !== node.id) setDragOverNodeId(node.id);
+            }}
+            onDragLeave={() => {
+              if (dragOverNodeId === node.id) setDragOverNodeId(null);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const childId = (e as unknown as DragEvent).dataTransfer?.getData("text/plain") || draggedNodeId;
+              if (childId) handleReparent(childId, node.id);
+              setDraggedNodeId(null);
+              setDragOverNodeId(null);
+            }}
             className={cn(
-              "relative p-4 rounded-xl border-2 border-border bg-card shadow-lg min-w-[160px] text-center cursor-pointer hover:border-primary/50 transition-all",
+              "relative p-4 rounded-xl border-2 bg-card shadow-lg min-w-[160px] text-center cursor-grab active:cursor-grabbing hover:border-primary/50 transition-all",
+              isDragOver ? "border-primary ring-2 ring-primary/40 scale-105" : "border-border",
+              isDragging && "opacity-50",
             )}
             onClick={() => {
+              if (draggedNodeId) return;
               setEditingNode(node);
               setNodeForm({
                 name: node.name,
@@ -523,7 +554,8 @@ const OrgChart = () => {
           >
             {/* Color indicator */}
             <div className={cn("absolute top-0 left-0 right-0 h-1 rounded-t-xl", getColorClass(node.color))} />
-            
+            <GripVertical className="absolute top-1.5 right-1.5 h-3 w-3 text-muted-foreground/40" />
+
             {/* Avatar */}
             <div className={cn(
               "w-14 h-14 rounded-full mx-auto mb-2 flex items-center justify-center",
@@ -533,7 +565,7 @@ const OrgChart = () => {
                 {node.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
               </span>
             </div>
-            
+
             <h4 className="font-medium text-sm">{node.name}</h4>
             <p className="text-xs text-primary">{node.position}</p>
             {node.department && (
