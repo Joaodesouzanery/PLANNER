@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Users,
@@ -36,7 +42,13 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  Download,
+  FileImage,
+  FileText,
+  GripVertical,
 } from "lucide-react";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -90,6 +102,11 @@ const OrgChart = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
   const [zoom, setZoom] = useState(1);
+  const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
+  const [dragOverNodeId, setDragOverNodeId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const visualRef = useRef<HTMLDivElement>(null);
+  const treeRef = useRef<HTMLDivElement>(null);
 
   const [nodeForm, setNodeForm] = useState({
     name: "",
@@ -161,6 +178,87 @@ const OrgChart = () => {
     await supabase.from("org_chart_nodes").delete().eq("id", id);
     toast({ title: "Membro removido" });
     fetchNodes();
+  };
+
+  // Reassign parent via drag-and-drop
+  const isDescendantOf = (potentialAncestorId: string, nodeId: string): boolean => {
+    let cur = nodes.find((n) => n.id === nodeId);
+    while (cur?.parent_id) {
+      if (cur.parent_id === potentialAncestorId) return true;
+      cur = nodes.find((n) => n.id === cur!.parent_id);
+    }
+    return false;
+  };
+
+  const handleReparent = async (childId: string, newParentId: string | null) => {
+    if (childId === newParentId) return;
+    // Prevent making a node a descendant of itself
+    if (newParentId && isDescendantOf(childId, newParentId)) {
+      toast({ title: "Movimento inválido", description: "Não é possível mover um membro para um subordinado dele.", variant: "destructive" });
+      return;
+    }
+    const child = nodes.find((n) => n.id === childId);
+    if (child && child.parent_id === newParentId) return;
+
+    const { error } = await supabase.from("org_chart_nodes").update({ parent_id: newParentId }).eq("id", childId);
+    if (error) {
+      toast({ title: "Erro ao reorganizar", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Hierarquia atualizada!" });
+    fetchNodes();
+  };
+
+  // Export: capture the visible chart as canvas, then download
+  const exportChart = async (kind: "png" | "pdf") => {
+    const target = viewMode === "grid" ? visualRef.current : treeRef.current;
+    if (!target) {
+      toast({ title: "Nada para exportar", variant: "destructive" });
+      return;
+    }
+    try {
+      setExporting(true);
+      const prevZoom = zoom;
+      // Reset zoom to 1 for sharp export, then restore
+      if (viewMode === "grid") setZoom(1);
+      // Wait next paint so the DOM reflects zoom change
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+      await new Promise((r) => setTimeout(r, 60));
+
+      const bg = getComputedStyle(document.body).backgroundColor || "#ffffff";
+      const canvas = await html2canvas(target, {
+        backgroundColor: bg,
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+
+      if (kind === "png") {
+        const link = document.createElement("a");
+        link.download = `organograma-${new Date().toISOString().slice(0, 10)}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+        toast({ title: "PNG exportado!" });
+      } else {
+        const imgData = canvas.toDataURL("image/png");
+        const orientation = canvas.width > canvas.height ? "landscape" : "portrait";
+        const pdf = new jsPDF({ orientation, unit: "pt", format: "a4" });
+        const pageW = pdf.internal.pageSize.getWidth();
+        const pageH = pdf.internal.pageSize.getHeight();
+        const ratio = Math.min(pageW / canvas.width, pageH / canvas.height);
+        const w = canvas.width * ratio;
+        const h = canvas.height * ratio;
+        pdf.addImage(imgData, "PNG", (pageW - w) / 2, (pageH - h) / 2, w, h);
+        pdf.save(`organograma-${new Date().toISOString().slice(0, 10)}.pdf`);
+        toast({ title: "PDF exportado!" });
+      }
+
+      if (viewMode === "grid") setZoom(prevZoom);
+    } catch (e: any) {
+      toast({ title: "Erro ao exportar", description: e?.message, variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
   };
 
   const resetForm = () => {
@@ -399,17 +497,48 @@ const OrgChart = () => {
     
     const renderVisualNode = (node: OrgChartNode): React.ReactNode => {
       const children = getChildNodes(node.id);
-      
+      const isDragOver = dragOverNodeId === node.id;
+      const isDragging = draggedNodeId === node.id;
+
       return (
         <div key={node.id} className="flex flex-col items-center">
           {/* Node card */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
+            draggable
+            onDragStart={(e) => {
+              e.stopPropagation();
+              (e as unknown as DragEvent).dataTransfer?.setData("text/plain", node.id);
+              setDraggedNodeId(node.id);
+            }}
+            onDragEnd={() => {
+              setDraggedNodeId(null);
+              setDragOverNodeId(null);
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (draggedNodeId && draggedNodeId !== node.id) setDragOverNodeId(node.id);
+            }}
+            onDragLeave={() => {
+              if (dragOverNodeId === node.id) setDragOverNodeId(null);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const childId = (e as unknown as DragEvent).dataTransfer?.getData("text/plain") || draggedNodeId;
+              if (childId) handleReparent(childId, node.id);
+              setDraggedNodeId(null);
+              setDragOverNodeId(null);
+            }}
             className={cn(
-              "relative p-4 rounded-xl border-2 border-border bg-card shadow-lg min-w-[160px] text-center cursor-pointer hover:border-primary/50 transition-all",
+              "relative p-4 rounded-xl border-2 bg-card shadow-lg min-w-[160px] text-center cursor-grab active:cursor-grabbing hover:border-primary/50 transition-all",
+              isDragOver ? "border-primary ring-2 ring-primary/40 scale-105" : "border-border",
+              isDragging && "opacity-50",
             )}
             onClick={() => {
+              if (draggedNodeId) return;
               setEditingNode(node);
               setNodeForm({
                 name: node.name,
@@ -425,7 +554,8 @@ const OrgChart = () => {
           >
             {/* Color indicator */}
             <div className={cn("absolute top-0 left-0 right-0 h-1 rounded-t-xl", getColorClass(node.color))} />
-            
+            <GripVertical className="absolute top-1.5 right-1.5 h-3 w-3 text-muted-foreground/40" />
+
             {/* Avatar */}
             <div className={cn(
               "w-14 h-14 rounded-full mx-auto mb-2 flex items-center justify-center",
@@ -435,7 +565,7 @@ const OrgChart = () => {
                 {node.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
               </span>
             </div>
-            
+
             <h4 className="font-medium text-sm">{node.name}</h4>
             <p className="text-xs text-primary">{node.position}</p>
             {node.department && (
@@ -491,8 +621,22 @@ const OrgChart = () => {
         </div>
         <div className="overflow-auto pb-8">
           <div
-            className="flex flex-col sm:flex-row justify-center items-start gap-8 sm:gap-12 origin-top transition-transform"
+            ref={visualRef}
+            className="flex flex-col sm:flex-row justify-center items-start gap-8 sm:gap-12 origin-top transition-transform p-4 bg-background"
             style={{ transform: `scale(${zoom})`, minWidth: "fit-content" }}
+            onDragOver={(e) => {
+              if (draggedNodeId) e.preventDefault();
+            }}
+            onDrop={(e) => {
+              // Drop in empty area = make it a root node
+              if (e.target === e.currentTarget) {
+                e.preventDefault();
+                const childId = (e as unknown as DragEvent).dataTransfer?.getData("text/plain") || draggedNodeId;
+                if (childId) handleReparent(childId, null);
+                setDraggedNodeId(null);
+                setDragOverNodeId(null);
+              }
+            }}
           >
             {rootNodes.map((node) => renderVisualNode(node))}
           </div>
@@ -514,7 +658,7 @@ const OrgChart = () => {
               Estrutura organizacional e hierarquia da equipe
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center bg-muted rounded-lg p-1">
               <Button
                 variant={viewMode === "tree" ? "secondary" : "ghost"}
@@ -531,6 +675,22 @@ const OrgChart = () => {
                 Visual
               </Button>
             </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={exporting || nodes.length === 0}>
+                  <Download className="h-4 w-4 mr-2" />
+                  {exporting ? "Exportando..." : "Exportar"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => exportChart("png")}>
+                  <FileImage className="h-4 w-4 mr-2" /> Como PNG
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportChart("pdf")}>
+                  <FileText className="h-4 w-4 mr-2" /> Como PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button onClick={() => setShowModal(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Adicionar Membro
@@ -631,7 +791,7 @@ const OrgChart = () => {
             </CardContent>
           </Card>
         ) : viewMode === "tree" ? (
-          <div className="space-y-3">
+          <div ref={treeRef} className="space-y-3 p-2 bg-background">
             {getRootNodes().map((node) => renderTreeNode(node))}
           </div>
         ) : (

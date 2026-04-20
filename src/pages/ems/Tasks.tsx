@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Trash2, Calendar, Flag, ListTodo, CheckCircle2, Clock, AlertTriangle,
   Tag, MessageSquare, ChevronDown, ChevronRight, X, TrendingUp, Edit2, FileText, Download,
-  FolderKanban, LayoutList, FolderTree,
+  FolderKanban, LayoutList, FolderTree, Building2,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
@@ -50,6 +50,7 @@ interface ProjectLite {
   id: string;
   title: string;
   company_id: string | null;
+  client: string | null;
 }
 
 interface TaskNote {
@@ -85,7 +86,7 @@ const Tasks = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialProject = searchParams.get("project") || "all";
   const [projectFilter, setProjectFilter] = useState<string>(initialProject);
-  const [viewMode, setViewMode] = useState<"list" | "byProject">("list");
+  const [viewMode, setViewMode] = useState<"list" | "byProject" | "byClient">("list");
 
   // Sync URL param → state when it changes externally
   useEffect(() => {
@@ -129,7 +130,7 @@ const Tasks = () => {
   const { data: projects = [] } = useQuery({
     queryKey: ["tasks-projects", selectedCompanyId],
     queryFn: async () => {
-      let q = supabase.from("projects").select("id, title, company_id").order("title");
+      let q = supabase.from("projects").select("id, title, company_id, client").order("title");
       if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
       const { data, error } = await q;
       if (error) throw error;
@@ -307,6 +308,24 @@ const Tasks = () => {
       if (!a.id && b.id) return 1;
       if (a.id && !b.id) return -1;
       return a.title.localeCompare(b.title);
+    });
+  }, [filteredTasks, projects]);
+
+  // Group filtered tasks by client (uses the project's client field)
+  const groupedByClient = useMemo(() => {
+    const projectClient = (id: string | null) =>
+      (projects.find((p) => p.id === id)?.client || "").trim();
+    const groups = new Map<string, { client: string; tasks: typeof filteredTasks }>();
+    for (const t of filteredTasks) {
+      const c = projectClient(t.project_id) || "__none__";
+      const label = c === "__none__" ? "Sem cliente" : c;
+      if (!groups.has(c)) groups.set(c, { client: label, tasks: [] });
+      groups.get(c)!.tasks.push(t);
+    }
+    return Array.from(groups.values()).sort((a, b) => {
+      if (a.client === "Sem cliente" && b.client !== "Sem cliente") return 1;
+      if (a.client !== "Sem cliente" && b.client === "Sem cliente") return -1;
+      return a.client.localeCompare(b.client);
     });
   }, [filteredTasks, projects]);
 
@@ -519,6 +538,14 @@ const Tasks = () => {
               onClick={() => setViewMode("byProject")}
             >
               <FolderTree className="h-3.5 w-3.5" /> Por Projeto
+            </Button>
+            <Button
+              size="sm"
+              variant={viewMode === "byClient" ? "default" : "ghost"}
+              className="h-8 rounded-none gap-1"
+              onClick={() => setViewMode("byClient")}
+            >
+              <Building2 className="h-3.5 w-3.5" /> Por Cliente
             </Button>
           </div>
 
@@ -751,6 +778,27 @@ const Tasks = () => {
                         })}
                       </div>
                     </DragDropContext>
+                  );
+                }
+
+                if (viewMode === "byClient") {
+                  return (
+                    <div className="space-y-4">
+                      {groupedByClient.map((group) => (
+                        <div key={group.client} className="space-y-1.5 rounded-lg p-1">
+                          <div className="flex items-center gap-2 px-1 py-1.5 sticky top-0 bg-card/90 backdrop-blur-sm z-10 border-b border-border/40">
+                            <Building2 className={cn("h-4 w-4", group.client !== "Sem cliente" ? "text-primary" : "text-muted-foreground")} />
+                            <h3 className="font-semibold text-sm text-foreground">{group.client}</h3>
+                            <Badge variant="outline" className="ml-auto font-mono text-[10px]">{group.tasks.length}</Badge>
+                          </div>
+                          <div className="space-y-1.5">
+                            <AnimatePresence>
+                              {group.tasks.map((t) => renderTaskItem(t))}
+                            </AnimatePresence>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   );
                 }
 
