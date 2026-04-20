@@ -180,6 +180,87 @@ const OrgChart = () => {
     fetchNodes();
   };
 
+  // Reassign parent via drag-and-drop
+  const isDescendantOf = (potentialAncestorId: string, nodeId: string): boolean => {
+    let cur = nodes.find((n) => n.id === nodeId);
+    while (cur?.parent_id) {
+      if (cur.parent_id === potentialAncestorId) return true;
+      cur = nodes.find((n) => n.id === cur!.parent_id);
+    }
+    return false;
+  };
+
+  const handleReparent = async (childId: string, newParentId: string | null) => {
+    if (childId === newParentId) return;
+    // Prevent making a node a descendant of itself
+    if (newParentId && isDescendantOf(childId, newParentId)) {
+      toast({ title: "Movimento inválido", description: "Não é possível mover um membro para um subordinado dele.", variant: "destructive" });
+      return;
+    }
+    const child = nodes.find((n) => n.id === childId);
+    if (child && child.parent_id === newParentId) return;
+
+    const { error } = await supabase.from("org_chart_nodes").update({ parent_id: newParentId }).eq("id", childId);
+    if (error) {
+      toast({ title: "Erro ao reorganizar", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Hierarquia atualizada!" });
+    fetchNodes();
+  };
+
+  // Export: capture the visible chart as canvas, then download
+  const exportChart = async (kind: "png" | "pdf") => {
+    const target = viewMode === "grid" ? visualRef.current : treeRef.current;
+    if (!target) {
+      toast({ title: "Nada para exportar", variant: "destructive" });
+      return;
+    }
+    try {
+      setExporting(true);
+      const prevZoom = zoom;
+      // Reset zoom to 1 for sharp export, then restore
+      if (viewMode === "grid") setZoom(1);
+      // Wait next paint so the DOM reflects zoom change
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+      await new Promise((r) => setTimeout(r, 60));
+
+      const bg = getComputedStyle(document.body).backgroundColor || "#ffffff";
+      const canvas = await html2canvas(target, {
+        backgroundColor: bg,
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+
+      if (kind === "png") {
+        const link = document.createElement("a");
+        link.download = `organograma-${new Date().toISOString().slice(0, 10)}.png`;
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+        toast({ title: "PNG exportado!" });
+      } else {
+        const imgData = canvas.toDataURL("image/png");
+        const orientation = canvas.width > canvas.height ? "landscape" : "portrait";
+        const pdf = new jsPDF({ orientation, unit: "pt", format: "a4" });
+        const pageW = pdf.internal.pageSize.getWidth();
+        const pageH = pdf.internal.pageSize.getHeight();
+        const ratio = Math.min(pageW / canvas.width, pageH / canvas.height);
+        const w = canvas.width * ratio;
+        const h = canvas.height * ratio;
+        pdf.addImage(imgData, "PNG", (pageW - w) / 2, (pageH - h) / 2, w, h);
+        pdf.save(`organograma-${new Date().toISOString().slice(0, 10)}.pdf`);
+        toast({ title: "PDF exportado!" });
+      }
+
+      if (viewMode === "grid") setZoom(prevZoom);
+    } catch (e: any) {
+      toast({ title: "Erro ao exportar", description: e?.message, variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const resetForm = () => {
     setNodeForm({
       name: "",
