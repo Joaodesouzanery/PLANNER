@@ -102,6 +102,11 @@ const OrgChart = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState<string>("all");
   const [zoom, setZoom] = useState(1);
+  const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
+  const [dragOverNodeId, setDragOverNodeId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const visualRef = useRef<HTMLDivElement>(null);
+  const treeRef = useRef<HTMLDivElement>(null);
 
   const [nodeForm, setNodeForm] = useState({
     name: "",
