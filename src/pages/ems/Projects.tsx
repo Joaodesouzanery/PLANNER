@@ -643,6 +643,21 @@ const Projects = () => {
                                                     </button>
                                                   )}
                                                 </div>
+                                                {(totalTaskCounts[project.id] || 0) > 0 && (() => {
+                                                  const total = totalTaskCounts[project.id];
+                                                  const pending = pendingTaskCounts[project.id] || 0;
+                                                  const completed = total - pending;
+                                                  const pct = Math.round((completed / total) * 100);
+                                                  return (
+                                                    <div className="mt-2 ml-5 md:ml-6">
+                                                      <div className="flex items-center justify-between mb-1">
+                                                        <span className="text-[9px] md:text-[10px] text-muted-foreground">Tarefas</span>
+                                                        <span className="text-[9px] md:text-[10px] font-mono text-muted-foreground">{completed}/{total} · {pct}%</span>
+                                                      </div>
+                                                      <Progress value={pct} className="h-1" />
+                                                    </div>
+                                                  );
+                                                })()}
                                               </div>
                                             )}
                                           </Draggable>
