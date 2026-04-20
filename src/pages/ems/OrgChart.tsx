@@ -621,8 +621,22 @@ const OrgChart = () => {
         </div>
         <div className="overflow-auto pb-8">
           <div
-            className="flex flex-col sm:flex-row justify-center items-start gap-8 sm:gap-12 origin-top transition-transform"
+            ref={visualRef}
+            className="flex flex-col sm:flex-row justify-center items-start gap-8 sm:gap-12 origin-top transition-transform p-4 bg-background"
             style={{ transform: `scale(${zoom})`, minWidth: "fit-content" }}
+            onDragOver={(e) => {
+              if (draggedNodeId) e.preventDefault();
+            }}
+            onDrop={(e) => {
+              // Drop in empty area = make it a root node
+              if (e.target === e.currentTarget) {
+                e.preventDefault();
+                const childId = (e as unknown as DragEvent).dataTransfer?.getData("text/plain") || draggedNodeId;
+                if (childId) handleReparent(childId, null);
+                setDraggedNodeId(null);
+                setDragOverNodeId(null);
+              }
+            }}
           >
             {rootNodes.map((node) => renderVisualNode(node))}
           </div>
@@ -644,7 +658,7 @@ const OrgChart = () => {
               Estrutura organizacional e hierarquia da equipe
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center bg-muted rounded-lg p-1">
               <Button
                 variant={viewMode === "tree" ? "secondary" : "ghost"}
@@ -661,6 +675,22 @@ const OrgChart = () => {
                 Visual
               </Button>
             </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={exporting || nodes.length === 0}>
+                  <Download className="h-4 w-4 mr-2" />
+                  {exporting ? "Exportando..." : "Exportar"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => exportChart("png")}>
+                  <FileImage className="h-4 w-4 mr-2" /> Como PNG
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportChart("pdf")}>
+                  <FileText className="h-4 w-4 mr-2" /> Como PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button onClick={() => setShowModal(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Adicionar Membro
