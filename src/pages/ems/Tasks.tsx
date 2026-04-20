@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useCompany } from "@/contexts/CompanyContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,15 +81,35 @@ const Tasks = () => {
   const [subtaskInput, setSubtaskInput] = useState("");
   const [noteInput, setNoteInput] = useState("");
 
-  // Project filter & view mode
-  const [projectFilter, setProjectFilter] = useState<string>("all");
+  // Project filter & view mode (init from URL ?project=<id>)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialProject = searchParams.get("project") || "all";
+  const [projectFilter, setProjectFilter] = useState<string>(initialProject);
   const [viewMode, setViewMode] = useState<"list" | "byProject">("list");
+
+  // Sync URL param → state when it changes externally
+  useEffect(() => {
+    const fromUrl = searchParams.get("project");
+    if (fromUrl && fromUrl !== projectFilter) setProjectFilter(fromUrl);
+  }, [searchParams]);
+
+  // Sync state → URL (clean param when "all")
+  useEffect(() => {
+    const current = searchParams.get("project") || "all";
+    if (projectFilter !== current) {
+      const next = new URLSearchParams(searchParams);
+      if (projectFilter === "all") next.delete("project");
+      else next.set("project", projectFilter);
+      setSearchParams(next, { replace: true });
+    }
+  }, [projectFilter]);
 
   // Report state
   const [reportOpen, setReportOpen] = useState(false);
   const [reportFrom, setReportFrom] = useState<Date | undefined>(undefined);
   const [reportTo, setReportTo] = useState<Date | undefined>(undefined);
   const [reportCompanyId, setReportCompanyId] = useState<string>("current");
+  const [reportProjectId, setReportProjectId] = useState<string>("all");
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ["tasks", selectedCompanyId],
@@ -321,10 +342,13 @@ const Tasks = () => {
       } else if (reportCompanyId !== "all" && reportCompanyId !== "current") {
         if (t.company_id !== reportCompanyId) return false;
       }
+      // Project filter
+      if (reportProjectId === "none" && t.project_id) return false;
+      if (reportProjectId !== "all" && reportProjectId !== "none" && t.project_id !== reportProjectId) return false;
       const completedDate = parseISO(t.completed_at);
       return isWithinInterval(completedDate, { start: startOfDay(reportFrom), end: endOfDay(reportTo) });
     });
-  }, [allTasks, reportFrom, reportTo, reportCompanyId, selectedCompanyId]);
+  }, [allTasks, reportFrom, reportTo, reportCompanyId, reportProjectId, selectedCompanyId]);
 
   const getCompanyName = (companyId: string | null) => {
     if (!companyId) return "Sem empresa";
@@ -349,6 +373,7 @@ const Tasks = () => {
 
     const tableData = reportTasks.map((t) => [
       t.title,
+      projectName(t.project_id),
       (priorityConfig[t.priority] || priorityConfig.medium).label,
       t.completed_at ? format(parseISO(t.completed_at), "dd/MM/yyyy HH:mm") : "-",
       (t.tags || []).join(", ") || "-",
@@ -357,7 +382,7 @@ const Tasks = () => {
 
     autoTable(doc, {
       startY: 42,
-      head: [["Tarefa", "Prioridade", "Concluída em", "Tags", "Empresa"]],
+      head: [["Tarefa", "Projeto", "Prioridade", "Concluída em", "Tags", "Empresa"]],
       body: tableData,
       styles: { fontSize: 9 },
       headStyles: { fillColor: [59, 130, 246] },
@@ -372,14 +397,15 @@ const Tasks = () => {
       toast({ title: "Nenhuma tarefa no período", variant: "destructive" });
       return;
     }
-    const header = "Tarefa,Prioridade,Concluída em,Tags,Empresa";
+    const header = "Tarefa,Projeto,Prioridade,Concluída em,Tags,Empresa";
     const rows = reportTasks.map((t) => {
       const title = `"${t.title.replace(/"/g, '""')}"`;
+      const project = `"${projectName(t.project_id).replace(/"/g, '""')}"`;
       const priority = (priorityConfig[t.priority] || priorityConfig.medium).label;
       const completed = t.completed_at ? format(parseISO(t.completed_at), "dd/MM/yyyy HH:mm") : "-";
       const tags = `"${(t.tags || []).join(", ")}"`;
       const company = `"${getCompanyName(t.company_id)}"`;
-      return `${title},${priority},${completed},${tags},${company}`;
+      return `${title},${project},${priority},${completed},${tags},${company}`;
     });
     const csv = [header, ...rows].join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
@@ -852,6 +878,23 @@ const Tasks = () => {
                   <SelectItem value="all">Todas as empresas</SelectItem>
                   {companies.map((c) => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Project filter */}
+            <div>
+              <label className="text-sm font-medium mb-1 block">Projeto</label>
+              <Select value={reportProjectId} onValueChange={setReportProjectId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os projetos</SelectItem>
+                  <SelectItem value="none">Sem projeto</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

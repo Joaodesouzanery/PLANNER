@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +32,10 @@ import {
   User,
   UserCircle,
   Briefcase,
+  Search,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -83,6 +87,9 @@ const OrgChart = () => {
   const [editingNode, setEditingNode] = useState<OrgChartNode | null>(null);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<"tree" | "grid">("tree");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState<string>("all");
+  const [zoom, setZoom] = useState(1);
 
   const [nodeForm, setNodeForm] = useState({
     name: "",
@@ -180,13 +187,47 @@ const OrgChart = () => {
     setExpandedNodes(newExpanded);
   };
 
-  const getRootNodes = () => nodes.filter((n) => !n.parent_id);
-  const getChildNodes = (parentId: string) => nodes.filter((n) => n.parent_id === parentId);
+  // Filter nodes by search/department - if a node matches, include all its ancestors
+  const filteredNodeIds = useMemo(() => {
+    if (!searchTerm.trim() && departmentFilter === "all") return null; // null = no filter
+    const term = searchTerm.trim().toLowerCase();
+    const matches = new Set<string>();
+    for (const n of nodes) {
+      const matchSearch = !term || n.name.toLowerCase().includes(term) || n.position.toLowerCase().includes(term) || (n.email || "").toLowerCase().includes(term);
+      const matchDept = departmentFilter === "all" || n.department === departmentFilter;
+      if (matchSearch && matchDept) {
+        matches.add(n.id);
+        // Add all ancestors so tree path stays visible
+        let cur: OrgChartNode | undefined = n;
+        while (cur?.parent_id) {
+          matches.add(cur.parent_id);
+          cur = nodes.find((x) => x.id === cur!.parent_id);
+        }
+      }
+    }
+    return matches;
+  }, [nodes, searchTerm, departmentFilter]);
+
+  // Auto-expand matching ancestors when searching
+  useEffect(() => {
+    if (filteredNodeIds && filteredNodeIds.size > 0) {
+      setExpandedNodes(new Set(filteredNodeIds));
+    }
+  }, [filteredNodeIds]);
+
+  const isVisible = (id: string) => filteredNodeIds === null || filteredNodeIds.has(id);
+  const getRootNodes = () => nodes.filter((n) => !n.parent_id && isVisible(n.id));
+  const getChildNodes = (parentId: string) => nodes.filter((n) => n.parent_id === parentId && isVisible(n.id));
 
   const getColorClass = (color: string) => {
     const colorOption = colorOptions.find((c) => c.value === color);
     return colorOption?.class || "bg-primary";
   };
+
+  const allDepartments = useMemo(
+    () => Array.from(new Set(nodes.map((n) => n.department).filter(Boolean))) as string[],
+    [nodes]
+  );
 
   const stats = {
     total: nodes.length,
@@ -409,21 +450,16 @@ const OrgChart = () => {
             <>
               {/* Vertical line down */}
               <div className="w-0.5 h-6 bg-border" />
-              
-              {/* Horizontal line */}
-              {children.length > 1 && (
-                <div className="relative w-full flex justify-center">
-                  <div 
-                    className="h-0.5 bg-border" 
-                    style={{ 
-                      width: `${Math.min(children.length * 180, 800)}px` 
-                    }} 
+
+              {/* Children with proper top connectors */}
+              <div className="relative flex items-start gap-6 md:gap-8">
+                {/* Horizontal line spanning from first to last child center */}
+                {children.length > 1 && (
+                  <div
+                    className="absolute top-0 h-0.5 bg-border pointer-events-none"
+                    style={{ left: "calc(50% / " + children.length + ")", right: "calc(50% / " + children.length + ")" }}
                   />
-                </div>
-              )}
-              
-              {/* Children */}
-              <div className="flex gap-4 mt-0">
+                )}
                 {children.map((child) => (
                   <div key={child.id} className="flex flex-col items-center">
                     {/* Vertical line up to child */}
@@ -439,8 +475,28 @@ const OrgChart = () => {
     };
 
     return (
-      <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-8 overflow-x-auto pb-8">
-        {rootNodes.map((node) => renderVisualNode(node))}
+      <div className="relative">
+        {/* Zoom controls */}
+        <div className="sticky top-0 z-10 flex items-center justify-end gap-1 mb-3 bg-background/80 backdrop-blur-sm py-2">
+          <span className="text-xs text-muted-foreground font-mono mr-2">{Math.round(zoom * 100)}%</span>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)))}>
+            <ZoomOut className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setZoom(1)} title="Resetar zoom">
+            <Maximize2 className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setZoom((z) => Math.min(1.5, +(z + 0.1).toFixed(2)))}>
+            <ZoomIn className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <div className="overflow-auto pb-8">
+          <div
+            className="flex flex-col sm:flex-row justify-center items-start gap-8 sm:gap-12 origin-top transition-transform"
+            style={{ transform: `scale(${zoom})`, minWidth: "fit-content" }}
+          >
+            {rootNodes.map((node) => renderVisualNode(node))}
+          </div>
+        </div>
       </div>
     );
   };
@@ -480,6 +536,30 @@ const OrgChart = () => {
               Adicionar Membro
             </Button>
           </div>
+        </div>
+
+        {/* Search + Department filter */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar por nome, cargo ou e-mail..."
+              className="pl-9"
+            />
+          </div>
+          <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectValue placeholder="Departamento" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os departamentos</SelectItem>
+              {allDepartments.map((d) => (
+                <SelectItem key={d} value={d}>{d}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Stats */}
