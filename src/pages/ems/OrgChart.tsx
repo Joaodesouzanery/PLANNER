@@ -450,21 +450,16 @@ const OrgChart = () => {
             <>
               {/* Vertical line down */}
               <div className="w-0.5 h-6 bg-border" />
-              
-              {/* Horizontal line */}
-              {children.length > 1 && (
-                <div className="relative w-full flex justify-center">
-                  <div 
-                    className="h-0.5 bg-border" 
-                    style={{ 
-                      width: `${Math.min(children.length * 180, 800)}px` 
-                    }} 
+
+              {/* Children with proper top connectors */}
+              <div className="relative flex items-start gap-6 md:gap-8">
+                {/* Horizontal line spanning from first to last child center */}
+                {children.length > 1 && (
+                  <div
+                    className="absolute top-0 h-0.5 bg-border pointer-events-none"
+                    style={{ left: "calc(50% / " + children.length + ")", right: "calc(50% / " + children.length + ")" }}
                   />
-                </div>
-              )}
-              
-              {/* Children */}
-              <div className="flex gap-4 mt-0">
+                )}
                 {children.map((child) => (
                   <div key={child.id} className="flex flex-col items-center">
                     {/* Vertical line up to child */}
@@ -480,8 +475,28 @@ const OrgChart = () => {
     };
 
     return (
-      <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-8 overflow-x-auto pb-8">
-        {rootNodes.map((node) => renderVisualNode(node))}
+      <div className="relative">
+        {/* Zoom controls */}
+        <div className="sticky top-0 z-10 flex items-center justify-end gap-1 mb-3 bg-background/80 backdrop-blur-sm py-2">
+          <span className="text-xs text-muted-foreground font-mono mr-2">{Math.round(zoom * 100)}%</span>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)))}>
+            <ZoomOut className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setZoom(1)} title="Resetar zoom">
+            <Maximize2 className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setZoom((z) => Math.min(1.5, +(z + 0.1).toFixed(2)))}>
+            <ZoomIn className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <div className="overflow-auto pb-8">
+          <div
+            className="flex flex-col sm:flex-row justify-center items-start gap-8 sm:gap-12 origin-top transition-transform"
+            style={{ transform: `scale(${zoom})`, minWidth: "fit-content" }}
+          >
+            {rootNodes.map((node) => renderVisualNode(node))}
+          </div>
+        </div>
       </div>
     );
   };
