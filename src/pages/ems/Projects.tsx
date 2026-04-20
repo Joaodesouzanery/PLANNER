@@ -118,6 +118,7 @@ const Projects = () => {
   const [reportCompanyId, setReportCompanyId] = useState<string>("current");
   const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [pendingTaskCounts, setPendingTaskCounts] = useState<Record<string, number>>({});
+  const [totalTaskCounts, setTotalTaskCounts] = useState<Record<string, number>>({});
   const [dashFrom, setDashFrom] = useState("");
   const [dashTo, setDashTo] = useState("");
 
@@ -158,15 +159,19 @@ const Projects = () => {
   }, [selectedCompanyId]);
 
   const fetchPendingTaskCounts = async () => {
-    let q = supabase.from("tasks").select("project_id").neq("status", "completed").not("project_id", "is", null);
+    let q = supabase.from("tasks").select("project_id, status").not("project_id", "is", null);
     if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
     const { data } = await q;
     if (!data) return;
-    const counts: Record<string, number> = {};
-    for (const row of data as { project_id: string | null }[]) {
-      if (row.project_id) counts[row.project_id] = (counts[row.project_id] || 0) + 1;
+    const pending: Record<string, number> = {};
+    const total: Record<string, number> = {};
+    for (const row of data as { project_id: string | null; status: string }[]) {
+      if (!row.project_id) continue;
+      total[row.project_id] = (total[row.project_id] || 0) + 1;
+      if (row.status !== "completed") pending[row.project_id] = (pending[row.project_id] || 0) + 1;
     }
-    setPendingTaskCounts(counts);
+    setPendingTaskCounts(pending);
+    setTotalTaskCounts(total);
   };
 
   const fetchProjects = async () => {
