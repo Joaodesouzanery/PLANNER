@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Trash2, Calendar, Flag, ListTodo, CheckCircle2, Clock, AlertTriangle,
   Tag, MessageSquare, ChevronDown, ChevronRight, X, TrendingUp, Edit2, FileText, Download,
-  FolderKanban, LayoutList, FolderTree,
+  FolderKanban, LayoutList, FolderTree, Building2,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
@@ -50,6 +50,7 @@ interface ProjectLite {
   id: string;
   title: string;
   company_id: string | null;
+  client: string | null;
 }
 
 interface TaskNote {
@@ -85,7 +86,7 @@ const Tasks = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialProject = searchParams.get("project") || "all";
   const [projectFilter, setProjectFilter] = useState<string>(initialProject);
-  const [viewMode, setViewMode] = useState<"list" | "byProject">("list");
+  const [viewMode, setViewMode] = useState<"list" | "byProject" | "byClient">("list");
 
   // Sync URL param → state when it changes externally
   useEffect(() => {
@@ -129,7 +130,7 @@ const Tasks = () => {
   const { data: projects = [] } = useQuery({
     queryKey: ["tasks-projects", selectedCompanyId],
     queryFn: async () => {
-      let q = supabase.from("projects").select("id, title, company_id").order("title");
+      let q = supabase.from("projects").select("id, title, company_id, client").order("title");
       if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
       const { data, error } = await q;
       if (error) throw error;
