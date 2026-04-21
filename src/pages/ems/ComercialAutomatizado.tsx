@@ -9,10 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Send, User, Bot, Copy, Check, Linkedin, FileText, Loader2, Wand2, Trash2 } from "lucide-react";
+import { Sparkles, Send, User, Bot, Copy, Check, Linkedin, FileText, Loader2, Wand2, Trash2, BookOpen } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { PlaybookContent } from "@/components/ems/comercial/PlaybookContent";
 
 type Role = "user" | "assistant";
 interface Msg { role: Role; content: string; }
@@ -33,7 +34,7 @@ const PRESETS_POST = [
 
 const ComercialAutomatizado = () => {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<"linkedin" | "post" | "chat">("linkedin");
+  const [activeTab, setActiveTab] = useState<"linkedin" | "post" | "chat" | "playbook">("playbook");
 
   // LinkedIn outreach form
   const [msgType, setMsgType] = useState<string>("connection");
@@ -221,7 +222,10 @@ Siga rigorosamente o formato em markdown definido no system prompt.`;
         </div>
 
         <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as any); setOutput(""); }}>
-          <TabsList className="grid grid-cols-3 w-full md:w-auto">
+          <TabsList className="grid grid-cols-4 w-full md:w-auto">
+            <TabsTrigger value="playbook" className="gap-2">
+              <BookOpen className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Playbook</span>
+            </TabsTrigger>
             <TabsTrigger value="linkedin" className="gap-2">
               <Linkedin className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Outreach</span>
             </TabsTrigger>
@@ -232,6 +236,11 @@ Siga rigorosamente o formato em markdown definido no system prompt.`;
               <Bot className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Chat</span>
             </TabsTrigger>
           </TabsList>
+
+          {/* PLAYBOOK */}
+          <TabsContent value="playbook" className="mt-4">
+            <PlaybookContent />
+          </TabsContent>
 
           {/* LINKEDIN OUTREACH */}
           <TabsContent value="linkedin" className="mt-4">
