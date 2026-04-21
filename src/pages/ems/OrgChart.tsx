@@ -494,15 +494,27 @@ const OrgChart = () => {
 
   const renderOrgChartVisual = () => {
     const rootNodes = getRootNodes();
-    
+    const draggedNode = draggedNodeId ? nodes.find((n) => n.id === draggedNodeId) : null;
+
+    const isValidDropTarget = (targetId: string | null): boolean => {
+      if (!draggedNodeId) return false;
+      if (targetId === draggedNodeId) return false;
+      const dragged = nodes.find((n) => n.id === draggedNodeId);
+      if (!dragged) return false;
+      if (dragged.parent_id === targetId) return false;
+      if (targetId && isDescendantOf(draggedNodeId, targetId)) return false;
+      return true;
+    };
+
     const renderVisualNode = (node: OrgChartNode): React.ReactNode => {
       const children = getChildNodes(node.id);
       const isDragOver = dragOverNodeId === node.id;
       const isDragging = draggedNodeId === node.id;
+      const isValid = draggedNodeId ? isValidDropTarget(node.id) : false;
+      const isInvalid = !!draggedNodeId && draggedNodeId !== node.id && !isValid;
 
       return (
         <div key={node.id} className="flex flex-col items-center">
-          {/* Node card */}
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -510,6 +522,11 @@ const OrgChart = () => {
             onDragStart={(e) => {
               e.stopPropagation();
               (e as unknown as DragEvent).dataTransfer?.setData("text/plain", node.id);
+              try {
+                const img = new Image();
+                img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+                (e as unknown as DragEvent).dataTransfer?.setDragImage(img, 0, 0);
+              } catch { /* noop */ }
               setDraggedNodeId(node.id);
             }}
             onDragEnd={() => {
@@ -517,9 +534,10 @@ const OrgChart = () => {
               setDragOverNodeId(null);
             }}
             onDragOver={(e) => {
+              if (!draggedNodeId) return;
               e.preventDefault();
               e.stopPropagation();
-              if (draggedNodeId && draggedNodeId !== node.id) setDragOverNodeId(node.id);
+              if (draggedNodeId !== node.id) setDragOverNodeId(node.id);
             }}
             onDragLeave={() => {
               if (dragOverNodeId === node.id) setDragOverNodeId(null);
@@ -528,14 +546,17 @@ const OrgChart = () => {
               e.preventDefault();
               e.stopPropagation();
               const childId = (e as unknown as DragEvent).dataTransfer?.getData("text/plain") || draggedNodeId;
-              if (childId) handleReparent(childId, node.id);
+              if (childId && isValidDropTarget(node.id)) handleReparent(childId, node.id);
               setDraggedNodeId(null);
               setDragOverNodeId(null);
             }}
             className={cn(
-              "relative p-4 rounded-xl border-2 bg-card shadow-lg min-w-[160px] text-center cursor-grab active:cursor-grabbing hover:border-primary/50 transition-all",
-              isDragOver ? "border-primary ring-2 ring-primary/40 scale-105" : "border-border",
-              isDragging && "opacity-50",
+              "relative p-4 rounded-xl border-2 bg-card shadow-lg min-w-[160px] text-center cursor-grab active:cursor-grabbing transition-all",
+              !draggedNodeId && "border-border hover:border-primary/50",
+              isValid && !isDragOver && "border-emerald-500/60 ring-2 ring-emerald-500/20 animate-pulse",
+              isDragOver && isValid && "border-emerald-500 ring-4 ring-emerald-500/40 scale-105",
+              isInvalid && "border-border opacity-30",
+              isDragging && "opacity-40 scale-95",
             )}
             onClick={() => {
               if (draggedNodeId) return;
@@ -552,11 +573,15 @@ const OrgChart = () => {
               setShowModal(true);
             }}
           >
-            {/* Color indicator */}
             <div className={cn("absolute top-0 left-0 right-0 h-1 rounded-t-xl", getColorClass(node.color))} />
             <GripVertical className="absolute top-1.5 right-1.5 h-3 w-3 text-muted-foreground/40" />
 
-            {/* Avatar */}
+            {isValid && isDragOver && (
+              <div className="absolute -top-7 left-1/2 -translate-x-1/2 text-[10px] font-bold uppercase tracking-wider text-emerald-500 bg-emerald-500/10 border border-emerald-500/30 rounded px-2 py-0.5 whitespace-nowrap">
+                ↓ Soltar aqui
+              </div>
+            )}
+
             <div className={cn(
               "w-14 h-14 rounded-full mx-auto mb-2 flex items-center justify-center",
               getColorClass(node.color)
@@ -575,15 +600,10 @@ const OrgChart = () => {
             )}
           </motion.div>
 
-          {/* Children connector and nodes */}
           {children.length > 0 && (
             <>
-              {/* Vertical line down */}
               <div className="w-0.5 h-6 bg-border" />
-
-              {/* Children with proper top connectors */}
               <div className="relative flex items-start gap-6 md:gap-8">
-                {/* Horizontal line spanning from first to last child center */}
                 {children.length > 1 && (
                   <div
                     className="absolute top-0 h-0.5 bg-border pointer-events-none"
@@ -592,7 +612,6 @@ const OrgChart = () => {
                 )}
                 {children.map((child) => (
                   <div key={child.id} className="flex flex-col items-center">
-                    {/* Vertical line up to child */}
                     <div className="w-0.5 h-6 bg-border" />
                     {renderVisualNode(child)}
                   </div>
@@ -606,7 +625,15 @@ const OrgChart = () => {
 
     return (
       <div className="relative">
-        {/* Zoom controls */}
+        {draggedNode && <DragGhost node={draggedNode} />}
+
+        {draggedNodeId && (
+          <div className="sticky top-12 z-20 mx-auto w-fit mb-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/30 text-primary text-xs font-medium flex items-center gap-2">
+            <GripVertical className="h-3 w-3" />
+            Arrastando <strong>{draggedNode?.name}</strong> · solte em uma zona destacada em verde
+          </div>
+        )}
+
         <div className="sticky top-0 z-10 flex items-center justify-end gap-1 mb-3 bg-background/80 backdrop-blur-sm py-2">
           <span className="text-xs text-muted-foreground font-mono mr-2">{Math.round(zoom * 100)}%</span>
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)))}>
@@ -622,23 +649,64 @@ const OrgChart = () => {
         <div className="overflow-auto pb-8">
           <div
             ref={visualRef}
-            className="flex flex-col sm:flex-row justify-center items-start gap-8 sm:gap-12 origin-top transition-transform p-4 bg-background"
+            className={cn(
+              "flex flex-col sm:flex-row justify-center items-start gap-8 sm:gap-12 origin-top transition-transform p-4 bg-background rounded-lg",
+              draggedNodeId && "ring-2 ring-dashed ring-primary/20",
+            )}
             style={{ transform: `scale(${zoom})`, minWidth: "fit-content" }}
             onDragOver={(e) => {
               if (draggedNodeId) e.preventDefault();
             }}
             onDrop={(e) => {
-              // Drop in empty area = make it a root node
               if (e.target === e.currentTarget) {
                 e.preventDefault();
                 const childId = (e as unknown as DragEvent).dataTransfer?.getData("text/plain") || draggedNodeId;
-                if (childId) handleReparent(childId, null);
+                if (childId) {
+                  const dragged = nodes.find((n) => n.id === childId);
+                  if (dragged && dragged.parent_id !== null) {
+                    handleReparent(childId, null);
+                  }
+                }
                 setDraggedNodeId(null);
                 setDragOverNodeId(null);
               }
             }}
           >
             {rootNodes.map((node) => renderVisualNode(node))}
+          </div>
+          {draggedNodeId && nodes.find(n => n.id === draggedNodeId)?.parent_id !== null && (
+            <div className="text-center text-xs text-muted-foreground mt-3 italic">
+              💡 Solte na área externa (fora dos cards) para tornar este membro um nó raiz
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Floating ghost preview that follows the cursor during drag
+  const DragGhost = ({ node }: { node: OrgChartNode }) => {
+    const [pos, setPos] = useState({ x: 0, y: 0 });
+    useEffect(() => {
+      const handler = (e: DragEvent) => {
+        if (e.clientX || e.clientY) setPos({ x: e.clientX, y: e.clientY });
+      };
+      window.addEventListener("dragover", handler);
+      return () => window.removeEventListener("dragover", handler);
+    }, []);
+    if (pos.x === 0 && pos.y === 0) return null;
+    return (
+      <div
+        className="fixed pointer-events-none z-[9999] -translate-x-1/2 -translate-y-1/2"
+        style={{ left: pos.x, top: pos.y }}
+      >
+        <div className="px-3 py-2 rounded-lg bg-primary text-primary-foreground shadow-2xl border-2 border-primary-foreground/20 flex items-center gap-2 text-xs font-semibold whitespace-nowrap">
+          <div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-[10px] text-white", getColorClass(node.color))}>
+            {node.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+          </div>
+          <div className="flex flex-col items-start">
+            <span>{node.name}</span>
+            <span className="text-[10px] opacity-80 font-normal">{node.position}</span>
           </div>
         </div>
       </div>

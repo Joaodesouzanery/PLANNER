@@ -649,13 +649,18 @@ const Projects = () => {
                                                   const completed = total - pending;
                                                   const pct = Math.round((completed / total) * 100);
                                                   return (
-                                                    <div className="mt-2 ml-5 md:ml-6">
+                                                    <button
+                                                      type="button"
+                                                      onClick={(e) => { e.stopPropagation(); navigate(`/ems/tasks?project=${project.id}`); }}
+                                                      className="mt-2 ml-5 md:ml-6 w-[calc(100%-1.25rem)] md:w-[calc(100%-1.5rem)] text-left group/prog hover:bg-primary/5 rounded p-1 -m-1 transition-colors block"
+                                                      title="Ver tarefas deste projeto"
+                                                    >
                                                       <div className="flex items-center justify-between mb-1">
-                                                        <span className="text-[9px] md:text-[10px] text-muted-foreground">Tarefas</span>
-                                                        <span className="text-[9px] md:text-[10px] font-mono text-muted-foreground">{completed}/{total} · {pct}%</span>
+                                                        <span className="text-[9px] md:text-[10px] text-muted-foreground group-hover/prog:text-primary transition-colors">Tarefas</span>
+                                                        <span className="text-[9px] md:text-[10px] font-mono text-muted-foreground group-hover/prog:text-primary transition-colors">{completed}/{total} · {pct}%</span>
                                                       </div>
-                                                      <Progress value={pct} className="h-1" />
-                                                    </div>
+                                                      <Progress value={pct} className="h-1 group-hover/prog:h-1.5 transition-all" />
+                                                    </button>
                                                   );
                                                 })()}
                                               </div>
