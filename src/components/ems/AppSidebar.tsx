@@ -29,6 +29,7 @@ import {
   LogOut,
   GraduationCap,
   User as UserIcon,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
@@ -61,6 +62,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { icon: Contact, label: "Contatos", path: "/ems/contacts" },
       { icon: Briefcase, label: "Comercial", path: "/ems/comercial" },
+      { icon: Sparkles, label: "Comercial Automatizado", path: "/ems/comercial-automatizado" },
       { icon: BookOpen, label: "Estrutura Comercial", path: "/ems/estrutura-comercial" },
       { icon: ClipboardList, label: "Onboarding", path: "/ems/onboarding" },
       { icon: Target, label: "Planejamento", path: "/ems/planning" },
