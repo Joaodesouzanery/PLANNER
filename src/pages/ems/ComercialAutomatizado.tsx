@@ -9,10 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Send, User, Bot, Copy, Check, Linkedin, FileText, Loader2, Wand2, Trash2 } from "lucide-react";
+import { Sparkles, Send, User, Bot, Copy, Check, Linkedin, FileText, Loader2, Wand2, Trash2, BookOpen } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { PlaybookContent } from "@/components/ems/comercial/PlaybookContent";
 
 type Role = "user" | "assistant";
 interface Msg { role: Role; content: string; }
