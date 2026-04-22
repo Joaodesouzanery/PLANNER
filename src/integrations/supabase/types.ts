@@ -14,6 +14,122 @@ export type Database = {
   }
   public: {
     Tables: {
+      agile_implementation_steps: {
+        Row: {
+          attachment_name: string | null
+          attachment_url: string | null
+          checklist: Json | null
+          company_id: string | null
+          completed_at: string | null
+          contact_id: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          order_index: number | null
+          sprint_number: number | null
+          status: string | null
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          attachment_name?: string | null
+          attachment_url?: string | null
+          checklist?: Json | null
+          company_id?: string | null
+          completed_at?: string | null
+          contact_id?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          order_index?: number | null
+          sprint_number?: number | null
+          status?: string | null
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          attachment_name?: string | null
+          attachment_url?: string | null
+          checklist?: Json | null
+          company_id?: string | null
+          completed_at?: string | null
+          contact_id?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          order_index?: number | null
+          sprint_number?: number | null
+          status?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agile_implementation_steps_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agile_implementation_steps_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_generations: {
+        Row: {
+          company_id: string | null
+          content: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          tags: string[] | null
+          title: string | null
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          tags?: string[] | null
+          title?: string | null
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          tags?: string[] | null
+          title?: string | null
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_generations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointments: {
         Row: {
           appointment_date: string
@@ -283,6 +399,68 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "commercial_phases_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commercial_structure_items: {
+        Row: {
+          attachment_name: string | null
+          attachment_url: string | null
+          category: string
+          company_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          order_index: number | null
+          status: string | null
+          title: string
+          unit: string | null
+          updated_at: string
+          user_id: string | null
+          value_after: string | null
+          value_before: string | null
+        }
+        Insert: {
+          attachment_name?: string | null
+          attachment_url?: string | null
+          category: string
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          order_index?: number | null
+          status?: string | null
+          title: string
+          unit?: string | null
+          updated_at?: string
+          user_id?: string | null
+          value_after?: string | null
+          value_before?: string | null
+        }
+        Update: {
+          attachment_name?: string | null
+          attachment_url?: string | null
+          category?: string
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          order_index?: number | null
+          status?: string | null
+          title?: string
+          unit?: string | null
+          updated_at?: string
+          user_id?: string | null
+          value_after?: string | null
+          value_before?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commercial_structure_items_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"

@@ -32,6 +32,7 @@ const CommercialStructure = lazy(() => import("./pages/ems/CommercialStructure")
 const CommercialComparison = lazy(() => import("./pages/ems/CommercialComparison"));
 const Faculdade = lazy(() => import("./pages/ems/Faculdade"));
 const ComercialAutomatizado = lazy(() => import("./pages/ems/ComercialAutomatizado"));
+const AgileImplementation = lazy(() => import("./pages/ems/AgileImplementation"));
 const EMSLogin = lazy(() => import("./pages/ems/Login"));
 const ResetPassword = lazy(() => import("./pages/ems/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -101,6 +102,7 @@ const App = () => (
               <Route path="/ems/companies" element={<ProtectedPage><Companies /></ProtectedPage>} />
               <Route path="/ems/faculdade" element={<ProtectedPage><Faculdade /></ProtectedPage>} />
               <Route path="/ems/comercial-automatizado" element={<ProtectedPage><ComercialAutomatizado /></ProtectedPage>} />
+              <Route path="/ems/implementacao-agil" element={<ProtectedPage><AgileImplementation /></ProtectedPage>} />
 
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />

@@ -21,10 +21,11 @@ import {
   Building2, Users, Target, TrendingUp, BarChart3, Briefcase,
   CheckCircle2, ArrowRight, Lightbulb, Wrench, Star, DollarSign,
   BookOpen, Megaphone, Search, Handshake, Pencil, Save, X, Plus, Trash2,
-  Copy, Eye, FileDown, GitCompareArrows
+  Copy, Eye, FileDown, GitCompareArrows, ClipboardList, Rocket, BarChart
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { exportCommercialStructurePdf } from "@/utils/commercialStructurePdf";
+import { StructureSectionEditor } from "@/components/ems/comercial/StructureSectionEditor";
 
 // ─── Default reference data ─────────────────────────────────────────
 
@@ -634,6 +635,9 @@ const CommercialStructure = () => {
             <TabsTrigger value="stack" className="flex items-center gap-1.5"><Wrench className="h-3.5 w-3.5" />Stack</TabsTrigger>
             <TabsTrigger value="kpis" className="flex items-center gap-1.5"><BarChart3 className="h-3.5 w-3.5" />KPIs</TabsTrigger>
             <TabsTrigger value="commission" className="flex items-center gap-1.5"><DollarSign className="h-3.5 w-3.5" />Comissão</TabsTrigger>
+            <TabsTrigger value="onboarding_roteiro" className="flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5" />Onboarding</TabsTrigger>
+            <TabsTrigger value="implementation_roteiro" className="flex items-center gap-1.5"><Rocket className="h-3.5 w-3.5" />Implementação</TabsTrigger>
+            <TabsTrigger value="kpi_before_after" className="flex items-center gap-1.5"><BarChart className="h-3.5 w-3.5" />KPIs Antes/Depois</TabsTrigger>
           </TabsList>
 
           <TabsContent value="funnel" className="mt-4">
@@ -682,6 +686,31 @@ const CommercialStructure = () => {
             ) : (
               <CommissionReadOnly data={commissionData} />
             )}
+          </TabsContent>
+
+          <TabsContent value="onboarding_roteiro" className="mt-4">
+            <StructureSectionEditor
+              category="onboarding_roteiro"
+              title="Roteiro de Onboarding"
+              description="Etapas e documentos do processo de onboarding de novos clientes"
+            />
+          </TabsContent>
+
+          <TabsContent value="implementation_roteiro" className="mt-4">
+            <StructureSectionEditor
+              category="implementation_roteiro"
+              title="Roteiro de Implementação"
+              description="Etapas e marcos do processo de implementação"
+            />
+          </TabsContent>
+
+          <TabsContent value="kpi_before_after" className="mt-4">
+            <StructureSectionEditor
+              category="kpi_before_after"
+              title="KPIs Antes vs Depois"
+              description="Compare métricas antes e depois da implementação do sistema"
+              showBeforeAfter
+            />
           </TabsContent>
         </Tabs>
       </motion.div>
