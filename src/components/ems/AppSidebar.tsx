@@ -31,6 +31,7 @@ import {
   User as UserIcon,
   Sparkles,
   Zap,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
@@ -67,6 +68,7 @@ const menuGroups: MenuGroup[] = [
       { icon: BookOpen, label: "Estrutura Comercial", path: "/ems/estrutura-comercial" },
       { icon: ClipboardList, label: "Onboarding", path: "/ems/onboarding" },
       { icon: Zap, label: "Implementação Ágil", path: "/ems/implementacao-agil" },
+      { icon: ShieldCheck, label: "Conferência", path: "/ems/conferencia" },
       { icon: Target, label: "Planejamento", path: "/ems/planning" },
       { icon: Route, label: "RoadMap", path: "/ems/roadmap" },
       { icon: Users, label: "Organograma", path: "/ems/orgchart" },
