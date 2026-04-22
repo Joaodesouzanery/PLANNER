@@ -533,6 +533,119 @@ export type Database = {
           },
         ]
       }
+      conference_items: {
+        Row: {
+          attachment_name: string | null
+          attachment_url: string | null
+          company_id: string | null
+          content: string | null
+          created_at: string
+          id: string
+          order_index: number | null
+          stage_id: string
+          tags: string[] | null
+          title: string
+          type: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          attachment_name?: string | null
+          attachment_url?: string | null
+          company_id?: string | null
+          content?: string | null
+          created_at?: string
+          id?: string
+          order_index?: number | null
+          stage_id: string
+          tags?: string[] | null
+          title: string
+          type?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          attachment_name?: string | null
+          attachment_url?: string | null
+          company_id?: string | null
+          content?: string | null
+          created_at?: string
+          id?: string
+          order_index?: number | null
+          stage_id?: string
+          tags?: string[] | null
+          title?: string
+          type?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conference_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conference_items_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "conference_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conference_stages: {
+        Row: {
+          color: string | null
+          company_id: string | null
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          order_index: number | null
+          status: string | null
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          color?: string | null
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          order_index?: number | null
+          status?: string | null
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          color?: string | null
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          order_index?: number | null
+          status?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conference_stages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_commercial_tracking: {
         Row: {
           company_id: string | null
