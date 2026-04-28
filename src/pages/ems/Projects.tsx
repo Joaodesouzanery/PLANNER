@@ -894,7 +894,7 @@ const Projects = () => {
         <Dialog open={showAddProject || !!editingProject} onOpenChange={(open) => {
           if (!open) { setShowAddProject(false); setEditingProject(null); setProjectForm(emptyProjectForm); setChecklistItems([]); setNewCheckItem(""); }
         }}>
-          <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] flex flex-col">
+          <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] flex flex-col">
             <DialogHeader><DialogTitle className="text-base md:text-lg">{editingProject ? "Editar Projeto" : "Novo Projeto"}</DialogTitle></DialogHeader>
             <div className="space-y-3 md:space-y-4 py-2 md:py-4 overflow-y-auto flex-1 pr-1">
               <div><Label className="text-xs md:text-sm">Título</Label><Input value={projectForm.title} onChange={(e) => setProjectForm({ ...projectForm, title: e.target.value })} placeholder="Nome do projeto" className="text-sm" /></div>
@@ -952,7 +952,6 @@ const Projects = () => {
                   </div>
                 )}
               </div>
-            </div>
               {editingProject && (
                 <div className="border-t border-border pt-3 space-y-4">
                   <AttachmentManager entityType="project_contract" entityId={editingProject.id} companyId={editingProject.company_id} clientCompanyId={editingProject.company_id} projectId={editingProject.id} documentType="contract" title="Contratos em PDF" accept="application/pdf" showMetadata />
@@ -960,6 +959,7 @@ const Projects = () => {
                   <AttachmentManager entityType="project" entityId={editingProject.id} companyId={editingProject.company_id} clientCompanyId={editingProject.company_id} projectId={editingProject.id} documentType="other" title="Outros anexos" showMetadata />
                 </div>
               )}
+            </div>
             <DialogFooter className="gap-2">
               <Button variant="outline" size="sm" onClick={() => { setShowAddProject(false); setEditingProject(null); }}>Cancelar</Button>
               <Button size="sm" onClick={editingProject ? handleUpdateProject : handleAddProject}>{editingProject ? "Salvar" : "Criar"}</Button>

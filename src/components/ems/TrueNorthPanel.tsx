@@ -20,11 +20,18 @@ export const TrueNorthPanel = ({ compact = false }: { compact?: boolean }) => {
     queryKey: ["true-north", selectedCompanyId],
     staleTime: 1000 * 60 * 5,
     queryFn: async () => {
-      let q = (supabase as any).from("true_north").select("*");
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      let q = (supabase as any)
+        .from("true_north")
+        .select("*")
+        .eq("user_id", userData.user.id)
+        .order("updated_at", { ascending: false })
+        .limit(1);
       q = hasCompanyFilter ? q.eq("company_id", selectedCompanyId) : q.is("company_id", null);
-      const { data, error } = await q.maybeSingle();
+      const { data, error } = await q;
       if (error) throw error;
-      return data;
+      return data?.[0] || null;
     },
   });
 
@@ -40,7 +47,10 @@ export const TrueNorthPanel = ({ compact = false }: { compact?: boolean }) => {
 
   const save = useMutation({
     mutationFn: async () => {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
       const payload = {
+        user_id: userData.user.id,
         vision: form.vision || null,
         three_year_goal: form.three_year_goal || null,
         values: form.values.split("\n").map((v) => v.trim()).filter(Boolean),

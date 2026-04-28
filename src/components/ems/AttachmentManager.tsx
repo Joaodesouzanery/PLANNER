@@ -42,6 +42,20 @@ const inferDocumentType = (entityType: string, explicit?: string) => {
   return "other";
 };
 
+const sanitizeStorageFileName = (fileName: string) => {
+  const parts = fileName.split(".");
+  const extension = parts.length > 1 ? `.${parts.pop()}` : "";
+  const base = parts.join(".") || "arquivo";
+  const safeBase = base
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 90) || "arquivo";
+  const safeExtension = extension.replace(/[^a-zA-Z0-9.]/g, "").slice(0, 16);
+  return `${safeBase}${safeExtension}`;
+};
+
 export const AttachmentManager = ({
   entityType,
   entityId,
@@ -77,7 +91,8 @@ export const AttachmentManager = ({
   const uploadFile = async (file: globalThis.File) => {
     setUploading(true);
     try {
-      const path = `${entityType}/${entityId}/${Date.now()}-${file.name}`;
+      const safeName = sanitizeStorageFileName(file.name);
+      const path = `${entityType}/${entityId}/${Date.now()}-${safeName}`;
       const { error: uploadErr } = await supabase.storage.from("attachments").upload(path, file);
       if (uploadErr) throw uploadErr;
 
