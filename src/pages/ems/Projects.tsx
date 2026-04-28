@@ -955,9 +955,9 @@ const Projects = () => {
             </div>
               {editingProject && (
                 <div className="border-t border-border pt-3 space-y-4">
-                  <AttachmentManager entityType="project_contract" entityId={editingProject.id} companyId={editingProject.company_id} title="Contratos em PDF" accept="application/pdf" />
-                  <AttachmentManager entityType="project_invoice" entityId={editingProject.id} companyId={editingProject.company_id} title="Notas Fiscais em PDF" accept="application/pdf" />
-                  <AttachmentManager entityType="project" entityId={editingProject.id} companyId={editingProject.company_id} title="Outros anexos" />
+                  <AttachmentManager entityType="project_contract" entityId={editingProject.id} companyId={editingProject.company_id} clientCompanyId={editingProject.company_id} projectId={editingProject.id} documentType="contract" title="Contratos em PDF" accept="application/pdf" showMetadata />
+                  <AttachmentManager entityType="project_invoice" entityId={editingProject.id} companyId={editingProject.company_id} clientCompanyId={editingProject.company_id} projectId={editingProject.id} documentType="invoice" title="Notas Fiscais em PDF" accept="application/pdf" showMetadata />
+                  <AttachmentManager entityType="project" entityId={editingProject.id} companyId={editingProject.company_id} clientCompanyId={editingProject.company_id} projectId={editingProject.id} documentType="other" title="Outros anexos" showMetadata />
                 </div>
               )}
             <DialogFooter className="gap-2">

@@ -20,6 +20,7 @@ import { GoalCard } from "@/components/ems/planning/GoalCard";
 import { HorizonSection } from "@/components/ems/planning/HorizonSection";
 import { PlanningTimeline } from "@/components/ems/planning/PlanningTimeline";
 import { GoalModal, MilestoneModal } from "@/components/ems/planning/PlanningModals";
+import { TrueNorthPanel } from "@/components/ems/TrueNorthPanel";
 
 const emptyGoalForm: GoalFormData = {
   title: "", description: "", category: "strategic", start_date: "",
@@ -127,6 +128,8 @@ const Planning = () => {
             <Plus className="h-4 w-4 mr-2" />Nova Meta
           </Button>
         </div>
+
+        <TrueNorthPanel compact />
 
         {/* Stats */}
         <PlanningStats stats={data.stats} />

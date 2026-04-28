@@ -9,7 +9,9 @@ type TableName =
   | "strategic_pillars" | "monthly_focus" | "kanban_columns" | "org_chart_nodes"
   | "commercial_phases" | "commercial_items" | "attachments"
   | "onboarding_steps" | "onboarding_documents"
-  | "daily_reports" | "governance_items" | "governance_logs" | "governance_metrics";
+  | "daily_reports" | "governance_items" | "governance_logs" | "governance_metrics"
+  | "true_north" | "unified_inbox" | "decision_logs" | "review_cycles"
+  | "capacity_checkins" | "automation_rules" | "automation_events" | "ai_briefings";
 
 interface UseCompanyQueryOptions<T> {
   table: TableName;

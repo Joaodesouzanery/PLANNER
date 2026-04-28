@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { AttachmentManager } from "@/components/ems/AttachmentManager";
 
 type ClientStage = "new" | "onboarding" | "active" | "expansion" | "risk" | "recovery";
 
@@ -379,7 +380,7 @@ const ClientRelationshipKanban = ({ enabled = true }: { enabled?: boolean }) => 
       </DragDropContext>
 
       <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editing?.name}</DialogTitle>
           </DialogHeader>
@@ -416,6 +417,18 @@ const ClientRelationshipKanban = ({ enabled = true }: { enabled?: boolean }) => 
               <label className="text-sm font-medium">Observações de relacionamento</label>
               <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="mt-1 min-h-28" />
             </div>
+            {editing && (
+              <AttachmentManager
+                entityType="client"
+                entityId={editing.id}
+                companyId={editing.id}
+                clientCompanyId={editing.id}
+                documentType="contract"
+                title="Documentos do cliente"
+                accept="application/pdf"
+                showMetadata
+              />
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>

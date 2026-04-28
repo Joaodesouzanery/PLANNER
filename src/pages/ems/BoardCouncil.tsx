@@ -5,6 +5,7 @@ import {
   Archive,
   BarChart3,
   BookOpen,
+  Bot,
   Briefcase,
   CalendarClock,
   FileText,
@@ -20,6 +21,9 @@ import {
 } from "lucide-react";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { AttachmentManager } from "@/components/ems/AttachmentManager";
+import { AutomationRulesPanel } from "@/components/ems/AutomationRulesPanel";
+import { DecisionLogPanel } from "@/components/ems/DecisionLogPanel";
+import { DocumentLibrary } from "@/components/ems/DocumentLibrary";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +45,10 @@ const CATEGORIES = [
   { id: "stack_backup", label: "Stack & Backup", icon: Archive, color: "text-amber-500", bg: "bg-amber-500/10" },
   { id: "crisis", label: "Crises", icon: Siren, color: "text-red-500", bg: "bg-red-500/10" },
   { id: "admin", label: "Administrativo", icon: Briefcase, color: "text-cyan-500", bg: "bg-cyan-500/10" },
+  { id: "documents", label: "Documentos", icon: FileText, color: "text-primary", bg: "bg-primary/10" },
+  { id: "decisions", label: "Decisões", icon: Bot, color: "text-indigo-500", bg: "bg-indigo-500/10" },
+  { id: "automation", label: "Automação", icon: Wrench, color: "text-amber-500", bg: "bg-amber-500/10" },
+  { id: "monthly_review", label: "Reunião Mensal", icon: CalendarClock, color: "text-emerald-500", bg: "bg-emerald-500/10" },
 ];
 
 const STATUS_OPTIONS = [
@@ -74,6 +82,14 @@ const emptyItem = {
 
 const emptyLog = { title: "", notes: "", happened_at: new Date().toISOString().slice(0, 10) };
 const emptyMetric = { name: "", value: "", unit: "", notes: "", metric_date: new Date().toISOString().slice(0, 10) };
+const emptyReview = {
+  period_start: new Date().toISOString().slice(0, 10),
+  period_end: new Date().toISOString().slice(0, 10),
+  agenda: "",
+  summary: "",
+  decisions: "",
+  next_actions: "",
+};
 
 const BoardCouncil = () => {
   const { selectedCompanyId } = useCompany();
@@ -85,6 +101,7 @@ const BoardCouncil = () => {
   const [itemForm, setItemForm] = useState(emptyItem);
   const [logForm, setLogForm] = useState(emptyLog);
   const [metricForm, setMetricForm] = useState(emptyMetric);
+  const [reviewForm, setReviewForm] = useState(emptyReview);
   const hasCompanyFilter = selectedCompanyId !== "all";
   const active = CATEGORIES.find((category) => category.id === activeCategory) || CATEGORIES[0];
 
@@ -140,6 +157,23 @@ const BoardCouncil = () => {
     },
   });
 
+  const { data: monthlyReviews = [] } = useQuery({
+    queryKey: ["review-cycles", selectedCompanyId, "monthly"],
+    staleTime: 1000 * 60 * 2,
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("review_cycles")
+        .select("*")
+        .eq("cycle_type", "monthly")
+        .order("period_start", { ascending: false })
+        .limit(8);
+      q = companyFilter(q);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const summary = useMemo(() => {
     const open = items.filter((item: any) => !["done", "archived"].includes(item.status)).length;
     const critical = items.filter((item: any) => item.priority === "critical" || item.priority === "high").length;
@@ -151,6 +185,7 @@ const BoardCouncil = () => {
     queryClient.invalidateQueries({ queryKey: ["governance-items"] });
     queryClient.invalidateQueries({ queryKey: ["governance-logs"] });
     queryClient.invalidateQueries({ queryKey: ["governance-metrics"] });
+    queryClient.invalidateQueries({ queryKey: ["review-cycles"] });
   };
 
   const saveItem = useMutation({
@@ -232,6 +267,28 @@ const BoardCouncil = () => {
     },
   });
 
+  const saveMonthlyReview = useMutation({
+    mutationFn: async () => {
+      const { error } = await (supabase as any).from("review_cycles").insert({
+        cycle_type: "monthly",
+        period_start: reviewForm.period_start,
+        period_end: reviewForm.period_end,
+        agenda: reviewForm.agenda || null,
+        summary: reviewForm.summary || null,
+        decisions: reviewForm.decisions || null,
+        next_actions: reviewForm.next_actions || null,
+        company_id: hasCompanyFilter ? selectedCompanyId : null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidate();
+      setReviewForm(emptyReview);
+      toast({ title: "Reunião mensal registrada" });
+    },
+    onError: (error: any) => toast({ title: "Erro ao salvar reunião", description: error?.message, variant: "destructive" }),
+  });
+
   const openNew = () => {
     setEditingItem(null);
     setItemForm(emptyItem);
@@ -266,7 +323,9 @@ const BoardCouncil = () => {
             </h1>
             <p className="text-sm text-muted-foreground">Governança, riscos, obrigações, estratégia e memória executiva.</p>
           </div>
-          <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" /> Novo item</Button>
+          {!["documents", "monthly_review", "decisions", "automation"].includes(activeCategory) && (
+            <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" /> Novo item</Button>
+          )}
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
@@ -288,7 +347,7 @@ const BoardCouncil = () => {
         </div>
 
         <Tabs value={activeCategory} onValueChange={setActiveCategory}>
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 xl:grid-cols-7 h-auto">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 xl:grid-cols-6 h-auto">
             {CATEGORIES.map((category) => (
               <TabsTrigger key={category.id} value={category.id} className="gap-1.5">
                 <category.icon className="h-3.5 w-3.5" />
@@ -299,6 +358,54 @@ const BoardCouncil = () => {
 
           {CATEGORIES.map((category) => (
             <TabsContent key={category.id} value={category.id} className="mt-4">
+              {category.id === "documents" ? (
+                <DocumentLibrary />
+              ) : category.id === "decisions" ? (
+                <DecisionLogPanel />
+              ) : category.id === "automation" ? (
+                <AutomationRulesPanel />
+              ) : category.id === "monthly_review" ? (
+                <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base flex items-center gap-2"><CalendarClock className="h-4 w-4 text-primary" /> Nova reunião mensal</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input type="date" value={reviewForm.period_start} onChange={(e) => setReviewForm({ ...reviewForm, period_start: e.target.value })} />
+                        <Input type="date" value={reviewForm.period_end} onChange={(e) => setReviewForm({ ...reviewForm, period_end: e.target.value })} />
+                      </div>
+                      <Textarea placeholder="Pauta estratégica" value={reviewForm.agenda} onChange={(e) => setReviewForm({ ...reviewForm, agenda: e.target.value })} />
+                      <Textarea placeholder="Resumo da situação" value={reviewForm.summary} onChange={(e) => setReviewForm({ ...reviewForm, summary: e.target.value })} />
+                      <Textarea placeholder="Decisões tomadas" value={reviewForm.decisions} onChange={(e) => setReviewForm({ ...reviewForm, decisions: e.target.value })} />
+                      <Textarea placeholder="Próximas ações" value={reviewForm.next_actions} onChange={(e) => setReviewForm({ ...reviewForm, next_actions: e.target.value })} />
+                      <Button onClick={() => saveMonthlyReview.mutate()} disabled={saveMonthlyReview.isPending} className="w-full">
+                        <Save className="h-4 w-4 mr-2" /> Registrar reunião
+                      </Button>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Histórico mensal</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {monthlyReviews.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma reunião mensal registrada.</p>
+                      ) : monthlyReviews.map((review: any) => (
+                        <div key={review.id} className="rounded-lg border p-3">
+                          <div className="flex justify-between gap-2 text-sm">
+                            <strong>{dateLabel(review.period_start)} - {dateLabel(review.period_end)}</strong>
+                            <Badge variant="secondary">Mensal</Badge>
+                          </div>
+                          {review.summary && <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{review.summary}</p>}
+                          {review.decisions && <p className="text-xs mt-2"><span className="font-medium">Decisões:</span> {review.decisions}</p>}
+                          {review.next_actions && <p className="text-xs mt-1"><span className="font-medium">Ações:</span> {review.next_actions}</p>}
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
               <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
                 <Card>
                   <CardHeader>
@@ -338,7 +445,7 @@ const BoardCouncil = () => {
                         <div className="flex justify-between items-center gap-2">
                           <Button variant="outline" size="sm" className="h-8" onClick={() => openEdit(item)}>Editar</Button>
                         </div>
-                        <AttachmentManager entityType="governance" entityId={item.id} companyId={item.company_id} title="Anexos" />
+                        <AttachmentManager entityType="governance" entityId={item.id} companyId={item.company_id} clientCompanyId={item.company_id} governanceItemId={item.id} documentType={activeCategory} title="Anexos" accept="application/pdf" showMetadata />
                       </div>
                     ))}
                   </CardContent>
@@ -397,6 +504,7 @@ const BoardCouncil = () => {
                   </Card>
                 </div>
               </div>
+              )}
             </TabsContent>
           ))}
         </Tabs>

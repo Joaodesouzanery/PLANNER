@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
+  Activity,
+  Bot,
   BookOpen,
   Briefcase,
   CalendarClock,
@@ -10,13 +12,19 @@ import {
   FileText,
   Flag,
   FolderKanban,
+  Inbox,
   ListTodo,
   Save,
   ShieldCheck,
 } from "lucide-react";
 import { addDays, addMonths, endOfWeek, format, startOfWeek, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { AIBriefingPanel } from "@/components/ems/AIBriefingPanel";
+import { CapacityCheckinPanel } from "@/components/ems/CapacityCheckinPanel";
+import { DecisionLogPanel } from "@/components/ems/DecisionLogPanel";
 import { EMSLayout } from "@/components/ems/EMSLayout";
+import { InboxTriagePanel } from "@/components/ems/InboxTriagePanel";
+import { TrueNorthPanel } from "@/components/ems/TrueNorthPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +47,7 @@ const DailyReport = () => {
   const { toast } = useToast();
   const today = format(new Date(), "yyyy-MM-dd");
   const [selectedDate, setSelectedDate] = useState(today);
+  const [viewMode, setViewMode] = useState("daily");
   const [projectId, setProjectId] = useState("all");
   const [area, setArea] = useState("geral");
   const [form, setForm] = useState({ decisions: "", notes: "", blockers: "" });
@@ -184,6 +193,57 @@ const DailyReport = () => {
     },
   });
 
+  const { data: inboxPending = [] } = useQuery({
+    queryKey: ["daily-inbox", selectedCompanyId],
+    staleTime: 1000 * 30,
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("unified_inbox")
+        .select("id,title,priority,due_date,status")
+        .neq("status", "triaged")
+        .order("created_at", { ascending: false })
+        .limit(12);
+      q = companyFilter(q);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: capacityCheckins = [] } = useQuery({
+    queryKey: ["daily-capacity", selectedCompanyId],
+    staleTime: 1000 * 60,
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("capacity_checkins")
+        .select("id,checkin_date,energy,workload,focus,mood")
+        .order("checkin_date", { ascending: false })
+        .limit(1);
+      q = companyFilter(q);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: expiringDocuments = [] } = useQuery({
+    queryKey: ["daily-documents", selectedCompanyId, dateWindow.monthEnd],
+    staleTime: 1000 * 60 * 2,
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("attachments")
+        .select("id,file_name,document_type,expires_at,alert_days,company_id,client_company_id")
+        .not("expires_at", "is", null)
+        .lte("expires_at", dateWindow.monthEnd)
+        .order("expires_at", { ascending: true })
+        .limit(20);
+      if (hasCompanyFilter) q = q.or(`company_id.eq.${selectedCompanyId},client_company_id.eq.${selectedCompanyId}`);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const { data: report = null } = useQuery({
     queryKey: ["daily-report-entry", selectedCompanyId, selectedDate, projectId, area],
     staleTime: 1000 * 30,
@@ -237,6 +297,12 @@ const DailyReport = () => {
   const delayedProjects = projectFilteredProjects.filter((p: any) => p.due_date && p.due_date < selectedDate && !isDone(p.status));
   const hotOpportunities = commercialActions.filter((a: any) => a.temperature === "hot" || a.priority === "high");
   const criticalGovernance = governance.filter((item: any) => item.due_date <= dateWindow.weekEnd && !isDone(item.status));
+  const latestCapacity = capacityCheckins[0];
+  const capacityRisk = latestCapacity && (Number(latestCapacity.energy) <= 2 || Number(latestCapacity.workload) >= 5);
+  const documentAlerts = expiringDocuments.filter((doc: any) => {
+    const due = Math.ceil((new Date(`${doc.expires_at}T12:00:00`).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+    return due >= 0 && due <= Number(doc.alert_days || 30);
+  });
 
   const timeline = [
     ...todayTasks.map((item: any) => ({ date: item.due_date, type: "Tarefa", title: item.title, tone: "blue" })),
@@ -246,6 +312,7 @@ const DailyReport = () => {
     ...faculdadeTasks.map((item: any) => ({ date: item.due_date, type: "Faculdade", title: item.title, tone: "cyan" })),
     ...exams.map((item: any) => ({ date: item.exam_date, type: "Prova", title: item.title, tone: "red" })),
     ...governance.map((item: any) => ({ date: item.due_date, type: item.category, title: item.title, tone: "rose" })),
+    ...documentAlerts.map((item: any) => ({ date: item.expires_at, type: "Documento", title: item.file_name, tone: "amber" })),
   ]
     .filter((item) => item.date && item.date <= dateWindow.monthEnd)
     .sort((a, b) => String(a.date).localeCompare(String(b.date)))
@@ -258,7 +325,23 @@ const DailyReport = () => {
     { label: "Projetos", icon: FolderKanban, value: `${projectFilteredProjects.length} projetos`, sub: `${delayedProjects.length} atrasados · ${invoices.length} próximas NFs`, tone: delayedProjects.length ? "red" : "purple" },
     { label: "Faculdade", icon: BookOpen, value: `${faculdadeTasks.length} tarefas`, sub: `${exams.length} provas próximas`, tone: "cyan" },
     { label: "Conselho", icon: ShieldCheck, value: `${criticalGovernance.length} alertas`, sub: "Jurídico, contábil, crises e stack", tone: criticalGovernance.length ? "red" : "emerald" },
+    { label: "Inbox", icon: Inbox, value: `${inboxPending.length} pendentes`, sub: "Capturas sem triagem", tone: inboxPending.length ? "amber" : "emerald" },
+    { label: "Capacidade", icon: Activity, value: latestCapacity ? `Energia ${latestCapacity.energy}` : "Sem check-in", sub: latestCapacity ? `Carga ${latestCapacity.workload} · Foco ${latestCapacity.focus}` : "Pulso humano pendente", tone: capacityRisk ? "red" : "blue" },
+    { label: "IA", icon: Bot, value: "Briefing", sub: "Síntese assistida, sem ações automáticas", tone: "purple" },
   ];
+
+  const briefingStats = {
+    todayTasks: todayTasks.length,
+    weekTasks: weekTasks.length,
+    overdueTasks: overdueTasks.length,
+    delayedProjects: delayedProjects.length,
+    criticalGovernance: criticalGovernance.length,
+    expiringDocuments: documentAlerts.length,
+    inboxPending: inboxPending.length,
+    capacityRisk: Boolean(capacityRisk),
+    hotOpportunities: hotOpportunities.length,
+    invoices: invoices.length,
+  };
 
   return (
     <EMSLayout>
@@ -270,8 +353,16 @@ const DailyReport = () => {
             </h1>
             <p className="text-sm text-muted-foreground">Visão 360° da operação, prioridades e decisões do dia.</p>
           </div>
-          <div className="grid sm:grid-cols-3 gap-2">
+          <div className="grid sm:grid-cols-4 gap-2">
             <Input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} />
+            <Select value={viewMode} onValueChange={setViewMode}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="daily">Diário</SelectItem>
+                <SelectItem value="weekly">Semanal</SelectItem>
+                <SelectItem value="monthly">Mensal</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={projectId} onValueChange={setProjectId}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -288,8 +379,11 @@ const DailyReport = () => {
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-3">
+        <TrueNorthPanel compact />
+
+        <div className="grid gap-3 md:grid-cols-4">
           {[
+            { label: "Modo", value: viewMode === "daily" ? "Diário" : viewMode === "weekly" ? "Semanal" : "Mensal", sub: "Cadência selecionada" },
             { label: "Hoje", value: `${todayTasks.length} itens`, sub: `${completedToday} concluídos` },
             { label: "Ontem", value: `${yesterdayTasks.length} itens`, sub: `${yesterdayTasks.filter((t: any) => !isDone(t.status)).length} ficaram abertos` },
             { label: "Semana", value: `${weekTasks.length} itens`, sub: `${criticalGovernance.length + overdueTasks.length} alertas críticos` },
@@ -304,13 +398,13 @@ const DailyReport = () => {
           ))}
         </div>
 
-        {(overdueTasks.length > 0 || criticalGovernance.length > 0 || delayedProjects.length > 0) && (
+        {(overdueTasks.length > 0 || criticalGovernance.length > 0 || delayedProjects.length > 0 || documentAlerts.length > 0 || capacityRisk) && (
           <Card className="border-red-500/25 bg-red-500/5">
             <CardContent className="p-4 flex items-center gap-3">
               <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" />
               <div>
                 <p className="font-semibold text-sm">Alertas críticos em destaque</p>
-                <p className="text-xs text-muted-foreground">{overdueTasks.length} tarefas vencidas, {delayedProjects.length} projetos atrasados e {criticalGovernance.length} itens do Conselho exigem atenção.</p>
+                <p className="text-xs text-muted-foreground">{overdueTasks.length} tarefas vencidas, {delayedProjects.length} projetos atrasados, {criticalGovernance.length} itens do Conselho, {documentAlerts.length} documentos críticos e {capacityRisk ? "capacidade em atenção" : "capacidade estável"}.</p>
               </div>
             </CardContent>
           </Card>
@@ -373,6 +467,32 @@ const DailyReport = () => {
               <Button className="w-full" onClick={() => saveReport.mutate()} disabled={saveReport.isPending}>
                 <Save className="h-4 w-4 mr-2" /> {saveReport.isPending ? "Salvando..." : "Salvar diário"}
               </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-3">
+          <InboxTriagePanel compact />
+          <CapacityCheckinPanel />
+          <AIBriefingPanel briefingDate={selectedDate} stats={briefingStats} />
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          <DecisionLogPanel compact />
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-primary" /> Modo Foco</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {[...overdueTasks, ...criticalGovernance, ...documentAlerts].slice(0, 3).map((item: any, index) => (
+                <div key={`${item.id || item.title}-${index}`} className="rounded-lg border p-3">
+                  <p className="text-sm font-semibold truncate">{item.title || item.file_name}</p>
+                  <p className="text-xs text-muted-foreground">{item.due_date || item.expires_at ? dateLabel(item.due_date || item.expires_at) : "Sem data"}</p>
+                </div>
+              ))}
+              {[...overdueTasks, ...criticalGovernance, ...documentAlerts].length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-8">Sem prioridade crítica detectada para o foco.</p>
+              )}
             </CardContent>
           </Card>
         </div>

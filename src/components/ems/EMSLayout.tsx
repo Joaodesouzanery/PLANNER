@@ -1,6 +1,7 @@
 import { ReactNode, useState, useEffect } from "react";
 import { AppSidebar, MobileHeader } from "./AppSidebar";
 import { GlobalSearch } from "./GlobalSearch";
+import { QuickCaptureInbox } from "./QuickCaptureInbox";
 import { motion } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -45,7 +46,10 @@ export const EMSLayout = ({ children }: EMSLayoutProps) => {
 
       {isMobile ? (
         <main className="min-h-[calc(100vh-57px)]">
-          <div className="p-4">
+          <div className="flex justify-end gap-2 px-4 pt-3">
+            <QuickCaptureInbox />
+          </div>
+          <div className="p-4 pt-3">
             {children}
           </div>
         </main>
@@ -56,7 +60,8 @@ export const EMSLayout = ({ children }: EMSLayoutProps) => {
           transition={{ duration: 0.3, ease: "easeInOut" }}
           className="min-h-screen"
         >
-          <div className="flex justify-end p-3 pb-0">
+          <div className="flex justify-end gap-2 p-3 pb-0">
+            <QuickCaptureInbox />
             <GlobalSearch />
           </div>
           <div className="p-6 lg:p-8 pt-3">

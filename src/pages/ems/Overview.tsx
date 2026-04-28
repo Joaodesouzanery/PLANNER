@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { RecentActivity } from "@/components/ems/RecentActivity";
+import { TrueNorthPanel } from "@/components/ems/TrueNorthPanel";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow, parseISO, isBefore, startOfWeek, endOfWeek, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -167,6 +168,10 @@ const Overview = () => {
             <h1 className="text-2xl md:text-3xl font-semibold text-foreground tracking-tight">Bem-vindo de volta</h1>
           </div>
           <Badge variant="outline" className="text-xs font-mono px-3 py-1.5 border-border">{format(new Date(), "dd MMM yyyy", { locale: ptBR })}</Badge>
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <TrueNorthPanel />
         </motion.div>
 
         {/* Stat Cards */}
