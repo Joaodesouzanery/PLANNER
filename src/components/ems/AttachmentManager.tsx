@@ -7,7 +7,7 @@ import { Paperclip, Upload, Trash2, Download, File, Image, FileText } from "luci
 import { cn } from "@/lib/utils";
 
 interface AttachmentManagerProps {
-  entityType: "project" | "project_contract" | "project_invoice" | "task" | "contact";
+  entityType: "project" | "project_contract" | "project_invoice" | "task" | "contact" | "governance";
   entityId: string;
   companyId?: string | null;
   title?: string;

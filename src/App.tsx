@@ -35,6 +35,8 @@ const ComercialAutomatizado = lazy(() => import("./pages/ems/ComercialAutomatiza
 const AgileImplementation = lazy(() => import("./pages/ems/AgileImplementation"));
 const Conferencia = lazy(() => import("./pages/ems/Conferencia"));
 const VisitRoutes = lazy(() => import("./pages/ems/VisitRoutes"));
+const DailyReport = lazy(() => import("./pages/ems/DailyReport"));
+const BoardCouncil = lazy(() => import("./pages/ems/BoardCouncil"));
 const EMSLogin = lazy(() => import("./pages/ems/Login"));
 const ResetPassword = lazy(() => import("./pages/ems/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -42,8 +44,8 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 2, // 2 min stale time
-      gcTime: 1000 * 60 * 10, // 10 min garbage collection
+      staleTime: 1000 * 60 * 5, // 5 min stale time for fewer page-change refetches
+      gcTime: 1000 * 60 * 20, // keep warm data around longer during navigation
       refetchOnWindowFocus: false,
       retry: 1,
     },
@@ -95,6 +97,8 @@ const App = () => (
               <Route path="/ems/roadmap" element={<ProtectedPage><RoadMap /></ProtectedPage>} />
               <Route path="/ems/quick-notes" element={<ProtectedPage><QuickNotes /></ProtectedPage>} />
               <Route path="/ems/calendar" element={<ProtectedPage><CalendarPage /></ProtectedPage>} />
+              <Route path="/ems/daily-report" element={<ProtectedPage><DailyReport /></ProtectedPage>} />
+              <Route path="/ems/conselho" element={<ProtectedPage><BoardCouncil /></ProtectedPage>} />
               <Route path="/ems/comercial" element={<ProtectedPage><Commercial /></ProtectedPage>} />
               <Route path="/ems/comercial/contatos" element={<ProtectedPage><Contacts /></ProtectedPage>} />
               <Route path="/ems/comercial/estrutura" element={<ProtectedPage><CommercialStructure /></ProtectedPage>} />

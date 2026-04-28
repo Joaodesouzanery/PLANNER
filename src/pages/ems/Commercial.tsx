@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { lazy, Suspense, useState, useMemo, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,7 +16,8 @@ import {
   ArrowLeft, MessageSquare, Palette, Telescope, Handshake, Rocket,
   FileText, Globe, BarChart3, Target, TrendingUp, Phone, Mail, Building2,
   Briefcase, Save, Settings2, Kanban, Tag, Flame, Thermometer, CalendarClock,
-  X, Plus, AlertTriangle, Zap, UserPlus, Network, ClipboardCheck, Workflow
+  X, Plus, AlertTriangle, Zap, UserPlus, Network, ClipboardCheck, Workflow,
+  HeartPulse
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,9 +27,10 @@ import { useCommercialData } from "@/components/ems/commercial/useCommercialData
 import { statusConfig, phaseColors, phaseIconColors } from "@/components/ems/commercial/types";
 import type { Phase, Item, Tracking, Contact, ContactMeta } from "@/components/ems/commercial/types";
 import PhaseItemManager from "@/components/ems/commercial/PhaseItemManager";
-import PipelineKanban from "@/components/ems/commercial/PipelineKanban";
-import FunnelReports from "@/components/ems/commercial/FunnelReports";
 
+const PipelineKanban = lazy(() => import("@/components/ems/commercial/PipelineKanban"));
+const FunnelReports = lazy(() => import("@/components/ems/commercial/FunnelReports"));
+const ClientRelationshipKanban = lazy(() => import("@/components/ems/commercial/ClientRelationshipKanban"));
 
 
 const phaseIcons: Record<string, typeof Target> = {
@@ -290,6 +292,7 @@ const Commercial = () => {
   const commercialScreens = [
     { title: "Contatos", description: "Cadastro, interações e tarefas vinculadas aos contatos.", icon: UserPlus, path: "/ems/comercial/contatos", color: "text-blue-500", bg: "bg-blue-500/10", border: "border-blue-500/20" },
     { title: "Comercial Automatizado", description: "Pipeline, relatórios e gestão das etapas do funil.", icon: Kanban, tab: "pipeline", color: "text-primary", bg: "bg-primary/10", border: "border-primary/20" },
+    { title: "Clientes", description: "Kanban de relacionamento, riscos, receita e próximas ações por conta.", icon: HeartPulse, tab: "clients", color: "text-rose-500", bg: "bg-rose-500/10", border: "border-rose-500/20" },
     { title: "Estrutura Comercial", description: "Processos comerciais por empresa e comparativos.", icon: Network, path: "/ems/comercial/estrutura", color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
     { title: "Onboarding", description: "Acompanhamento de documentos e etapas do cliente.", icon: ClipboardCheck, path: "/ems/comercial/onboarding", color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/20" },
     { title: "Implementação Ágil", description: "Roadmaps e rotas de implantação após a venda.", icon: Workflow, path: "/ems/comercial/implementacao-agil", color: "text-purple-500", bg: "bg-purple-500/10", border: "border-purple-500/20" },
@@ -668,10 +671,11 @@ const Commercial = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 h-auto">
             <TabsTrigger value="central" className="gap-1.5"><Briefcase className="h-4 w-4" /><span className="hidden sm:inline">Central</span></TabsTrigger>
             <TabsTrigger value="contacts" className="gap-1.5"><Users className="h-4 w-4" /><span className="hidden sm:inline">Funil</span></TabsTrigger>
             <TabsTrigger value="pipeline" className="gap-1.5"><Kanban className="h-4 w-4" /><span className="hidden sm:inline">Pipeline</span></TabsTrigger>
+            <TabsTrigger value="clients" className="gap-1.5"><HeartPulse className="h-4 w-4" /><span className="hidden sm:inline">Clientes</span></TabsTrigger>
             <TabsTrigger value="reports" className="gap-1.5"><BarChart3 className="h-4 w-4" /><span className="hidden sm:inline">Relatórios</span></TabsTrigger>
             <TabsTrigger value="manage" className="gap-1.5"><Settings2 className="h-4 w-4" /><span className="hidden sm:inline">Gerenciar</span></TabsTrigger>
           </TabsList>
@@ -856,11 +860,27 @@ const Commercial = () => {
           </TabsContent>
 
           <TabsContent value="pipeline" className="mt-4">
-            <PipelineKanban onSelectContact={(c) => { setSelectedContact(c); setExpandedPhases(new Set()); }} />
+            {activeTab === "pipeline" && (
+              <Suspense fallback={<Card><CardContent className="p-6 text-sm text-muted-foreground">Carregando pipeline...</CardContent></Card>}>
+                <PipelineKanban onSelectContact={(c) => { setSelectedContact(c); setExpandedPhases(new Set()); }} />
+              </Suspense>
+            )}
+          </TabsContent>
+
+          <TabsContent value="clients" className="mt-4">
+            {activeTab === "clients" && (
+              <Suspense fallback={<Card><CardContent className="p-6 text-sm text-muted-foreground">Carregando clientes...</CardContent></Card>}>
+                <ClientRelationshipKanban enabled={activeTab === "clients"} />
+              </Suspense>
+            )}
           </TabsContent>
 
           <TabsContent value="reports" className="mt-4">
-            <FunnelReports />
+            {activeTab === "reports" && (
+              <Suspense fallback={<Card><CardContent className="p-6 text-sm text-muted-foreground">Carregando relatórios...</CardContent></Card>}>
+                <FunnelReports />
+              </Suspense>
+            )}
           </TabsContent>
 
           <TabsContent value="manage" className="mt-4">

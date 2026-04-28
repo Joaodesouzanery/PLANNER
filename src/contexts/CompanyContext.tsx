@@ -8,6 +8,11 @@ export interface Company {
   logo_url: string | null;
   color: string | null;
   description: string | null;
+  relationship_stage?: string | null;
+  relationship_priority?: string | null;
+  relationship_health?: string | null;
+  relationship_next_action_date?: string | null;
+  relationship_notes?: string | null;
   user_id: string | null;
   created_at: string;
 }

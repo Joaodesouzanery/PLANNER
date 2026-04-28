@@ -25,8 +25,6 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { AttachmentManager } from "@/components/ems/AttachmentManager";
 
 interface Project {
@@ -233,7 +231,11 @@ const Projects = () => {
     return companies.find(c => c.id === companyId)?.name || "—";
   };
 
-  const generateProjectsPDF = () => {
+  const generateProjectsPDF = async () => {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
     const doc = new jsPDF();
     doc.setFontSize(16);
     doc.text("Relatório de Projetos Concluídos", 14, 20);

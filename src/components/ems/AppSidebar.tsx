@@ -28,6 +28,8 @@ import {
   GraduationCap,
   User as UserIcon,
   ShieldCheck,
+  Flag,
+  Landmark,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
@@ -48,7 +50,9 @@ const menuGroups: MenuGroup[] = [
     label: "Principal",
     items: [
       { icon: LayoutDashboard, label: "Dashboard", path: "/ems" },
+      { icon: Flag, label: "Daily Report", path: "/ems/daily-report" },
       { icon: Gauge, label: "Executivo", path: "/ems/executive" },
+      { icon: Landmark, label: "Conselho", path: "/ems/conselho" },
       { icon: FolderKanban, label: "Projetos", path: "/ems/projects" },
       { icon: ListTodo, label: "Tarefas", path: "/ems/tasks" },
       { icon: TrendingUp, label: "Finanças", path: "/ems/finance" },

@@ -1,0 +1,391 @@
+import { useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  AlertTriangle,
+  BookOpen,
+  Briefcase,
+  CalendarClock,
+  CheckCircle2,
+  DollarSign,
+  FileText,
+  Flag,
+  FolderKanban,
+  ListTodo,
+  Save,
+  ShieldCheck,
+} from "lucide-react";
+import { addDays, addMonths, endOfWeek, format, startOfWeek, subDays } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { EMSLayout } from "@/components/ems/EMSLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { supabase } from "@/integrations/supabase/client";
+import { useCompany } from "@/contexts/CompanyContext";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+
+const AREA_OPTIONS = ["geral", "projetos", "comercial", "financeiro", "academico", "administrativo"];
+
+const isDone = (status?: string | null) => ["done", "completed", "concluido", "concluído"].includes(String(status || "").toLowerCase());
+const money = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+const DailyReport = () => {
+  const { selectedCompanyId } = useCompany();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const today = format(new Date(), "yyyy-MM-dd");
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [projectId, setProjectId] = useState("all");
+  const [area, setArea] = useState("geral");
+  const [form, setForm] = useState({ decisions: "", notes: "", blockers: "" });
+  const hasCompanyFilter = selectedCompanyId !== "all";
+
+  const dateWindow = useMemo(() => {
+    const base = new Date(`${selectedDate}T12:00:00`);
+    return {
+      yesterday: format(subDays(base, 1), "yyyy-MM-dd"),
+      today: selectedDate,
+      tomorrow: format(addDays(base, 1), "yyyy-MM-dd"),
+      weekStart: format(startOfWeek(base, { locale: ptBR }), "yyyy-MM-dd"),
+      weekEnd: format(endOfWeek(base, { locale: ptBR }), "yyyy-MM-dd"),
+      monthEnd: format(addMonths(base, 1), "yyyy-MM-dd"),
+    };
+  }, [selectedDate]);
+
+  const companyFilter = (query: any) => hasCompanyFilter ? query.eq("company_id", selectedCompanyId) : query;
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ["daily-projects", selectedCompanyId],
+    staleTime: 1000 * 60 * 5,
+    queryFn: async () => {
+      let q = (supabase as any).from("projects").select("id,title,status,due_date,client,next_invoice_date,company_id").order("title");
+      q = companyFilter(q);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: tasks = [] } = useQuery({
+    queryKey: ["daily-tasks", selectedCompanyId, projectId, dateWindow.weekStart, dateWindow.monthEnd],
+    staleTime: 1000 * 60,
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("tasks")
+        .select("id,title,status,priority,due_date,project_id,company_id")
+        .not("due_date", "is", null)
+        .gte("due_date", dateWindow.yesterday)
+        .lte("due_date", dateWindow.monthEnd)
+        .order("due_date");
+      q = companyFilter(q);
+      if (projectId !== "all") q = q.eq("project_id", projectId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: transactions = [] } = useQuery({
+    queryKey: ["daily-financial", selectedCompanyId, dateWindow.yesterday, dateWindow.monthEnd],
+    staleTime: 1000 * 60 * 2,
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("financial_transactions")
+        .select("id,description,amount,type,date,category,company_id")
+        .gte("date", dateWindow.yesterday)
+        .lte("date", dateWindow.monthEnd)
+        .order("date");
+      q = companyFilter(q);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: commercialActions = [] } = useQuery({
+    queryKey: ["daily-commercial", selectedCompanyId, dateWindow.yesterday, dateWindow.monthEnd],
+    staleTime: 1000 * 60 * 2,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("commercial_contact_meta")
+        .select("id,next_action_date,next_action_description,temperature,priority,contact:contacts(name,company,company_id)")
+        .not("next_action_date", "is", null)
+        .gte("next_action_date", dateWindow.yesterday)
+        .lte("next_action_date", dateWindow.monthEnd);
+      if (error) throw error;
+      return hasCompanyFilter ? (data || []).filter((item: any) => item.contact?.company_id === selectedCompanyId) : (data || []);
+    },
+  });
+
+  const { data: faculdadeTasks = [] } = useQuery({
+    queryKey: ["daily-faculdade-tarefas", dateWindow.weekStart, dateWindow.monthEnd],
+    staleTime: 1000 * 60 * 3,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("faculdade_tarefas")
+        .select("id,title,due_date,status")
+        .not("due_date", "is", null)
+        .gte("due_date", dateWindow.yesterday)
+        .lte("due_date", dateWindow.monthEnd);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: exams = [] } = useQuery({
+    queryKey: ["daily-faculdade-provas", dateWindow.weekStart, dateWindow.monthEnd],
+    staleTime: 1000 * 60 * 3,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("faculdade_provas")
+        .select("id,title,exam_date")
+        .gte("exam_date", dateWindow.yesterday)
+        .lte("exam_date", dateWindow.monthEnd);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: events = [] } = useQuery({
+    queryKey: ["daily-events", selectedCompanyId, dateWindow.weekStart, dateWindow.monthEnd],
+    staleTime: 1000 * 60 * 2,
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("calendar_events")
+        .select("id,title,start_date,color,company_id")
+        .gte("start_date", dateWindow.yesterday)
+        .lte("start_date", dateWindow.monthEnd)
+        .order("start_date");
+      q = companyFilter(q);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: governance = [] } = useQuery({
+    queryKey: ["daily-governance", selectedCompanyId, dateWindow.weekStart, dateWindow.monthEnd],
+    staleTime: 1000 * 60 * 2,
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("governance_items")
+        .select("id,title,category,priority,status,due_date,company_id")
+        .not("due_date", "is", null)
+        .lte("due_date", dateWindow.monthEnd)
+        .order("due_date");
+      q = companyFilter(q);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: report = null } = useQuery({
+    queryKey: ["daily-report-entry", selectedCompanyId, selectedDate, projectId, area],
+    staleTime: 1000 * 30,
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("daily_reports")
+        .select("*")
+        .eq("report_date", selectedDate)
+        .eq("area", area);
+      q = hasCompanyFilter ? q.eq("company_id", selectedCompanyId) : q.is("company_id", null);
+      q = projectId !== "all" ? q.eq("project_id", projectId) : q.is("project_id", null);
+      const { data, error } = await q.maybeSingle();
+      if (error) throw error;
+      setForm({ decisions: data?.decisions || "", notes: data?.notes || "", blockers: data?.blockers || "" });
+      return data;
+    },
+  });
+
+  const saveReport = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        report_date: selectedDate,
+        area,
+        project_id: projectId === "all" ? null : projectId,
+        company_id: hasCompanyFilter ? selectedCompanyId : null,
+        decisions: form.decisions || null,
+        notes: form.notes || null,
+        blockers: form.blockers || null,
+      };
+      const query = (supabase as any).from("daily_reports");
+      const { error } = report?.id ? await query.update(payload).eq("id", report.id) : await query.insert(payload);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["daily-report-entry"] });
+      toast({ title: "Diário executivo salvo" });
+    },
+    onError: (error: any) => toast({ title: "Erro ao salvar", description: error?.message, variant: "destructive" }),
+  });
+
+  const projectFilteredProjects = useMemo(() => projectId === "all" ? projects : projects.filter((p: any) => p.id === projectId), [projects, projectId]);
+  const todayTasks = tasks.filter((t: any) => t.due_date === selectedDate);
+  const yesterdayTasks = tasks.filter((t: any) => t.due_date === dateWindow.yesterday);
+  const weekTasks = tasks.filter((t: any) => t.due_date >= dateWindow.weekStart && t.due_date <= dateWindow.weekEnd);
+  const overdueTasks = tasks.filter((t: any) => t.due_date < selectedDate && !isDone(t.status));
+  const completedToday = todayTasks.filter((t: any) => isDone(t.status)).length;
+  const incomeToday = transactions.filter((t: any) => t.date === selectedDate && t.type === "income").reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+  const expenseToday = transactions.filter((t: any) => t.date === selectedDate && t.type === "expense").reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+  const monthlyProjection = transactions.filter((t: any) => t.type === "income").reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+  const invoices = projectFilteredProjects.filter((p: any) => p.next_invoice_date && p.next_invoice_date <= dateWindow.monthEnd);
+  const delayedProjects = projectFilteredProjects.filter((p: any) => p.due_date && p.due_date < selectedDate && !isDone(p.status));
+  const hotOpportunities = commercialActions.filter((a: any) => a.temperature === "hot" || a.priority === "high");
+  const criticalGovernance = governance.filter((item: any) => item.due_date <= dateWindow.weekEnd && !isDone(item.status));
+
+  const timeline = [
+    ...todayTasks.map((item: any) => ({ date: item.due_date, type: "Tarefa", title: item.title, tone: "blue" })),
+    ...events.map((item: any) => ({ date: item.start_date?.slice(0, 10), type: "Evento", title: item.title, tone: "emerald" })),
+    ...commercialActions.map((item: any) => ({ date: item.next_action_date, type: "Comercial", title: item.next_action_description || item.contact?.name || "Follow-up", tone: "amber" })),
+    ...invoices.map((item: any) => ({ date: item.next_invoice_date, type: "Nota fiscal", title: item.title, tone: "purple" })),
+    ...faculdadeTasks.map((item: any) => ({ date: item.due_date, type: "Faculdade", title: item.title, tone: "cyan" })),
+    ...exams.map((item: any) => ({ date: item.exam_date, type: "Prova", title: item.title, tone: "red" })),
+    ...governance.map((item: any) => ({ date: item.due_date, type: item.category, title: item.title, tone: "rose" })),
+  ]
+    .filter((item) => item.date && item.date <= dateWindow.monthEnd)
+    .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    .slice(0, 28);
+
+  const radar = [
+    { label: "Tarefas", icon: ListTodo, value: `${todayTasks.length} hoje`, sub: `${overdueTasks.length} vencidas · ${completedToday} entregues`, tone: overdueTasks.length ? "red" : "blue" },
+    { label: "Comercial", icon: Briefcase, value: `${hotOpportunities.length} quentes`, sub: `${commercialActions.length} follow-ups no radar`, tone: hotOpportunities.length ? "amber" : "emerald" },
+    { label: "Financeiro", icon: DollarSign, value: money(incomeToday), sub: `${money(expenseToday)} despesas · ${money(monthlyProjection)} projeção`, tone: "emerald" },
+    { label: "Projetos", icon: FolderKanban, value: `${projectFilteredProjects.length} projetos`, sub: `${delayedProjects.length} atrasados · ${invoices.length} próximas NFs`, tone: delayedProjects.length ? "red" : "purple" },
+    { label: "Faculdade", icon: BookOpen, value: `${faculdadeTasks.length} tarefas`, sub: `${exams.length} provas próximas`, tone: "cyan" },
+    { label: "Conselho", icon: ShieldCheck, value: `${criticalGovernance.length} alertas`, sub: "Jurídico, contábil, crises e stack", tone: criticalGovernance.length ? "red" : "emerald" },
+  ];
+
+  return (
+    <EMSLayout>
+      <div className="space-y-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <Flag className="h-6 w-6 text-primary" /> Daily Report
+            </h1>
+            <p className="text-sm text-muted-foreground">Visão 360° da operação, prioridades e decisões do dia.</p>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-2">
+            <Input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} />
+            <Select value={projectId} onValueChange={setProjectId}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os projetos</SelectItem>
+                {projects.map((project: any) => <SelectItem key={project.id} value={project.id}>{project.title}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={area} onValueChange={setArea}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {AREA_OPTIONS.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-3">
+          {[
+            { label: "Hoje", value: `${todayTasks.length} itens`, sub: `${completedToday} concluídos` },
+            { label: "Ontem", value: `${yesterdayTasks.length} itens`, sub: `${yesterdayTasks.filter((t: any) => !isDone(t.status)).length} ficaram abertos` },
+            { label: "Semana", value: `${weekTasks.length} itens`, sub: `${criticalGovernance.length + overdueTasks.length} alertas críticos` },
+          ].map((item) => (
+            <Card key={item.label}>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">{item.label}</p>
+                <p className="text-2xl font-bold">{item.value}</p>
+                <p className="text-xs text-muted-foreground">{item.sub}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {(overdueTasks.length > 0 || criticalGovernance.length > 0 || delayedProjects.length > 0) && (
+          <Card className="border-red-500/25 bg-red-500/5">
+            <CardContent className="p-4 flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" />
+              <div>
+                <p className="font-semibold text-sm">Alertas críticos em destaque</p>
+                <p className="text-xs text-muted-foreground">{overdueTasks.length} tarefas vencidas, {delayedProjects.length} projetos atrasados e {criticalGovernance.length} itens do Conselho exigem atenção.</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {radar.map((item) => (
+            <Card key={item.label}>
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className={cn("p-2 rounded-lg", item.tone === "red" ? "bg-red-500/10 text-red-500" : item.tone === "amber" ? "bg-amber-500/10 text-amber-500" : "bg-primary/10 text-primary")}>
+                    <item.icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">{item.label}</p>
+                    <p className="text-xl font-bold">{item.value}</p>
+                    <p className="text-xs text-muted-foreground">{item.sub}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><CalendarClock className="h-4 w-4 text-primary" /> Linha do Tempo</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {timeline.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">Sem vencimentos relevantes no período.</p>
+              ) : timeline.map((item, index) => (
+                <div key={`${item.type}-${item.title}-${index}`} className="flex items-center gap-3 rounded-lg border p-3">
+                  <Badge variant="outline" className="w-24 justify-center text-[10px]">{dateLabel(item.date)}</Badge>
+                  <Badge variant="secondary" className="text-[10px]">{item.type}</Badge>
+                  <p className="text-sm truncate">{item.title}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><FileText className="h-4 w-4 text-primary" /> Diário Executivo</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <label className="text-sm font-medium">Decisões tomadas</label>
+                <Textarea value={form.decisions} onChange={(event) => setForm({ ...form, decisions: event.target.value })} className="mt-1 min-h-24" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Notas e aprendizados</label>
+                <Textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} className="mt-1 min-h-24" />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Bloqueios e riscos</label>
+                <Textarea value={form.blockers} onChange={(event) => setForm({ ...form, blockers: event.target.value })} className="mt-1 min-h-20" />
+              </div>
+              <Button className="w-full" onClick={() => saveReport.mutate()} disabled={saveReport.isPending}>
+                <Save className="h-4 w-4 mr-2" /> {saveReport.isPending ? "Salvando..." : "Salvar diário"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </EMSLayout>
+  );
+};
+
+const dateLabel = (date?: string | null) => {
+  if (!date) return "Sem data";
+  const [year, month, day] = date.slice(0, 10).split("-");
+  if (!year || !month || !day) return date;
+  return `${day}/${month}/${year}`;
+};
+
+export default DailyReport;

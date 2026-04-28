@@ -34,8 +34,6 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 interface OKR {
   id: string;
@@ -80,9 +78,9 @@ const Reports = () => {
 
   const fetchData = async () => {
     const cf = selectedCompanyId !== "all";
-    let oq = supabase.from("okrs").select("*").order("created_at", { ascending: false });
-    let tq = supabase.from("financial_transactions").select("*").order("date", { ascending: false });
-    let pq = supabase.from("projects").select("*").order("created_at", { ascending: false });
+    let oq = supabase.from("okrs").select("id,title,description,target_value,current_value,unit,period,company_id").order("created_at", { ascending: false });
+    let tq = supabase.from("financial_transactions").select("id,description,amount,type,category,date,company_id").order("date", { ascending: false });
+    let pq = supabase.from("projects").select("id,title,status,priority,company_id").order("created_at", { ascending: false });
     if (cf) { oq = oq.eq("company_id", selectedCompanyId); tq = tq.eq("company_id", selectedCompanyId); pq = pq.eq("company_id", selectedCompanyId); }
     const [okrsRes, transactionsRes, projectsRes] = await Promise.all([oq, tq, pq]);
 
@@ -162,7 +160,16 @@ const Reports = () => {
     toast({ title: "CSV exportado!" });
   };
 
-  const exportFinancialPDF = () => {
+  const loadPdfTools = async () => {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+    return { jsPDF, autoTable };
+  };
+
+  const exportFinancialPDF = async () => {
+    const { jsPDF, autoTable } = await loadPdfTools();
     const doc = new jsPDF();
 
     // Header
@@ -211,7 +218,8 @@ const Reports = () => {
     toast({ title: "PDF exportado com sucesso!" });
   };
 
-  const exportOkrsPDF = () => {
+  const exportOkrsPDF = async () => {
+    const { jsPDF, autoTable } = await loadPdfTools();
     const doc = new jsPDF();
 
     // Header
@@ -265,7 +273,8 @@ const Reports = () => {
     toast({ title: "PDF exportado com sucesso!" });
   };
 
-  const exportFullReportPDF = () => {
+  const exportFullReportPDF = async () => {
+    const { jsPDF, autoTable } = await loadPdfTools();
     const doc = new jsPDF();
 
     // Header

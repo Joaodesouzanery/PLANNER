@@ -8,7 +8,8 @@ type TableName =
   | "time_entries" | "quick_notes" | "execution_records" | "roadmaps"
   | "strategic_pillars" | "monthly_focus" | "kanban_columns" | "org_chart_nodes"
   | "commercial_phases" | "commercial_items" | "attachments"
-  | "onboarding_steps" | "onboarding_documents";
+  | "onboarding_steps" | "onboarding_documents"
+  | "daily_reports" | "governance_items" | "governance_logs" | "governance_metrics";
 
 interface UseCompanyQueryOptions<T> {
   table: TableName;
