@@ -90,6 +90,20 @@ export function useExecutiveData(dateFrom: string, dateTo: string) {
         end_date: o.end_date,
       }));
 
-    return { kpis, statusData, monthCompare, okrsAtRisk };
+    const overdueTasks = allTasks
+      .filter((t) => t.due_date && t.status !== "completed" && t.due_date < format(new Date(), "yyyy-MM-dd"))
+      .slice(0, 8);
+
+    const upcomingInvoices = allProjects
+      .filter((p) => p.next_invoice_date)
+      .sort((a, b) => String(a.next_invoice_date).localeCompare(String(b.next_invoice_date)))
+      .slice(0, 8);
+
+    const priorityData = ["urgent", "high", "medium", "low"].map((priority) => ({
+      name: priority,
+      value: allTasks.filter((t) => t.priority === priority).length,
+    })).filter((d) => d.value > 0);
+
+    return { kpis, statusData, monthCompare, okrsAtRisk, overdueTasks, upcomingInvoices, priorityData, raw: { projects: allProjects, tasks: allTasks, contacts: allContacts, transactions: allTx, okrs: allOkrs } };
   }, [projects, tasks, contacts, transactions, okrs, dateFrom, dateTo]);
 }

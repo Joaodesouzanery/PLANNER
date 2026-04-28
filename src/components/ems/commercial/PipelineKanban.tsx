@@ -100,11 +100,11 @@ const PipelineKanban = ({ onSelectContact }: { onSelectContact: (c: Contact) => 
                   ref={provided.innerRef}
                   {...provided.droppableProps}
                   className={cn(
-                    "flex-shrink-0 w-[260px] sm:w-[280px] rounded-xl border bg-card/50 transition-colors",
+                    "flex-shrink-0 w-[220px] sm:w-[240px] rounded-xl border bg-card/50 transition-colors",
                     snapshot.isDraggingOver && "border-primary/50 bg-primary/5"
                   )}
                 >
-                  <div className={cn("p-3 rounded-t-xl bg-gradient-to-r border-b", phaseColors[idx % phaseColors.length])}>
+                  <div className={cn("p-2.5 rounded-t-xl bg-gradient-to-r border-b", phaseColors[idx % phaseColors.length])}>
                     <div className="flex items-center justify-between">
                       <Badge variant="outline" className={cn("text-[10px]", phaseIconColors[idx % phaseIconColors.length])}>
                         Fase {idx + 1}
@@ -127,7 +127,7 @@ const PipelineKanban = ({ onSelectContact }: { onSelectContact: (c: Contact) => 
                               {...dragProvided.draggableProps}
                               {...dragProvided.dragHandleProps}
                               className={cn(
-                                "rounded-lg border bg-card p-3 cursor-grab active:cursor-grabbing transition-shadow",
+                                  "rounded-lg border bg-card p-2.5 cursor-grab active:cursor-grabbing transition-shadow",
                                 dragSnapshot.isDragging && "shadow-lg shadow-primary/10 border-primary/40"
                               )}
                               onClick={() => onSelectContact(contact)}

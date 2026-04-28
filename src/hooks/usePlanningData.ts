@@ -124,6 +124,7 @@ export function usePlanningData() {
         title: form.title, description: form.description || null, category: form.category,
         start_date: form.start_date || null, end_date: form.end_date || null,
         status: form.status, parent_id: form.parent_id || null,
+        company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
       };
       if (editId) {
         const { error } = await supabase.from("planning_goals").update(goalData).eq("id", editId);
@@ -153,6 +154,7 @@ export function usePlanningData() {
       const { error } = await supabase.from("planning_milestones").insert({
         goal_id: goalId, title: form.title,
         description: form.description || null, due_date: form.due_date || null,
+        company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
       });
       if (error) throw error;
       // recalc progress

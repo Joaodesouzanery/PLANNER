@@ -16,7 +16,7 @@ import {
   ArrowLeft, MessageSquare, Palette, Telescope, Handshake, Rocket,
   FileText, Globe, BarChart3, Target, TrendingUp, Phone, Mail, Building2,
   Briefcase, Save, Settings2, Kanban, Tag, Flame, Thermometer, CalendarClock,
-  X, Plus, AlertTriangle, Zap
+  X, Plus, AlertTriangle, Zap, UserPlus, Network, ClipboardCheck, Workflow
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -83,7 +83,7 @@ const Commercial = () => {
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
   const [noteDialog, setNoteDialog] = useState<{ open: boolean; itemId: string; contactId: string; currentNote: string }>({ open: false, itemId: "", contactId: "", currentNote: "" });
   const [noteText, setNoteText] = useState("");
-  const [activeTab, setActiveTab] = useState("contacts");
+  const [activeTab, setActiveTab] = useState("central");
   const [metaDialog, setMetaDialog] = useState(false);
   const [metaForm, setMetaForm] = useState<{ tags: string[]; priority: string; temperature: string; next_action_date: string; next_action_description: string; last_contact_date: string }>({ tags: [], priority: "medium", temperature: "warm", next_action_date: "", next_action_description: "", last_contact_date: "" });
   const [customTagInput, setCustomTagInput] = useState("");
@@ -286,6 +286,14 @@ const Commercial = () => {
   const activeContacts = contacts.filter(c => { const p = getContactProgress(c.id); return p > 0 && p < 100; }).length;
   const completedContacts = contacts.filter(c => getContactProgress(c.id) === 100).length;
   const avgProgress = contacts.length > 0 ? Math.round(contacts.reduce((sum, c) => sum + getContactProgress(c.id), 0) / contacts.length) : 0;
+
+  const commercialScreens = [
+    { title: "Contatos", description: "Cadastro, interações e tarefas vinculadas aos contatos.", icon: UserPlus, path: "/ems/comercial/contatos", color: "text-blue-500", bg: "bg-blue-500/10", border: "border-blue-500/20" },
+    { title: "Comercial Automatizado", description: "Pipeline, relatórios e gestão das etapas do funil.", icon: Kanban, tab: "pipeline", color: "text-primary", bg: "bg-primary/10", border: "border-primary/20" },
+    { title: "Estrutura Comercial", description: "Processos comerciais por empresa e comparativos.", icon: Network, path: "/ems/comercial/estrutura", color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
+    { title: "Onboarding", description: "Acompanhamento de documentos e etapas do cliente.", icon: ClipboardCheck, path: "/ems/comercial/onboarding", color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/20" },
+    { title: "Implementação Ágil", description: "Roadmaps e rotas de implantação após a venda.", icon: Workflow, path: "/ems/comercial/implementacao-agil", color: "text-purple-500", bg: "bg-purple-500/10", border: "border-purple-500/20" },
+  ];
 
   // Check for contacts with overdue next actions
   const overdueCount = useMemo(() => {
@@ -660,12 +668,41 @@ const Commercial = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="contacts" className="gap-1.5"><Users className="h-4 w-4" /><span className="hidden sm:inline">Contatos</span></TabsTrigger>
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="central" className="gap-1.5"><Briefcase className="h-4 w-4" /><span className="hidden sm:inline">Central</span></TabsTrigger>
+            <TabsTrigger value="contacts" className="gap-1.5"><Users className="h-4 w-4" /><span className="hidden sm:inline">Funil</span></TabsTrigger>
             <TabsTrigger value="pipeline" className="gap-1.5"><Kanban className="h-4 w-4" /><span className="hidden sm:inline">Pipeline</span></TabsTrigger>
             <TabsTrigger value="reports" className="gap-1.5"><BarChart3 className="h-4 w-4" /><span className="hidden sm:inline">Relatórios</span></TabsTrigger>
             <TabsTrigger value="manage" className="gap-1.5"><Settings2 className="h-4 w-4" /><span className="hidden sm:inline">Gerenciar</span></TabsTrigger>
           </TabsList>
+
+          <TabsContent value="central" className="mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {commercialScreens.map((screen) => (
+                <Card key={screen.title} className={cn("border hover:shadow-md hover:border-primary/30 transition-all", screen.border)}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <div className={cn("p-2 rounded-lg shrink-0", screen.bg)}>
+                        <screen.icon className={cn("h-5 w-5", screen.color)} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold text-sm">{screen.title}</h3>
+                        <p className="text-xs text-muted-foreground mt-1 min-h-[34px]">{screen.description}</p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-3 h-8 rounded-lg"
+                          onClick={() => screen.tab ? setActiveTab(screen.tab) : navigate(screen.path!)}
+                        >
+                          Abrir
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
 
           <TabsContent value="contacts" className="mt-4 space-y-4">
             {/* Search & Filters */}

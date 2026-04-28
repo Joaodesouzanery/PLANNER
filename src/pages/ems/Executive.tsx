@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { motion } from "framer-motion";
 import {
   DollarSign, FolderKanban, ListTodo, Users, Target, ArrowUpRight, ArrowDownRight, AlertTriangle, Clock,
@@ -26,8 +27,12 @@ const ICON_MAP: Record<string, React.ElementType> = {
 const Executive = () => {
   const [dateFrom, setDateFrom] = useState(() => format(startOfMonth(subMonths(new Date(), 1)), "yyyy-MM-dd"));
   const [dateTo, setDateTo] = useState(() => format(new Date(), "yyyy-MM-dd"));
+  const [projectStatus, setProjectStatus] = useState("all");
+  const [taskPriority, setTaskPriority] = useState("all");
 
-  const { kpis, statusData, monthCompare, okrsAtRisk } = useExecutiveData(dateFrom, dateTo);
+  const { kpis, statusData, monthCompare, okrsAtRisk, overdueTasks, upcomingInvoices, priorityData, raw } = useExecutiveData(dateFrom, dateTo);
+  const filteredProjects = raw.projects.filter((p: any) => projectStatus === "all" || p.status === projectStatus);
+  const filteredTasks = raw.tasks.filter((t: any) => taskPriority === "all" || t.priority === taskPriority);
 
   return (
     <EMSLayout>
@@ -43,6 +48,36 @@ const Executive = () => {
             <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-36 text-xs" />
           </div>
         </div>
+
+        <Card>
+          <CardContent className="p-4 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-medium">Filtros avanÃ§ados</p>
+              <p className="text-xs text-muted-foreground">{filteredProjects.length} projetos e {filteredTasks.length} tarefas na visÃ£o filtrada</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Select value={projectStatus} onValueChange={setProjectStatus}>
+                <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Status do projeto" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os projetos</SelectItem>
+                  <SelectItem value="todo">A Fazer</SelectItem>
+                  <SelectItem value="in_progress">Em Progresso</SelectItem>
+                  <SelectItem value="done">ConcluÃ­dos</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={taskPriority} onValueChange={setTaskPriority}>
+                <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Prioridade" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas prioridades</SelectItem>
+                  <SelectItem value="urgent">Urgente</SelectItem>
+                  <SelectItem value="high">Alta</SelectItem>
+                  <SelectItem value="medium">MÃ©dia</SelectItem>
+                  <SelectItem value="low">Baixa</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {kpis.map((kpi, i) => {
@@ -109,6 +144,47 @@ const Executive = () => {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Tarefas por Prioridade</CardTitle></CardHeader>
+            <CardContent>
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={priorityData}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="name" className="text-xs fill-muted-foreground" />
+                    <YAxis allowDecimals={false} className="text-xs fill-muted-foreground" />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Tarefas Atrasadas</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              {overdueTasks.length === 0 ? <p className="text-sm text-muted-foreground py-6 text-center">Nenhuma tarefa atrasada</p> : overdueTasks.map((task: any) => (
+                <div key={task.id} className="flex items-center justify-between gap-2 text-sm border-b border-border/50 pb-2">
+                  <span className="truncate">{task.title}</span>
+                  <Badge variant="outline" className="text-[10px]">{task.priority}</Badge>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">PrÃ³ximas Notas Fiscais</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              {upcomingInvoices.length === 0 ? <p className="text-sm text-muted-foreground py-6 text-center">Nenhuma NF programada</p> : upcomingInvoices.map((project: any) => (
+                <div key={project.id} className="flex items-center justify-between gap-2 text-sm border-b border-border/50 pb-2">
+                  <span className="truncate">{project.title}</span>
+                  <span className="text-xs text-muted-foreground">{project.next_invoice_date && format(parseISO(project.next_invoice_date), "dd/MM")}</span>
+                </div>
+              ))}
             </CardContent>
           </Card>
         </div>

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { motion } from "framer-motion";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, CheckCircle2, Flag, Target, Eye } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Plus, Clock, CheckCircle2, Flag, Target, Eye, FolderKanban, DollarSign, Users, FileText } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +19,9 @@ interface CalendarEvent { id: string; title: string; description: string | null;
 interface Task { id: string; title: string; status: string; priority: string; due_date: string | null; }
 interface Milestone { id: string; title: string; due_date: string | null; completed: boolean; }
 interface TimeEntry { id: string; date: string; hours: number; description: string | null; }
+interface ProjectDeadline { id: string; title: string; client: string | null; due_date: string | null; status: string; next_invoice_date?: string | null; invoice_alert_days?: number | null; }
+interface FinancialTransaction { id: string; description: string; amount: number; type: string; date: string; category: string | null; }
+interface CommercialAction { id: string; contact_id: string; next_action_date: string | null; next_action_description: string | null; contact?: { name: string; company: string | null } | null; }
 
 type ViewMode = "month" | "week" | "day";
 
@@ -91,6 +94,42 @@ const CalendarPage = () => {
     },
   });
 
+  const { data: projects = [] } = useQuery({
+    queryKey: ["calendar-projects", selectedCompanyId],
+    queryFn: async () => {
+      let q = (supabase as any).from("projects").select("id, title, client, due_date, status, next_invoice_date, invoice_alert_days").or("due_date.not.is.null,next_invoice_date.not.is.null");
+      if (cf) q = q.eq("company_id", selectedCompanyId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data as ProjectDeadline[];
+    },
+  });
+
+  const { data: financial = [] } = useQuery({
+    queryKey: ["calendar-financial", selectedCompanyId],
+    queryFn: async () => {
+      let q = supabase.from("financial_transactions").select("id, description, amount, type, date, category");
+      if (cf) q = q.eq("company_id", selectedCompanyId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data as FinancialTransaction[];
+    },
+  });
+
+  const { data: commercialActions = [] } = useQuery({
+    queryKey: ["calendar-commercial-actions", selectedCompanyId],
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("commercial_contact_meta")
+        .select("id, contact_id, next_action_date, next_action_description, contact:contacts(name, company, company_id)")
+        .not("next_action_date", "is", null);
+      const { data, error } = await q;
+      if (error) throw error;
+      const rows = (data || []) as any[];
+      return (cf ? rows.filter((r) => r.contact?.company_id === selectedCompanyId) : rows) as CommercialAction[];
+    },
+  });
+
   const moveEventMutation = useMutation({
     mutationFn: async ({ eventId, newDate }: { eventId: string; newDate: string }) => {
       const { error } = await supabase.from("calendar_events").update({ start_date: newDate }).eq("id", eventId);
@@ -114,18 +153,24 @@ const CalendarPage = () => {
   });
 
   const dateItemsMap = useMemo(() => {
-    const map = new Map<string, { tasks: Task[]; milestones: Milestone[]; events: CalendarEvent[]; hours: number }>();
-    const getOrCreate = (key: string) => { if (!map.has(key)) map.set(key, { tasks: [], milestones: [], events: [], hours: 0 }); return map.get(key)!; };
+    const map = new Map<string, { tasks: Task[]; milestones: Milestone[]; events: CalendarEvent[]; hours: number; projects: ProjectDeadline[]; invoices: ProjectDeadline[]; financial: FinancialTransaction[]; commercial: CommercialAction[] }>();
+    const getOrCreate = (key: string) => { if (!map.has(key)) map.set(key, { tasks: [], milestones: [], events: [], hours: 0, projects: [], invoices: [], financial: [], commercial: [] }); return map.get(key)!; };
     tasks.forEach((t) => { if (t.due_date) getOrCreate(t.due_date).tasks.push(t); });
     milestones.forEach((m) => { if (m.due_date) getOrCreate(m.due_date).milestones.push(m); });
     events.forEach((e) => { const dateKey = e.start_date.slice(0, 10); getOrCreate(dateKey).events.push(e); });
     timeEntries.forEach((te) => { const entry = getOrCreate(te.date); entry.hours += Number(te.hours); });
+    projects.forEach((p) => {
+      if (p.due_date) getOrCreate(p.due_date).projects.push(p);
+      if (p.next_invoice_date) getOrCreate(p.next_invoice_date).invoices.push(p);
+    });
+    financial.forEach((f) => getOrCreate(f.date).financial.push(f));
+    commercialActions.forEach((a) => { if (a.next_action_date) getOrCreate(a.next_action_date).commercial.push(a); });
     return map;
-  }, [tasks, milestones, events, timeEntries]);
+  }, [tasks, milestones, events, timeEntries, projects, financial, commercialActions]);
 
   const getItemsForDate = (date: Date) => {
     const key = format(date, "yyyy-MM-dd");
-    return dateItemsMap.get(key) || { tasks: [], milestones: [], events: [], hours: 0 };
+    return dateItemsMap.get(key) || { tasks: [], milestones: [], events: [], hours: 0, projects: [], invoices: [], financial: [], commercial: [] };
   };
 
   // Navigation
@@ -156,7 +201,7 @@ const CalendarPage = () => {
   const hours = Array.from({ length: 13 }, (_, i) => i + 8); // 8-20
 
   const handleDayClick = (date: Date) => { setSelectedDate(date); setShowDayModal(true); };
-  const selectedDayItems = selectedDate ? getItemsForDate(selectedDate) : { tasks: [], milestones: [], events: [], hours: 0 };
+  const selectedDayItems = selectedDate ? getItemsForDate(selectedDate) : { tasks: [], milestones: [], events: [], hours: 0, projects: [], invoices: [], financial: [], commercial: [] };
 
   // Drag & drop handlers
   const handleDragStart = (eventId: string) => setDraggedEvent(eventId);
@@ -170,7 +215,7 @@ const CalendarPage = () => {
 
   // Stats
   const todayItems = getItemsForDate(new Date());
-  const todayCount = todayItems.tasks.length + todayItems.milestones.length + todayItems.events.length;
+  const todayCount = todayItems.tasks.length + todayItems.milestones.length + todayItems.events.length + todayItems.projects.length + todayItems.invoices.length + todayItems.financial.length + todayItems.commercial.length;
 
   const navigationLabel = viewMode === "month"
     ? format(currentDate, "MMMM yyyy", { locale: ptBR })
@@ -180,7 +225,7 @@ const CalendarPage = () => {
 
   const renderDayCell = (day: Date, inCurrentMonth: boolean = true) => {
     const items = getItemsForDate(day);
-    const hasItems = items.tasks.length > 0 || items.milestones.length > 0 || items.events.length > 0;
+    const hasItems = items.tasks.length > 0 || items.milestones.length > 0 || items.events.length > 0 || items.projects.length > 0 || items.invoices.length > 0 || items.financial.length > 0 || items.commercial.length > 0;
     const today = isToday(day);
 
     return (
@@ -204,6 +249,10 @@ const CalendarPage = () => {
           <div className="flex gap-0.5 flex-wrap justify-center">
             {items.tasks.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500/50" />}
             {items.milestones.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-sm shadow-amber-500/50" />}
+            {items.projects.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-purple-500 shadow-sm shadow-purple-500/50" />}
+            {items.invoices.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-sm shadow-cyan-500/50" />}
+            {items.financial.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50" />}
+            {items.commercial.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-pink-500 shadow-sm shadow-pink-500/50" />}
             {items.events.slice(0, 2).map((ev) => (
               <div
                 key={ev.id}
@@ -244,7 +293,7 @@ const CalendarPage = () => {
             { label: "Hoje", value: todayCount, icon: Clock, color: "text-primary", bg: "bg-primary/10", border: "border-primary/20" },
             { label: "Eventos", value: events.length, icon: CalendarIcon, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
             { label: "Tarefas", value: tasks.length, icon: Flag, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20" },
-            { label: "Marcos", value: milestones.length, icon: Target, color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20" },
+            { label: "Projetos/NF", value: projects.length, icon: FolderKanban, color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/20" },
           ].map((s, i) => (
             <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
               <Card className={cn("border transition-all duration-300 hover:scale-[1.03]", s.border)}>
@@ -344,6 +393,28 @@ const CalendarPage = () => {
                             <span className="text-sm font-medium">Horas registradas: <span className="font-mono text-primary font-bold">{items.hours.toFixed(1)}h</span></span>
                           </div>
                         )}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {items.projects.map(p => (
+                            <div key={`project-${p.id}`} className="text-xs px-3 py-2 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center gap-2">
+                              <FolderKanban className="h-3.5 w-3.5" />Prazo: {p.title}
+                            </div>
+                          ))}
+                          {items.invoices.map(p => (
+                            <div key={`invoice-${p.id}`} className="text-xs px-3 py-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 flex items-center gap-2">
+                              <FileText className="h-3.5 w-3.5" />Gerar NF: {p.title}
+                            </div>
+                          ))}
+                          {items.financial.map(f => (
+                            <div key={f.id} className="text-xs px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-2">
+                              <DollarSign className="h-3.5 w-3.5" />{f.description} - R$ {Number(f.amount).toLocaleString("pt-BR")}
+                            </div>
+                          ))}
+                          {items.commercial.map(a => (
+                            <div key={a.id} className="text-xs px-3 py-2 rounded-lg bg-pink-500/10 text-pink-400 border border-pink-500/20 flex items-center gap-2">
+                              <Users className="h-3.5 w-3.5" />{a.contact?.name || "Contato"}: {a.next_action_description || "Próxima ação"}
+                            </div>
+                          ))}
+                        </div>
                         {hours.map(hour => {
                           const hourEvents = hour === 8 ? items.events : [];
                           const hourTasks = hour === 9 ? items.tasks : [];
@@ -384,6 +455,9 @@ const CalendarPage = () => {
                   { label: "Tarefas", color: "bg-blue-500" },
                   { label: "Marcos", color: "bg-amber-500" },
                   { label: "Eventos", color: "bg-emerald-500" },
+                  { label: "Projetos", color: "bg-purple-500" },
+                  { label: "Notas Fiscais", color: "bg-cyan-500" },
+                  { label: "Comercial", color: "bg-pink-500" },
                   { label: "Timesheet", color: "bg-primary" },
                 ].map(l => (
                   <div key={l.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -466,7 +540,68 @@ const CalendarPage = () => {
                   </div>
                 </div>
               )}
-              {selectedDayItems.events.length === 0 && selectedDayItems.tasks.length === 0 && selectedDayItems.milestones.length === 0 && (
+              {selectedDayItems.projects.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Projetos</h4>
+                  <div className="space-y-2">
+                    {selectedDayItems.projects.map((project) => (
+                      <div key={project.id} className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border border-border/50">
+                        <div className="w-1.5 h-8 rounded-full bg-purple-500" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm">{project.title}</p>
+                          {project.client && <p className="text-xs text-muted-foreground mt-0.5">{project.client}</p>}
+                        </div>
+                        <Badge variant="outline" className="text-xs">{project.status}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {selectedDayItems.invoices.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Notas Fiscais</h4>
+                  <div className="space-y-2">
+                    {selectedDayItems.invoices.map((project) => (
+                      <div key={project.id} className="flex items-center gap-3 p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+                        <FileText className="h-4 w-4 text-cyan-400" />
+                        <span className="font-medium text-sm flex-1 min-w-0 truncate">Gerar NF: {project.title}</span>
+                        <Badge variant="outline" className="text-xs text-cyan-400 border-cyan-500/30">{project.invoice_alert_days ?? 7}d alerta</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {selectedDayItems.financial.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Financeiro</h4>
+                  <div className="space-y-2">
+                    {selectedDayItems.financial.map((tx) => (
+                      <div key={tx.id} className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border border-border/50">
+                        <DollarSign className={cn("h-4 w-4", tx.type === "income" ? "text-emerald-400" : "text-red-400")} />
+                        <span className="font-medium text-sm flex-1 min-w-0 truncate">{tx.description}</span>
+                        <span className="text-xs font-mono">R$ {Number(tx.amount).toLocaleString("pt-BR")}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {selectedDayItems.commercial.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Comercial</h4>
+                  <div className="space-y-2">
+                    {selectedDayItems.commercial.map((action) => (
+                      <div key={action.id} className="flex items-center gap-3 p-3 rounded-xl bg-pink-500/10 border border-pink-500/20">
+                        <Users className="h-4 w-4 text-pink-400" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm">{action.contact?.name || "Contato"}</p>
+                          <p className="text-xs text-muted-foreground truncate">{action.next_action_description || "Próxima ação"}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {selectedDayItems.events.length === 0 && selectedDayItems.tasks.length === 0 && selectedDayItems.milestones.length === 0 && selectedDayItems.projects.length === 0 && selectedDayItems.invoices.length === 0 && selectedDayItems.financial.length === 0 && selectedDayItems.commercial.length === 0 && (
                 <div className="text-center py-8">
                   <div className="inline-flex p-3 rounded-2xl bg-muted/30 mb-3"><CalendarIcon className="h-8 w-8 text-muted-foreground/50" /></div>
                   <p className="text-muted-foreground text-sm">Nenhum item neste dia</p>

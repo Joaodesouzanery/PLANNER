@@ -34,6 +34,7 @@ const Faculdade = lazy(() => import("./pages/ems/Faculdade"));
 const ComercialAutomatizado = lazy(() => import("./pages/ems/ComercialAutomatizado"));
 const AgileImplementation = lazy(() => import("./pages/ems/AgileImplementation"));
 const Conferencia = lazy(() => import("./pages/ems/Conferencia"));
+const VisitRoutes = lazy(() => import("./pages/ems/VisitRoutes"));
 const EMSLogin = lazy(() => import("./pages/ems/Login"));
 const ResetPassword = lazy(() => import("./pages/ems/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -95,6 +96,11 @@ const App = () => (
               <Route path="/ems/quick-notes" element={<ProtectedPage><QuickNotes /></ProtectedPage>} />
               <Route path="/ems/calendar" element={<ProtectedPage><CalendarPage /></ProtectedPage>} />
               <Route path="/ems/comercial" element={<ProtectedPage><Commercial /></ProtectedPage>} />
+              <Route path="/ems/comercial/contatos" element={<ProtectedPage><Contacts /></ProtectedPage>} />
+              <Route path="/ems/comercial/estrutura" element={<ProtectedPage><CommercialStructure /></ProtectedPage>} />
+              <Route path="/ems/comercial/comparativo" element={<ProtectedPage><CommercialComparison /></ProtectedPage>} />
+              <Route path="/ems/comercial/onboarding" element={<ProtectedPage><Onboarding /></ProtectedPage>} />
+              <Route path="/ems/comercial/implementacao-agil" element={<ProtectedPage><AgileImplementation /></ProtectedPage>} />
               <Route path="/ems/estrutura-comercial" element={<ProtectedPage><CommercialStructure /></ProtectedPage>} />
               <Route path="/ems/comparativo-comercial" element={<ProtectedPage><CommercialComparison /></ProtectedPage>} />
               <Route path="/ems/onboarding" element={<ProtectedPage><Onboarding /></ProtectedPage>} />
@@ -105,6 +111,7 @@ const App = () => (
               <Route path="/ems/comercial-automatizado" element={<ProtectedPage><ComercialAutomatizado /></ProtectedPage>} />
               <Route path="/ems/implementacao-agil" element={<ProtectedPage><AgileImplementation /></ProtectedPage>} />
               <Route path="/ems/conferencia" element={<ProtectedPage><Conferencia /></ProtectedPage>} />
+              <Route path="/ems/rotas-visita" element={<ProtectedPage><VisitRoutes /></ProtectedPage>} />
 
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />

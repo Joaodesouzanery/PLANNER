@@ -7,9 +7,11 @@ import { Paperclip, Upload, Trash2, Download, File, Image, FileText } from "luci
 import { cn } from "@/lib/utils";
 
 interface AttachmentManagerProps {
-  entityType: "project" | "task" | "contact";
+  entityType: "project" | "project_contract" | "project_invoice" | "task" | "contact";
   entityId: string;
   companyId?: string | null;
+  title?: string;
+  accept?: string;
 }
 
 const iconForType = (contentType: string) => {
@@ -24,7 +26,7 @@ const formatSize = (bytes: number) => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-export const AttachmentManager = ({ entityType, entityId, companyId }: AttachmentManagerProps) => {
+export const AttachmentManager = ({ entityType, entityId, companyId, title = "Anexos", accept }: AttachmentManagerProps) => {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -105,7 +107,7 @@ export const AttachmentManager = ({ entityType, entityId, companyId }: Attachmen
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-          <Paperclip className="h-3 w-3" /> Anexos ({attachments.length})
+          <Paperclip className="h-3 w-3" /> {title} ({attachments.length})
         </p>
         <Button
           variant="outline"
@@ -116,7 +118,7 @@ export const AttachmentManager = ({ entityType, entityId, companyId }: Attachmen
         >
           <Upload className="h-3 w-3 mr-1" /> {uploading ? "Enviando..." : "Upload"}
         </Button>
-        <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+        <input ref={fileInputRef} type="file" multiple accept={accept} className="hidden" onChange={(e) => handleFiles(e.target.files)} />
       </div>
 
       {/* Drop zone */}

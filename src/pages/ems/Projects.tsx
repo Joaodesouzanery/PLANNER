@@ -43,6 +43,9 @@ interface Project {
   company_id: string | null;
   notes: string | null;
   checklist: ChecklistItem[] | null;
+  next_invoice_date?: string | null;
+  invoice_alert_days?: number | null;
+  invoice_notes?: string | null;
 }
 
 interface KanbanColumn {
@@ -97,6 +100,20 @@ const priorityConfig: Record<string, { label: string; color: string; border: str
 
 const CHART_COLORS = ["hsl(var(--primary))", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#f97316", "#06b6d4", "#ef4444"];
 
+const emptyProjectForm = {
+  title: "",
+  description: "",
+  priority: "medium",
+  due_date: "",
+  client: "",
+  labels: "",
+  status: "todo",
+  notes: "",
+  next_invoice_date: "",
+  invoice_alert_days: "7",
+  invoice_notes: "",
+};
+
 const Projects = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -122,7 +139,7 @@ const Projects = () => {
   const [dashFrom, setDashFrom] = useState("");
   const [dashTo, setDashTo] = useState("");
 
-  const [projectForm, setProjectForm] = useState({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "", status: "todo", notes: "" });
+  const [projectForm, setProjectForm] = useState(emptyProjectForm);
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [newCheckItem, setNewCheckItem] = useState("");
   const [editingColumn, setEditingColumn] = useState<string | null>(null);
@@ -254,13 +271,16 @@ const Projects = () => {
   const handleAddProject = async () => {
     if (!projectForm.title) return;
     const maxOrder = projects.filter(p => p.status === "todo").length;
-    await supabase.from("projects").insert({
+    await (supabase as any).from("projects").insert({
       title: projectForm.title, description: projectForm.description || null, priority: projectForm.priority,
       due_date: projectForm.due_date || null, status: "todo", column_order: maxOrder,
       company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
       client: projectForm.client || null, labels: projectForm.labels ? projectForm.labels.split(",").map(l => l.trim()).filter(Boolean) : [],
+      next_invoice_date: projectForm.next_invoice_date || null,
+      invoice_alert_days: Number(projectForm.invoice_alert_days) || 7,
+      invoice_notes: projectForm.invoice_notes || null,
     });
-    setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "", status: "todo", notes: "" });
+    setProjectForm(emptyProjectForm);
     setShowAddProject(false);
     fetchProjects();
     toast({ title: "Projeto criado!" });
@@ -275,14 +295,17 @@ const Projects = () => {
       setShowExecutionModal(true);
       return;
     }
-    await supabase.from("projects").update({
+    await (supabase as any).from("projects").update({
       title: projectForm.title, description: projectForm.description, priority: projectForm.priority,
       due_date: projectForm.due_date || null, client: projectForm.client || null,
       labels: projectForm.labels ? projectForm.labels.split(",").map(l => l.trim()).filter(Boolean) : [],
       status: newStatus, notes: projectForm.notes || null, checklist: checklistItems as unknown as any,
+      next_invoice_date: projectForm.next_invoice_date || null,
+      invoice_alert_days: Number(projectForm.invoice_alert_days) || 7,
+      invoice_notes: projectForm.invoice_notes || null,
     }).eq("id", editingProject.id);
     setEditingProject(null);
-    setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "", status: "todo", notes: "" });
+    setProjectForm(emptyProjectForm);
     setChecklistItems([]);
     fetchProjects();
     toast({ title: "Projeto atualizado!" });
@@ -428,6 +451,13 @@ const Projects = () => {
   const doneProjects = projects.filter(p => p.status === "done").length;
   const inProgressProjects = projects.filter(p => p.status === "in_progress").length;
   const overdueProjects = projects.filter(p => p.due_date && new Date(p.due_date) < new Date() && p.status !== "done").length;
+  const invoiceAlertProjects = projects.filter(p => {
+    if (!p.next_invoice_date) return false;
+    const alertDays = p.invoice_alert_days ?? 7;
+    const alertDate = new Date(p.next_invoice_date + "T12:00:00");
+    alertDate.setDate(alertDate.getDate() - alertDays);
+    return alertDate <= new Date();
+  }).length;
   const completionRate = totalProjects > 0 ? Math.round((doneProjects / totalProjects) * 100) : 0;
 
   return (
@@ -453,12 +483,13 @@ const Projects = () => {
         </div>
 
         {/* Stats - responsive grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3">
           {[
             { label: "Total", value: totalProjects, icon: FolderKanban, color: "text-primary", gradient: "from-primary/10 to-primary/5" },
             { label: "Em Progresso", value: inProgressProjects, icon: Clock, color: "text-amber-400", gradient: "from-amber-500/10 to-amber-500/5" },
             { label: "Concluídos", value: doneProjects, icon: CheckCircle, color: "text-emerald-400", gradient: "from-emerald-500/10 to-emerald-500/5" },
             { label: "Atrasados", value: overdueProjects, icon: AlertTriangle, color: "text-red-400", gradient: "from-red-500/10 to-red-500/5" },
+            { label: "Alertas NF", value: invoiceAlertProjects, icon: FileText, color: "text-cyan-400", gradient: "from-cyan-500/10 to-cyan-500/5" },
           ].map((s, i) => (
             <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
               <div className="stat-card">
@@ -596,7 +627,19 @@ const Projects = () => {
                                                   <div className="flex gap-0.5 shrink-0">
                                                     <Button variant="ghost" size="icon" className="h-5 w-5 md:h-6 md:w-6 text-muted-foreground hover:text-foreground" onClick={() => {
                                                       setEditingProject(project);
-                                                      setProjectForm({ title: project.title, description: project.description || "", priority: project.priority, due_date: project.due_date || "", client: project.client || "", labels: project.labels?.join(", ") || "", status: project.status, notes: project.notes || "" });
+                                                      setProjectForm({
+                                                        title: project.title,
+                                                        description: project.description || "",
+                                                        priority: project.priority || "medium",
+                                                        due_date: project.due_date || "",
+                                                        client: project.client || "",
+                                                        labels: project.labels?.join(", ") || "",
+                                                        status: project.status,
+                                                        notes: project.notes || "",
+                                                        next_invoice_date: project.next_invoice_date || "",
+                                                        invoice_alert_days: String(project.invoice_alert_days ?? 7),
+                                                        invoice_notes: project.invoice_notes || "",
+                                                      });
                                                       setChecklistItems(Array.isArray(project.checklist) ? project.checklist : []);
                                                     }}>
                                                       <Edit2 className="h-2.5 w-2.5 md:h-3 md:w-3" />
@@ -847,7 +890,7 @@ const Projects = () => {
 
         {/* Add/Edit Project Dialog */}
         <Dialog open={showAddProject || !!editingProject} onOpenChange={(open) => {
-          if (!open) { setShowAddProject(false); setEditingProject(null); setProjectForm({ title: "", description: "", priority: "medium", due_date: "", client: "", labels: "", status: "todo", notes: "" }); setChecklistItems([]); setNewCheckItem(""); }
+          if (!open) { setShowAddProject(false); setEditingProject(null); setProjectForm(emptyProjectForm); setChecklistItems([]); setNewCheckItem(""); }
         }}>
           <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] flex flex-col">
             <DialogHeader><DialogTitle className="text-base md:text-lg">{editingProject ? "Editar Projeto" : "Novo Projeto"}</DialogTitle></DialogHeader>
@@ -870,6 +913,11 @@ const Projects = () => {
                 </div>
                 <div><Label className="text-xs md:text-sm">Data de Entrega</Label><Input type="date" value={projectForm.due_date} onChange={(e) => setProjectForm({ ...projectForm, due_date: e.target.value })} className="text-sm" /></div>
               </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+                <div><Label className="text-xs md:text-sm">PrÃ³xima Nota Fiscal</Label><Input type="date" value={projectForm.next_invoice_date} onChange={(e) => setProjectForm({ ...projectForm, next_invoice_date: e.target.value })} className="text-sm" /></div>
+                <div><Label className="text-xs md:text-sm">Alertar com antecedÃªncia (dias)</Label><Input type="number" min="0" value={projectForm.invoice_alert_days} onChange={(e) => setProjectForm({ ...projectForm, invoice_alert_days: e.target.value })} className="text-sm" /></div>
+              </div>
+              <div><Label className="text-xs md:text-sm">ObservaÃ§Ãµes da Nota Fiscal</Label><Textarea value={projectForm.invoice_notes} onChange={(e) => setProjectForm({ ...projectForm, invoice_notes: e.target.value })} placeholder="CompetÃªncia, valor previsto, dados de faturamento..." className="text-sm" rows={2} /></div>
               {editingProject && (
                 <div>
                   <Label className="text-xs md:text-sm">Coluna / Status</Label>
@@ -904,8 +952,10 @@ const Projects = () => {
               </div>
             </div>
               {editingProject && (
-                <div className="border-t border-border pt-3">
-                  <AttachmentManager entityType="project" entityId={editingProject.id} companyId={editingProject.company_id} />
+                <div className="border-t border-border pt-3 space-y-4">
+                  <AttachmentManager entityType="project_contract" entityId={editingProject.id} companyId={editingProject.company_id} title="Contratos em PDF" accept="application/pdf" />
+                  <AttachmentManager entityType="project_invoice" entityId={editingProject.id} companyId={editingProject.company_id} title="Notas Fiscais em PDF" accept="application/pdf" />
+                  <AttachmentManager entityType="project" entityId={editingProject.id} companyId={editingProject.company_id} title="Outros anexos" />
                 </div>
               )}
             <DialogFooter className="gap-2">

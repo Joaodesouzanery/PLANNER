@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { useCommercialData } from "./useCommercialData";
 import { phaseColors, phaseIconColors } from "./types";
 import type { Phase, Item } from "./types";
+import { useCompany } from "@/contexts/CompanyContext";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -32,6 +33,8 @@ const iconOptions = [
 
 const PhaseItemManager = () => {
   const { phases, items, getPhaseItems, getChildItems, invalidateAll, queryClient } = useCommercialData();
+  const { selectedCompanyId } = useCompany();
+  const scopedCompanyId = selectedCompanyId !== "all" ? selectedCompanyId : null;
 
   const [phaseDialog, setPhaseDialog] = useState<{ open: boolean; phase?: Phase }>({ open: false });
   const [itemDialog, setItemDialog] = useState<{ open: boolean; phaseId: string; parentItemId?: string; item?: Item }>({ open: false, phaseId: "" });
@@ -66,6 +69,7 @@ const PhaseItemManager = () => {
           description: phaseForm.description || null,
           icon: phaseForm.icon,
           order_index: maxOrder,
+          company_id: scopedCompanyId,
         });
         if (error) throw error;
       }
@@ -95,6 +99,7 @@ const PhaseItemManager = () => {
           title: itemForm.title,
           description: itemForm.description || null,
           order_index: maxOrder,
+          company_id: scopedCompanyId,
         });
         if (error) throw error;
       }
