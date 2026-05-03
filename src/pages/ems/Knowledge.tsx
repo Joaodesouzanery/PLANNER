@@ -34,7 +34,7 @@ interface Project {
   title: string;
 }
 
-const Knowledge = () => {
+export const KnowledgeContent = ({ embedded = false }: { embedded?: boolean }) => {
   const { toast } = useToast();
   const [records, setRecords] = useState<ExecutionRecord[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<ExecutionRecord[]>([]);
@@ -155,8 +155,8 @@ const Knowledge = () => {
   const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.05 } } };
   const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } };
 
-  return (
-    <EMSLayout>
+  const body = (
+    <>
       <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
         {/* Header */}
         <motion.div variants={itemVariants} className="flex items-center justify-between">
@@ -351,8 +351,12 @@ const Knowledge = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </EMSLayout>
+    </>
   );
+
+  return embedded ? body : <EMSLayout>{body}</EMSLayout>;
 };
+
+const Knowledge = () => <KnowledgeContent />;
 
 export default Knowledge;

@@ -65,6 +65,7 @@ interface OrgChartNode {
   order_index: number;
   color: string;
   created_at: string;
+  project_id?: string | null;
   children?: OrgChartNode[];
 }
 
@@ -90,7 +91,13 @@ const departmentOptions = [
   "Jurídico",
 ];
 
-const OrgChart = () => {
+interface OrgChartContentProps {
+  projectId?: string | null;
+  projectTitle?: string;
+  embedded?: boolean;
+}
+
+export const OrgChartContent = ({ projectId = null, projectTitle, embedded = false }: OrgChartContentProps) => {
   const { toast } = useToast();
   const { selectedCompanyId } = useCompany();
   const [nodes, setNodes] = useState<OrgChartNode[]>([]);
@@ -125,6 +132,7 @@ const OrgChart = () => {
   const fetchNodes = async () => {
     let query = supabase.from("org_chart_nodes").select("*").order("order_index");
     if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
+    query = projectId ? (query as any).eq("project_id", projectId) : (query as any).is("project_id", null);
     const { data, error } = await query;
     
     if (data) {
@@ -133,6 +141,55 @@ const OrgChart = () => {
       setExpandedNodes(new Set(rootIds));
     }
     setLoading(false);
+  };
+
+  const copyBaseToProject = async () => {
+    if (!projectId) return;
+    let query = (supabase as any).from("org_chart_nodes").select("*").is("project_id", null).order("order_index");
+    if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
+    const { data: baseNodes, error } = await query;
+    if (error) {
+      toast({ title: "Erro ao copiar modelo", description: error.message, variant: "destructive" });
+      return;
+    }
+    if (!baseNodes || baseNodes.length === 0) {
+      toast({ title: "Nenhum modelo base encontrado" });
+      return;
+    }
+    const idMap = new Map<string, string>();
+    for (const node of baseNodes as OrgChartNode[]) {
+      const { data, error: insertError } = await (supabase as any)
+        .from("org_chart_nodes")
+        .insert({
+          name: node.name,
+          position: node.position,
+          department: node.department,
+          email: node.email,
+          phone: node.phone,
+          avatar_url: node.avatar_url,
+          parent_id: null,
+          order_index: node.order_index,
+          color: node.color,
+          company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
+          project_id: projectId,
+        })
+        .select("id")
+        .single();
+      if (insertError) {
+        toast({ title: "Erro ao copiar membro", description: insertError.message, variant: "destructive" });
+        return;
+      }
+      idMap.set(node.id, data.id);
+    }
+    for (const node of baseNodes as OrgChartNode[]) {
+      const newId = idMap.get(node.id);
+      const newParentId = node.parent_id ? idMap.get(node.parent_id) : null;
+      if (newId && newParentId) {
+        await (supabase as any).from("org_chart_nodes").update({ parent_id: newParentId }).eq("id", newId);
+      }
+    }
+    toast({ title: "Modelo de organograma copiado!" });
+    fetchNodes();
   };
 
   const handleSaveNode = async () => {
@@ -149,6 +206,7 @@ const OrgChart = () => {
       phone: nodeForm.phone || null,
       parent_id: nodeForm.parent_id || null,
       color: nodeForm.color,
+      project_id: projectId,
     };
 
     if (editingNode) {
@@ -713,14 +771,14 @@ const OrgChart = () => {
     );
   };
 
-  return (
-    <EMSLayout>
+  const body = (
+    <>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">
-              Organograma
+              Organograma{projectTitle ? ` - ${projectTitle}` : ""}
             </h1>
             <p className="text-muted-foreground mt-1">
               Estrutura organizacional e hierarquia da equipe
@@ -856,6 +914,12 @@ const OrgChart = () => {
                 <Plus className="h-4 w-4 mr-2" />
                 Adicionar Primeiro Membro
               </Button>
+              {projectId && (
+                <Button className="mt-4 ml-2" variant="outline" onClick={copyBaseToProject}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Copiar modelo base
+                </Button>
+              )}
             </CardContent>
           </Card>
         ) : viewMode === "tree" ? (
@@ -986,8 +1050,12 @@ const OrgChart = () => {
           </DialogContent>
         </Dialog>
       </div>
-    </EMSLayout>
+    </>
   );
+
+  return embedded ? body : <EMSLayout>{body}</EMSLayout>;
 };
+
+const OrgChart = () => <OrgChartContent />;
 
 export default OrgChart;

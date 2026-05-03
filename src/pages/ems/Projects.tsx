@@ -17,7 +17,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import {
   Plus, LayoutGrid, GanttChart, Trash2, Edit2, CheckCircle, Calendar, X,
   GripVertical, Building2, FolderKanban, Clock, TrendingUp, AlertTriangle,
-  FileText, Download, BarChart3, Network, Link as LinkIcon, Goal, DollarSign,
+  FileText, Download, BarChart3, Network, Link as LinkIcon, Goal, DollarSign, ShieldCheck, Users,
 } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +26,8 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { AttachmentManager } from "@/components/ems/AttachmentManager";
+import { ConferenciaContent } from "./Conferencia";
+import { OrgChartContent } from "./OrgChart";
 
 interface Project {
   id: string;
@@ -159,6 +161,8 @@ const Projects = () => {
   const [projectGoals, setProjectGoals] = useState<PlanningGoalLink[]>([]);
   const [financeSummary, setFinanceSummary] = useState({ now: 0, months6to12: 0, longTerm: 0 });
   const [showOpportunityModal, setShowOpportunityModal] = useState(false);
+  const [conferenceProject, setConferenceProject] = useState<Project | null>(null);
+  const [orgChartProject, setOrgChartProject] = useState<Project | null>(null);
   const [opportunityProjectId, setOpportunityProjectId] = useState("");
   const [opportunityForm, setOpportunityForm] = useState({ title: "", value: "", stage: "nova", probability: "50", expected_close_date: "" });
 
@@ -210,7 +214,12 @@ const Projects = () => {
       goalsQ = goalsQ.eq("company_id", selectedCompanyId);
       txQ = txQ.eq("company_id", selectedCompanyId);
     }
-    const [oppRes, attRes, goalsRes, txRes] = await Promise.all([oppQ, attQ, goalsQ, txQ]);
+    const [oppRes, attRes, goalsRes, txRes] = await Promise.all([
+      oppQ.then((res: any) => res).catch(() => ({ data: [] })),
+      attQ.then((res: any) => res).catch(() => ({ data: [] })),
+      goalsQ.then((res: any) => res).catch(() => ({ data: [] })),
+      txQ.then((res: any) => res).catch(() => ({ data: [] })),
+    ]);
     setOpportunities((oppRes.data || []) as ProjectOpportunity[]);
     const contractCounts: Record<string, number> = {};
     (attRes.data || []).forEach((att: any) => {
@@ -744,6 +753,12 @@ const Projects = () => {
                         <div className="flex justify-between gap-2">
                           <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => openOpportunityModal(project.id)}>
                             <Plus className="h-3.5 w-3.5 mr-1" />Oportunidade
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setConferenceProject(project)}>
+                            <ShieldCheck className="h-3.5 w-3.5 mr-1" />Conferencia
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setOrgChartProject(project)}>
+                            <Users className="h-3.5 w-3.5 mr-1" />Organograma
                           </Button>
                           <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setView("kanban")}>Ir ao Kanban</Button>
                         </div>
@@ -1279,6 +1294,24 @@ const Projects = () => {
               <Button variant="outline" size="sm" onClick={() => setShowOpportunityModal(false)}>Cancelar</Button>
               <Button size="sm" onClick={saveOpportunity}>Salvar</Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!conferenceProject} onOpenChange={(open) => !open && setConferenceProject(null)}>
+          <DialogContent className="max-w-[95vw] max-h-[90vh] overflow-y-auto">
+            <DialogHeader><DialogTitle>Conferencia do Projeto</DialogTitle></DialogHeader>
+            {conferenceProject && (
+              <ConferenciaContent embedded projectId={conferenceProject.id} projectTitle={conferenceProject.title} />
+            )}
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!orgChartProject} onOpenChange={(open) => !open && setOrgChartProject(null)}>
+          <DialogContent className="max-w-[95vw] max-h-[90vh] overflow-y-auto">
+            <DialogHeader><DialogTitle>Organograma do Projeto</DialogTitle></DialogHeader>
+            {orgChartProject && (
+              <OrgChartContent embedded projectId={orgChartProject.id} projectTitle={orgChartProject.title} />
+            )}
           </DialogContent>
         </Dialog>
 

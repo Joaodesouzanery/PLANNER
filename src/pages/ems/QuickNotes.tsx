@@ -6,14 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion, AnimatePresence } from "framer-motion";
-import { StickyNote, Plus, Pin, Trash2, ListTodo, Palette } from "lucide-react";
+import { StickyNote, Plus, Pin, Trash2, ListTodo, Palette, BookOpen } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { KnowledgeContent } from "./Knowledge";
 
 interface QuickNote {
   id: string;
@@ -315,13 +317,20 @@ const QuickNotes = () => {
         {/* Header */}
         <motion.div variants={itemVariants}>
           <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground">
-            Notas R\u00e1pidas
+            Notas + Knowledge
           </h1>
           <p className="text-sm md:text-base text-muted-foreground mt-1">
-            Anote ideias e converta em tarefas
+            Anote ideias, converta em tarefas e consulte aprendizados
           </p>
         </motion.div>
 
+        <Tabs defaultValue="notes" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="notes" className="gap-1.5"><StickyNote className="h-4 w-4" />Notas</TabsTrigger>
+            <TabsTrigger value="knowledge" className="gap-1.5"><BookOpen className="h-4 w-4" />Knowledge</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="notes" className="space-y-6">
         {/* Quick input */}
         <motion.div variants={itemVariants}>
           <Card>
@@ -419,6 +428,12 @@ const QuickNotes = () => {
             </div>
           </motion.div>
         )}
+          </TabsContent>
+
+          <TabsContent value="knowledge">
+            <KnowledgeContent embedded />
+          </TabsContent>
+        </Tabs>
       </motion.div>
 
       {/* Edit Dialog */}

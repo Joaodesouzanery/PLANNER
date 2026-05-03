@@ -36,6 +36,11 @@ export const PIE_COLORS = ["hsl(var(--primary))", "hsl(142.1, 76.2%, 36.3%)", "h
 export const fmtCurrency = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
 export const tooltipStyle = { backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" };
 
+const isMissingTableError = (error: any) =>
+  error?.code === "42P01" ||
+  error?.code === "PGRST205" ||
+  String(error?.message || "").toLowerCase().includes("finance_saved_installments");
+
 export const useFinanceData = () => {
   const { toast } = useToast();
   const { selectedCompanyId } = useCompany();
@@ -69,9 +74,11 @@ export const useFinanceData = () => {
       let q = (supabase as any).from("finance_saved_installments").select("*").order("created_at", { ascending: false });
       if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
       const { data, error } = await q;
+      if (isMissingTableError(error)) return [];
       if (error) throw error;
       return (data || []) as SavedInstallment[];
     },
+    retry: false,
   });
 
   const invalidate = () => {
@@ -127,7 +134,11 @@ export const useFinanceData = () => {
       if (error) throw error;
     },
     onSuccess: () => { invalidate(); toast({ title: "Parcelamento salvo!" }); },
-    onError: (e: any) => toast({ title: "Erro ao salvar parcelamento", description: e?.message, variant: "destructive" }),
+    onError: (e: any) => toast({
+      title: "Tabela de parcelamentos indisponivel",
+      description: isMissingTableError(e) ? "A migration finance_saved_installments ainda precisa ser aplicada." : e?.message,
+      variant: "destructive",
+    }),
   });
 
   const deleteInstallmentMutation = useMutation({
@@ -136,6 +147,11 @@ export const useFinanceData = () => {
       if (error) throw error;
     },
     onSuccess: () => { invalidate(); toast({ title: "Parcelamento removido!" }); },
+    onError: (e: any) => toast({
+      title: "Erro ao excluir parcelamento",
+      description: isMissingTableError(e) ? "A migration finance_saved_installments ainda precisa ser aplicada." : e?.message,
+      variant: "destructive",
+    }),
   });
 
   const totalIncome = useMemo(() => transactions.filter(t => t.type === "income").reduce((a, t) => a + Number(t.amount), 0), [transactions]);
@@ -174,8 +190,10 @@ export const useFinanceData = () => {
 
   const projectionData = useMemo(() => {
     const last3 = monthlyData.slice(-3);
-    const avgInc = last3.length > 0 ? last3.reduce((a, m) => a + m.income, 0) / last3.length : 0;
-    const avgExp = last3.length > 0 ? last3.reduce((a, m) => a + m.expense, 0) / last3.length : 0;
+    const incomeMonths = last3.filter((m) => m.income > 0);
+    const expenseMonths = last3.filter((m) => m.expense > 0);
+    const avgInc = incomeMonths.length > 0 ? incomeMonths.reduce((a, m) => a + m.income, 0) / incomeMonths.length : 0;
+    const avgExp = expenseMonths.length > 0 ? expenseMonths.reduce((a, m) => a + m.expense, 0) / expenseMonths.length : 0;
     const projected: { month: string; income: number; expense: number; balance: number; projected: boolean }[] = [];
     last3.forEach(m => projected.push({ ...m, projected: false }));
     for (let i = 1; i <= 3; i++) { const d = addMonths(new Date(), i); projected.push({ month: format(d, "MMM/yy", { locale: ptBR }), income: Math.round(avgInc), expense: Math.round(avgExp), balance: Math.round(avgInc - avgExp), projected: true }); }

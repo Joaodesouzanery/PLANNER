@@ -13,12 +13,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 const Overview = lazy(() => import("./pages/ems/Overview"));
 const Companies = lazy(() => import("./pages/ems/Companies"));
 const Projects = lazy(() => import("./pages/ems/Projects"));
-const Knowledge = lazy(() => import("./pages/ems/Knowledge"));
 const Finance = lazy(() => import("./pages/ems/Finance"));
 const Settings = lazy(() => import("./pages/ems/Settings"));
 const Reports = lazy(() => import("./pages/ems/Reports"));
 const Planning = lazy(() => import("./pages/ems/Planning"));
-const OrgChart = lazy(() => import("./pages/ems/OrgChart"));
 const Tasks = lazy(() => import("./pages/ems/Tasks"));
 const Contacts = lazy(() => import("./pages/ems/Contacts"));
 const RoadMap = lazy(() => import("./pages/ems/RoadMap"));
@@ -26,14 +24,11 @@ const QuickNotes = lazy(() => import("./pages/ems/QuickNotes"));
 const CalendarPage = lazy(() => import("./pages/ems/Calendar"));
 const Commercial = lazy(() => import("./pages/ems/Commercial"));
 const Onboarding = lazy(() => import("./pages/ems/Onboarding"));
-const Timesheet = lazy(() => import("./pages/ems/Timesheet"));
 const CommercialStructure = lazy(() => import("./pages/ems/CommercialStructure"));
 const CommercialComparison = lazy(() => import("./pages/ems/CommercialComparison"));
 const Faculdade = lazy(() => import("./pages/ems/Faculdade"));
 const ComercialAutomatizado = lazy(() => import("./pages/ems/ComercialAutomatizado"));
 const AgileImplementation = lazy(() => import("./pages/ems/AgileImplementation"));
-const Conferencia = lazy(() => import("./pages/ems/Conferencia"));
-const VisitRoutes = lazy(() => import("./pages/ems/VisitRoutes"));
 const DailyReport = lazy(() => import("./pages/ems/DailyReport"));
 const BoardCouncil = lazy(() => import("./pages/ems/BoardCouncil"));
 const EMSLogin = lazy(() => import("./pages/ems/Login"));
@@ -87,12 +82,12 @@ const App = () => (
               <Route path="/ems/tasks" element={<ProtectedPage><Tasks /></ProtectedPage>} />
               <Route path="/ems/contacts" element={<ProtectedPage><Contacts /></ProtectedPage>} />
               <Route path="/ems/projects" element={<ProtectedPage><Projects /></ProtectedPage>} />
-              <Route path="/ems/knowledge" element={<ProtectedPage><Knowledge /></ProtectedPage>} />
+              <Route path="/ems/knowledge" element={<Navigate to="/ems/quick-notes" replace />} />
               <Route path="/ems/finance" element={<ProtectedPage><Finance /></ProtectedPage>} />
               <Route path="/ems/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
               <Route path="/ems/reports" element={<ProtectedPage><Reports /></ProtectedPage>} />
               <Route path="/ems/planning" element={<ProtectedPage><Planning /></ProtectedPage>} />
-              <Route path="/ems/orgchart" element={<ProtectedPage><OrgChart /></ProtectedPage>} />
+              <Route path="/ems/orgchart" element={<Navigate to="/ems/projects" replace />} />
               <Route path="/ems/roadmap" element={<ProtectedPage><RoadMap /></ProtectedPage>} />
               <Route path="/ems/quick-notes" element={<ProtectedPage><QuickNotes /></ProtectedPage>} />
               <Route path="/ems/calendar" element={<ProtectedPage><CalendarPage /></ProtectedPage>} />
@@ -108,13 +103,13 @@ const App = () => (
               <Route path="/ems/comparativo-comercial" element={<ProtectedPage><CommercialComparison /></ProtectedPage>} />
               <Route path="/ems/onboarding" element={<ProtectedPage><Onboarding /></ProtectedPage>} />
               <Route path="/ems/executive" element={<Navigate to="/ems" replace />} />
-              <Route path="/ems/timesheet" element={<ProtectedPage><Timesheet /></ProtectedPage>} />
+              <Route path="/ems/timesheet" element={<Navigate to="/ems" replace />} />
               <Route path="/ems/companies" element={<ProtectedPage><Companies /></ProtectedPage>} />
               <Route path="/ems/faculdade" element={<ProtectedPage><Faculdade /></ProtectedPage>} />
               <Route path="/ems/comercial-automatizado" element={<ProtectedPage><ComercialAutomatizado /></ProtectedPage>} />
               <Route path="/ems/implementacao-agil" element={<ProtectedPage><AgileImplementation /></ProtectedPage>} />
-              <Route path="/ems/conferencia" element={<ProtectedPage><Conferencia /></ProtectedPage>} />
-              <Route path="/ems/rotas-visita" element={<ProtectedPage><VisitRoutes /></ProtectedPage>} />
+              <Route path="/ems/conferencia" element={<Navigate to="/ems/projects" replace />} />
+              <Route path="/ems/rotas-visita" element={<Navigate to="/ems/comercial" replace />} />
 
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />

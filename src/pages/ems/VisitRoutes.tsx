@@ -69,7 +69,7 @@ const distanceKm = (a: { lat: number; lng: number }, b: { lat: number; lng: numb
   return 2 * r * Math.asin(Math.sqrt(h));
 };
 
-const VisitRoutes = () => {
+export const VisitRoutesContent = ({ embedded = false }: { embedded?: boolean }) => {
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -195,8 +195,8 @@ const VisitRoutes = () => {
     ? `https://www.google.com/maps/dir/${[origin.address, ...routePlaces].filter(Boolean).map(encodeURIComponent).join("/")}`
     : "";
 
-  return (
-    <EMSLayout>
+  const body = (
+    <>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
@@ -337,8 +337,12 @@ const VisitRoutes = () => {
           </DialogContent>
         </Dialog>
       </div>
-    </EMSLayout>
+    </>
   );
+
+  return embedded ? body : <EMSLayout>{body}</EMSLayout>;
 };
+
+const VisitRoutes = () => <VisitRoutesContent />;
 
 export default VisitRoutes;

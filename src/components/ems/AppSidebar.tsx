@@ -3,10 +3,9 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  LayoutDashboard, Clock,
+  LayoutDashboard,
   Building2,
   FolderKanban,
-  BookOpen,
   TrendingUp,
   Settings,
   ChevronLeft,
@@ -15,9 +14,7 @@ import {
   Moon,
   Sun,
   Target,
-  Users,
   ListTodo,
-  MapPinned,
   StickyNote,
   CalendarDays,
   Menu,
@@ -27,7 +24,6 @@ import {
   LogOut,
   GraduationCap,
   User as UserIcon,
-  ShieldCheck,
   Flag,
   Landmark,
 } from "lucide-react";
@@ -62,19 +58,15 @@ const menuGroups: MenuGroup[] = [
     label: "Gestão",
     items: [
       { icon: Briefcase, label: "Comercial", path: "/ems/comercial" },
-      { icon: ShieldCheck, label: "Conferência", path: "/ems/conferencia" },
-      { icon: MapPinned, label: "Rotas de Visita", path: "/ems/rotas-visita" },
+
       { icon: Target, label: "Planejamento", path: "/ems/planning" },
-      { icon: Users, label: "Organograma", path: "/ems/orgchart" },
     ],
   },
   {
     label: "Ferramentas",
     items: [
-      { icon: Clock, label: "Timesheet", path: "/ems/timesheet" },
       { icon: CalendarDays, label: "Calendário", path: "/ems/calendar" },
-      { icon: StickyNote, label: "Notas Rápidas", path: "/ems/quick-notes" },
-      { icon: BookOpen, label: "Knowledge Base", path: "/ems/knowledge" },
+      { icon: StickyNote, label: "Notas + Knowledge", path: "/ems/quick-notes" },
       { icon: GraduationCap, label: "Faculdade", path: "/ems/faculdade" },
     ],
   },

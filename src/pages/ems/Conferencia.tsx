@@ -52,6 +52,7 @@ interface Stage {
   order_index: number | null;
   status: string | null;
   company_id: string | null;
+  project_id?: string | null;
 }
 
 interface Item {
@@ -65,6 +66,7 @@ interface Item {
   tags: string[] | null;
   order_index: number | null;
   company_id: string | null;
+  project_id?: string | null;
 }
 
 const ITEM_TYPES = [
@@ -73,7 +75,13 @@ const ITEM_TYPES = [
   { value: "document", label: "Documento", icon: Paperclip },
 ];
 
-const Conferencia = () => {
+interface ConferenciaContentProps {
+  projectId?: string | null;
+  projectTitle?: string;
+  embedded?: boolean;
+}
+
+export const ConferenciaContent = ({ projectId = null, projectTitle, embedded = false }: ConferenciaContentProps) => {
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -97,14 +105,15 @@ const Conferencia = () => {
 
   /* ---------------- queries ---------------- */
   const { data: stages = [], isLoading } = useQuery({
-    queryKey: ["conference_stages", selectedCompanyId],
+    queryKey: ["conference_stages", selectedCompanyId, projectId],
     queryFn: async () => {
       let q = supabase
         .from("conference_stages")
         .select("*")
         .order("order_index", { ascending: true })
         .order("created_at", { ascending: true });
-      if (selectedCompanyId) q = q.eq("company_id", selectedCompanyId);
+      if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
+      q = projectId ? (q as any).eq("project_id", projectId) : (q as any).is("project_id", null);
       const { data, error } = await q;
       if (error) throw error;
       return data as Stage[];
@@ -112,16 +121,50 @@ const Conferencia = () => {
   });
 
   const { data: items = [] } = useQuery({
-    queryKey: ["conference_items", selectedCompanyId],
+    queryKey: ["conference_items", selectedCompanyId, projectId],
     queryFn: async () => {
       let q = supabase
         .from("conference_items")
         .select("*")
         .order("order_index", { ascending: true })
         .order("created_at", { ascending: true });
-      if (selectedCompanyId) q = q.eq("company_id", selectedCompanyId);
+      if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
+      q = projectId ? (q as any).eq("project_id", projectId) : (q as any).is("project_id", null);
       const { data, error } = await q;
       if (error) throw error;
+      return data as Item[];
+    },
+  });
+
+  const { data: baseStages = [] } = useQuery({
+    queryKey: ["conference_stages_base", selectedCompanyId],
+    enabled: !!projectId,
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("conference_stages")
+        .select("*")
+        .is("project_id", null)
+        .order("order_index", { ascending: true })
+        .order("created_at", { ascending: true });
+      if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
+      const { data, error } = await q;
+      if (error) return [];
+      return data as Stage[];
+    },
+  });
+
+  const { data: baseItems = [] } = useQuery({
+    queryKey: ["conference_items_base", selectedCompanyId],
+    enabled: !!projectId,
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("conference_items")
+        .select("*")
+        .is("project_id", null)
+        .order("order_index", { ascending: true });
+      if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
+      const { data, error } = await q;
+      if (error) return [];
       return data as Item[];
     },
   });
@@ -143,7 +186,8 @@ const Conferencia = () => {
         const { error } = await supabase.from("conference_stages").insert({
           title: stageForm.title,
           description: stageForm.description || null,
-          company_id: selectedCompanyId,
+          company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
+          project_id: projectId,
           order_index: stages.length,
         });
         if (error) throw error;
@@ -212,7 +256,8 @@ const Conferencia = () => {
         const { error } = await supabase.from("conference_items").insert({
           ...payload,
           stage_id: itemStageId!,
-          company_id: selectedCompanyId,
+          company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
+          project_id: projectId,
         });
         if (error) throw error;
       }
@@ -238,6 +283,55 @@ const Conferencia = () => {
       queryClient.invalidateQueries({ queryKey: ["conference_items"] });
       toast.success("Item removido");
     },
+  });
+
+  const copyBaseToProject = useMutation({
+    mutationFn: async () => {
+      if (!projectId || baseStages.length === 0) return;
+      const stageIdMap = new Map<string, string>();
+      for (const stage of baseStages) {
+        const { data, error } = await (supabase as any)
+          .from("conference_stages")
+          .insert({
+            title: stage.title,
+            description: stage.description,
+            icon: stage.icon,
+            color: stage.color,
+            order_index: stage.order_index ?? 0,
+            status: stage.status || "active",
+            company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
+            project_id: projectId,
+          })
+          .select("id")
+          .single();
+        if (error) throw error;
+        stageIdMap.set(stage.id, data.id);
+      }
+      const copiedItems = baseItems
+        .filter((item) => stageIdMap.has(item.stage_id))
+        .map((item) => ({
+          stage_id: stageIdMap.get(item.stage_id),
+          type: item.type,
+          title: item.title,
+          content: item.content,
+          attachment_url: item.attachment_url,
+          attachment_name: item.attachment_name,
+          tags: item.tags || [],
+          order_index: item.order_index ?? 0,
+          company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
+          project_id: projectId,
+        }));
+      if (copiedItems.length > 0) {
+        const { error } = await (supabase as any).from("conference_items").insert(copiedItems);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["conference_stages"] });
+      queryClient.invalidateQueries({ queryKey: ["conference_items"] });
+      toast.success("Modelo de conferencia copiado para o projeto");
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   /* ---------------- helpers ---------------- */
@@ -297,8 +391,8 @@ const Conferencia = () => {
     return t?.icon ?? FileText;
   };
 
-  return (
-    <EMSLayout>
+  const body = (
+    <>
       <div className="p-6 max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -307,7 +401,7 @@ const Conferencia = () => {
               <ShieldCheck className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-semibold text-foreground">Conferência</h1>
+              <h1 className="text-2xl font-semibold text-foreground">Conferência{projectTitle ? ` - ${projectTitle}` : ""}</h1>
               <p className="text-sm text-muted-foreground">
                 Etapas de conferência e seus documentos, textos e prompts
               </p>
@@ -339,9 +433,16 @@ const Conferencia = () => {
             <p className="text-sm text-muted-foreground">
               Crie etapas como Segurança, QA, Performance, Backup, Ontologia de Dados...
             </p>
-            <Button onClick={openNewStage} className="gap-2 mt-2">
-              <Plus className="h-4 w-4" /> Criar primeira etapa
-            </Button>
+            <div className="flex flex-wrap justify-center gap-2 mt-2">
+              {projectId && baseStages.length > 0 && (
+                <Button variant="outline" onClick={() => copyBaseToProject.mutate()} disabled={copyBaseToProject.isPending} className="gap-2">
+                  <Copy className="h-4 w-4" /> Copiar modelo base
+                </Button>
+              )}
+              <Button onClick={openNewStage} className="gap-2">
+                <Plus className="h-4 w-4" /> Criar primeira etapa
+              </Button>
+            </div>
           </Card>
         ) : (
           <Accordion type="multiple" className="space-y-3">
@@ -615,8 +716,12 @@ const Conferencia = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </EMSLayout>
+    </>
   );
+
+  return embedded ? body : <EMSLayout>{body}</EMSLayout>;
 };
+
+const Conferencia = () => <ConferenciaContent />;
 
 export default Conferencia;

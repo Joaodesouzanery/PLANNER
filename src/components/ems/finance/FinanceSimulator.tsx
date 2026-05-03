@@ -331,12 +331,32 @@ const FinanceSimulator = () => {
             </Card>
           </>
         ) : (
-          <Card className="border border-border/50 bg-card/80">
-            <CardContent className="py-16 text-center">
-              <div className="inline-flex p-4 rounded-2xl bg-muted/30 mb-3"><ShoppingCart className="h-8 w-8 text-muted-foreground/50" /></div>
-              <p className="text-muted-foreground text-sm">Preencha o preco do item e sua renda para ver as opcoes de parcelamento saudaveis</p>
-            </CardContent>
-          </Card>
+          <>
+            <Card className="border border-border/50 bg-card/80">
+              <CardContent className="py-16 text-center">
+                <div className="inline-flex p-4 rounded-2xl bg-muted/30 mb-3"><ShoppingCart className="h-8 w-8 text-muted-foreground/50" /></div>
+                <p className="text-muted-foreground text-sm">Preencha o preco do item e sua renda para ver as opcoes de parcelamento saudaveis</p>
+              </CardContent>
+            </Card>
+            <Card className="border border-border/50 bg-card/80">
+              <CardHeader className="pb-2"><CardTitle className="text-sm">Parcelamentos salvos</CardTitle></CardHeader>
+              <CardContent className="space-y-2">
+                {savedInstallments.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-3 text-center">Nenhuma opcao salva ainda.</p>
+                ) : savedInstallments.slice(0, 8).map((saved) => (
+                  <div key={saved.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/50 p-2 text-xs">
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{saved.item_name}</p>
+                      <p className="text-muted-foreground">{saved.option_label} - {saved.installments}x de {fmtCurrency(Number(saved.monthly_payment))}</p>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => deleteInstallmentMutation.mutate(saved.id)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </>
         )}
       </div>
     </div>

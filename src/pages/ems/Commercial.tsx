@@ -17,7 +17,7 @@ import {
   FileText, Globe, BarChart3, Target, TrendingUp, Phone, Mail, Building2,
   Briefcase, Save, Settings2, Kanban, Tag, Flame, Thermometer, CalendarClock,
   X, Plus, AlertTriangle, Zap, UserPlus, Network, ClipboardCheck, Workflow,
-  HeartPulse
+  HeartPulse, MapPinned
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +27,7 @@ import { useCommercialData } from "@/components/ems/commercial/useCommercialData
 import { statusConfig, phaseColors, phaseIconColors } from "@/components/ems/commercial/types";
 import type { Phase, Item, Tracking, Contact, ContactMeta } from "@/components/ems/commercial/types";
 import PhaseItemManager from "@/components/ems/commercial/PhaseItemManager";
+import { VisitRoutesContent } from "./VisitRoutes";
 
 const PipelineKanban = lazy(() => import("@/components/ems/commercial/PipelineKanban"));
 const FunnelReports = lazy(() => import("@/components/ems/commercial/FunnelReports"));
@@ -671,11 +672,12 @@ const Commercial = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 h-auto">
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-7 h-auto">
             <TabsTrigger value="central" className="gap-1.5"><Briefcase className="h-4 w-4" /><span className="hidden sm:inline">Central</span></TabsTrigger>
             <TabsTrigger value="contacts" className="gap-1.5"><Users className="h-4 w-4" /><span className="hidden sm:inline">Funil</span></TabsTrigger>
             <TabsTrigger value="pipeline" className="gap-1.5"><Kanban className="h-4 w-4" /><span className="hidden sm:inline">Pipeline</span></TabsTrigger>
             <TabsTrigger value="clients" className="gap-1.5"><HeartPulse className="h-4 w-4" /><span className="hidden sm:inline">Clientes</span></TabsTrigger>
+            <TabsTrigger value="routes" className="gap-1.5"><MapPinned className="h-4 w-4" /><span className="hidden sm:inline">Rotas</span></TabsTrigger>
             <TabsTrigger value="reports" className="gap-1.5"><BarChart3 className="h-4 w-4" /><span className="hidden sm:inline">Relatórios</span></TabsTrigger>
             <TabsTrigger value="manage" className="gap-1.5"><Settings2 className="h-4 w-4" /><span className="hidden sm:inline">Gerenciar</span></TabsTrigger>
           </TabsList>
@@ -873,6 +875,10 @@ const Commercial = () => {
                 <ClientRelationshipKanban enabled={activeTab === "clients"} />
               </Suspense>
             )}
+          </TabsContent>
+
+          <TabsContent value="routes" className="mt-4">
+            <VisitRoutesContent embedded />
           </TabsContent>
 
           <TabsContent value="reports" className="mt-4">
