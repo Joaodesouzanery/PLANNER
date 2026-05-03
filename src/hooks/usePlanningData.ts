@@ -9,7 +9,7 @@ export interface PlanningGoal {
   id: string; title: string; description: string | null; category: string;
   start_date: string | null; end_date: string | null; progress: number;
   status: string; parent_id: string | null; order_index: number; created_at: string;
-  company_id?: string | null; user_id?: string | null;
+  company_id?: string | null; user_id?: string | null; okr_id?: string | null; project_id?: string | null;
 }
 
 export interface PlanningMilestone {
@@ -124,6 +124,7 @@ export function usePlanningData() {
         title: form.title, description: form.description || null, category: form.category,
         start_date: form.start_date || null, end_date: form.end_date || null,
         status: form.status, parent_id: form.parent_id || null,
+        okr_id: form.okr_id || null, project_id: form.project_id || null,
         company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
       };
       if (editId) {

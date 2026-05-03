@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCompany } from "@/contexts/CompanyContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
@@ -147,6 +147,17 @@ const Projects = () => {
   const [newColumnTitle, setNewColumnTitle] = useState("");
   const [newColumnColor, setNewColumnColor] = useState("purple");
   const [clientFilter, setClientFilter] = useState<string>("all");
+  const [graphStatusFilter, setGraphStatusFilter] = useState<string>("in_progress");
+  const [graphMinProgress, setGraphMinProgress] = useState("0");
+  const [graphMinOpportunity, setGraphMinOpportunity] = useState("0");
+  const [graphVisibleNodes, setGraphVisibleNodes] = useState({
+    contracts: true,
+    opportunities: true,
+    goals: true,
+    finance: true,
+    conference: true,
+    orgchart: true,
+  });
   const [reportOpen, setReportOpen] = useState(false);
   const [reportFrom, setReportFrom] = useState("");
   const [reportTo, setReportTo] = useState("");
@@ -555,21 +566,38 @@ const Projects = () => {
     return alertDate <= new Date();
   }).length;
   const completionRate = totalProjects > 0 ? Math.round((doneProjects / totalProjects) * 100) : 0;
-  const activeProjects = useMemo(() => projects.filter(p => p.status !== "done" && (clientFilter === "all" || p.client === clientFilter)), [projects, clientFilter]);
+  const getGraphMetrics = useCallback((project: Project) => {
+    const total = totalTaskCounts[project.id] || 0;
+    const pending = pendingTaskCounts[project.id] || 0;
+    const taskProgress = total > 0 ? Math.round(((total - pending) / total) * 100) : project.status === "in_progress" ? 45 : project.status === "done" ? 100 : 10;
+    const linkedGoals = projectGoals.filter(goal => goal.project_id === project.id);
+    const goalProgress = linkedGoals.length > 0 ? Math.round(linkedGoals.reduce((a, g) => a + Number(g.progress || 0), 0) / linkedGoals.length) : taskProgress;
+    const progress = Math.round((taskProgress + goalProgress) / 2);
+    const projectOpps = opportunities.filter(opp => opp.project_id === project.id);
+    const opportunityValue = projectOpps.reduce((sum, opp) => sum + Number(opp.value || 0), 0);
+    return { total, pending, taskProgress, linkedGoals, goalProgress, progress, projectOpps, opportunityValue };
+  }, [opportunities, pendingTaskCounts, projectGoals, totalTaskCounts]);
+
+  const activeProjects = useMemo(() => projects.filter(project => {
+    if (clientFilter !== "all" && project.client !== clientFilter) return false;
+    if (graphStatusFilter !== "all" && project.status !== graphStatusFilter) return false;
+    const metrics = getGraphMetrics(project);
+    if (metrics.progress < Number(graphMinProgress || 0)) return false;
+    if (metrics.opportunityValue < Number(graphMinOpportunity || 0)) return false;
+    return true;
+  }), [projects, clientFilter, graphStatusFilter, graphMinProgress, graphMinOpportunity, getGraphMetrics]);
   const graphTotals = useMemo(() => {
-    const opportunityValue = opportunities.reduce((sum, opp) => sum + Number(opp.value || 0), 0);
+    const activeIds = new Set(activeProjects.map(project => project.id));
+    const opportunityValue = opportunities.filter(opp => activeIds.has(opp.project_id)).reduce((sum, opp) => sum + Number(opp.value || 0), 0);
     const averageProgress = activeProjects.length > 0
-      ? Math.round(activeProjects.reduce((sum, project) => {
-          const total = totalTaskCounts[project.id] || 0;
-          const pending = pendingTaskCounts[project.id] || 0;
-          const taskProgress = total > 0 ? ((total - pending) / total) * 100 : project.status === "in_progress" ? 45 : 10;
-          const linkedGoals = projectGoals.filter(goal => goal.project_id === project.id);
-          const goalProgress = linkedGoals.length > 0 ? linkedGoals.reduce((a, g) => a + Number(g.progress || 0), 0) / linkedGoals.length : taskProgress;
-          return sum + Math.round((taskProgress + goalProgress) / 2);
-        }, 0) / activeProjects.length)
+      ? Math.round(activeProjects.reduce((sum, project) => sum + getGraphMetrics(project).progress, 0) / activeProjects.length)
       : 0;
     return { opportunityValue, averageProgress };
-  }, [activeProjects, opportunities, pendingTaskCounts, projectGoals, totalTaskCounts]);
+  }, [activeProjects, opportunities, getGraphMetrics]);
+
+  const toggleGraphNode = (key: keyof typeof graphVisibleNodes) => {
+    setGraphVisibleNodes(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   return (
     <EMSLayout>
@@ -679,6 +707,56 @@ const Projects = () => {
               ))}
             </div>
 
+            <Card className="border-border/50 bg-card/80">
+              <CardContent className="p-4 space-y-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Status no grafo</Label>
+                      <Select value={graphStatusFilter} onValueChange={setGraphStatusFilter}>
+                        <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="in_progress">Em progresso</SelectItem>
+                          <SelectItem value="todo">A fazer</SelectItem>
+                          <SelectItem value="done">Concluido</SelectItem>
+                          <SelectItem value="all">Todos</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Progresso minimo (%)</Label>
+                      <Input className="h-9 text-xs" type="number" min="0" max="100" value={graphMinProgress} onChange={(e) => setGraphMinProgress(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Oportunidade minima (R$)</Label>
+                      <Input className="h-9 text-xs" type="number" min="0" value={graphMinOpportunity} onChange={(e) => setGraphMinOpportunity(e.target.value)} />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      ["contracts", "Contratos"],
+                      ["opportunities", "Oportunidades"],
+                      ["goals", "Metas"],
+                      ["finance", "Caixa"],
+                      ["conference", "Conferencia"],
+                      ["orgchart", "Organograma"],
+                    ].map(([key, label]) => (
+                      <Button
+                        key={key}
+                        type="button"
+                        size="sm"
+                        variant={graphVisibleNodes[key as keyof typeof graphVisibleNodes] ? "default" : "outline"}
+                        className="h-8 text-xs"
+                        onClick={() => toggleGraphNode(key as keyof typeof graphVisibleNodes)}
+                      >
+                        {label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             <div className="flex justify-end">
               <Button size="sm" onClick={() => openOpportunityModal()} className="text-xs md:text-sm">
                 <Plus className="h-3.5 w-3.5 mr-1.5" />Nova Oportunidade
@@ -687,14 +765,15 @@ const Projects = () => {
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               {activeProjects.map((project, index) => {
-                const total = totalTaskCounts[project.id] || 0;
-                const pending = pendingTaskCounts[project.id] || 0;
-                const taskProgress = total > 0 ? Math.round(((total - pending) / total) * 100) : project.status === "in_progress" ? 45 : 10;
-                const linkedGoals = projectGoals.filter(goal => goal.project_id === project.id);
-                const goalProgress = linkedGoals.length > 0 ? Math.round(linkedGoals.reduce((a, g) => a + Number(g.progress || 0), 0) / linkedGoals.length) : taskProgress;
-                const progress = Math.round((taskProgress + goalProgress) / 2);
-                const projectOpps = opportunities.filter(opp => opp.project_id === project.id);
-                const oppValue = projectOpps.reduce((sum, opp) => sum + Number(opp.value || 0), 0);
+                const { linkedGoals, goalProgress, progress, projectOpps, opportunityValue: oppValue } = getGraphMetrics(project);
+                const graphNodes = [
+                  graphVisibleNodes.contracts && { key: "contracts", label: `${projectContractCounts[project.id] || 0} contratos`, sub: "PDFs e anexos", icon: FileText, x: 8, y: 18, onClick: () => setEditingProject(project) },
+                  graphVisibleNodes.opportunities && { key: "opportunities", label: `${projectOpps.length} oportunidades`, sub: fmtMoney(oppValue), icon: LinkIcon, x: 66, y: 14, onClick: () => openOpportunityModal(project.id) },
+                  graphVisibleNodes.goals && { key: "goals", label: `${linkedGoals.length} metas`, sub: `${goalProgress}% planejamento`, icon: Goal, x: 6, y: 66, onClick: () => setView("kanban") },
+                  graphVisibleNodes.finance && { key: "finance", label: fmtMoney(oppValue), sub: "valor vinculado", icon: DollarSign, x: 68, y: 65, onClick: () => openOpportunityModal(project.id) },
+                  graphVisibleNodes.conference && { key: "conference", label: "Conferencia", sub: "controle por projeto", icon: ShieldCheck, x: 38, y: 7, onClick: () => setConferenceProject(project) },
+                  graphVisibleNodes.orgchart && { key: "orgchart", label: "Organograma", sub: "estrutura vinculada", icon: Users, x: 36, y: 78, onClick: () => setOrgChartProject(project) },
+                ].filter(Boolean) as { key: string; label: string; sub: string; icon: any; x: number; y: number; onClick: () => void }[];
                 return (
                   <motion.div key={project.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }}>
                     <Card className="border-border/50 bg-card/80 overflow-hidden">
@@ -709,22 +788,52 @@ const Projects = () => {
                         <Progress value={progress} className="h-2 mt-3" />
                       </CardHeader>
                       <CardContent className="space-y-4">
-                        <div className="relative min-h-[170px] rounded-lg border border-border/50 bg-muted/20 p-4 overflow-hidden">
-                          <div className="absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/30 bg-primary/10 flex items-center justify-center text-center">
-                            <span className="text-[10px] font-semibold text-primary px-2 line-clamp-2">{project.title}</span>
-                          </div>
-                          {[
-                            { label: `${projectContractCounts[project.id] || 0} contratos`, icon: FileText, className: "left-4 top-4" },
-                            { label: `${projectOpps.length} oportunidades`, icon: LinkIcon, className: "right-4 top-4" },
-                            { label: `${linkedGoals.length} metas`, icon: Target, className: "left-4 bottom-4" },
-                            { label: fmtMoney(oppValue), icon: DollarSign, className: "right-4 bottom-4" },
-                          ].map((node) => (
-                            <div key={node.label} className={cn("absolute rounded-lg border border-border/60 bg-background/95 px-2 py-1.5 shadow-sm", node.className)}>
-                              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><node.icon className="h-3 w-3 text-primary" />{node.label}</div>
+                        <div
+                          className="relative min-h-[280px] rounded-lg border border-border/50 overflow-hidden bg-background"
+                          style={{
+                            backgroundImage: "linear-gradient(hsl(var(--border) / .22) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--border) / .22) 1px, transparent 1px)",
+                            backgroundSize: "18px 18px",
+                          }}
+                        >
+                          <svg className="absolute inset-0 h-full w-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                            {graphNodes.map((node) => (
+                              <line
+                                key={node.key}
+                                x1="50"
+                                y1="50"
+                                x2={node.x + 13}
+                                y2={node.y + 7}
+                                stroke="hsl(var(--border))"
+                                strokeWidth="0.35"
+                                strokeDasharray={node.key === "conference" || node.key === "orgchart" ? "1.4 1.4" : "0"}
+                              />
+                            ))}
+                          </svg>
+                          <button
+                            className="absolute left-1/2 top-1/2 z-10 w-40 -translate-x-1/2 -translate-y-1/2 rounded-xl border border-primary/40 bg-background/95 p-3 text-left shadow-lg"
+                            onClick={() => setEditingProject(project)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <FolderKanban className="h-4 w-4 text-primary" />
+                              <span className="text-xs font-semibold line-clamp-2">{project.title}</span>
                             </div>
+                            <p className="text-[10px] text-muted-foreground mt-2">{project.client || "Sem cliente"}</p>
+                            <Progress value={progress} className="h-1.5 mt-2" />
+                          </button>
+                          {graphNodes.map((node) => (
+                            <button
+                              key={node.key}
+                              className="absolute z-20 w-36 rounded-lg border border-border/70 bg-card/95 p-2 text-left shadow-md transition hover:border-primary/50 hover:bg-primary/5"
+                              style={{ left: `${node.x}%`, top: `${node.y}%` }}
+                              onClick={node.onClick}
+                            >
+                              <div className="flex items-center gap-1.5 text-xs font-semibold">
+                                <node.icon className="h-3.5 w-3.5 text-primary" />
+                                <span className="truncate">{node.label}</span>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground truncate mt-1">{node.sub}</p>
+                            </button>
                           ))}
-                          <div className="absolute left-[22%] right-[22%] top-1/2 h-px bg-border/70" />
-                          <div className="absolute bottom-[26%] top-[26%] left-1/2 w-px bg-border/70" />
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 text-xs">
