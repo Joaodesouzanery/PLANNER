@@ -59,7 +59,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { icon: Briefcase, label: "Comercial", path: "/ems/comercial" },
 
-      { icon: Target, label: "Planejamento", path: "/ems/planning" },
+      { icon: Target, label: "Planejamento e Metas", path: "/ems/planning" },
     ],
   },
   {

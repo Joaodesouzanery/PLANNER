@@ -167,7 +167,9 @@ const SectionHeader = ({ title, description, action }: { title: string; descript
 const Planning = () => {
   const planning = usePlanningData();
   const operational = useOperationalPlanningData();
+  const [pageMode, setPageMode] = useState<"planning" | "goals">("planning");
   const [activeTab, setActiveTab] = useState("north");
+  const [goalsTab, setGoalsTab] = useState("overview");
   const [editing, setEditing] = useState<{ table: string; id: string | null; type: string } | null>(null);
   const [form, setForm] = useState<FormState>({});
   const [showGoalModal, setShowGoalModal] = useState(false);
@@ -249,6 +251,86 @@ const Planning = () => {
       const current = Number(kr.current_value || 0);
       return sum + (target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0);
     }, 0) / krs.length);
+  };
+
+  const metaInitiatives = useMemo(() => planning.goals
+    .filter((goal) => goal.title)
+    .sort((a, b) => String(a.start_date || a.created_at).localeCompare(String(b.start_date || b.created_at))),
+  [planning.goals]);
+
+  const groupedMetaInitiatives = useMemo(() => metaInitiatives.reduce((acc, goal) => {
+    const category = getCategoryInfo(goal.category).label;
+    acc[category] = [...(acc[category] || []), goal];
+    return acc;
+  }, {} as Record<string, PlanningGoal[]>), [metaInitiatives]);
+
+  const metaOverviewCards = useMemo(() => {
+    const northCards = operational.northMetrics.slice(0, 6).map((metric) => {
+      const current = Number(metric.current_value || 0);
+      const target = Number(metric.quarter_target || 0);
+      const progress = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
+      return {
+        title: metric.metric_name,
+        value: asNumber(metric.current_value, metric.unit),
+        meta: `Meta: ${asNumber(metric.quarter_target, metric.unit)}`,
+        status: target > 0 && current >= target ? "No ritmo" : target > 0 ? "Atencao" : "Sem meta",
+        progress,
+      };
+    });
+    if (northCards.length) return northCards;
+    return operational.okrs.slice(0, 6).map((okr) => {
+      const progress = okrProgress(okr.id, okr.target_value > 0 ? Math.round((okr.current_value / okr.target_value) * 100) : 0);
+      return {
+        title: okr.title,
+        value: asNumber(okr.current_value, okr.unit),
+        meta: `Meta: ${asNumber(okr.target_value, okr.unit)}`,
+        status: progress >= 80 ? "No ritmo" : progress >= 40 ? "Atencao" : "Nao iniciado",
+        progress,
+      };
+    });
+  }, [operational.northMetrics, operational.okrs]);
+
+  const gapRows = useMemo(() => {
+    const metricRows = operational.northMetrics.map((metric) => {
+      const current = Number(metric.current_value || 0);
+      const target = Number(metric.quarter_target || 0);
+      return {
+        name: metric.metric_name,
+        today: asNumber(metric.current_value, metric.unit),
+        projected: asNumber(current, metric.unit),
+        target: asNumber(metric.quarter_target, metric.unit),
+        gap: target - current,
+        closes: metric.levers || metric.change_reason || "Definir alavanca",
+        unit: metric.unit,
+      };
+    });
+    const krRows = operational.keyResults.map((kr) => {
+      const current = Number(kr.current_value || 0);
+      const target = Number(kr.target_value || 0);
+      return {
+        name: kr.title,
+        today: asNumber(kr.current_value, kr.unit),
+        projected: asNumber(current, kr.unit),
+        target: asNumber(kr.target_value, kr.unit),
+        gap: target - current,
+        closes: kr.learning || kr.not_doing || "Vincular iniciativa",
+        unit: kr.unit,
+      };
+    });
+    return [...metricRows, ...krRows].filter((row) => row.name).slice(0, 8);
+  }, [operational.northMetrics, operational.keyResults]);
+
+  const assumptionsByArea = useMemo(() => operational.assumptions.reduce((acc, item) => {
+    const key = item.product_area || "Empresa";
+    acc[key] = [...(acc[key] || []), item];
+    return acc;
+  }, {} as Record<string, PlanningAssumption[]>), [operational.assumptions]);
+
+  const monthLabels = ["Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  const monthIndex = (date?: string | null) => {
+    if (!date) return 0;
+    const month = new Date(`${date}T12:00:00`).getMonth();
+    return Math.max(0, Math.min(7, month - 4));
   };
 
   const dialogConfig = {
@@ -370,8 +452,8 @@ const Planning = () => {
       <div className="space-y-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl md:text-3xl font-heading font-bold">Planejamento</h1>
-            <p className="text-muted-foreground">North Star, OKRs, riscos, tempo e cadencia em um cockpit operacional.</p>
+            <h1 className="text-2xl md:text-3xl font-heading font-bold">Planejamento e Metas</h1>
+            <p className="text-muted-foreground">Planejamento operacional, metas, iniciativas e gaps em um unico cockpit.</p>
           </div>
           <Button onClick={() => openForm("review", operationalDefaults.review)}>
             <CalendarClock className="h-4 w-4 mr-2" />Nova revisao
@@ -380,6 +462,12 @@ const Planning = () => {
 
         {operational.isLoading ? <Skeleton className="h-24 rounded-lg" /> : null}
 
+        <div className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/20 p-1 sm:w-[420px]">
+          <Button variant={pageMode === "planning" ? "default" : "ghost"} onClick={() => setPageMode("planning")}>Planejamento</Button>
+          <Button variant={pageMode === "goals" ? "default" : "ghost"} onClick={() => setPageMode("goals")}>Metas</Button>
+        </div>
+
+        {pageMode === "planning" ? (
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 h-auto">
             <TabsTrigger value="north"><Compass className="h-4 w-4 mr-1" />North</TabsTrigger>
@@ -670,6 +758,238 @@ const Planning = () => {
             {operational.reviews.length === 0 && <EmptyState label="Nenhuma revisao registrada." />}
           </TabsContent>
         </Tabs>
+        ) : (
+          <Tabs value={goalsTab} onValueChange={setGoalsTab}>
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 h-auto">
+              <TabsTrigger value="overview">Visao Geral</TabsTrigger>
+              <TabsTrigger value="plan">Objetivos + Plano</TabsTrigger>
+              <TabsTrigger value="timeline">Linha do Tempo</TabsTrigger>
+              <TabsTrigger value="gap">Gap Analysis</TabsTrigger>
+              <TabsTrigger value="ifthen">Se -&gt; Entao</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="overview" className="mt-5 space-y-4">
+              <Card className="bg-muted/30">
+                <CardContent className="p-4 text-sm text-muted-foreground">
+                  Este e o painel de segunda-feira: em poucos minutos voce ve onde estao as metas, o que esta em execucao e o que esta travado.
+                </CardContent>
+              </Card>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {metaOverviewCards.map((card) => (
+                  <Card key={card.title}>
+                    <CardContent className="p-4 space-y-3">
+                      <p className="text-xs font-semibold uppercase text-muted-foreground">{card.title}</p>
+                      <p className="text-2xl font-bold">{card.value || "--"}</p>
+                      <p className="text-sm text-muted-foreground">{card.meta}</p>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={card.status === "No ritmo" ? "secondary" : "outline"}>{card.status}</Badge>
+                        <Progress value={card.progress} className="h-2 flex-1" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              {metaOverviewCards.length === 0 && <EmptyState label="Cadastre metricas North Star ou OKRs para montar a visao geral das metas." />}
+
+              <Card>
+                <CardHeader><CardTitle className="text-base">Iniciativas em execucao agora</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                  {metaInitiatives.slice(0, 8).map((goal) => (
+                    <div key={goal.id} className="flex items-start justify-between gap-3 border-b border-border/60 pb-3 last:border-0">
+                      <div>
+                        <p className="font-semibold text-sm">{goal.title}</p>
+                        <p className="text-xs text-muted-foreground">{getCategoryInfo(goal.category).label} - meta vinculada ao planejamento</p>
+                      </div>
+                      <Badge variant={goal.status === "completed" ? "secondary" : goal.status === "on_hold" ? "destructive" : "outline"}>
+                        {statusOptions.find((item) => item.value === goal.status)?.label || goal.status}
+                      </Badge>
+                    </div>
+                  ))}
+                  {metaInitiatives.length === 0 && <p className="text-sm text-muted-foreground text-center py-5">Nenhuma iniciativa em execucao.</p>}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="plan" className="mt-5 space-y-4">
+              <Card className="bg-muted/30">
+                <CardContent className="p-4 text-sm text-muted-foreground">
+                  Cada objetivo tem meta numerica, Key Results que provam chegada e iniciativas concretas. A logica e: Meta -&gt; KR -&gt; Iniciativa -&gt; Tarefa.
+                </CardContent>
+              </Card>
+              <div className="space-y-3">
+                {operational.okrs.map((okr) => {
+                  const krs = operational.krByOkr[okr.id] || [];
+                  const progress = okrProgress(okr.id, okr.target_value > 0 ? Math.round((okr.current_value / okr.target_value) * 100) : 0);
+                  const initiatives = metaInitiatives.filter((goal) => (goal as any).okr_id === okr.id || krs.some((kr) => kr.project_id && kr.project_id === (goal as any).project_id));
+                  return (
+                    <Card key={okr.id}>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <CardTitle className="text-base">{okr.title}</CardTitle>
+                            <p className="text-xs text-muted-foreground">{okr.period || "Ciclo aberto"} - {progress}%</p>
+                          </div>
+                          <Badge variant="secondary">{progress >= 80 ? "No ritmo" : progress >= 40 ? "Atencao" : "A iniciar"}</Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {krs.map((kr) => {
+                          const krProgress = Number(kr.target_value || 0) > 0 ? Math.min(100, Math.round((Number(kr.current_value || 0) / Number(kr.target_value || 0)) * 100)) : 0;
+                          return (
+                            <div key={kr.id} className="space-y-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm font-semibold">{kr.title}</p>
+                                <Badge variant="outline">{scoreLabel(kr.confidence)}</Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground">Atual: {asNumber(kr.current_value, kr.unit)} - Meta: {asNumber(kr.target_value, kr.unit)}</p>
+                              <Progress value={krProgress} className="h-2" />
+                            </div>
+                          );
+                        })}
+                        <div className="border-t pt-3">
+                          <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">Iniciativas que movem esses KRs</p>
+                          {initiatives.slice(0, 5).map((goal) => (
+                            <div key={goal.id} className="flex items-center justify-between gap-2 py-1.5">
+                              <span className="text-sm">{goal.title}</span>
+                              <Badge variant="outline">{goal.status}</Badge>
+                            </div>
+                          ))}
+                          {initiatives.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma iniciativa vinculada diretamente.</p>}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                {operational.okrs.length === 0 && <EmptyState label="Cadastre OKRs para construir Objetivos + Plano." />}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="timeline" className="mt-5 space-y-4">
+              <Card className="bg-muted/30">
+                <CardContent className="p-4 text-sm text-muted-foreground">
+                  Este mapa mostra quando cada iniciativa acontece e como elas se encaixam sem se destruir.
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader><CardTitle className="text-base">2026 - iniciativas por produto</CardTitle></CardHeader>
+                <CardContent className="space-y-5 overflow-x-auto">
+                  <div className="min-w-[720px] space-y-4">
+                    <div className="grid grid-cols-[120px_repeat(8,1fr)] gap-2 text-xs font-semibold text-muted-foreground">
+                      <span />
+                      {monthLabels.map((month) => <span key={month}>{month}</span>)}
+                    </div>
+                    {Object.entries(groupedMetaInitiatives).map(([group, goals]) => (
+                      <div key={group} className="space-y-2">
+                        <p className="text-xs font-semibold uppercase text-muted-foreground">{group}</p>
+                        {goals.map((goal) => {
+                          const start = monthIndex(goal.start_date);
+                          const end = Math.max(start + 1, monthIndex(goal.end_date) + 1);
+                          return (
+                            <div key={goal.id} className="grid grid-cols-[120px_1fr] gap-2 items-center">
+                              <p className="text-xs font-medium truncate">{goal.title}</p>
+                              <div className="relative h-7 rounded bg-muted">
+                                <div
+                                  className="absolute top-1 h-5 rounded bg-primary/70 px-2 text-[10px] leading-5 text-primary-foreground truncate"
+                                  style={{ left: `${start * 12.5}%`, width: `${Math.max(12.5, (end - start) * 12.5)}%` }}
+                                >
+                                  {goal.title}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                    {metaInitiatives.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">Sem iniciativas com data para exibir.</p>}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4 grid gap-3 md:grid-cols-2 text-sm text-muted-foreground">
+                  <p>O mapa responde: estou fazendo coisas demais ao mesmo tempo?</p>
+                  <p>Qual iniciativa comeca quando a anterior termina?</p>
+                  <p>Tem trimestre vazio ou sobrecarregado?</p>
+                  <p>O que precisa estar pronto para o proximo passo acontecer?</p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="gap" className="mt-5 space-y-4">
+              <Card className="bg-muted/30">
+                <CardContent className="p-4 text-sm text-muted-foreground">
+                  Gap analysis pergunta: se eu continuar fazendo o que estou fazendo, vou chegar onde quero?
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader><CardTitle className="text-base">Como ler o gap</CardTitle></CardHeader>
+                <CardContent className="overflow-x-auto">
+                  <table className="w-full min-w-[720px] text-sm">
+                    <thead className="text-xs uppercase text-muted-foreground">
+                      <tr className="border-b">
+                        <th className="py-2 text-left">Meta</th>
+                        <th className="py-2 text-left">Hoje</th>
+                        <th className="py-2 text-left">Projecao atual</th>
+                        <th className="py-2 text-left">Meta</th>
+                        <th className="py-2 text-left">Gap</th>
+                        <th className="py-2 text-left">O que fecha</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {gapRows.map((row) => (
+                        <tr key={row.name} className="border-b last:border-0">
+                          <td className="py-2 font-medium">{row.name}</td>
+                          <td className="py-2">{row.today}</td>
+                          <td className="py-2">{row.projected}</td>
+                          <td className="py-2">{row.target}</td>
+                          <td className="py-2"><Badge variant={row.gap > 0 ? "destructive" : "secondary"}>{row.gap > 0 ? asNumber(row.gap, row.unit) : "Fechado"}</Badge></td>
+                          <td className="py-2 text-muted-foreground">{row.closes}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {gapRows.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">Cadastre metricas ou KRs para calcular gaps.</p>}
+                </CardContent>
+              </Card>
+              {gapRows.some((row) => row.gap > 0) && (
+                <Card className="border-destructive/50 bg-destructive/10">
+                  <CardContent className="p-4">
+                    <p className="font-semibold text-sm text-destructive mb-2"><Flame className="h-4 w-4 inline mr-1" />Gaps criticos precisam de acao agora</p>
+                    <ol className="list-decimal pl-5 text-sm space-y-1">
+                      {gapRows.filter((row) => row.gap > 0).slice(0, 4).map((row) => <li key={row.name}>{row.name} - falta {asNumber(row.gap, row.unit)}</li>)}
+                    </ol>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            <TabsContent value="ifthen" className="mt-5 space-y-4">
+              <Card className="bg-muted/30">
+                <CardContent className="p-4 text-sm text-muted-foreground">
+                  Todo planejamento e uma cadeia de apostas: se eu fizer X, entao Y acontece. Quando a hipotese cai, voce sabe exatamente o que revisar.
+                </CardContent>
+              </Card>
+              <div className="space-y-3">
+                {Object.entries(assumptionsByArea).map(([area, items]) => (
+                  <Card key={area}>
+                    <CardHeader><CardTitle className="text-sm uppercase text-muted-foreground">{area}</CardTitle></CardHeader>
+                    <CardContent className="space-y-3">
+                      {items.map((item) => (
+                        <div key={item.id} className="flex items-start justify-between gap-3 border-b border-border/60 pb-3 last:border-0">
+                          <div>
+                            <p className="text-sm font-semibold">Se {item.assumption}</p>
+                            <p className="text-sm text-muted-foreground">Entao {item.plan_impact || item.test_plan || "a meta precisa ser revisada com base no teste"}</p>
+                          </div>
+                          <Badge variant={item.status === "confirmed" ? "secondary" : item.status === "refuted" ? "destructive" : "outline"}>{item.status || "A testar"}</Badge>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                ))}
+                {operational.assumptions.length === 0 && <EmptyState label="Cadastre suposicoes para montar a tela Se -> Entao." />}
+              </div>
+            </TabsContent>
+          </Tabs>
+        )}
 
         {currentDialog && (
           <CrudDialog
