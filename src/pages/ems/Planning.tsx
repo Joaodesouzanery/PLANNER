@@ -13,7 +13,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Activity, AlertTriangle, BarChart3, CalendarClock, CheckCircle2, Clock, Compass,
-  Edit2, Flame, Layers3, Lightbulb, Plus, Rocket, Scale, Target, Trash2, Zap,
+  DollarSign, Edit2, Flame, Layers3, Lightbulb, Plus, Rocket, Scale, Target, Trash2, Zap,
 } from "lucide-react";
 import { addMonths, format, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -24,7 +24,7 @@ import {
 } from "@/hooks/usePlanningData";
 import {
   operationalDefaults, scoreLabel, useOperationalPlanningData,
-  type DecisionLog, type KeyResult, type NorthMetric, type PlanningAssumption,
+  type DecisionLog, type FinancialImpact, type KeyResult, type NorthMetric, type PlanningAssumption,
   type PlanningRisk, type ReviewCycle, type TimeAllocation,
 } from "@/hooks/useOperationalPlanningData";
 
@@ -92,6 +92,7 @@ const hConfig = {
 
 const asDate = (value?: string | null) => value ? format(parseISO(value), "dd/MM/yyyy") : "-";
 const asNumber = (value?: number | null, unit?: string | null) => `${Number(value || 0).toLocaleString("pt-BR")}${unit ? ` ${unit}` : ""}`;
+const fmtMoney = (value: number) => `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 const formFrom = (defaults: FormState, item: FormState, transforms?: Record<string, (value: any) => any>) =>
   Object.keys(defaults).reduce((acc, key) => {
@@ -170,6 +171,7 @@ const Planning = () => {
   const [pageMode, setPageMode] = useState<"planning" | "goals">("planning");
   const [activeTab, setActiveTab] = useState("north");
   const [goalsTab, setGoalsTab] = useState("overview");
+  const [scopeProjectId, setScopeProjectId] = useState("all");
   const [editing, setEditing] = useState<{ table: string; id: string | null; type: string } | null>(null);
   const [form, setForm] = useState<FormState>({});
   const [showGoalModal, setShowGoalModal] = useState(false);
@@ -178,7 +180,8 @@ const Planning = () => {
 
   const openForm = (type: string, defaults: FormState, item?: FormState, transforms?: Record<string, (value: any) => any>) => {
     setEditing({ table: type, id: item?.id || null, type });
-    setForm(item ? formFrom(defaults, item, transforms) : defaults);
+    const scopedDefaults = scopeProjectId === "all" ? defaults : { ...defaults, project_id: scopeProjectId };
+    setForm(item ? formFrom(scopedDefaults, item, transforms) : scopedDefaults);
   };
 
   const closeForm = () => {
@@ -196,6 +199,7 @@ const Planning = () => {
     if (editing.type === "risk") await operational.saveRisk(form, id);
     if (editing.type === "time") await operational.saveTime(form, id);
     if (editing.type === "decision") await operational.saveDecision(form, id);
+    if (editing.type === "financialImpact") await operational.saveFinancialImpact(form, id);
     if (editing.type === "review") await operational.saveReview(form, id);
     closeForm();
   };
@@ -214,9 +218,9 @@ const Planning = () => {
       parent_id: goal.parent_id || "",
       okr_id: (goal as any).okr_id || "",
       project_id: (goal as any).project_id || "",
-    } : { ...emptyGoalForm, start_date: format(now, "yyyy-MM-dd"), end_date: format(end, "yyyy-MM-dd") });
+    } : { ...emptyGoalForm, project_id: scopeProjectId === "all" ? "" : scopeProjectId, start_date: format(now, "yyyy-MM-dd"), end_date: format(end, "yyyy-MM-dd") });
     setShowGoalModal(true);
-  }, []);
+  }, [scopeProjectId]);
 
   const saveGoal = async () => {
     if (!goalForm.title.trim()) return;
@@ -226,12 +230,45 @@ const Planning = () => {
     setGoalForm(emptyGoalForm);
   };
 
+  const selectedProject = scopeProjectId === "all" ? null : operational.projects.find((project) => project.id === scopeProjectId) || null;
+  const scopedItem = (item: { project_id?: string | null }) => scopeProjectId === "all" || !item.project_id || item.project_id === scopeProjectId;
+  const scopedProjectItem = (item: { project_id?: string | null }) => scopeProjectId === "all" || item.project_id === scopeProjectId;
+  const scopedNorthMetrics = useMemo(() => operational.northMetrics.filter(scopedItem), [operational.northMetrics, scopeProjectId]);
+  const scopedKeyResults = useMemo(() => operational.keyResults.filter(scopedItem), [operational.keyResults, scopeProjectId]);
+  const scopedAssumptions = useMemo(() => operational.assumptions.filter(scopedItem), [operational.assumptions, scopeProjectId]);
+  const scopedRisks = useMemo(() => operational.risks.filter(scopedItem), [operational.risks, scopeProjectId]);
+  const scopedTimeAllocations = useMemo(() => operational.timeAllocations.filter(scopedItem), [operational.timeAllocations, scopeProjectId]);
+  const scopedDecisions = useMemo(() => operational.decisions.filter(scopedItem), [operational.decisions, scopeProjectId]);
+  const scopedFinancialImpacts = useMemo(() => operational.financialImpacts.filter(scopedItem), [operational.financialImpacts, scopeProjectId]);
+  const scopedGoals = useMemo(() => planning.goals.filter(scopedProjectItem), [planning.goals, scopeProjectId]);
+  const scopedRootGoals = useMemo(() => planning.rootGoals.filter(scopedProjectItem), [planning.rootGoals, scopeProjectId]);
+  const scopedKrByOkr = useMemo(() => scopedKeyResults.reduce((acc, kr) => {
+    const key = kr.okr_id || "__none";
+    acc[key] = [...(acc[key] || []), kr];
+    return acc;
+  }, {} as Record<string, KeyResult[]>), [scopedKeyResults]);
+  const scopedTimeTotals = useMemo(() => scopedTimeAllocations.reduce((acc, item) => {
+    acc.planned += Number(item.planned_hours || 0);
+    acc.actual += Number(item.actual_hours || 0);
+    return acc;
+  }, { planned: 0, actual: 0 }), [scopedTimeAllocations]);
+  const scopedFinancialTotals = useMemo(() => scopedFinancialImpacts.reduce((acc, item) => {
+    const amount = Number(item.expected_amount || 0);
+    const signed = item.impact_type === "cost" ? -amount : amount;
+    if (item.impact_type === "revenue") acc.revenue += amount;
+    if (item.impact_type === "cost") acc.cost += amount;
+    if (item.impact_type === "cash") acc.cash += amount;
+    if (item.impact_type === "margin") acc.margin += amount;
+    acc.net += signed;
+    return acc;
+  }, { revenue: 0, cost: 0, cash: 0, margin: 0, net: 0 }), [scopedFinancialImpacts]);
+
   const goalsByHorizon = useMemo(() => {
     const now = new Date();
     const h1End = addMonths(now, 6);
     const h2End = addMonths(now, 18);
     const buckets = { h1: [] as PlanningGoal[], h2: [] as PlanningGoal[], h3: [] as PlanningGoal[] };
-    planning.rootGoals.forEach((goal) => {
+    scopedRootGoals.forEach((goal) => {
       if (!goal.end_date) buckets.h2.push(goal);
       else {
         const end = parseISO(goal.end_date);
@@ -241,10 +278,10 @@ const Planning = () => {
       }
     });
     return buckets;
-  }, [planning.rootGoals]);
+  }, [scopedRootGoals]);
 
   const okrProgress = (okrId: string, fallback: number) => {
-    const krs = operational.krByOkr[okrId] || [];
+    const krs = scopedKrByOkr[okrId] || [];
     if (!krs.length) return fallback;
     return Math.round(krs.reduce((sum, kr) => {
       const target = Number(kr.target_value || 0);
@@ -253,10 +290,10 @@ const Planning = () => {
     }, 0) / krs.length);
   };
 
-  const metaInitiatives = useMemo(() => planning.goals
+  const metaInitiatives = useMemo(() => scopedGoals
     .filter((goal) => goal.title)
     .sort((a, b) => String(a.start_date || a.created_at).localeCompare(String(b.start_date || b.created_at))),
-  [planning.goals]);
+  [scopedGoals]);
 
   const groupedMetaInitiatives = useMemo(() => metaInitiatives.reduce((acc, goal) => {
     const category = getCategoryInfo(goal.category).label;
@@ -265,7 +302,7 @@ const Planning = () => {
   }, {} as Record<string, PlanningGoal[]>), [metaInitiatives]);
 
   const metaOverviewCards = useMemo(() => {
-    const northCards = operational.northMetrics.slice(0, 6).map((metric) => {
+    const northCards = scopedNorthMetrics.slice(0, 6).map((metric) => {
       const current = Number(metric.current_value || 0);
       const target = Number(metric.quarter_target || 0);
       const progress = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
@@ -288,10 +325,10 @@ const Planning = () => {
         progress,
       };
     });
-  }, [operational.northMetrics, operational.okrs]);
+  }, [scopedNorthMetrics, operational.okrs, scopedKrByOkr]);
 
   const gapRows = useMemo(() => {
-    const metricRows = operational.northMetrics.map((metric) => {
+    const metricRows = scopedNorthMetrics.map((metric) => {
       const current = Number(metric.current_value || 0);
       const target = Number(metric.quarter_target || 0);
       return {
@@ -304,7 +341,7 @@ const Planning = () => {
         unit: metric.unit,
       };
     });
-    const krRows = operational.keyResults.map((kr) => {
+    const krRows = scopedKeyResults.map((kr) => {
       const current = Number(kr.current_value || 0);
       const target = Number(kr.target_value || 0);
       return {
@@ -318,13 +355,13 @@ const Planning = () => {
       };
     });
     return [...metricRows, ...krRows].filter((row) => row.name).slice(0, 8);
-  }, [operational.northMetrics, operational.keyResults]);
+  }, [scopedNorthMetrics, scopedKeyResults]);
 
-  const assumptionsByArea = useMemo(() => operational.assumptions.reduce((acc, item) => {
+  const assumptionsByArea = useMemo(() => scopedAssumptions.reduce((acc, item) => {
     const key = item.product_area || "Empresa";
     acc[key] = [...(acc[key] || []), item];
     return acc;
-  }, {} as Record<string, PlanningAssumption[]>), [operational.assumptions]);
+  }, {} as Record<string, PlanningAssumption[]>), [scopedAssumptions]);
 
   const monthLabels = ["Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
   const monthIndex = (date?: string | null) => {
@@ -345,6 +382,7 @@ const Planning = () => {
         { name: "history_note", label: "Historico / variacao", type: "textarea", span: "full" },
         { name: "change_reason", label: "Por que subiu ou caiu", type: "textarea", span: "full" },
         { name: "levers", label: "Alavancas da semana", type: "textarea", span: "full" },
+        { name: "project_id", label: "Projeto", type: "select", options: [{ value: "none", label: "Empresa inteira" }, ...operational.projects.map((project) => ({ value: project.id, label: project.title }))], span: "full" },
       ] as FieldConfig[],
     },
     okr: {
@@ -387,6 +425,7 @@ const Planning = () => {
         { name: "test_plan", label: "Como testar", type: "textarea", span: "full" },
         { name: "learning", label: "O que aprendemos", type: "textarea", span: "full" },
         { name: "plan_impact", label: "Impacto no plano", type: "textarea", span: "full" },
+        { name: "project_id", label: "Projeto", type: "select", options: [{ value: "none", label: "Empresa inteira" }, ...operational.projects.map((project) => ({ value: project.id, label: project.title }))], span: "full" },
       ] as FieldConfig[],
     },
     risk: {
@@ -400,6 +439,7 @@ const Planning = () => {
         { name: "status", label: "Status", type: "select", options: riskStatus },
         { name: "mitigation", label: "Mitigacao", type: "textarea", span: "full" },
         { name: "contingency_plan", label: "Plano de contingencia", type: "textarea", span: "full" },
+        { name: "project_id", label: "Projeto", type: "select", options: [{ value: "none", label: "Empresa inteira" }, ...operational.projects.map((project) => ({ value: project.id, label: project.title }))], span: "full" },
       ] as FieldConfig[],
     },
     time: {
@@ -426,9 +466,36 @@ const Planning = () => {
         { name: "involved_people", label: "Quem envolveu" },
         { name: "category", label: "Categoria" },
         { name: "tags", label: "Tags separadas por virgula" },
+        { name: "project_id", label: "Projeto", type: "select", options: [{ value: "none", label: "Empresa inteira" }, ...operational.projects.map((project) => ({ value: project.id, label: project.title }))], span: "full" },
         { name: "review_date", label: "Revisao programada", type: "date" },
         { name: "expected_result", label: "Resultado esperado", type: "textarea", span: "full" },
         { name: "result", label: "Resultado", type: "textarea", span: "full" },
+      ] as FieldConfig[],
+    },
+    financialImpact: {
+      title: "Impacto financeiro planejado",
+      fields: [
+        { name: "title", label: "Impacto", required: true, span: "full" },
+        { name: "impact_type", label: "Tipo", type: "select", options: [
+          { value: "revenue", label: "Receita" },
+          { value: "cost", label: "Custo" },
+          { value: "cash", label: "Caixa" },
+          { value: "margin", label: "Margem" },
+        ] },
+        { name: "expected_amount", label: "Valor previsto", type: "number" },
+        { name: "expected_date", label: "Data prevista", type: "date" },
+        { name: "confidence", label: "Confianca", type: "select", options: confidenceOptions },
+        { name: "status", label: "Status", type: "select", options: [
+          { value: "planned", label: "Planejado" },
+          { value: "committed", label: "Comprometido" },
+          { value: "realized", label: "Realizado" },
+          { value: "dropped", label: "Descartado" },
+        ] },
+        { name: "project_id", label: "Projeto", type: "select", options: [{ value: "none", label: "Empresa inteira" }, ...operational.projects.map((project) => ({ value: project.id, label: project.title }))], span: "full" },
+        { name: "okr_id", label: "OKR", type: "select", options: [{ value: "none", label: "Nenhum" }, ...operational.okrs.map((okr) => ({ value: okr.id, label: okr.title }))], span: "full" },
+        { name: "key_result_id", label: "Key Result", type: "select", options: [{ value: "none", label: "Nenhum" }, ...scopedKeyResults.map((kr) => ({ value: kr.id, label: kr.title }))], span: "full" },
+        { name: "goal_id", label: "Meta / iniciativa", type: "select", options: [{ value: "none", label: "Nenhuma" }, ...scopedGoals.map((goal) => ({ value: goal.id, label: goal.title }))], span: "full" },
+        { name: "notes", label: "Observacoes", type: "textarea", span: "full" },
       ] as FieldConfig[],
     },
     review: {
@@ -467,6 +534,22 @@ const Planning = () => {
           <Button variant={pageMode === "goals" ? "default" : "ghost"} onClick={() => setPageMode("goals")}>Metas</Button>
         </div>
 
+        <Card className="border-border/60">
+          <CardContent className="p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold">{selectedProject ? `Plano do projeto: ${selectedProject.title}` : "Plano geral da empresa"}</p>
+              <p className="text-xs text-muted-foreground">Registros da empresa inteira aparecem como base; itens vinculados ao projeto alimentam o grafo de vinculos.</p>
+            </div>
+            <Select value={scopeProjectId} onValueChange={setScopeProjectId}>
+              <SelectTrigger className="w-full md:w-[320px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Empresa inteira</SelectItem>
+                {operational.projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.title}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
+
         {pageMode === "planning" ? (
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 h-auto">
@@ -488,7 +571,7 @@ const Planning = () => {
               action={<Button size="sm" onClick={() => openForm("north", operationalDefaults.northMetric)}><Plus className="h-4 w-4 mr-1" />Metrica</Button>}
             />
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {operational.northMetrics.map((metric: NorthMetric) => (
+              {scopedNorthMetrics.map((metric: NorthMetric) => (
                 <Card key={metric.id}>
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base flex items-start justify-between gap-2">
@@ -511,7 +594,7 @@ const Planning = () => {
                 </Card>
               ))}
             </div>
-            {operational.northMetrics.length === 0 && <EmptyState label="Nenhuma metrica North Star registrada." />}
+            {scopedNorthMetrics.length === 0 && <EmptyState label="Nenhuma metrica North Star registrada neste escopo." />}
           </TabsContent>
 
           <TabsContent value="okrs" className="mt-5 space-y-4">
@@ -523,7 +606,7 @@ const Planning = () => {
             <div className="space-y-3">
               {operational.okrs.map((okr) => {
                 const progress = okrProgress(okr.id, okr.target_value > 0 ? Math.round((okr.current_value / okr.target_value) * 100) : 0);
-                const krs = operational.krByOkr[okr.id] || [];
+                const krs = scopedKrByOkr[okr.id] || [];
                 return (
                   <Card key={okr.id}>
                     <CardHeader className="pb-2">
@@ -619,7 +702,7 @@ const Planning = () => {
           <TabsContent value="assumptions" className="mt-5 space-y-4">
             <SectionHeader title="Suposicoes criticas" description="Transforme apostas invisiveis em testes e aprendizados." action={<Button size="sm" onClick={() => openForm("assumption", operationalDefaults.assumption)}><Plus className="h-4 w-4 mr-1" />Suposicao</Button>} />
             <div className="grid gap-3 md:grid-cols-2">
-              {operational.assumptions.map((item: PlanningAssumption) => (
+              {scopedAssumptions.map((item: PlanningAssumption) => (
                 <Card key={item.id}>
                   <CardContent className="p-4 space-y-3">
                     <div className="flex justify-between gap-3"><h3 className="font-semibold">{item.assumption}</h3><Badge variant="outline">{item.status}</Badge></div>
@@ -634,13 +717,13 @@ const Planning = () => {
                 </Card>
               ))}
             </div>
-            {operational.assumptions.length === 0 && <EmptyState label="Nenhuma suposicao registrada." />}
+            {scopedAssumptions.length === 0 && <EmptyState label="Nenhuma suposicao registrada neste escopo." />}
           </TabsContent>
 
           <TabsContent value="decisions" className="mt-5 space-y-4">
             <SectionHeader title="Decision log" description="Registre contexto, opcoes, criterio, envolvidos e resultado para nao reabrir debates ja decididos." action={<Button size="sm" onClick={() => openForm("decision", operationalDefaults.decision)}><Plus className="h-4 w-4 mr-1" />Decisao</Button>} />
             <div className="space-y-3">
-              {operational.decisions.map((item: DecisionLog) => (
+              {scopedDecisions.map((item: DecisionLog) => (
                 <Card key={item.id}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3">
@@ -659,13 +742,13 @@ const Planning = () => {
                 </Card>
               ))}
             </div>
-            {operational.decisions.length === 0 && <EmptyState label="Nenhuma decisao registrada." />}
+            {scopedDecisions.length === 0 && <EmptyState label="Nenhuma decisao registrada neste escopo." />}
           </TabsContent>
 
           <TabsContent value="risks" className="mt-5 space-y-4">
             <SectionHeader title="Registro de riscos" description="Score automatico por probabilidade x impacto, com mitigacao e contingencia." action={<Button size="sm" onClick={() => openForm("risk", operationalDefaults.risk)}><Plus className="h-4 w-4 mr-1" />Risco</Button>} />
             <div className="grid gap-3 md:grid-cols-2">
-              {operational.risks.map((item: PlanningRisk) => (
+              {scopedRisks.map((item: PlanningRisk) => (
                 <Card key={item.id} className={cn(Number(item.score || 0) >= 6 && "border-destructive/40")}>
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-start justify-between gap-3"><h3 className="font-semibold">{item.risk}</h3><Badge variant={Number(item.score || 0) >= 6 ? "destructive" : "outline"}>Score {item.score || 0}</Badge></div>
@@ -683,18 +766,18 @@ const Planning = () => {
                 </Card>
               ))}
             </div>
-            {operational.risks.length === 0 && <EmptyState label="Nenhum risco registrado." />}
+            {scopedRisks.length === 0 && <EmptyState label="Nenhum risco registrado neste escopo." />}
           </TabsContent>
 
           <TabsContent value="time" className="mt-5 space-y-4">
             <SectionHeader title="Tempo leve" description="Acompanhe alocacao planejada vs real sem restaurar o Timesheet como modulo separado." action={<Button size="sm" onClick={() => openForm("time", operationalDefaults.time)}><Plus className="h-4 w-4 mr-1" />Tempo</Button>} />
             <div className="grid gap-3 md:grid-cols-3">
-              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Planejado</p><p className="text-2xl font-bold">{operational.timeTotals.planned}h</p></CardContent></Card>
-              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Real</p><p className="text-2xl font-bold">{operational.timeTotals.actual}h</p></CardContent></Card>
-              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Gap</p><p className="text-2xl font-bold">{operational.timeTotals.actual - operational.timeTotals.planned}h</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Planejado</p><p className="text-2xl font-bold">{scopedTimeTotals.planned}h</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Real</p><p className="text-2xl font-bold">{scopedTimeTotals.actual}h</p></CardContent></Card>
+              <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Gap</p><p className="text-2xl font-bold">{scopedTimeTotals.actual - scopedTimeTotals.planned}h</p></CardContent></Card>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
-              {operational.timeAllocations.map((item: TimeAllocation) => (
+              {scopedTimeAllocations.map((item: TimeAllocation) => (
                 <Card key={item.id}>
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between gap-3">
@@ -713,7 +796,7 @@ const Planning = () => {
                 </Card>
               ))}
             </div>
-            {operational.timeAllocations.length === 0 && <EmptyState label="Nenhuma alocacao de tempo registrada." />}
+            {scopedTimeAllocations.length === 0 && <EmptyState label="Nenhuma alocacao de tempo registrada neste escopo." />}
           </TabsContent>
 
           <TabsContent value="reviews" className="mt-5 space-y-4">
@@ -792,6 +875,51 @@ const Planning = () => {
               {metaOverviewCards.length === 0 && <EmptyState label="Cadastre metricas North Star ou OKRs para montar a visao geral das metas." />}
 
               <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <CardTitle className="text-base">Impacto financeiro planejado</CardTitle>
+                      <p className="text-xs text-muted-foreground">Projecoes por meta ou projeto, separadas dos lancamentos reais do Financeiro.</p>
+                    </div>
+                    <Button size="sm" onClick={() => openForm("financialImpact", operationalDefaults.financialImpact)}>
+                      <DollarSign className="h-4 w-4 mr-1" />Impacto
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-4">
+                    {[
+                      ["Receita", scopedFinancialTotals.revenue],
+                      ["Custo", scopedFinancialTotals.cost],
+                      ["Caixa", scopedFinancialTotals.cash],
+                      ["Liquido", scopedFinancialTotals.net],
+                    ].map(([label, value]) => (
+                      <div key={label as string} className="rounded-lg border border-border/60 p-3">
+                        <p className="text-xs text-muted-foreground">{label}</p>
+                        <p className="text-lg font-bold font-mono">{fmtMoney(Number(value))}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    {scopedFinancialImpacts.slice(0, 6).map((item: FinancialImpact) => (
+                      <div key={item.id} className="flex items-start justify-between gap-3 border-b border-border/60 pb-2 last:border-0">
+                        <div>
+                          <p className="text-sm font-semibold">{item.title}</p>
+                          <p className="text-xs text-muted-foreground">{fmtMoney(Number(item.expected_amount || 0))} - {asDate(item.expected_date)} - {scoreLabel(item.confidence)}</p>
+                        </div>
+                        <div className="flex gap-1">
+                          <Badge variant="outline">{item.impact_type}</Badge>
+                          <Button variant="ghost" size="icon" onClick={() => openForm("financialImpact", operationalDefaults.financialImpact, item)}><Edit2 className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => operational.deleteRecord("planning_financial_impacts", item.id)}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </div>
+                    ))}
+                    {scopedFinancialImpacts.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum impacto financeiro planejado neste escopo.</p>}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
                 <CardHeader><CardTitle className="text-base">Iniciativas em execucao agora</CardTitle></CardHeader>
                 <CardContent className="space-y-2">
                   {metaInitiatives.slice(0, 8).map((goal) => (
@@ -818,7 +946,7 @@ const Planning = () => {
               </Card>
               <div className="space-y-3">
                 {operational.okrs.map((okr) => {
-                  const krs = operational.krByOkr[okr.id] || [];
+                  const krs = scopedKrByOkr[okr.id] || [];
                   const progress = okrProgress(okr.id, okr.target_value > 0 ? Math.round((okr.current_value / okr.target_value) * 100) : 0);
                   const initiatives = metaInitiatives.filter((goal) => (goal as any).okr_id === okr.id || krs.some((kr) => kr.project_id && kr.project_id === (goal as any).project_id));
                   return (
@@ -985,7 +1113,7 @@ const Planning = () => {
                     </CardContent>
                   </Card>
                 ))}
-                {operational.assumptions.length === 0 && <EmptyState label="Cadastre suposicoes para montar a tela Se -> Entao." />}
+                {scopedAssumptions.length === 0 && <EmptyState label="Cadastre suposicoes para montar a tela Se -> Entao neste escopo." />}
               </div>
             </TabsContent>
           </Tabs>

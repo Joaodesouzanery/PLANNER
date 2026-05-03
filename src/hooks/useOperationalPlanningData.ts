@@ -9,6 +9,7 @@ export type HorizonKey = "h1" | "h2" | "h3";
 
 export interface NorthMetric {
   id: string;
+  project_id: string | null;
   metric_name: string;
   product_area: string | null;
   current_value: number | null;
@@ -49,6 +50,7 @@ export interface KeyResult {
 
 export interface PlanningAssumption {
   id: string;
+  project_id: string | null;
   assumption: string;
   product_area: string | null;
   criticality: string | null;
@@ -60,6 +62,7 @@ export interface PlanningAssumption {
 
 export interface PlanningRisk {
   id: string;
+  project_id: string | null;
   risk: string;
   product_area: string | null;
   probability: string | null;
@@ -85,6 +88,7 @@ export interface TimeAllocation {
 
 export interface DecisionLog {
   id: string;
+  project_id: string | null;
   title: string;
   context: string | null;
   options_considered: string | null;
@@ -98,6 +102,21 @@ export interface DecisionLog {
   involved_people: string | null;
   result: string | null;
   created_at: string;
+}
+
+export interface FinancialImpact {
+  id: string;
+  project_id: string | null;
+  okr_id: string | null;
+  goal_id: string | null;
+  key_result_id: string | null;
+  title: string;
+  impact_type: "revenue" | "cost" | "cash" | "margin" | string;
+  expected_amount: number | null;
+  expected_date: string | null;
+  confidence: Confidence | string | null;
+  status: string | null;
+  notes: string | null;
 }
 
 export interface ReviewCycle {
@@ -128,13 +147,14 @@ const num = (value: unknown) => {
 const nullableId = (value: unknown) => value && value !== "none" ? value : null;
 
 export const operationalDefaults = {
-  northMetric: { metric_name: "", product_area: "", current_value: "", quarter_target: "", unit: "", history_note: "", change_reason: "", levers: "" },
+  northMetric: { metric_name: "", product_area: "", current_value: "", quarter_target: "", unit: "", history_note: "", change_reason: "", levers: "", project_id: "none" },
   okr: { title: "", description: "", target_value: "", current_value: "", unit: "", period: "", start_date: "", end_date: "" },
   keyResult: { okr_id: "", title: "", target_value: "", current_value: "", unit: "", confidence: "medium", owner: "", cycle: "", project_id: "none", not_doing: "", learning: "", retrospective: "" },
-  assumption: { assumption: "", product_area: "", criticality: "medium", test_plan: "", status: "not_tested", learning: "", plan_impact: "" },
-  risk: { risk: "", product_area: "", probability: "medium", impact: "medium", mitigation: "", contingency_plan: "", owner: "", status: "open" },
+  assumption: { assumption: "", product_area: "", criticality: "medium", test_plan: "", status: "not_tested", learning: "", plan_impact: "", project_id: "none" },
+  risk: { risk: "", product_area: "", probability: "medium", impact: "medium", mitigation: "", contingency_plan: "", owner: "", status: "open", project_id: "none" },
   time: { week_start: new Date().toISOString().slice(0, 10), category: "produto", product_area: "", project_id: "none", horizon: "h1", planned_hours: "", actual_hours: "", notes: "" },
-  decision: { title: "", context: "", options_considered: "", decision: "", expected_result: "", review_date: "", outcome: "", category: "Produto", tags: "", decision_criteria: "", involved_people: "", result: "" },
+  decision: { title: "", context: "", options_considered: "", decision: "", expected_result: "", review_date: "", outcome: "", category: "Produto", tags: "", decision_criteria: "", involved_people: "", result: "", project_id: "none" },
+  financialImpact: { title: "", impact_type: "revenue", expected_amount: "", expected_date: "", confidence: "medium", status: "planned", notes: "", project_id: "none", okr_id: "none", goal_id: "none", key_result_id: "none" },
   review: { cycle_type: "weekly", period_start: new Date().toISOString().slice(0, 10), period_end: new Date().toISOString().slice(0, 10), agenda: "", summary: "", decisions: "", next_actions: "" },
 };
 
@@ -170,6 +190,7 @@ export function useOperationalPlanningData() {
   const risksQuery = listQuery<PlanningRisk>("risks", "planning_risks", "score");
   const timeQuery = listQuery<TimeAllocation>("time", "planning_time_allocations", "week_start");
   const decisionsQuery = listQuery<DecisionLog>("decisions", "decision_logs");
+  const financialImpactsQuery = listQuery<FinancialImpact>("financial-impacts", "planning_financial_impacts", "expected_date");
   const reviewsQuery = listQuery<ReviewCycle>("reviews", "review_cycles", "period_start");
 
   const okrsQuery = useQuery({
@@ -266,6 +287,7 @@ export function useOperationalPlanningData() {
       history_note: form.history_note || null,
       change_reason: form.change_reason || null,
       levers: form.levers || null,
+      project_id: nullableId(form.project_id),
     },
   });
 
@@ -280,6 +302,7 @@ export function useOperationalPlanningData() {
       status: form.status || "not_tested",
       learning: form.learning || null,
       plan_impact: form.plan_impact || null,
+      project_id: nullableId(form.project_id),
     },
   });
 
@@ -295,6 +318,7 @@ export function useOperationalPlanningData() {
       contingency_plan: form.contingency_plan || null,
       owner: form.owner || null,
       status: form.status || "open",
+      project_id: nullableId(form.project_id),
     },
   });
 
@@ -329,6 +353,25 @@ export function useOperationalPlanningData() {
       decision_criteria: form.decision_criteria || null,
       involved_people: form.involved_people || null,
       result: form.result || null,
+      project_id: nullableId(form.project_id),
+    },
+  });
+
+  const saveFinancialImpact = async (form: Record<string, any>, id?: string | null) => saveRecord.mutateAsync({
+    table: "planning_financial_impacts",
+    id,
+    payload: {
+      title: form.title,
+      impact_type: form.impact_type || "revenue",
+      expected_amount: num(form.expected_amount),
+      expected_date: form.expected_date || null,
+      confidence: form.confidence || "medium",
+      status: form.status || "planned",
+      notes: form.notes || null,
+      project_id: nullableId(form.project_id),
+      okr_id: nullableId(form.okr_id),
+      goal_id: nullableId(form.goal_id),
+      key_result_id: nullableId(form.key_result_id),
     },
   });
 
@@ -366,6 +409,21 @@ export function useOperationalPlanningData() {
     }, { planned: 0, actual: 0, byCategory: {} as Record<string, number>, byHorizon: {} as Record<string, number> });
   }, [timeQuery.data]);
 
+  const financialImpactTotals = useMemo(() => {
+    const empty = { revenue: 0, cost: 0, cash: 0, margin: 0, net: 0, byProject: {} as Record<string, number> };
+    return (financialImpactsQuery.data || []).reduce((acc, item) => {
+      const amount = num(item.expected_amount);
+      const signed = item.impact_type === "cost" ? -amount : amount;
+      if (item.impact_type === "revenue") acc.revenue += amount;
+      if (item.impact_type === "cost") acc.cost += amount;
+      if (item.impact_type === "cash") acc.cash += amount;
+      if (item.impact_type === "margin") acc.margin += amount;
+      acc.net += signed;
+      if (item.project_id) acc.byProject[item.project_id] = (acc.byProject[item.project_id] || 0) + signed;
+      return acc;
+    }, empty);
+  }, [financialImpactsQuery.data]);
+
   return {
     selectedCompanyId,
     companyId,
@@ -378,9 +436,11 @@ export function useOperationalPlanningData() {
     timeAllocations: timeQuery.data || [],
     timeTotals,
     decisions: decisionsQuery.data || [],
+    financialImpacts: financialImpactsQuery.data || [],
+    financialImpactTotals,
     reviews: reviewsQuery.data || [],
     projects: projectsQuery.data || [],
-    isLoading: northMetricsQuery.isLoading || okrsQuery.isLoading || keyResultsQuery.isLoading || assumptionsQuery.isLoading || risksQuery.isLoading || timeQuery.isLoading || decisionsQuery.isLoading || reviewsQuery.isLoading,
+    isLoading: northMetricsQuery.isLoading || okrsQuery.isLoading || keyResultsQuery.isLoading || assumptionsQuery.isLoading || risksQuery.isLoading || timeQuery.isLoading || decisionsQuery.isLoading || financialImpactsQuery.isLoading || reviewsQuery.isLoading,
     isSaving: saveRecord.isPending || deleteRecord.isPending,
     saveNorthMetric,
     saveOkr,
@@ -389,6 +449,7 @@ export function useOperationalPlanningData() {
     saveRisk,
     saveTime,
     saveDecision,
+    saveFinancialImpact,
     saveReview,
     deleteRecord: (table: string, id: string) => deleteRecord.mutateAsync({ table, id }),
   };

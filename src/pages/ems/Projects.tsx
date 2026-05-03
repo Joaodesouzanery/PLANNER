@@ -17,7 +17,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import {
   Plus, LayoutGrid, GanttChart, Trash2, Edit2, CheckCircle, Calendar, X,
   GripVertical, Building2, FolderKanban, Clock, TrendingUp, AlertTriangle,
-  FileText, Download, BarChart3, Network, Link as LinkIcon, Goal, DollarSign, ShieldCheck, Users, Target,
+  FileText, Download, BarChart3, Network, Link as LinkIcon, Goal, DollarSign, ShieldCheck, Users, Target, Lightbulb,
 } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
@@ -98,6 +98,27 @@ interface PlanningGoalLink {
   project_id: string | null;
 }
 
+interface FinancialImpactLink {
+  id: string;
+  project_id: string | null;
+  title: string;
+  impact_type: string | null;
+  expected_amount: number | null;
+  expected_date: string | null;
+  confidence: string | null;
+  status: string | null;
+}
+
+interface ProjectPlanningSignal {
+  id: string;
+  project_id: string | null;
+  title?: string;
+  assumption?: string;
+  risk?: string;
+  status: string | null;
+  score?: number | null;
+}
+
 const DEFAULT_COLUMNS: KanbanColumn[] = [
   { id: "todo", title: "A Fazer", order_index: 0, color: "blue", isDefault: true },
   { id: "in_progress", title: "Em Progresso", order_index: 1, color: "amber", isDefault: true },
@@ -155,6 +176,10 @@ const Projects = () => {
     opportunities: true,
     goals: true,
     finance: true,
+    plan: true,
+    financialImpact: true,
+    risks: true,
+    assumptions: true,
     conference: true,
     orgchart: true,
   });
@@ -170,10 +195,14 @@ const Projects = () => {
   const [opportunities, setOpportunities] = useState<ProjectOpportunity[]>([]);
   const [projectContractCounts, setProjectContractCounts] = useState<Record<string, number>>({});
   const [projectGoals, setProjectGoals] = useState<PlanningGoalLink[]>([]);
+  const [projectFinancialImpacts, setProjectFinancialImpacts] = useState<FinancialImpactLink[]>([]);
+  const [projectRisks, setProjectRisks] = useState<ProjectPlanningSignal[]>([]);
+  const [projectAssumptions, setProjectAssumptions] = useState<ProjectPlanningSignal[]>([]);
   const [financeSummary, setFinanceSummary] = useState({ now: 0, months6to12: 0, longTerm: 0 });
   const [showOpportunityModal, setShowOpportunityModal] = useState(false);
   const [conferenceProject, setConferenceProject] = useState<Project | null>(null);
   const [orgChartProject, setOrgChartProject] = useState<Project | null>(null);
+  const [planningProject, setPlanningProject] = useState<Project | null>(null);
   const [opportunityProjectId, setOpportunityProjectId] = useState("");
   const [opportunityForm, setOpportunityForm] = useState({ title: "", value: "", stage: "nova", probability: "50", expected_close_date: "" });
 
@@ -218,15 +247,21 @@ const Projects = () => {
     let oppQ = (supabase as any).from("project_opportunities").select("*").order("created_at", { ascending: false });
     let attQ = (supabase as any).from("attachments").select("project_id, document_type").eq("document_type", "contract").not("project_id", "is", null);
     let goalsQ = supabase.from("planning_goals").select("id, title, progress, project_id").not("project_id", "is", null);
+    let impactsQ = (supabase as any).from("planning_financial_impacts").select("id, project_id, title, impact_type, expected_amount, expected_date, confidence, status").not("project_id", "is", null);
+    let risksQ = (supabase as any).from("planning_risks").select("id, project_id, risk, status, score").not("project_id", "is", null);
+    let assumptionsQ = (supabase as any).from("planning_assumptions").select("id, project_id, assumption, status").not("project_id", "is", null);
     let txQ = supabase.from("financial_transactions").select("amount, type, date");
     if (selectedCompanyId !== "all") {
       oppQ = oppQ.eq("company_id", selectedCompanyId);
       attQ = attQ.eq("company_id", selectedCompanyId);
       goalsQ = goalsQ.eq("company_id", selectedCompanyId);
+      impactsQ = impactsQ.eq("company_id", selectedCompanyId);
+      risksQ = risksQ.eq("company_id", selectedCompanyId);
+      assumptionsQ = assumptionsQ.eq("company_id", selectedCompanyId);
       txQ = txQ.eq("company_id", selectedCompanyId);
     }
     const safe = async (q: any) => { try { return await q; } catch { return { data: [] }; } };
-    const [oppRes, attRes, goalsRes, txRes] = await Promise.all([safe(oppQ), safe(attQ), safe(goalsQ), safe(txQ)]);
+    const [oppRes, attRes, goalsRes, impactsRes, risksRes, assumptionsRes, txRes] = await Promise.all([safe(oppQ), safe(attQ), safe(goalsQ), safe(impactsQ), safe(risksQ), safe(assumptionsQ), safe(txQ)]);
     setOpportunities((oppRes.data || []) as ProjectOpportunity[]);
     const contractCounts: Record<string, number> = {};
     (attRes.data || []).forEach((att: any) => {
@@ -234,6 +269,9 @@ const Projects = () => {
     });
     setProjectContractCounts(contractCounts);
     setProjectGoals((goalsRes.data || []) as PlanningGoalLink[]);
+    setProjectFinancialImpacts((impactsRes.data || []) as FinancialImpactLink[]);
+    setProjectRisks((risksRes.data || []).map((item: any) => ({ id: item.id, project_id: item.project_id, risk: item.risk, status: item.status, score: item.score })) as ProjectPlanningSignal[]);
+    setProjectAssumptions((assumptionsRes.data || []).map((item: any) => ({ id: item.id, project_id: item.project_id, assumption: item.assumption, status: item.status })) as ProjectPlanningSignal[]);
 
     const now = new Date();
     const in6 = new Date(now); in6.setMonth(in6.getMonth() + 6);
@@ -575,8 +613,15 @@ const Projects = () => {
     const progress = Math.round((taskProgress + goalProgress) / 2);
     const projectOpps = opportunities.filter(opp => opp.project_id === project.id);
     const opportunityValue = projectOpps.reduce((sum, opp) => sum + Number(opp.value || 0), 0);
-    return { total, pending, taskProgress, linkedGoals, goalProgress, progress, projectOpps, opportunityValue };
-  }, [opportunities, pendingTaskCounts, projectGoals, totalTaskCounts]);
+    const financialImpacts = projectFinancialImpacts.filter(impact => impact.project_id === project.id);
+    const plannedFinancial = financialImpacts.reduce((sum, impact) => {
+      const amount = Number(impact.expected_amount || 0);
+      return sum + (impact.impact_type === "cost" ? -amount : amount);
+    }, 0);
+    const risks = projectRisks.filter(risk => risk.project_id === project.id);
+    const assumptions = projectAssumptions.filter(assumption => assumption.project_id === project.id);
+    return { total, pending, taskProgress, linkedGoals, goalProgress, progress, projectOpps, opportunityValue, financialImpacts, plannedFinancial, risks, assumptions };
+  }, [opportunities, pendingTaskCounts, projectFinancialImpacts, projectGoals, projectRisks, projectAssumptions, totalTaskCounts]);
 
   const activeProjects = useMemo(() => projects.filter(project => {
     if (clientFilter !== "all" && project.client !== clientFilter) return false;
@@ -589,11 +634,15 @@ const Projects = () => {
   const graphTotals = useMemo(() => {
     const activeIds = new Set(activeProjects.map(project => project.id));
     const opportunityValue = opportunities.filter(opp => activeIds.has(opp.project_id)).reduce((sum, opp) => sum + Number(opp.value || 0), 0);
+    const plannedFinancial = projectFinancialImpacts.filter(impact => impact.project_id && activeIds.has(impact.project_id)).reduce((sum, impact) => {
+      const amount = Number(impact.expected_amount || 0);
+      return sum + (impact.impact_type === "cost" ? -amount : amount);
+    }, 0);
     const averageProgress = activeProjects.length > 0
       ? Math.round(activeProjects.reduce((sum, project) => sum + getGraphMetrics(project).progress, 0) / activeProjects.length)
       : 0;
-    return { opportunityValue, averageProgress };
-  }, [activeProjects, opportunities, getGraphMetrics]);
+    return { opportunityValue, plannedFinancial, averageProgress };
+  }, [activeProjects, opportunities, projectFinancialImpacts, getGraphMetrics]);
 
   const toggleGraphNode = (key: keyof typeof graphVisibleNodes) => {
     setGraphVisibleNodes(prev => ({ ...prev, [key]: !prev[key] }));
@@ -692,7 +741,7 @@ const Projects = () => {
               {[
                 { label: "Caixa agora", value: fmtMoney(financeSummary.now), icon: DollarSign, color: "text-emerald-400" },
                 { label: "Caixa 6-12 meses", value: fmtMoney(financeSummary.months6to12), icon: Clock, color: "text-blue-400" },
-                { label: "Valor longo prazo", value: fmtMoney(financeSummary.longTerm + graphTotals.opportunityValue), icon: TrendingUp, color: "text-primary" },
+                { label: "Impacto planejado", value: fmtMoney(graphTotals.plannedFinancial), icon: TrendingUp, color: "text-primary" },
                 { label: "Progresso medio", value: `${graphTotals.averageProgress}%`, icon: Goal, color: "text-amber-400" },
               ].map((item) => (
                 <Card key={item.label} className="border-border/50 bg-card/80">
@@ -738,6 +787,10 @@ const Projects = () => {
                       ["opportunities", "Oportunidades"],
                       ["goals", "Metas"],
                       ["finance", "Caixa"],
+                      ["plan", "Plano + Metas"],
+                      ["financialImpact", "Impacto"],
+                      ["risks", "Riscos"],
+                      ["assumptions", "Suposicoes"],
                       ["conference", "Conferencia"],
                       ["orgchart", "Organograma"],
                     ].map(([key, label]) => (
@@ -765,14 +818,18 @@ const Projects = () => {
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               {activeProjects.map((project, index) => {
-                const { linkedGoals, goalProgress, progress, projectOpps, opportunityValue: oppValue } = getGraphMetrics(project);
+                const { linkedGoals, goalProgress, progress, projectOpps, opportunityValue: oppValue, financialImpacts, plannedFinancial, risks, assumptions } = getGraphMetrics(project);
                 const graphNodes = [
-                  graphVisibleNodes.contracts && { key: "contracts", label: `${projectContractCounts[project.id] || 0} contratos`, sub: "PDFs e anexos", icon: FileText, x: 8, y: 18, onClick: () => setEditingProject(project) },
-                  graphVisibleNodes.opportunities && { key: "opportunities", label: `${projectOpps.length} oportunidades`, sub: fmtMoney(oppValue), icon: LinkIcon, x: 66, y: 14, onClick: () => openOpportunityModal(project.id) },
-                  graphVisibleNodes.goals && { key: "goals", label: `${linkedGoals.length} metas`, sub: `${goalProgress}% planejamento`, icon: Goal, x: 6, y: 66, onClick: () => setView("kanban") },
-                  graphVisibleNodes.finance && { key: "finance", label: fmtMoney(oppValue), sub: "valor vinculado", icon: DollarSign, x: 68, y: 65, onClick: () => openOpportunityModal(project.id) },
-                  graphVisibleNodes.conference && { key: "conference", label: "Conferencia", sub: "controle por projeto", icon: ShieldCheck, x: 38, y: 7, onClick: () => setConferenceProject(project) },
-                  graphVisibleNodes.orgchart && { key: "orgchart", label: "Organograma", sub: "estrutura vinculada", icon: Users, x: 36, y: 78, onClick: () => setOrgChartProject(project) },
+                  graphVisibleNodes.contracts && { key: "contracts", label: `${projectContractCounts[project.id] || 0} contratos`, sub: "PDFs e anexos", icon: FileText, x: 4, y: 12, onClick: () => setEditingProject(project) },
+                  graphVisibleNodes.opportunities && { key: "opportunities", label: `${projectOpps.length} oportunidades`, sub: fmtMoney(oppValue), icon: LinkIcon, x: 70, y: 12, onClick: () => openOpportunityModal(project.id) },
+                  graphVisibleNodes.goals && { key: "goals", label: `${linkedGoals.length} metas`, sub: `${goalProgress}% medio`, icon: Goal, x: 5, y: 42, onClick: () => setPlanningProject(project) },
+                  graphVisibleNodes.finance && { key: "finance", label: fmtMoney(oppValue), sub: "oportunidades", icon: DollarSign, x: 70, y: 42, onClick: () => openOpportunityModal(project.id) },
+                  graphVisibleNodes.plan && { key: "plan", label: "Plano + Metas", sub: linkedGoals.length ? `${linkedGoals.length} iniciativas` : "criar plano rapido", icon: Target, x: 31, y: 7, onClick: () => setPlanningProject(project) },
+                  graphVisibleNodes.financialImpact && { key: "financialImpact", label: fmtMoney(plannedFinancial), sub: `${financialImpacts.length} impactos`, icon: TrendingUp, x: 31, y: 78, onClick: () => setPlanningProject(project) },
+                  graphVisibleNodes.risks && { key: "risks", label: `${risks.length} riscos`, sub: risks[0]?.risk || "monitoramento", icon: AlertTriangle, x: 4, y: 72, onClick: () => setPlanningProject(project) },
+                  graphVisibleNodes.assumptions && { key: "assumptions", label: `${assumptions.length} suposicoes`, sub: assumptions[0]?.assumption || "apostas do plano", icon: Lightbulb, x: 70, y: 72, onClick: () => setPlanningProject(project) },
+                  graphVisibleNodes.conference && { key: "conference", label: "Conferencia", sub: "controle por projeto", icon: ShieldCheck, x: 31, y: 22, onClick: () => setConferenceProject(project) },
+                  graphVisibleNodes.orgchart && { key: "orgchart", label: "Organograma", sub: "estrutura vinculada", icon: Users, x: 31, y: 62, onClick: () => setOrgChartProject(project) },
                 ].filter(Boolean) as { key: string; label: string; sub: string; icon: any; x: number; y: number; onClick: () => void }[];
                 return (
                   <motion.div key={project.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }}>
@@ -853,9 +910,20 @@ const Projects = () => {
                             <p className="text-muted-foreground">Planejamento</p>
                             <p className="font-semibold">{goalProgress}% medio</p>
                           </div>
+                          <div className="rounded-lg border border-border/50 p-2">
+                            <p className="text-muted-foreground">Impacto planejado</p>
+                            <p className="font-semibold">{fmtMoney(plannedFinancial)}</p>
+                          </div>
+                          <div className="rounded-lg border border-border/50 p-2">
+                            <p className="text-muted-foreground">Riscos / suposicoes</p>
+                            <p className="font-semibold">{risks.length} / {assumptions.length}</p>
+                          </div>
                         </div>
 
-                        <div className="flex justify-between gap-2">
+                        <div className="flex flex-wrap justify-between gap-2">
+                          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setPlanningProject(project)}>
+                            <Target className="h-3.5 w-3.5 mr-1" />Plano
+                          </Button>
                           <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => openOpportunityModal(project.id)}>
                             <Plus className="h-3.5 w-3.5 mr-1" />Oportunidade
                           </Button>
@@ -1399,6 +1467,97 @@ const Projects = () => {
               <Button variant="outline" size="sm" onClick={() => setShowOpportunityModal(false)}>Cancelar</Button>
               <Button size="sm" onClick={saveOpportunity}>Salvar</Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!planningProject} onOpenChange={(open) => !open && setPlanningProject(null)}>
+          <DialogContent className="max-w-[95vw] sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader><DialogTitle>Plano + Metas do Projeto</DialogTitle></DialogHeader>
+            {planningProject && (() => {
+              const metrics = getGraphMetrics(planningProject);
+              return (
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-border/60 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h3 className="font-semibold">{planningProject.title}</h3>
+                        <p className="text-sm text-muted-foreground">{planningProject.client || "Sem cliente"} - {metrics.progress}% de progresso</p>
+                      </div>
+                      <Button size="sm" onClick={() => navigate("/ems/planning")}>Abrir Planejamento e Metas</Button>
+                    </div>
+                    <Progress value={metrics.progress} className="h-2 mt-3" />
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-4">
+                    <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Metas</p><p className="text-xl font-bold">{metrics.linkedGoals.length}</p></CardContent></Card>
+                    <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Impacto planejado</p><p className="text-xl font-bold font-mono">{fmtMoney(metrics.plannedFinancial)}</p></CardContent></Card>
+                    <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Riscos</p><p className="text-xl font-bold">{metrics.risks.length}</p></CardContent></Card>
+                    <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Suposicoes</p><p className="text-xl font-bold">{metrics.assumptions.length}</p></CardContent></Card>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Card>
+                      <CardHeader><CardTitle className="text-base">Metas vinculadas</CardTitle></CardHeader>
+                      <CardContent className="space-y-2">
+                        {metrics.linkedGoals.map(goal => (
+                          <div key={goal.id} className="rounded-lg border border-border/50 p-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-sm font-semibold truncate">{goal.title}</p>
+                              <Badge variant="outline">{goal.progress || 0}%</Badge>
+                            </div>
+                            <Progress value={Number(goal.progress || 0)} className="h-1.5 mt-2" />
+                          </div>
+                        ))}
+                        {metrics.linkedGoals.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Sem metas vinculadas ainda.</p>}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader><CardTitle className="text-base">Impactos financeiros</CardTitle></CardHeader>
+                      <CardContent className="space-y-2">
+                        {metrics.financialImpacts.map(impact => (
+                          <div key={impact.id} className="flex items-start justify-between gap-3 rounded-lg border border-border/50 p-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold truncate">{impact.title}</p>
+                              <p className="text-xs text-muted-foreground">{impact.expected_date ? format(new Date(`${impact.expected_date}T12:00:00`), "dd/MM/yyyy") : "Sem data"} - {impact.confidence || "media"}</p>
+                            </div>
+                            <Badge variant={impact.impact_type === "cost" ? "destructive" : "secondary"}>{fmtMoney(Number(impact.expected_amount || 0))}</Badge>
+                          </div>
+                        ))}
+                        {metrics.financialImpacts.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Sem impactos planejados ainda.</p>}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Card>
+                      <CardHeader><CardTitle className="text-base">Riscos</CardTitle></CardHeader>
+                      <CardContent className="space-y-2">
+                        {metrics.risks.map(risk => (
+                          <div key={risk.id} className="flex items-center justify-between gap-2 rounded-lg border border-border/50 p-2">
+                            <span className="text-sm truncate">{risk.risk}</span>
+                            <Badge variant="outline">score {risk.score || 0}</Badge>
+                          </div>
+                        ))}
+                        {metrics.risks.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum risco vinculado.</p>}
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardHeader><CardTitle className="text-base">Suposicoes / gaps</CardTitle></CardHeader>
+                      <CardContent className="space-y-2">
+                        {metrics.assumptions.map(assumption => (
+                          <div key={assumption.id} className="flex items-center justify-between gap-2 rounded-lg border border-border/50 p-2">
+                            <span className="text-sm truncate">{assumption.assumption}</span>
+                            <Badge variant="outline">{assumption.status || "a testar"}</Badge>
+                          </div>
+                        ))}
+                        {metrics.assumptions.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhuma suposicao vinculada.</p>}
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              );
+            })()}
           </DialogContent>
         </Dialog>
 
