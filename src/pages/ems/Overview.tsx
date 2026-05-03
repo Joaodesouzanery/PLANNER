@@ -24,7 +24,7 @@ import { ExecutiveDashboardContent } from "./Executive";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow, parseISO, isBefore, startOfWeek, endOfWeek, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
 
 const iconMap: Record<string, React.ElementType> = { target: Target, rocket: Rocket, users: Users, trending: TrendingUp };
 
