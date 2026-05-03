@@ -18,6 +18,7 @@ import { BrainCircuit, Edit2, Filter, Network, Plus, Search, Sparkles, Trash2 } 
 
 interface PersuasionNote {
   id: string;
+  storage?: "persuasion_notes" | "quick_notes";
   title: string;
   category: string | null;
   principle: string | null;
@@ -59,6 +60,33 @@ const confidenceLabel: Record<string, string> = {
 const missingTable = (error: any) =>
   error?.code === "42P01" || error?.code === "PGRST205" || String(error?.message || "").includes("Could not find the table");
 
+const fallbackMarker = "__PERSUASION_NOTE__";
+
+const encodeFallbackNote = (payload: Record<string, any>) => `${fallbackMarker}${JSON.stringify(payload)}`;
+
+const decodeFallbackNote = (row: any): PersuasionNote | null => {
+  const content = String(row.content || "");
+  if (!content.startsWith(fallbackMarker)) return null;
+  try {
+    const payload = JSON.parse(content.slice(fallbackMarker.length));
+    return {
+      id: row.id,
+      storage: "quick_notes",
+      title: payload.title || "Estudo sem titulo",
+      category: payload.category || "principio",
+      principle: payload.principle || null,
+      content: payload.content || null,
+      example: payload.example || null,
+      source: payload.source || null,
+      tags: Array.isArray(payload.tags) ? payload.tags : [],
+      confidence: payload.confidence || "medium",
+      updated_at: row.updated_at || row.created_at,
+    };
+  } catch {
+    return null;
+  }
+};
+
 const Persuasion = () => {
   const { selectedCompanyId } = useCompany();
   const { toast } = useToast();
@@ -75,9 +103,19 @@ const Persuasion = () => {
       let query = (supabase as any).from("persuasion_notes").select("*").order("updated_at", { ascending: false });
       if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
       const { data, error } = await query;
-      if (missingTable(error)) return [] as PersuasionNote[];
+      if (missingTable(error)) {
+        let fallbackQuery = supabase
+          .from("quick_notes")
+          .select("id, content, created_at, updated_at")
+          .ilike("content", `${fallbackMarker}%`)
+          .order("updated_at", { ascending: false });
+        if (selectedCompanyId !== "all") fallbackQuery = fallbackQuery.eq("company_id", selectedCompanyId);
+        const fallback = await fallbackQuery;
+        if (fallback.error) throw fallback.error;
+        return (fallback.data || []).map(decodeFallbackNote).filter(Boolean) as PersuasionNote[];
+      }
       if (error) throw error;
-      return (data || []) as PersuasionNote[];
+      return (data || []).map((note: PersuasionNote) => ({ ...note, storage: "persuasion_notes" as const })) as PersuasionNote[];
     },
     retry: false,
   });
@@ -98,7 +136,22 @@ const Persuasion = () => {
       if (!payload.title) throw new Error("Informe um titulo.");
       const query = (supabase as any).from("persuasion_notes");
       const { error } = editing ? await query.update(payload).eq("id", editing.id) : await query.insert(payload);
-      if (error) throw error;
+      if (!missingTable(error)) {
+        if (error) throw error;
+        return;
+      }
+
+      const fallbackPayload = {
+        content: encodeFallbackNote(payload),
+        color: "purple",
+        pinned: false,
+        company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
+      };
+      const fallbackQuery = supabase.from("quick_notes");
+      const fallbackResult = editing?.storage === "quick_notes"
+        ? await fallbackQuery.update(fallbackPayload).eq("id", editing.id)
+        : await fallbackQuery.insert(fallbackPayload);
+      if (fallbackResult.error) throw fallbackResult.error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["persuasion_notes"] });
@@ -111,9 +164,19 @@ const Persuasion = () => {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await (supabase as any).from("persuasion_notes").delete().eq("id", id);
-      if (error) throw error;
+    mutationFn: async (note: PersuasionNote) => {
+      if (note.storage === "quick_notes") {
+        const { error } = await supabase.from("quick_notes").delete().eq("id", note.id);
+        if (error) throw error;
+        return;
+      }
+      const { error } = await (supabase as any).from("persuasion_notes").delete().eq("id", note.id);
+      if (!missingTable(error)) {
+        if (error) throw error;
+        return;
+      }
+      const { error: fallbackError } = await supabase.from("quick_notes").delete().eq("id", note.id);
+      if (fallbackError) throw fallbackError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["persuasion_notes"] });
@@ -280,7 +343,7 @@ const Persuasion = () => {
                     </div>
                     <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="icon" onClick={() => openEdit(note)}><Edit2 className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteMutation.mutate(note.id)}><Trash2 className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteMutation.mutate(note)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </CardContent>
                 </Card>
