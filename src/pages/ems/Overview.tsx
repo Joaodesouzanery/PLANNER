@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useContext } from "react";
 import { useCompany } from "@/contexts/CompanyContext";
+import { AuthContext } from "@/contexts/AuthContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,10 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
 import {
   Target, Rocket, Users, TrendingUp, CheckCircle2, Clock, DollarSign, Plus, Edit2, Save, X,
   AlertTriangle, UserCheck, Calendar, ArrowUpRight, ArrowDownRight, FolderKanban, ListTodo, Contact,
+  Download, FileText, Folder,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
