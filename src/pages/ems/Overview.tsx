@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useContext } from "react";
 import { useCompany } from "@/contexts/CompanyContext";
+import { AuthContext } from "@/contexts/AuthContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,10 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
 import {
   Target, Rocket, Users, TrendingUp, CheckCircle2, Clock, DollarSign, Plus, Edit2, Save, X,
   AlertTriangle, UserCheck, Calendar, ArrowUpRight, ArrowDownRight, FolderKanban, ListTodo, Contact,
+  Download, FileText, Folder,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -21,7 +24,7 @@ import { ExecutiveDashboardContent } from "./Executive";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow, parseISO, isBefore, startOfWeek, endOfWeek, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
 
 const iconMap: Record<string, React.ElementType> = { target: Target, rocket: Rocket, users: Users, trending: TrendingUp };
 
@@ -33,6 +36,7 @@ interface MonthlyData { month: string; income: number; expense: number; }
 const Overview = () => {
   const { toast } = useToast();
   const { selectedCompanyId } = useCompany();
+  const auth = useContext(AuthContext);
   const queryClient = useQueryClient();
   const [editingFocus, setEditingFocus] = useState(false);
   const [focusForm, setFocusForm] = useState({ title: "", description: "" });
@@ -43,6 +47,9 @@ const Overview = () => {
   const cid = selectedCompanyId;
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+  const userName = auth?.user?.email?.split("@")[0]?.replace(/[._]/g, " ") || "";
 
   const { data: pillars = [] } = useQuery({
     queryKey: ["overview-pillars", cid],
@@ -114,15 +121,45 @@ const Overview = () => {
     },
   });
 
-  const { data: counts = { tasks: 0, projects: 0, contacts: 0 } } = useQuery({
+  const { data: counts = { tasks: 0, projects: 0, contacts: 0, pendingTasks: 0, completedTasks: 0 } } = useQuery({
     queryKey: ["overview-counts", cid],
     queryFn: async () => {
       let tcQ = supabase.from("tasks").select("*", { count: "exact", head: true });
       let pcQ = supabase.from("projects").select("*", { count: "exact", head: true });
       let ccQ = supabase.from("contacts").select("*", { count: "exact", head: true });
-      if (cf) { tcQ = tcQ.eq("company_id", cid); pcQ = pcQ.eq("company_id", cid); ccQ = ccQ.eq("company_id", cid); }
-      const [tc, pc, cc] = await Promise.all([tcQ, pcQ, ccQ]);
-      return { tasks: tc.count || 0, projects: pc.count || 0, contacts: cc.count || 0 };
+      let tpQ = supabase.from("tasks").select("*", { count: "exact", head: true }).neq("status", "completed");
+      let tdQ = supabase.from("tasks").select("*", { count: "exact", head: true }).eq("status", "completed");
+      if (cf) { tcQ = tcQ.eq("company_id", cid); pcQ = pcQ.eq("company_id", cid); ccQ = ccQ.eq("company_id", cid); tpQ = tpQ.eq("company_id", cid); tdQ = tdQ.eq("company_id", cid); }
+      const [tc, pc, cc, tp, td] = await Promise.all([tcQ, pcQ, ccQ, tpQ, tdQ]);
+      return { tasks: tc.count || 0, projects: pc.count || 0, contacts: cc.count || 0, pendingTasks: tp.count || 0, completedTasks: td.count || 0 };
+    },
+  });
+
+  const { data: recentProjects = [] } = useQuery({
+    queryKey: ["overview-recent-projects", cid],
+    queryFn: async () => {
+      let q = supabase.from("projects").select("id, title, status, client, updated_at").order("updated_at", { ascending: false }).limit(6);
+      if (cf) q = q.eq("company_id", cid);
+      const { data } = await q;
+      return data || [];
+    },
+  });
+
+  const { data: weeklyRevenue = [] } = useQuery({
+    queryKey: ["overview-weekly-revenue", cid],
+    queryFn: async () => {
+      const now = new Date();
+      const ws = startOfWeek(now, { locale: ptBR });
+      let q = supabase.from("financial_transactions").select("amount, type, date").eq("type", "income").gte("date", format(ws, "yyyy-MM-dd"));
+      if (cf) q = q.eq("company_id", cid);
+      const { data } = await q;
+      const days = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+      const acc = days.map((d) => ({ day: d, value: 0 }));
+      (data || []).forEach((t: any) => {
+        const dow = (new Date(t.date).getDay() + 6) % 7;
+        acc[dow].value += Number(t.amount);
+      });
+      return acc;
     },
   });
 
@@ -163,60 +200,125 @@ const Overview = () => {
   return (
     <EMSLayout>
       <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
-        <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {/* Greeting Header (Orbit-style) */}
+        <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1"><span>Dashboard</span><span>›</span><span className="text-primary">Overview</span></div>
-            <h1 className="text-2xl md:text-3xl font-semibold text-foreground tracking-tight">Bem-vindo de volta</h1>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+              <FolderKanban className="h-3.5 w-3.5" />
+              <span>Dashboard</span>
+              <span className="text-border">•</span>
+              <span>{counts.projects} projetos ativos</span>
+            </div>
+            <h1 className="text-3xl md:text-5xl font-bold text-foreground tracking-tight capitalize">
+              {greeting}{userName ? `, ${userName.split(" ")[0]}` : ""}
+            </h1>
           </div>
-          <Badge variant="outline" className="text-xs font-mono px-3 py-1.5 border-border">{format(new Date(), "dd MMM yyyy", { locale: ptBR })}</Badge>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Atualizado às {format(new Date(), "HH:mm")}</span>
+            <Button variant="outline" size="sm" className="gap-2 h-9">
+              <Download className="h-3.5 w-3.5" /> Exportar
+            </Button>
+          </div>
         </motion.div>
 
         <motion.div variants={itemVariants}>
           <TrueNorthPanel />
         </motion.div>
 
-        {/* Stat Cards */}
-        <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="stat-card">
-            <div className="flex items-center justify-between mb-3"><p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold">Receita Total</p><DollarSign className="h-4 w-4 text-muted-foreground" /></div>
-            <p className="text-2xl font-bold font-mono text-foreground">R$ {financeData.totalIncome.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}</p>
-            <div className="flex items-center gap-1.5 mt-2">
-              <div className="flex gap-[2px]">{[40, 65, 45, 80, 60, 75, 90].map((h, i) => <div key={i} className="w-1.5 rounded-sm bg-primary/60" style={{ height: `${h * 0.2}px` }} />)}</div>
-              <span className="text-xs text-emerald-500 font-medium ml-auto"><ArrowUpRight className="h-3 w-3 inline" /> Saldo: R$ {financeData.balance.toLocaleString("pt-BR")}</span>
-            </div>
-          </div>
-          <div className="stat-card">
-            <div className="flex items-center justify-between mb-3"><p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold">Projetos</p><FolderKanban className="h-4 w-4 text-muted-foreground" /></div>
-            <p className="text-2xl font-bold font-mono text-foreground">{counts.projects}</p>
-            <p className="text-sm text-muted-foreground mt-1">Projetos ativos</p>
-            <div className="flex items-center gap-1.5 mt-1">
-              <div className="flex gap-[2px]">{[30, 50, 70, 40, 60, 80, 55].map((h, i) => <div key={i} className="w-1.5 rounded-sm bg-chart-3/60" style={{ height: `${h * 0.2}px` }} />)}</div>
-              <span className="text-xs text-primary font-medium ml-auto">{projectStats.pending} pendentes</span>
-            </div>
-          </div>
-          <div className="stat-card">
-            <div className="flex items-center justify-between mb-3"><p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold">Tarefas</p><ListTodo className="h-4 w-4 text-muted-foreground" /></div>
-            <p className="text-2xl font-bold font-mono text-foreground">{counts.tasks}</p>
-            <p className="text-sm text-muted-foreground mt-1">Total de tarefas</p>
-            <div className="flex items-center gap-1.5 mt-1"><Progress value={completionRate} className="h-1.5 flex-1" /><span className="text-xs text-primary font-medium">{completionRate}%</span></div>
-          </div>
-          <div className="stat-card">
-            <div className="flex items-center justify-between mb-3"><p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold">Contatos</p><Contact className="h-4 w-4 text-muted-foreground" /></div>
-            <p className="text-2xl font-bold font-mono text-foreground">{counts.contacts}</p>
-            <p className="text-sm text-muted-foreground mt-1">Contatos cadastrados</p>
-            <div className="flex items-center gap-1.5 mt-1">
-              <div className="flex gap-[2px]">{[20, 35, 50, 45, 70, 60, 80].map((h, i) => <div key={i} className="w-1.5 rounded-sm bg-chart-2/60" style={{ height: `${h * 0.2}px` }} />)}</div>
-              <span className="text-xs text-emerald-500 font-medium ml-auto"><ArrowUpRight className="h-3 w-3 inline" /> Ativo</span>
-            </div>
-          </div>
+        {/* Orbit-style KPI cards: numeral gigante + delta */}
+        <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: "Projetos Ativos", value: counts.projects, delta: `+${projectStats.pending}`, deltaLabel: "pendentes", Icon: FolderKanban, accent: true },
+            { label: "Tarefas Concluídas", value: counts.completedTasks, delta: `+${counts.pendingTasks}`, deltaLabel: "abertas", Icon: CheckCircle2 },
+            { label: "Total de Contatos", value: counts.contacts, delta: "ativo", deltaLabel: "este mês", Icon: Contact },
+            { label: "Receita do Mês", value: `R$${(financeData.totalIncome / 1000).toFixed(1)}k`, delta: financeData.balance >= 0 ? `+R$${(financeData.balance/1000).toFixed(1)}k` : `-R$${(Math.abs(financeData.balance)/1000).toFixed(1)}k`, deltaLabel: "saldo", Icon: DollarSign },
+          ].map(({ label, value, delta, deltaLabel, Icon, accent }, i) => (
+            <Card key={i} className={`relative overflow-hidden transition-all hover:border-primary/40 ${accent ? "border-primary/30 bg-gradient-to-br from-primary/[0.06] to-card" : ""}`}>
+              <CardContent className="p-5">
+                <p className="text-xs text-muted-foreground font-medium mb-3">{label}</p>
+                <p className="text-4xl md:text-5xl font-bold tracking-tight text-foreground tabular-nums">{value}</p>
+                <p className="text-[11px] mt-3">
+                  <span className={accent ? "text-primary font-semibold" : "text-emerald-500 font-semibold"}>{delta}</span>
+                  <span className="text-muted-foreground ml-1">{deltaLabel}</span>
+                </p>
+                <Icon className={`absolute right-3 bottom-3 h-14 w-14 ${accent ? "text-primary/20" : "text-muted-foreground/10"}`} strokeWidth={1.2} />
+              </CardContent>
+            </Card>
+          ))}
         </motion.div>
 
-        {/* Financial Chart */}
+        {/* Weekly chart with highlighted bar + Recent projects */}
+        <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Card className="lg:col-span-2">
+            <CardHeader className="pb-2">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground">Receita</p>
+                  <CardTitle className="text-3xl font-bold tracking-tight tabular-nums mt-1">
+                    R$ {weeklyRevenue.reduce((a, b) => a + b.value, 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1">Esta semana</p>
+                </div>
+                <Badge variant="outline" className="text-[10px]">Semanal</Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[220px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={weeklyRevenue} barCategoryGap="30%">
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.3} />
+                    <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} tickFormatter={(v) => v >= 1000 ? `${(v/1000).toFixed(1)}k` : v} />
+                    <Tooltip cursor={{ fill: "hsl(var(--muted) / 0.3)" }} contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: 12 }} formatter={(v: number) => [`R$ ${v.toLocaleString("pt-BR")}`, "Receita"]} />
+                    <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                      {weeklyRevenue.map((d, i) => {
+                        const todayIdx = (new Date().getDay() + 6) % 7;
+                        return <Cell key={i} fill={i === todayIdx ? "hsl(var(--primary))" : "hsl(var(--muted))"} />;
+                      })}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold">Projetos Recentes</CardTitle>
+                <Link to="/ems/projects"><Button variant="ghost" size="sm" className="text-[11px] h-7 text-muted-foreground">Ver todos</Button></Link>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              {recentProjects.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-6">Sem projetos recentes</p>
+              ) : recentProjects.map((p: any) => {
+                const initials = (p.title || "?").split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
+                const colors = ["bg-primary/20 text-primary", "bg-chart-2/20 text-chart-2", "bg-chart-3/20 text-chart-3", "bg-chart-4/20 text-chart-4"];
+                const colorClass = colors[(p.title || "").length % colors.length];
+                return (
+                  <Link key={p.id} to="/ems/projects" className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/40 transition-colors">
+                    <div className="p-1.5 rounded bg-muted/50"><Folder className="h-3.5 w-3.5 text-muted-foreground" /></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{p.title}</p>
+                      {p.client && <p className="text-[10px] text-muted-foreground truncate">{p.client}</p>}
+                    </div>
+                    <Avatar className="h-6 w-6">
+                      <AvatarFallback className={`text-[10px] font-semibold ${colorClass}`}>{initials}</AvatarFallback>
+                    </Avatar>
+                  </Link>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Financial Trend (kept) */}
         <motion.div variants={itemVariants}>
           <Card className="border-border">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold">Tendência Financeira</CardTitle>
+                <CardTitle className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-semibold">Tendência Financeira Anual</CardTitle>
                 <div className="flex items-center gap-4 text-xs">
                   <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-primary" /><span className="text-muted-foreground">Receita</span></div>
                   <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-destructive" /><span className="text-muted-foreground">Despesa</span></div>
@@ -224,7 +326,7 @@ const Overview = () => {
               </div>
             </CardHeader>
             <CardContent className="pb-4">
-              <div className="h-[250px] w-full">
+              <div className="h-[220px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={financeData.monthlyData} barCategoryGap="20%">
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
