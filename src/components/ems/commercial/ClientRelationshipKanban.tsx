@@ -322,7 +322,7 @@ const ClientRelationshipKanban = ({ enabled = true }: { enabled?: boolean }) => 
 
                   <div className="p-2 space-y-2 min-h-[120px]">
                     {(companiesByStage[stage.id] || []).map((company, index) => {
-                      const stats = statsByCompany[company.id] || {};
+                      const stats: any = statsByCompany[company.id] || {};
                       const healthConfig = HEALTH_CONFIG[company.relationship_health || "green"];
                       const priorityConfig = PRIORITY_CONFIG[company.relationship_priority || "medium"];
                       return (
