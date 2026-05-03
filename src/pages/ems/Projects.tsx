@@ -214,12 +214,8 @@ const Projects = () => {
       goalsQ = goalsQ.eq("company_id", selectedCompanyId);
       txQ = txQ.eq("company_id", selectedCompanyId);
     }
-    const [oppRes, attRes, goalsRes, txRes] = await Promise.all([
-      oppQ.then((res: any) => res).catch(() => ({ data: [] })),
-      attQ.then((res: any) => res).catch(() => ({ data: [] })),
-      goalsQ.then((res: any) => res).catch(() => ({ data: [] })),
-      txQ.then((res: any) => res).catch(() => ({ data: [] })),
-    ]);
+    const safe = async (q: any) => { try { return await q; } catch { return { data: [] }; } };
+    const [oppRes, attRes, goalsRes, txRes] = await Promise.all([safe(oppQ), safe(attQ), safe(goalsQ), safe(txQ)]);
     setOpportunities((oppRes.data || []) as ProjectOpportunity[]);
     const contractCounts: Record<string, number> = {};
     (attRes.data || []).forEach((att: any) => {
