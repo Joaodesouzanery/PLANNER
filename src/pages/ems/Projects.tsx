@@ -17,7 +17,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import {
   Plus, LayoutGrid, GanttChart, Trash2, Edit2, CheckCircle, Calendar, X,
   GripVertical, Building2, FolderKanban, Clock, TrendingUp, AlertTriangle,
-  FileText, Download, BarChart3, Network, Link as LinkIcon, Goal, DollarSign, ShieldCheck, Users,
+  FileText, Download, BarChart3, Network, Link as LinkIcon, Goal, DollarSign, ShieldCheck, Users, Target,
 } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
