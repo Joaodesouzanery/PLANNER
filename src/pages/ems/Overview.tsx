@@ -121,15 +121,45 @@ const Overview = () => {
     },
   });
 
-  const { data: counts = { tasks: 0, projects: 0, contacts: 0 } } = useQuery({
+  const { data: counts = { tasks: 0, projects: 0, contacts: 0, pendingTasks: 0, completedTasks: 0 } } = useQuery({
     queryKey: ["overview-counts", cid],
     queryFn: async () => {
       let tcQ = supabase.from("tasks").select("*", { count: "exact", head: true });
       let pcQ = supabase.from("projects").select("*", { count: "exact", head: true });
       let ccQ = supabase.from("contacts").select("*", { count: "exact", head: true });
-      if (cf) { tcQ = tcQ.eq("company_id", cid); pcQ = pcQ.eq("company_id", cid); ccQ = ccQ.eq("company_id", cid); }
-      const [tc, pc, cc] = await Promise.all([tcQ, pcQ, ccQ]);
-      return { tasks: tc.count || 0, projects: pc.count || 0, contacts: cc.count || 0 };
+      let tpQ = supabase.from("tasks").select("*", { count: "exact", head: true }).neq("status", "completed");
+      let tdQ = supabase.from("tasks").select("*", { count: "exact", head: true }).eq("status", "completed");
+      if (cf) { tcQ = tcQ.eq("company_id", cid); pcQ = pcQ.eq("company_id", cid); ccQ = ccQ.eq("company_id", cid); tpQ = tpQ.eq("company_id", cid); tdQ = tdQ.eq("company_id", cid); }
+      const [tc, pc, cc, tp, td] = await Promise.all([tcQ, pcQ, ccQ, tpQ, tdQ]);
+      return { tasks: tc.count || 0, projects: pc.count || 0, contacts: cc.count || 0, pendingTasks: tp.count || 0, completedTasks: td.count || 0 };
+    },
+  });
+
+  const { data: recentProjects = [] } = useQuery({
+    queryKey: ["overview-recent-projects", cid],
+    queryFn: async () => {
+      let q = supabase.from("projects").select("id, title, status, client, updated_at").order("updated_at", { ascending: false }).limit(6);
+      if (cf) q = q.eq("company_id", cid);
+      const { data } = await q;
+      return data || [];
+    },
+  });
+
+  const { data: weeklyRevenue = [] } = useQuery({
+    queryKey: ["overview-weekly-revenue", cid],
+    queryFn: async () => {
+      const now = new Date();
+      const ws = startOfWeek(now, { locale: ptBR });
+      let q = supabase.from("financial_transactions").select("amount, type, date").eq("type", "income").gte("date", format(ws, "yyyy-MM-dd"));
+      if (cf) q = q.eq("company_id", cid);
+      const { data } = await q;
+      const days = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+      const acc = days.map((d) => ({ day: d, value: 0 }));
+      (data || []).forEach((t: any) => {
+        const dow = (new Date(t.date).getDay() + 6) % 7;
+        acc[dow].value += Number(t.amount);
+      });
+      return acc;
     },
   });
 
