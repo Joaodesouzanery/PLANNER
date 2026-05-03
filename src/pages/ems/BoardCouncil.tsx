@@ -123,6 +123,21 @@ const BoardCouncil = () => {
     },
   });
 
+  const { data: allItems = [] } = useQuery({
+    queryKey: ["governance-items-overview", selectedCompanyId],
+    staleTime: 1000 * 60 * 2,
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("governance_items")
+        .select("*")
+        .order("due_date", { ascending: true, nullsFirst: false });
+      q = companyFilter(q);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const { data: logs = [] } = useQuery({
     queryKey: ["governance-logs", selectedCompanyId, activeCategory],
     staleTime: 1000 * 60 * 2,
@@ -180,6 +195,29 @@ const BoardCouncil = () => {
     const dueSoon = items.filter((item: any) => item.due_date && item.due_date <= new Date(Date.now() + 1000 * 60 * 60 * 24 * 15).toISOString().slice(0, 10) && !["done", "archived"].includes(item.status)).length;
     return { open, critical, dueSoon };
   }, [items]);
+
+  const boardOverview = useMemo(() => {
+    const actionable = allItems.filter((item: any) => !["done", "archived"].includes(item.status));
+    const byCategory = CATEGORIES
+      .filter(category => !["documents", "decisions", "automation", "monthly_review"].includes(category.id))
+      .map(category => ({
+        ...category,
+        open: actionable.filter((item: any) => item.category === category.id).length,
+        critical: actionable.filter((item: any) => item.category === category.id && ["critical", "high"].includes(item.priority)).length,
+      }))
+      .filter(category => category.open > 0)
+      .sort((a, b) => b.critical - a.critical || b.open - a.open)
+      .slice(0, 6);
+    const nextActions = actionable
+      .filter((item: any) => item.due_date || ["critical", "high"].includes(item.priority))
+      .sort((a: any, b: any) => {
+        const pa = a.priority === "critical" ? 0 : a.priority === "high" ? 1 : 2;
+        const pb = b.priority === "critical" ? 0 : b.priority === "high" ? 1 : 2;
+        return pa - pb || String(a.due_date || "9999-12-31").localeCompare(String(b.due_date || "9999-12-31"));
+      })
+      .slice(0, 5);
+    return { byCategory, nextActions };
+  }, [allItems]);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["governance-items"] });
@@ -344,6 +382,52 @@ const BoardCouncil = () => {
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-primary" /> Radar do Conselho</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {boardOverview.byCategory.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">Nenhuma frente critica aberta.</p>
+              ) : boardOverview.byCategory.map((category) => (
+                <button key={category.id} type="button" onClick={() => setActiveCategory(category.id)} className="w-full rounded-lg border border-border/60 p-3 text-left hover:border-primary/40 hover:bg-primary/5 transition-colors">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-2 text-sm font-medium"><category.icon className={cn("h-4 w-4", category.color)} />{category.label}</span>
+                    <Badge variant={category.critical > 0 ? "destructive" : "secondary"} className="text-[10px]">{category.open} abertas</Badge>
+                  </div>
+                  {category.critical > 0 && <p className="text-xs text-muted-foreground mt-1">{category.critical} em alta prioridade</p>}
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-primary" /> Proximas decisoes e riscos</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {boardOverview.nextActions.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">Sem acoes urgentes no Conselho.</p>
+              ) : boardOverview.nextActions.map((item: any) => {
+                const category = CATEGORIES.find(c => c.id === item.category) || CATEGORIES[0];
+                return (
+                  <button key={item.id} type="button" onClick={() => setActiveCategory(item.category)} className="w-full rounded-lg border border-border/60 p-3 text-left hover:border-primary/40 hover:bg-primary/5 transition-colors">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-sm font-medium truncate">{item.title}</span>
+                      <div className="flex gap-1.5">
+                        <Badge variant="outline" className="text-[10px]">{category.label}</Badge>
+                        <Badge variant={["critical", "high"].includes(item.priority) ? "destructive" : "secondary"} className="text-[10px]">{PRIORITY_OPTIONS.find(option => option.value === item.priority)?.label || item.priority}</Badge>
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{item.due_date ? `Prazo: ${dateLabel(item.due_date)}` : "Sem prazo definido"}</p>
+                  </button>
+                );
+              })}
+            </CardContent>
+          </Card>
         </div>
 
         <Tabs value={activeCategory} onValueChange={setActiveCategory}>

@@ -26,7 +26,6 @@ const QuickNotes = lazy(() => import("./pages/ems/QuickNotes"));
 const CalendarPage = lazy(() => import("./pages/ems/Calendar"));
 const Commercial = lazy(() => import("./pages/ems/Commercial"));
 const Onboarding = lazy(() => import("./pages/ems/Onboarding"));
-const Executive = lazy(() => import("./pages/ems/Executive"));
 const Timesheet = lazy(() => import("./pages/ems/Timesheet"));
 const CommercialStructure = lazy(() => import("./pages/ems/CommercialStructure"));
 const CommercialComparison = lazy(() => import("./pages/ems/CommercialComparison"));
@@ -108,7 +107,7 @@ const App = () => (
               <Route path="/ems/estrutura-comercial" element={<ProtectedPage><CommercialStructure /></ProtectedPage>} />
               <Route path="/ems/comparativo-comercial" element={<ProtectedPage><CommercialComparison /></ProtectedPage>} />
               <Route path="/ems/onboarding" element={<ProtectedPage><Onboarding /></ProtectedPage>} />
-              <Route path="/ems/executive" element={<ProtectedPage><Executive /></ProtectedPage>} />
+              <Route path="/ems/executive" element={<Navigate to="/ems" replace />} />
               <Route path="/ems/timesheet" element={<ProtectedPage><Timesheet /></ProtectedPage>} />
               <Route path="/ems/companies" element={<ProtectedPage><Companies /></ProtectedPage>} />
               <Route path="/ems/faculdade" element={<ProtectedPage><Faculdade /></ProtectedPage>} />

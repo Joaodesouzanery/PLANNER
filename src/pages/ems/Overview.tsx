@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { RecentActivity } from "@/components/ems/RecentActivity";
 import { TrueNorthPanel } from "@/components/ems/TrueNorthPanel";
+import { ExecutiveDashboardContent } from "./Executive";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow, parseISO, isBefore, startOfWeek, endOfWeek, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -354,6 +355,9 @@ const Overview = () => {
         </motion.div>
 
         <motion.div variants={itemVariants}><RecentActivity /></motion.div>
+        <motion.div variants={itemVariants} className="pt-2">
+          <ExecutiveDashboardContent />
+        </motion.div>
       </motion.div>
     </EMSLayout>
   );

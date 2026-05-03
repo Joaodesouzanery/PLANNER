@@ -15,6 +15,21 @@ export interface Transaction {
   category: string | null; date: string; created_at: string;
   is_recurring?: boolean; recurrence_interval?: string | null;
 }
+export interface SavedInstallment {
+  id: string;
+  item_name: string;
+  item_price: number;
+  monthly_income: number | null;
+  monthly_expenses: number | null;
+  option_label: string;
+  risk_level: string | null;
+  installments: number;
+  monthly_payment: number;
+  percent_of_income: number | null;
+  remains_after: number | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
 
 export const PIE_COLORS = ["hsl(var(--primary))", "hsl(142.1, 76.2%, 36.3%)", "hsl(0, 84.2%, 60.2%)", "hsl(45, 93%, 47%)", "hsl(262, 83%, 58%)", "hsl(199, 89%, 48%)", "hsl(330, 80%, 55%)", "hsl(160, 60%, 45%)"];
 
@@ -48,9 +63,21 @@ export const useFinanceData = () => {
     },
   });
 
+  const { data: savedInstallments = [] } = useQuery({
+    queryKey: ["finance-saved-installments", selectedCompanyId],
+    queryFn: async () => {
+      let q = (supabase as any).from("finance_saved_installments").select("*").order("created_at", { ascending: false });
+      if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data || []) as SavedInstallment[];
+    },
+  });
+
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["finance-okrs"] });
     queryClient.invalidateQueries({ queryKey: ["finance-transactions"] });
+    queryClient.invalidateQueries({ queryKey: ["finance-saved-installments"] });
   };
 
   const saveOkrMutation = useMutation({
@@ -89,6 +116,26 @@ export const useFinanceData = () => {
   const deleteTransactionMutation = useMutation({
     mutationFn: async (id: string) => { const { error } = await supabase.from("financial_transactions").delete().eq("id", id); if (error) throw error; },
     onSuccess: () => { invalidate(); toast({ title: "Transação removida!" }); },
+  });
+
+  const saveInstallmentMutation = useMutation({
+    mutationFn: async (payload: Omit<SavedInstallment, "id" | "created_at">) => {
+      const { error } = await (supabase as any).from("finance_saved_installments").insert({
+        ...payload,
+        company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidate(); toast({ title: "Parcelamento salvo!" }); },
+    onError: (e: any) => toast({ title: "Erro ao salvar parcelamento", description: e?.message, variant: "destructive" }),
+  });
+
+  const deleteInstallmentMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any).from("finance_saved_installments").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidate(); toast({ title: "Parcelamento removido!" }); },
   });
 
   const totalIncome = useMemo(() => transactions.filter(t => t.type === "income").reduce((a, t) => a + Number(t.amount), 0), [transactions]);
@@ -139,8 +186,10 @@ export const useFinanceData = () => {
 
   return {
     okrs, transactions, totalIncome, totalExpense, balance, allCategories,
+    savedInstallments,
     monthlyData, incomeByCat, expenseByCat, projectionData, capitalEvolution,
     saveOkrMutation, deleteOkrMutation, saveTransactionMutation, deleteTransactionMutation,
+    saveInstallmentMutation, deleteInstallmentMutation,
     toast, selectedCompanyId,
   };
 };

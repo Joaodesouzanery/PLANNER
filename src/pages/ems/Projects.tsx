@@ -17,7 +17,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import {
   Plus, LayoutGrid, GanttChart, Trash2, Edit2, CheckCircle, Calendar, X,
   GripVertical, Building2, FolderKanban, Clock, TrendingUp, AlertTriangle,
-  FileText, Download, BarChart3,
+  FileText, Download, BarChart3, Network, Link as LinkIcon, Goal, DollarSign,
 } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
@@ -79,6 +79,23 @@ interface ChecklistItem {
   done: boolean;
 }
 
+interface ProjectOpportunity {
+  id: string;
+  project_id: string;
+  title: string;
+  value: number | null;
+  stage: string | null;
+  probability: number | null;
+  expected_close_date: string | null;
+}
+
+interface PlanningGoalLink {
+  id: string;
+  title: string;
+  progress: number | null;
+  project_id: string | null;
+}
+
 const DEFAULT_COLUMNS: KanbanColumn[] = [
   { id: "todo", title: "A Fazer", order_index: 0, color: "blue", isDefault: true },
   { id: "in_progress", title: "Em Progresso", order_index: 1, color: "amber", isDefault: true },
@@ -97,6 +114,7 @@ const priorityConfig: Record<string, { label: string; color: string; border: str
 };
 
 const CHART_COLORS = ["hsl(var(--primary))", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#f97316", "#06b6d4", "#ef4444"];
+const fmtMoney = (value: number) => `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 const emptyProjectForm = {
   title: "",
@@ -116,7 +134,7 @@ const Projects = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { selectedCompanyId, companies } = useCompany();
-  const [view, setView] = useState<"kanban" | "timeline" | "dashboard">("kanban");
+  const [view, setView] = useState<"graph" | "kanban" | "timeline" | "dashboard">("graph");
   const [projects, setProjects] = useState<Project[]>([]);
   const [columns, setColumns] = useState<KanbanColumn[]>(DEFAULT_COLUMNS);
   const [showAddProject, setShowAddProject] = useState(false);
@@ -136,6 +154,13 @@ const Projects = () => {
   const [totalTaskCounts, setTotalTaskCounts] = useState<Record<string, number>>({});
   const [dashFrom, setDashFrom] = useState("");
   const [dashTo, setDashTo] = useState("");
+  const [opportunities, setOpportunities] = useState<ProjectOpportunity[]>([]);
+  const [projectContractCounts, setProjectContractCounts] = useState<Record<string, number>>({});
+  const [projectGoals, setProjectGoals] = useState<PlanningGoalLink[]>([]);
+  const [financeSummary, setFinanceSummary] = useState({ now: 0, months6to12: 0, longTerm: 0 });
+  const [showOpportunityModal, setShowOpportunityModal] = useState(false);
+  const [opportunityProjectId, setOpportunityProjectId] = useState("");
+  const [opportunityForm, setOpportunityForm] = useState({ title: "", value: "", stage: "nova", probability: "50", expected_close_date: "" });
 
   const [projectForm, setProjectForm] = useState(emptyProjectForm);
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
@@ -171,7 +196,42 @@ const Projects = () => {
     fetchProjects();
     fetchColumns();
     fetchPendingTaskCounts();
+    fetchProjectGraphData();
   }, [selectedCompanyId]);
+
+  const fetchProjectGraphData = async () => {
+    let oppQ = (supabase as any).from("project_opportunities").select("*").order("created_at", { ascending: false });
+    let attQ = (supabase as any).from("attachments").select("project_id, document_type").eq("document_type", "contract").not("project_id", "is", null);
+    let goalsQ = supabase.from("planning_goals").select("id, title, progress, project_id").not("project_id", "is", null);
+    let txQ = supabase.from("financial_transactions").select("amount, type, date");
+    if (selectedCompanyId !== "all") {
+      oppQ = oppQ.eq("company_id", selectedCompanyId);
+      attQ = attQ.eq("company_id", selectedCompanyId);
+      goalsQ = goalsQ.eq("company_id", selectedCompanyId);
+      txQ = txQ.eq("company_id", selectedCompanyId);
+    }
+    const [oppRes, attRes, goalsRes, txRes] = await Promise.all([oppQ, attQ, goalsQ, txQ]);
+    setOpportunities((oppRes.data || []) as ProjectOpportunity[]);
+    const contractCounts: Record<string, number> = {};
+    (attRes.data || []).forEach((att: any) => {
+      if (att.project_id) contractCounts[att.project_id] = (contractCounts[att.project_id] || 0) + 1;
+    });
+    setProjectContractCounts(contractCounts);
+    setProjectGoals((goalsRes.data || []) as PlanningGoalLink[]);
+
+    const now = new Date();
+    const in6 = new Date(now); in6.setMonth(in6.getMonth() + 6);
+    const in12 = new Date(now); in12.setMonth(in12.getMonth() + 12);
+    const summary = { now: 0, months6to12: 0, longTerm: 0 };
+    (txRes.data || []).forEach((tx: any) => {
+      const amount = Number(tx.amount) * (tx.type === "expense" ? -1 : 1);
+      const date = new Date(tx.date);
+      if (date <= now) summary.now += amount;
+      else if (date > in6 && date <= in12) summary.months6to12 += amount;
+      else if (date > in12) summary.longTerm += amount;
+    });
+    setFinanceSummary(summary);
+  };
 
   const fetchPendingTaskCounts = async () => {
     let q = supabase.from("tasks").select("project_id, status").not("project_id", "is", null);
@@ -319,6 +379,35 @@ const Projects = () => {
     toast({ title: "Projeto removido!" });
   };
 
+  const openOpportunityModal = (projectId?: string) => {
+    setOpportunityProjectId(projectId || "");
+    setOpportunityForm({ title: "", value: "", stage: "nova", probability: "50", expected_close_date: "" });
+    setShowOpportunityModal(true);
+  };
+
+  const saveOpportunity = async () => {
+    if (!opportunityProjectId || !opportunityForm.title.trim()) {
+      toast({ title: "Escolha um projeto e informe a oportunidade", variant: "destructive" });
+      return;
+    }
+    const { error } = await (supabase as any).from("project_opportunities").insert({
+      project_id: opportunityProjectId,
+      title: opportunityForm.title.trim(),
+      value: opportunityForm.value ? Number(opportunityForm.value) : null,
+      stage: opportunityForm.stage || null,
+      probability: opportunityForm.probability ? Number(opportunityForm.probability) : null,
+      expected_close_date: opportunityForm.expected_close_date || null,
+      company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
+    });
+    if (error) {
+      toast({ title: "Erro ao salvar oportunidade", description: error.message, variant: "destructive" });
+      return;
+    }
+    setShowOpportunityModal(false);
+    fetchProjectGraphData();
+    toast({ title: "Oportunidade cadastrada!" });
+  };
+
   const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId, type } = result;
     if (!destination) return;
@@ -461,6 +550,21 @@ const Projects = () => {
     return alertDate <= new Date();
   }).length;
   const completionRate = totalProjects > 0 ? Math.round((doneProjects / totalProjects) * 100) : 0;
+  const activeProjects = useMemo(() => projects.filter(p => p.status !== "done" && (clientFilter === "all" || p.client === clientFilter)), [projects, clientFilter]);
+  const graphTotals = useMemo(() => {
+    const opportunityValue = opportunities.reduce((sum, opp) => sum + Number(opp.value || 0), 0);
+    const averageProgress = activeProjects.length > 0
+      ? Math.round(activeProjects.reduce((sum, project) => {
+          const total = totalTaskCounts[project.id] || 0;
+          const pending = pendingTaskCounts[project.id] || 0;
+          const taskProgress = total > 0 ? ((total - pending) / total) * 100 : project.status === "in_progress" ? 45 : 10;
+          const linkedGoals = projectGoals.filter(goal => goal.project_id === project.id);
+          const goalProgress = linkedGoals.length > 0 ? linkedGoals.reduce((a, g) => a + Number(g.progress || 0), 0) / linkedGoals.length : taskProgress;
+          return sum + Math.round((taskProgress + goalProgress) / 2);
+        }, 0) / activeProjects.length)
+      : 0;
+    return { opportunityValue, averageProgress };
+  }, [activeProjects, opportunities, pendingTaskCounts, projectGoals, totalTaskCounts]);
 
   return (
     <EMSLayout>
@@ -542,12 +646,119 @@ const Projects = () => {
         </div>
 
         {/* View Toggle */}
-        <Tabs value={view} onValueChange={(v) => setView(v as "kanban" | "timeline" | "dashboard")}>
+        <Tabs value={view} onValueChange={(v) => setView(v as "graph" | "kanban" | "timeline" | "dashboard")}>
           <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="graph" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><Network className="h-3.5 w-3.5 md:h-4 md:w-4" />Vinculos</TabsTrigger>
             <TabsTrigger value="kanban" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><LayoutGrid className="h-3.5 w-3.5 md:h-4 md:w-4" />Kanban</TabsTrigger>
             <TabsTrigger value="timeline" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><GanttChart className="h-3.5 w-3.5 md:h-4 md:w-4" />Timeline</TabsTrigger>
             <TabsTrigger value="dashboard" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><BarChart3 className="h-3.5 w-3.5 md:h-4 md:w-4" />Dashboard</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="graph" className="mt-4 md:mt-6 space-y-4 md:space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              {[
+                { label: "Caixa agora", value: fmtMoney(financeSummary.now), icon: DollarSign, color: "text-emerald-400" },
+                { label: "Caixa 6-12 meses", value: fmtMoney(financeSummary.months6to12), icon: Clock, color: "text-blue-400" },
+                { label: "Valor longo prazo", value: fmtMoney(financeSummary.longTerm + graphTotals.opportunityValue), icon: TrendingUp, color: "text-primary" },
+                { label: "Progresso medio", value: `${graphTotals.averageProgress}%`, icon: Goal, color: "text-amber-400" },
+              ].map((item) => (
+                <Card key={item.label} className="border-border/50 bg-card/80">
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10"><item.icon className={cn("h-4 w-4", item.color)} /></div>
+                    <div>
+                      <p className="text-lg font-bold font-mono">{item.value}</p>
+                      <p className="text-xs text-muted-foreground">{item.label}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            <div className="flex justify-end">
+              <Button size="sm" onClick={() => openOpportunityModal()} className="text-xs md:text-sm">
+                <Plus className="h-3.5 w-3.5 mr-1.5" />Nova Oportunidade
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              {activeProjects.map((project, index) => {
+                const total = totalTaskCounts[project.id] || 0;
+                const pending = pendingTaskCounts[project.id] || 0;
+                const taskProgress = total > 0 ? Math.round(((total - pending) / total) * 100) : project.status === "in_progress" ? 45 : 10;
+                const linkedGoals = projectGoals.filter(goal => goal.project_id === project.id);
+                const goalProgress = linkedGoals.length > 0 ? Math.round(linkedGoals.reduce((a, g) => a + Number(g.progress || 0), 0) / linkedGoals.length) : taskProgress;
+                const progress = Math.round((taskProgress + goalProgress) / 2);
+                const projectOpps = opportunities.filter(opp => opp.project_id === project.id);
+                const oppValue = projectOpps.reduce((sum, opp) => sum + Number(opp.value || 0), 0);
+                return (
+                  <motion.div key={project.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }}>
+                    <Card className="border-border/50 bg-card/80 overflow-hidden">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <CardTitle className="text-base truncate flex items-center gap-2"><FolderKanban className="h-4 w-4 text-primary" />{project.title}</CardTitle>
+                            <p className="text-xs text-muted-foreground mt-1 truncate">{project.client || "Sem cliente informado"}</p>
+                          </div>
+                          <Badge variant="outline" className="text-xs font-mono">{progress}%</Badge>
+                        </div>
+                        <Progress value={progress} className="h-2 mt-3" />
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="relative min-h-[170px] rounded-lg border border-border/50 bg-muted/20 p-4 overflow-hidden">
+                          <div className="absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/30 bg-primary/10 flex items-center justify-center text-center">
+                            <span className="text-[10px] font-semibold text-primary px-2 line-clamp-2">{project.title}</span>
+                          </div>
+                          {[
+                            { label: `${projectContractCounts[project.id] || 0} contratos`, icon: FileText, className: "left-4 top-4" },
+                            { label: `${projectOpps.length} oportunidades`, icon: LinkIcon, className: "right-4 top-4" },
+                            { label: `${linkedGoals.length} metas`, icon: Target, className: "left-4 bottom-4" },
+                            { label: fmtMoney(oppValue), icon: DollarSign, className: "right-4 bottom-4" },
+                          ].map((node) => (
+                            <div key={node.label} className={cn("absolute rounded-lg border border-border/60 bg-background/95 px-2 py-1.5 shadow-sm", node.className)}>
+                              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground"><node.icon className="h-3 w-3 text-primary" />{node.label}</div>
+                            </div>
+                          ))}
+                          <div className="absolute left-[22%] right-[22%] top-1/2 h-px bg-border/70" />
+                          <div className="absolute bottom-[26%] top-[26%] left-1/2 w-px bg-border/70" />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="rounded-lg border border-border/50 p-2">
+                            <p className="text-muted-foreground">Contratos</p>
+                            <p className="font-semibold">{projectContractCounts[project.id] || 0} anexados</p>
+                          </div>
+                          <div className="rounded-lg border border-border/50 p-2">
+                            <p className="text-muted-foreground">Oportunidades</p>
+                            <p className="font-semibold">{projectOpps.length} - {fmtMoney(oppValue)}</p>
+                          </div>
+                          <div className="rounded-lg border border-border/50 p-2">
+                            <p className="text-muted-foreground">Metas</p>
+                            <p className="font-semibold">{linkedGoals.length} vinculadas</p>
+                          </div>
+                          <div className="rounded-lg border border-border/50 p-2">
+                            <p className="text-muted-foreground">Planejamento</p>
+                            <p className="font-semibold">{goalProgress}% medio</p>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between gap-2">
+                          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => openOpportunityModal(project.id)}>
+                            <Plus className="h-3.5 w-3.5 mr-1" />Oportunidade
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setView("kanban")}>Ir ao Kanban</Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+              {activeProjects.length === 0 && (
+                <Card className="xl:col-span-2 border-dashed">
+                  <CardContent className="py-12 text-center text-sm text-muted-foreground">Nenhum projeto ativo para exibir nesta visao.</CardContent>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
 
           <TabsContent value="kanban" className="mt-4 md:mt-6">
             <DragDropContext onDragEnd={handleDragEnd}>
@@ -1023,6 +1234,50 @@ const Projects = () => {
             <DialogFooter className="gap-2">
               <Button variant="outline" size="sm" onClick={() => setShowColumnModal(false)}>Cancelar</Button>
               <Button size="sm" onClick={addColumn}>Criar Coluna</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showOpportunityModal} onOpenChange={setShowOpportunityModal}>
+          <DialogContent className="max-w-[95vw] sm:max-w-md">
+            <DialogHeader><DialogTitle className="text-base md:text-lg">Nova Oportunidade</DialogTitle></DialogHeader>
+            <div className="space-y-3 py-2 md:py-4">
+              <div>
+                <Label className="text-xs md:text-sm">Projeto</Label>
+                <Select value={opportunityProjectId} onValueChange={setOpportunityProjectId}>
+                  <SelectTrigger className="text-sm"><SelectValue placeholder="Escolha o projeto" /></SelectTrigger>
+                  <SelectContent>
+                    {projects.filter(p => p.status !== "done").map(project => (
+                      <SelectItem key={project.id} value={project.id}>{project.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label className="text-xs md:text-sm">Oportunidade</Label><Input value={opportunityForm.title} onChange={(e) => setOpportunityForm({ ...opportunityForm, title: e.target.value })} placeholder="Ex: Expansao de contrato" className="text-sm" /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label className="text-xs md:text-sm">Valor estimado</Label><Input type="number" value={opportunityForm.value} onChange={(e) => setOpportunityForm({ ...opportunityForm, value: e.target.value })} placeholder="0" className="text-sm font-mono" /></div>
+                <div><Label className="text-xs md:text-sm">Probabilidade %</Label><Input type="number" min="0" max="100" value={opportunityForm.probability} onChange={(e) => setOpportunityForm({ ...opportunityForm, probability: e.target.value })} className="text-sm font-mono" /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs md:text-sm">Etapa</Label>
+                  <Select value={opportunityForm.stage} onValueChange={(stage) => setOpportunityForm({ ...opportunityForm, stage })}>
+                    <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nova">Nova</SelectItem>
+                      <SelectItem value="qualificacao">Qualificacao</SelectItem>
+                      <SelectItem value="proposta">Proposta</SelectItem>
+                      <SelectItem value="negociacao">Negociacao</SelectItem>
+                      <SelectItem value="ganha">Ganha</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div><Label className="text-xs md:text-sm">Fechamento previsto</Label><Input type="date" value={opportunityForm.expected_close_date} onChange={(e) => setOpportunityForm({ ...opportunityForm, expected_close_date: e.target.value })} className="text-sm" /></div>
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowOpportunityModal(false)}>Cancelar</Button>
+              <Button size="sm" onClick={saveOpportunity}>Salvar</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
