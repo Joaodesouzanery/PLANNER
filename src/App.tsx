@@ -88,6 +88,7 @@ const App = () => (
               <Route path="/ems/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
               <Route path="/ems/reports" element={<ProtectedPage><Reports /></ProtectedPage>} />
               <Route path="/ems/planning" element={<ProtectedPage><Planning /></ProtectedPage>} />
+              <Route path="/ems/persuasao" element={<ProtectedPage><Persuasion /></ProtectedPage>} />
               <Route path="/ems/persuasion" element={<ProtectedPage><Persuasion /></ProtectedPage>} />
               <Route path="/ems/orgchart" element={<Navigate to="/ems/projects" replace />} />
               <Route path="/ems/roadmap" element={<ProtectedPage><RoadMap /></ProtectedPage>} />

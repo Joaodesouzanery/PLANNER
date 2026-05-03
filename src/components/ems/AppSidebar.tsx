@@ -67,7 +67,7 @@ const menuGroups: MenuGroup[] = [
     label: "Ferramentas",
     items: [
       { icon: CalendarDays, label: "Calendário", path: "/ems/calendar" },
-      { icon: BrainCircuit, label: "Persuasao", path: "/ems/persuasion" },
+      { icon: BrainCircuit, label: "Persuasao", path: "/ems/persuasao" },
       { icon: StickyNote, label: "Notas + Knowledge", path: "/ems/quick-notes" },
       { icon: GraduationCap, label: "Faculdade", path: "/ems/faculdade" },
     ],

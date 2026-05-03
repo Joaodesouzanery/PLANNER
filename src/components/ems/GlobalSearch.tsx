@@ -20,7 +20,7 @@ const typeConfig = {
   contact: { icon: Users, label: "Contatos", path: "/ems/contacts" },
   note: { icon: StickyNote, label: "Notas", path: "/ems/quick-notes" },
   event: { icon: CalendarDays, label: "Eventos", path: "/ems/calendar" },
-  persuasion: { icon: BrainCircuit, label: "Persuasao", path: "/ems/persuasion" },
+  persuasion: { icon: BrainCircuit, label: "Persuasao", path: "/ems/persuasao" },
 };
 
 export const GlobalSearch = () => {
@@ -73,7 +73,7 @@ export const GlobalSearch = () => {
         ...(contacts.data || []).map((c) => ({ id: c.id, title: `${c.name}${c.email ? ` (${c.email})` : ""}`, type: "contact" as const, path: "/ems/contacts" })),
         ...(notes.data || []).map((n) => ({ id: n.id, title: n.content.substring(0, 60), type: "note" as const, path: "/ems/quick-notes" })),
         ...(events.data || []).map((e) => ({ id: e.id, title: e.title, type: "event" as const, path: "/ems/calendar" })),
-        ...(persuasion.data || []).map((p: any) => ({ id: p.id, title: p.title, type: "persuasion" as const, path: "/ems/persuasion" })),
+        ...(persuasion.data || []).map((p: any) => ({ id: p.id, title: p.title, type: "persuasion" as const, path: "/ems/persuasao" })),
       ];
       setResults(all);
     }, 300);
