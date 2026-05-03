@@ -36,6 +36,7 @@ interface MonthlyData { month: string; income: number; expense: number; }
 const Overview = () => {
   const { toast } = useToast();
   const { selectedCompanyId } = useCompany();
+  const auth = useContext(AuthContext);
   const queryClient = useQueryClient();
   const [editingFocus, setEditingFocus] = useState(false);
   const [focusForm, setFocusForm] = useState({ title: "", description: "" });
@@ -46,6 +47,9 @@ const Overview = () => {
   const cid = selectedCompanyId;
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+  const userName = auth?.user?.email?.split("@")[0]?.replace(/[._]/g, " ") || "";
 
   const { data: pillars = [] } = useQuery({
     queryKey: ["overview-pillars", cid],
