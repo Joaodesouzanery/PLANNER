@@ -47,7 +47,7 @@ const PipelineFilters = ({ companies, onFiltersChange }: PipelineFiltersProps) =
           <Input value={filters.search} onChange={(e) => update({ search: e.target.value })} placeholder="Buscar no pipeline..." className="pl-10" />
         </div>
         <Select value={filters.company || "all"} onValueChange={(v) => update({ company: v === "all" ? "" : v })}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <div className="flex items-center gap-1.5 truncate">
               <Building2 className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">{filters.company || "Todas empresas"}</span>
@@ -61,7 +61,7 @@ const PipelineFilters = ({ companies, onFiltersChange }: PipelineFiltersProps) =
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+        <div className="flex items-center gap-2 flex-1 min-w-0 w-full">
           <TrendingUp className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <span className="text-xs text-muted-foreground whitespace-nowrap">Progresso: {filters.progressMin}% – {filters.progressMax}%</span>
           <Slider
@@ -71,11 +71,11 @@ const PipelineFilters = ({ companies, onFiltersChange }: PipelineFiltersProps) =
             className="flex-1"
           />
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center w-full sm:w-auto">
           <CalendarClock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-          <Input type="date" value={filters.createdAfter} onChange={(e) => update({ createdAfter: e.target.value })} className="w-[140px] text-xs" placeholder="De" />
+          <Input type="date" value={filters.createdAfter} onChange={(e) => update({ createdAfter: e.target.value })} className="min-w-0 flex-1 sm:w-[140px] text-xs" placeholder="De" />
           <span className="text-xs text-muted-foreground">–</span>
-          <Input type="date" value={filters.createdBefore} onChange={(e) => update({ createdBefore: e.target.value })} className="w-[140px] text-xs" placeholder="Até" />
+          <Input type="date" value={filters.createdBefore} onChange={(e) => update({ createdBefore: e.target.value })} className="min-w-0 flex-1 sm:w-[140px] text-xs" placeholder="Até" />
         </div>
       </div>
 

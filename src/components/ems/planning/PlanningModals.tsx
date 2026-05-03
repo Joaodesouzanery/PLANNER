@@ -25,7 +25,7 @@ export const GoalModal = ({
   open, onClose, form, setForm, editingGoal, goals, okrs, projects, onSave, isSaving,
 }: GoalModalProps) => (
   <Dialog open={open} onOpenChange={o => !o && onClose()}>
-    <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+    <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>{editingGoal ? "Editar Meta" : "Nova Meta"}</DialogTitle>
       </DialogHeader>
@@ -38,7 +38,7 @@ export const GoalModal = ({
           <label className="text-sm font-medium">Descrição</label>
           <Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={3} />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-medium">Categoria</label>
             <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
@@ -64,7 +64,7 @@ export const GoalModal = ({
             </Select>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-medium">Início</label>
             <Input type="date" value={form.start_date} onChange={e => setForm({ ...form, start_date: e.target.value })} />
@@ -84,7 +84,7 @@ export const GoalModal = ({
             </SelectContent>
           </Select>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="text-sm font-medium">OKR</label>
             <Select value={form.okr_id || "none"} onValueChange={v => setForm({ ...form, okr_id: v === "none" ? "" : v })}>
@@ -106,9 +106,9 @@ export const GoalModal = ({
             </Select>
           </div>
         </div>
-        <div className="flex justify-end gap-2 pt-4">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={onSave} disabled={isSaving}>{editingGoal ? "Salvar" : "Criar Meta"}</Button>
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4">
+          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">Cancelar</Button>
+          <Button onClick={onSave} disabled={isSaving} className="w-full sm:w-auto">{editingGoal ? "Salvar" : "Criar Meta"}</Button>
         </div>
       </div>
     </DialogContent>
@@ -126,7 +126,7 @@ interface MilestoneModalProps {
 
 export const MilestoneModal = ({ open, onClose, form, setForm, onSave, isSaving }: MilestoneModalProps) => (
   <Dialog open={open} onOpenChange={o => !o && onClose()}>
-    <DialogContent>
+    <DialogContent className="max-w-[95vw] sm:max-w-lg">
       <DialogHeader><DialogTitle>Novo Marco</DialogTitle></DialogHeader>
       <div className="space-y-4">
         <div>
@@ -141,9 +141,9 @@ export const MilestoneModal = ({ open, onClose, form, setForm, onSave, isSaving 
           <label className="text-sm font-medium">Vencimento</label>
           <Input type="date" value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })} />
         </div>
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={onSave} disabled={isSaving}>Criar Marco</Button>
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+          <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">Cancelar</Button>
+          <Button onClick={onSave} disabled={isSaving} className="w-full sm:w-auto">Criar Marco</Button>
         </div>
       </div>
     </DialogContent>

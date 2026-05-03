@@ -26,6 +26,7 @@ import {
   User as UserIcon,
   Flag,
   Landmark,
+  BrainCircuit,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
@@ -66,6 +67,7 @@ const menuGroups: MenuGroup[] = [
     label: "Ferramentas",
     items: [
       { icon: CalendarDays, label: "Calendário", path: "/ems/calendar" },
+      { icon: BrainCircuit, label: "Persuasao", path: "/ems/persuasion" },
       { icon: StickyNote, label: "Notas + Knowledge", path: "/ems/quick-notes" },
       { icon: GraduationCap, label: "Faculdade", path: "/ems/faculdade" },
     ],

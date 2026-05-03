@@ -409,14 +409,14 @@ const Reports = () => {
         </motion.div>
 
         {/* Date Range Filter */}
-        <motion.div variants={itemVariants} className="flex flex-wrap gap-3 items-end">
+        <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-[160px_160px_auto] gap-3 items-end">
           <div>
             <label className="text-xs font-medium text-muted-foreground">De</label>
-            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-[160px]" />
+            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full" />
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground">Até</label>
-            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-[160px]" />
+            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full" />
           </div>
           {(dateFrom || dateTo) && (
             <Button variant="ghost" size="sm" onClick={() => { setDateFrom(""); setDateTo(""); }}>Limpar filtro</Button>

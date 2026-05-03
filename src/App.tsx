@@ -17,6 +17,7 @@ const Finance = lazy(() => import("./pages/ems/Finance"));
 const Settings = lazy(() => import("./pages/ems/Settings"));
 const Reports = lazy(() => import("./pages/ems/Reports"));
 const Planning = lazy(() => import("./pages/ems/Planning"));
+const Persuasion = lazy(() => import("./pages/ems/Persuasion"));
 const Tasks = lazy(() => import("./pages/ems/Tasks"));
 const Contacts = lazy(() => import("./pages/ems/Contacts"));
 const RoadMap = lazy(() => import("./pages/ems/RoadMap"));
@@ -87,6 +88,7 @@ const App = () => (
               <Route path="/ems/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
               <Route path="/ems/reports" element={<ProtectedPage><Reports /></ProtectedPage>} />
               <Route path="/ems/planning" element={<ProtectedPage><Planning /></ProtectedPage>} />
+              <Route path="/ems/persuasion" element={<ProtectedPage><Persuasion /></ProtectedPage>} />
               <Route path="/ems/orgchart" element={<Navigate to="/ems/projects" replace />} />
               <Route path="/ems/roadmap" element={<ProtectedPage><RoadMap /></ProtectedPage>} />
               <Route path="/ems/quick-notes" element={<ProtectedPage><QuickNotes /></ProtectedPage>} />

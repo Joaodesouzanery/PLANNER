@@ -504,11 +504,11 @@ const Tasks = () => {
             </Button>
           ))}
 
-          <div className="w-px h-6 bg-border self-center mx-1" />
+          <div className="hidden sm:block w-px h-6 bg-border self-center mx-1" />
 
           {/* Project filter */}
           <Select value={projectFilter} onValueChange={setProjectFilter}>
-            <SelectTrigger className="h-8 w-[200px] text-xs">
+            <SelectTrigger className="h-8 w-full sm:w-[200px] text-xs">
               <FolderKanban className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
               <SelectValue placeholder="Projeto" />
             </SelectTrigger>
