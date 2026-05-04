@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { RecentActivity } from "@/components/ems/RecentActivity";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TrueNorthPanel } from "@/components/ems/TrueNorthPanel";
 import { ExecutiveDashboardContent } from "./Executive";
 import { Link } from "react-router-dom";
@@ -51,7 +52,7 @@ const Overview = () => {
   const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
   const userName = auth?.user?.email?.split("@")[0]?.replace(/[._]/g, " ") || "";
 
-  const { data: pillars = [] } = useQuery({
+  const { data: pillars = [], isLoading: pillarsLoading } = useQuery({
     queryKey: ["overview-pillars", cid],
     queryFn: async () => {
       let q = supabase.from("strategic_pillars").select("*").order("order_index");
@@ -121,7 +122,7 @@ const Overview = () => {
     },
   });
 
-  const { data: counts = { tasks: 0, projects: 0, contacts: 0, pendingTasks: 0, completedTasks: 0 } } = useQuery({
+  const { data: counts = { tasks: 0, projects: 0, contacts: 0, pendingTasks: 0, completedTasks: 0 }, isLoading: countsLoading } = useQuery({
     queryKey: ["overview-counts", cid],
     queryFn: async () => {
       let tcQ = supabase.from("tasks").select("*", { count: "exact", head: true });
@@ -135,7 +136,7 @@ const Overview = () => {
     },
   });
 
-  const { data: recentProjects = [] } = useQuery({
+  const { data: recentProjects = [], isLoading: recentLoading } = useQuery({
     queryKey: ["overview-recent-projects", cid],
     queryFn: async () => {
       let q = supabase.from("projects").select("id, title, status, client, updated_at").order("updated_at", { ascending: false }).limit(6);
@@ -145,7 +146,7 @@ const Overview = () => {
     },
   });
 
-  const { data: weeklyRevenue = [] } = useQuery({
+  const { data: weeklyRevenue = [], isLoading: chartLoading } = useQuery({
     queryKey: ["overview-weekly-revenue", cid],
     queryFn: async () => {
       const now = new Date();
