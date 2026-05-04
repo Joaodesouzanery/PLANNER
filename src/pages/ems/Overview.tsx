@@ -299,7 +299,11 @@ const Overview = () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-1">
-              {recentProjects.length === 0 ? (
+              {recentLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 p-2"><Skeleton className="h-7 w-7 rounded" /><div className="flex-1 space-y-1"><Skeleton className="h-3 w-3/4" /><Skeleton className="h-2 w-1/2" /></div></div>
+                ))
+              ) : recentProjects.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-6">Sem projetos recentes</p>
               ) : recentProjects.map((p: any) => {
                 const initials = (p.title || "?").split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
