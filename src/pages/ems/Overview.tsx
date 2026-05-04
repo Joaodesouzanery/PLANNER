@@ -228,7 +228,15 @@ const Overview = () => {
 
         {/* Orbit-style KPI cards: numeral gigante + delta */}
         <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
+          {countsLoading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i}><CardContent className="p-5 space-y-3">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-10 w-24" />
+                <Skeleton className="h-3 w-16" />
+              </CardContent></Card>
+            ))
+          ) : [
             { label: "Projetos Ativos", value: counts.projects, delta: `+${projectStats.pending}`, deltaLabel: "pendentes", Icon: FolderKanban, accent: true },
             { label: "Tarefas Concluídas", value: counts.completedTasks, delta: `+${counts.pendingTasks}`, deltaLabel: "abertas", Icon: CheckCircle2 },
             { label: "Total de Contatos", value: counts.contacts, delta: "ativo", deltaLabel: "este mês", Icon: Contact },
