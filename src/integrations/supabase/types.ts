@@ -216,6 +216,45 @@ export type Database = {
           },
         ]
       }
+      board_category_documents: {
+        Row: {
+          category: string
+          company_id: string | null
+          content_type: string | null
+          created_at: string
+          file_name: string
+          file_size: number | null
+          file_url: string
+          id: string
+          notes: string | null
+          user_id: string | null
+        }
+        Insert: {
+          category: string
+          company_id?: string | null
+          content_type?: string | null
+          created_at?: string
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          notes?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          category?: string
+          company_id?: string | null
+          content_type?: string | null
+          created_at?: string
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          notes?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       calendar_events: {
         Row: {
           all_day: boolean | null
