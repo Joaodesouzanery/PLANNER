@@ -590,6 +590,11 @@ const BoardCouncil = () => {
                 </div>
               </div>
               )}
+              {!["documents"].includes(category.id) && (
+                <div className="mt-4">
+                  <BoardCategoryDocuments category={category.id} />
+                </div>
+              )}
             </TabsContent>
           ))}
         </Tabs>
