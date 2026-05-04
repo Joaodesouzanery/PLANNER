@@ -10,6 +10,7 @@ import FinanceCalculator from "@/components/ems/finance/FinanceCalculator";
 import FinanceSimulator from "@/components/ems/finance/FinanceSimulator";
 import FinanceMetas from "@/components/ems/finance/FinanceMetas";
 import FinancePlannedImpacts from "@/components/ems/finance/FinancePlannedImpacts";
+import PurchaseImpactCalculator from "@/components/ems/finance/PurchaseImpactCalculator";
 
 const Finance = () => {
   return (
@@ -38,7 +39,7 @@ const Finance = () => {
           <TabsContent value="dashboard"><FinanceDashboard /></TabsContent>
           <TabsContent value="okrs"><FinanceOKRs /></TabsContent>
           <TabsContent value="transactions"><FinanceTransactions /></TabsContent>
-          <TabsContent value="projections"><FinanceProjections /></TabsContent>
+          <TabsContent value="projections" className="space-y-6"><FinanceProjections /><PurchaseImpactCalculator /></TabsContent>
           <TabsContent value="calculator"><FinanceCalculator /></TabsContent>
           <TabsContent value="simulator"><FinanceSimulator /></TabsContent>
           <TabsContent value="metas"><FinanceMetas /></TabsContent>
