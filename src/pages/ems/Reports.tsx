@@ -69,24 +69,37 @@ const Reports = () => {
   const [okrs, setOkrs] = useState<OKR[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [timeEntries, setTimeEntries] = useState<any[]>([]);
+  const [notes, setNotes] = useState<any[]>([]);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [include, setInclude] = useState({
+    projects: true, tasks: true, contacts: true, finance: true, okrs: true, time: true, notes: true,
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, [selectedCompanyId]);
+  useEffect(() => { fetchData(); }, [selectedCompanyId]);
 
   const fetchData = async () => {
     const cf = selectedCompanyId !== "all";
-    let oq = supabase.from("okrs").select("id,title,description,target_value,current_value,unit,period,company_id").order("created_at", { ascending: false });
-    let tq = supabase.from("financial_transactions").select("id,description,amount,type,category,date,company_id").order("date", { ascending: false });
-    let pq = supabase.from("projects").select("id,title,status,priority,company_id").order("created_at", { ascending: false });
-    if (cf) { oq = oq.eq("company_id", selectedCompanyId); tq = tq.eq("company_id", selectedCompanyId); pq = pq.eq("company_id", selectedCompanyId); }
-    const [okrsRes, transactionsRes, projectsRes] = await Promise.all([oq, tq, pq]);
-
+    const apply = (q: any) => cf ? q.eq("company_id", selectedCompanyId) : q;
+    const [okrsRes, transactionsRes, projectsRes, tasksRes, contactsRes, timeRes, notesRes] = await Promise.all([
+      apply(supabase.from("okrs").select("id,title,description,target_value,current_value,unit,period,company_id").order("created_at", { ascending: false })),
+      apply(supabase.from("financial_transactions").select("id,description,amount,type,category,date,company_id").order("date", { ascending: false })),
+      apply(supabase.from("projects").select("id,title,status,priority,client,due_date,company_id").order("created_at", { ascending: false })),
+      apply(supabase.from("tasks").select("id,title,status,priority,due_date,company_id").order("created_at", { ascending: false })),
+      apply(supabase.from("contacts").select("id,name,email,phone,company,pipeline_stage,company_id").order("created_at", { ascending: false })),
+      apply(supabase.from("time_entries").select("id,description,hours,date,company_id").order("date", { ascending: false })),
+      apply(supabase.from("quick_notes").select("id,content,created_at,company_id").order("created_at", { ascending: false })),
+    ]);
     if (okrsRes.data) setOkrs(okrsRes.data);
     if (transactionsRes.data) setTransactions(transactionsRes.data as Transaction[]);
     if (projectsRes.data) setProjects(projectsRes.data);
+    if (tasksRes.data) setTasks(tasksRes.data);
+    if (contactsRes.data) setContacts(contactsRes.data);
+    if (timeRes.data) setTimeEntries(timeRes.data);
+    if (notesRes.data) setNotes(notesRes.data);
   };
 
   const filteredTransactions = transactions.filter((t) => {
