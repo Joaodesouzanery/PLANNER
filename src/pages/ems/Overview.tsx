@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { RecentActivity } from "@/components/ems/RecentActivity";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TrueNorthPanel } from "@/components/ems/TrueNorthPanel";
 import { ExecutiveDashboardContent } from "./Executive";
 import { Link } from "react-router-dom";
@@ -51,7 +52,7 @@ const Overview = () => {
   const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
   const userName = auth?.user?.email?.split("@")[0]?.replace(/[._]/g, " ") || "";
 
-  const { data: pillars = [] } = useQuery({
+  const { data: pillars = [], isLoading: pillarsLoading } = useQuery({
     queryKey: ["overview-pillars", cid],
     queryFn: async () => {
       let q = supabase.from("strategic_pillars").select("*").order("order_index");
@@ -121,7 +122,7 @@ const Overview = () => {
     },
   });
 
-  const { data: counts = { tasks: 0, projects: 0, contacts: 0, pendingTasks: 0, completedTasks: 0 } } = useQuery({
+  const { data: counts = { tasks: 0, projects: 0, contacts: 0, pendingTasks: 0, completedTasks: 0 }, isLoading: countsLoading } = useQuery({
     queryKey: ["overview-counts", cid],
     queryFn: async () => {
       let tcQ = supabase.from("tasks").select("*", { count: "exact", head: true });
@@ -135,7 +136,7 @@ const Overview = () => {
     },
   });
 
-  const { data: recentProjects = [] } = useQuery({
+  const { data: recentProjects = [], isLoading: recentLoading } = useQuery({
     queryKey: ["overview-recent-projects", cid],
     queryFn: async () => {
       let q = supabase.from("projects").select("id, title, status, client, updated_at").order("updated_at", { ascending: false }).limit(6);
@@ -145,7 +146,7 @@ const Overview = () => {
     },
   });
 
-  const { data: weeklyRevenue = [] } = useQuery({
+  const { data: weeklyRevenue = [], isLoading: chartLoading } = useQuery({
     queryKey: ["overview-weekly-revenue", cid],
     queryFn: async () => {
       const now = new Date();
@@ -227,7 +228,15 @@ const Overview = () => {
 
         {/* Orbit-style KPI cards: numeral gigante + delta */}
         <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
+          {countsLoading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i}><CardContent className="p-5 space-y-3">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-10 w-24" />
+                <Skeleton className="h-3 w-16" />
+              </CardContent></Card>
+            ))
+          ) : [
             { label: "Projetos Ativos", value: counts.projects, delta: `+${projectStats.pending}`, deltaLabel: "pendentes", Icon: FolderKanban, accent: true },
             { label: "Tarefas Concluídas", value: counts.completedTasks, delta: `+${counts.pendingTasks}`, deltaLabel: "abertas", Icon: CheckCircle2 },
             { label: "Total de Contatos", value: counts.contacts, delta: "ativo", deltaLabel: "este mês", Icon: Contact },
@@ -290,7 +299,11 @@ const Overview = () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-1">
-              {recentProjects.length === 0 ? (
+              {recentLoading ? (
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 p-2"><Skeleton className="h-7 w-7 rounded" /><div className="flex-1 space-y-1"><Skeleton className="h-3 w-3/4" /><Skeleton className="h-2 w-1/2" /></div></div>
+                ))
+              ) : recentProjects.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-6">Sem projetos recentes</p>
               ) : recentProjects.map((p: any) => {
                 const initials = (p.title || "?").split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();

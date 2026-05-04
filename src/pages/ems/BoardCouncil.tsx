@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { AttachmentManager } from "@/components/ems/AttachmentManager";
+import { BoardCategoryDocuments } from "@/components/ems/BoardCategoryDocuments";
 import { AutomationRulesPanel } from "@/components/ems/AutomationRulesPanel";
 import { DecisionLogPanel } from "@/components/ems/DecisionLogPanel";
 import { DocumentLibrary } from "@/components/ems/DocumentLibrary";
@@ -588,6 +589,11 @@ const BoardCouncil = () => {
                   </Card>
                 </div>
               </div>
+              )}
+              {!["documents"].includes(category.id) && (
+                <div className="mt-4">
+                  <BoardCategoryDocuments category={category.id} />
+                </div>
               )}
             </TabsContent>
           ))}
