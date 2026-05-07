@@ -115,6 +115,20 @@ const priorityConfig: Record<ProspectPriority, { label: string; className: strin
   low: { label: "Baixa", className: "bg-sky-500/10 text-sky-500 border-sky-500/30" },
 };
 
+// ConstruData base (lida da landing page https://www.construdata.software/)
+const construDataBase = {
+  pitch:
+    "Plataforma operacional para obras e saneamento: integra campo, qualidade, medicao, planejamento, suprimentos e gestao em uma unica base operacional, com origem e rastreabilidade em cada dado.",
+  pillars: [
+    "RDO inteligente (boletim, equipe, clima, servicos, fotos, GPS e assinatura)",
+    "Qualidade (FVS, nao conformidades e evidencias tecnicas)",
+    "Recursos (mao de obra, equipamentos e produtividade)",
+    "Medicao liberada com quantidades por servico, origem e evidencia",
+    "Gestao com CPI, SPI, custo, prazo e risco em tempo real",
+    "Torre de controle com alertas, decisoes e proximos passos por projeto",
+  ],
+};
+
 const taskPatterns = [
   {
     label: "Controle de ponto e equipe",
