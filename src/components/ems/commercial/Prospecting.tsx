@@ -742,6 +742,70 @@ export const Prospecting = () => {
               )}
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Link2 className="h-4 w-4 text-primary" />
+                Histórico de importações do LinkedIn
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {importLogs.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">
+                  Nenhuma importação registrada ainda.
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-72 overflow-y-auto">
+                  {importLogs.map((log) => {
+                    const ok = log.status === "success";
+                    return (
+                      <div
+                        key={log.id}
+                        className={cn(
+                          "rounded-lg border p-2.5 text-xs flex items-start gap-2",
+                          ok
+                            ? "border-emerald-500/30 bg-emerald-500/5"
+                            : "border-red-500/30 bg-red-500/5"
+                        )}
+                      >
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "shrink-0 text-[10px]",
+                            ok
+                              ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                              : "bg-red-500/10 text-red-500 border-red-500/30"
+                          )}
+                        >
+                          {ok ? "Sucesso" : "Erro"}
+                        </Badge>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium truncate">
+                            {log.extracted_summary?.companyName || log.linkedin_url || "Importação manual"}
+                          </p>
+                          {log.extracted_summary?.jobTitle && (
+                            <p className="text-muted-foreground truncate">
+                              {log.extracted_summary.jobTitle}
+                              {log.extracted_summary?.aboutLength
+                                ? ` • ${log.extracted_summary.aboutLength} caracteres`
+                                : ""}
+                            </p>
+                          )}
+                          {log.error_message && (
+                            <p className="text-red-500/80 mt-1 break-words">{log.error_message}</p>
+                          )}
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            {new Date(log.created_at).toLocaleString("pt-BR")}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         <Card className="xl:sticky xl:top-4 xl:self-start">
