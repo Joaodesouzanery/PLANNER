@@ -219,32 +219,34 @@ const generateDiagnosis = (form: ProspectForm, tasks: string[]): Diagnosis => {
   const constructionSignals = topTasks.length > 0 ? topTasks.join(", ") : "gestao administrativa e operacional de obra";
   const solutions = matchedPatterns.length > 0
     ? matchedPatterns.map((pattern) => pattern.solution)
-    : [
-        "RDO inteligente com fotos, clima e GPS.",
-        "Indicadores por obra e visao executiva para diretoria.",
-        "Modulos conectados entre campo, qualidade, suprimentos e planejamento.",
-      ];
+    : construDataBase.pillars.slice(0, 3);
 
   const risks = matchedPatterns.length > 0
     ? matchedPatterns.map((pattern) => pattern.risk)
     : [
         "RDO preenchido tarde ou incompleto.",
         "Fotos sem vinculo com etapa, local ou responsavel.",
+        "Decisoes importantes perdidas entre obra e escritorio.",
         "Diretoria recebendo informacao consolidada tarde.",
         "Suprimentos sem rastreabilidade ate o impacto na obra.",
+        "Medicao sem evidencia operacional forte.",
       ];
 
   const problemList = topTasks.length > 0 ? topTasks.join(", ") : "registros soltos, baixa rastreabilidade e consolidacao tardia";
-  const solutionList = solutions.slice(0, 3).join("; ");
+  const construFit = Array.from(new Set([...solutions, ...construDataBase.pillars])).slice(0, 6);
+  const featuresMessage = construFit.slice(0, 3).join("; ");
 
   return {
-    observedWork: `${form.job_title || "Vaga analisada"}${form.location ? ` em ${form.location}` : ""}. A descricao indica rotinas ligadas a ${constructionSignals}.`,
+    observedWork: `${form.job_title || "Vaga analisada"}${form.location ? ` em ${form.location}` : ""}${form.company_name ? ` - ${form.company_name}` : ""}. Pelo tipo e porte da obra observado, a descricao indica rotinas ligadas a ${constructionSignals}.`,
     operationalHypothesis:
-      `Pelo tipo de vaga e pelos sinais operacionais encontrados, e provavel que exista alto volume de registros de campo, fotos, solicitacoes, controles administrativos, medicoes, qualidade e alinhamento entre obra e escritorio. Quando isso depende de planilhas ou repasses manuais, a diretoria tende a enxergar avancos, pendencias e gargalos tarde demais.`,
+      `Pelo tipo e porte da obra, e provavel que exista alto volume de registro de campo, fotos, solicitacoes, medicoes, qualidade e alinhamento entre obra e escritorio. Quando isso depende de planilhas soltas e repasses manuais, a diretoria tende a enxergar avancos, pendencias e gargalos tarde demais, perdendo velocidade na decisao.`,
     commonRisks: risks,
-    whereConstruDataFits: Array.from(new Set(solutions)).slice(0, 6),
+    whereConstruDataFits: construFit,
     suggestedMessage:
-      `Vi que a ${form.company_name || "empresa"} esta buscando apoio para ${problemList}. Normalmente isso aparece quando a obra precisa de mais controle sobre o que acontece em campo, menos dependencia de planilhas soltas e mais velocidade para a diretoria enxergar avancos, pendencias e gargalos. O ConstruData pode ajudar com ${solutionList}. Podemos agendar uma conversa rapida de 20 minutos?\n\nMeu trabalho e o seguinte: Em X dias, identificamos X, Y, Z problemas e encontramos solucoes X, Y, Z, otimizando a operacao em X, Y, Z. Alem disso, entregamos relatorios do que melhorou e do que ainda esta travando a operacao.`,
+      `Ola! Vi que a ${form.company_name || "empresa"} esta com a vaga de ${form.job_title || "operacao de obra"} aberta, normalmente ligada a ${problemList}. ` +
+      `Isso costuma indicar a necessidade de mais controle sobre o que acontece em campo, menos dependencia de planilhas soltas e mais velocidade para a diretoria enxergar avancos, pendencias e gargalos. ` +
+      `O ConstruData entrega exatamente isso, com ${featuresMessage}. Podemos agendar uma reuniao rapida de 20 minutos?\n\n` +
+      `Como funciona o meu trabalho: em X dias, identificamos X, Y, Z problemas e encontramos solucoes X, Y, Z, otimizando a operacao em X, Y, Z. Alem disso, voce recebe relatorios do que melhorou e do que ainda esta travando a operacao.`,
     generatedAt: new Date().toISOString(),
   };
 };
