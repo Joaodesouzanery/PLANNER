@@ -115,6 +115,20 @@ const priorityConfig: Record<ProspectPriority, { label: string; className: strin
   low: { label: "Baixa", className: "bg-sky-500/10 text-sky-500 border-sky-500/30" },
 };
 
+// ConstruData base (lida da landing page https://www.construdata.software/)
+const construDataBase = {
+  pitch:
+    "Plataforma operacional para obras e saneamento: integra campo, qualidade, medicao, planejamento, suprimentos e gestao em uma unica base operacional, com origem e rastreabilidade em cada dado.",
+  pillars: [
+    "RDO inteligente (boletim, equipe, clima, servicos, fotos, GPS e assinatura)",
+    "Qualidade (FVS, nao conformidades e evidencias tecnicas)",
+    "Recursos (mao de obra, equipamentos e produtividade)",
+    "Medicao liberada com quantidades por servico, origem e evidencia",
+    "Gestao com CPI, SPI, custo, prazo e risco em tempo real",
+    "Torre de controle com alertas, decisoes e proximos passos por projeto",
+  ],
+};
+
 const taskPatterns = [
   {
     label: "Controle de ponto e equipe",
@@ -205,32 +219,34 @@ const generateDiagnosis = (form: ProspectForm, tasks: string[]): Diagnosis => {
   const constructionSignals = topTasks.length > 0 ? topTasks.join(", ") : "gestao administrativa e operacional de obra";
   const solutions = matchedPatterns.length > 0
     ? matchedPatterns.map((pattern) => pattern.solution)
-    : [
-        "RDO inteligente com fotos, clima e GPS.",
-        "Indicadores por obra e visao executiva para diretoria.",
-        "Modulos conectados entre campo, qualidade, suprimentos e planejamento.",
-      ];
+    : construDataBase.pillars.slice(0, 3);
 
   const risks = matchedPatterns.length > 0
     ? matchedPatterns.map((pattern) => pattern.risk)
     : [
         "RDO preenchido tarde ou incompleto.",
         "Fotos sem vinculo com etapa, local ou responsavel.",
+        "Decisoes importantes perdidas entre obra e escritorio.",
         "Diretoria recebendo informacao consolidada tarde.",
         "Suprimentos sem rastreabilidade ate o impacto na obra.",
+        "Medicao sem evidencia operacional forte.",
       ];
 
   const problemList = topTasks.length > 0 ? topTasks.join(", ") : "registros soltos, baixa rastreabilidade e consolidacao tardia";
-  const solutionList = solutions.slice(0, 3).join("; ");
+  const construFit = Array.from(new Set([...solutions, ...construDataBase.pillars])).slice(0, 6);
+  const featuresMessage = construFit.slice(0, 3).join("; ");
 
   return {
-    observedWork: `${form.job_title || "Vaga analisada"}${form.location ? ` em ${form.location}` : ""}. A descricao indica rotinas ligadas a ${constructionSignals}.`,
+    observedWork: `${form.job_title || "Vaga analisada"}${form.location ? ` em ${form.location}` : ""}${form.company_name ? ` - ${form.company_name}` : ""}. Pelo tipo e porte da obra observado, a descricao indica rotinas ligadas a ${constructionSignals}.`,
     operationalHypothesis:
-      `Pelo tipo de vaga e pelos sinais operacionais encontrados, e provavel que exista alto volume de registros de campo, fotos, solicitacoes, controles administrativos, medicoes, qualidade e alinhamento entre obra e escritorio. Quando isso depende de planilhas ou repasses manuais, a diretoria tende a enxergar avancos, pendencias e gargalos tarde demais.`,
+      `Pelo tipo e porte da obra, e provavel que exista alto volume de registro de campo, fotos, solicitacoes, medicoes, qualidade e alinhamento entre obra e escritorio. Quando isso depende de planilhas soltas e repasses manuais, a diretoria tende a enxergar avancos, pendencias e gargalos tarde demais, perdendo velocidade na decisao.`,
     commonRisks: risks,
-    whereConstruDataFits: Array.from(new Set(solutions)).slice(0, 6),
+    whereConstruDataFits: construFit,
     suggestedMessage:
-      `Vi que a ${form.company_name || "empresa"} esta buscando apoio para ${problemList}. Normalmente isso aparece quando a obra precisa de mais controle sobre o que acontece em campo, menos dependencia de planilhas soltas e mais velocidade para a diretoria enxergar avancos, pendencias e gargalos. O ConstruData pode ajudar com ${solutionList}. Podemos agendar uma conversa rapida de 20 minutos?\n\nMeu trabalho e o seguinte: Em X dias, identificamos X, Y, Z problemas e encontramos solucoes X, Y, Z, otimizando a operacao em X, Y, Z. Alem disso, entregamos relatorios do que melhorou e do que ainda esta travando a operacao.`,
+      `Ola! Vi que a ${form.company_name || "empresa"} esta com a vaga de ${form.job_title || "operacao de obra"} aberta, normalmente ligada a ${problemList}. ` +
+      `Isso costuma indicar a necessidade de mais controle sobre o que acontece em campo, menos dependencia de planilhas soltas e mais velocidade para a diretoria enxergar avancos, pendencias e gargalos. ` +
+      `O ConstruData entrega exatamente isso, com ${featuresMessage}. Podemos agendar uma reuniao rapida de 20 minutos?\n\n` +
+      `Como funciona o meu trabalho: em X dias, identificamos X, Y, Z problemas e encontramos solucoes X, Y, Z, otimizando a operacao em X, Y, Z. Alem disso, voce recebe relatorios do que melhorou e do que ainda esta travando a operacao.`,
     generatedAt: new Date().toISOString(),
   };
 };
@@ -377,17 +393,53 @@ export const Prospecting = () => {
     },
   });
 
+  const logImport = async (
+    status: "success" | "error",
+    payload: { url?: string; errorMessage?: string; summary?: any }
+  ) => {
+    try {
+      await (supabase as any).from("linkedin_import_logs").insert({
+        linkedin_url: payload.url || null,
+        status,
+        error_message: payload.errorMessage || null,
+        extracted_summary: payload.summary || {},
+        company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
+        completed_at: new Date().toISOString(),
+      });
+      queryClient.invalidateQueries({ queryKey: ["linkedin-import-logs"] });
+    } catch (e) {
+      console.warn("Falha ao registrar log de import:", e);
+    }
+  };
+
   const importLinkedInMutation = useMutation({
     mutationFn: async () => {
-      const body = form.linkedin_job_url.trim()
-        ? { url: form.linkedin_job_url.trim(), text: linkedinPaste.trim() || undefined }
-        : { text: linkedinPaste.trim() };
+      const url = form.linkedin_job_url.trim();
+      const text = linkedinPaste.trim();
+      if (!url && !text) {
+        throw new Error("Informe a URL da vaga ou cole o texto antes de importar.");
+      }
+      const body = url ? { url, text: text || undefined } : { text };
       const { data, error } = await supabase.functions.invoke("linkedin-job-parser", { body });
-      if (error) throw error;
+      if (error) {
+        let detail = error.message;
+        try {
+          const ctx: any = (error as any).context;
+          if (ctx?.json) {
+            const json = await ctx.json();
+            if (json?.error) detail = json.error;
+          } else if (ctx?.text) {
+            detail = await ctx.text();
+          }
+        } catch {
+          // ignore
+        }
+        throw new Error(detail || "Falha ao chamar a importacao da vaga.");
+      }
       if (data?.error) throw new Error(data.error);
-      return data as { companyName?: string; location?: string; jobTitle?: string; about?: string };
+      return { data: data as { companyName?: string; location?: string; jobTitle?: string; about?: string }, url };
     },
-    onSuccess: (data) => {
+    onSuccess: ({ data, url }) => {
       setForm((prev) => ({
         ...prev,
         company_name: data.companyName || prev.company_name,
@@ -395,14 +447,47 @@ export const Prospecting = () => {
         job_title: data.jobTitle || prev.job_title,
         job_about: data.about || prev.job_about,
       }));
+      logImport("success", {
+        url,
+        summary: {
+          companyName: data.companyName,
+          jobTitle: data.jobTitle,
+          location: data.location,
+          aboutLength: data.about?.length || 0,
+        },
+      });
       toast({ title: "Vaga importada", description: "Revise os dados antes de salvar o prospect." });
     },
     onError: (error: any) => {
+      const msg = error?.message || "Erro desconhecido ao importar pela URL.";
+      logImport("error", { url: form.linkedin_job_url.trim() || undefined, errorMessage: msg });
       toast({
         title: "Nao consegui importar pela URL",
-        description: error?.message || "Cole o texto da vaga no campo de apoio e tente novamente.",
+        description: `${msg} Se a URL exigir login no LinkedIn, cole o texto da vaga no campo de apoio.`,
         variant: "destructive",
       });
+    },
+  });
+
+  const { data: importLogs = [] } = useQuery({
+    queryKey: ["linkedin-import-logs", selectedCompanyId],
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("linkedin_import_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data || []) as Array<{
+        id: string;
+        linkedin_url: string | null;
+        status: string;
+        error_message: string | null;
+        extracted_summary: any;
+        created_at: string;
+      }>;
     },
   });
 
@@ -654,6 +739,70 @@ export const Prospecting = () => {
                     <Progress value={task.percent} className="h-2" />
                   </div>
                 ))
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Link2 className="h-4 w-4 text-primary" />
+                Histórico de importações do LinkedIn
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {importLogs.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">
+                  Nenhuma importação registrada ainda.
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-72 overflow-y-auto">
+                  {importLogs.map((log) => {
+                    const ok = log.status === "success";
+                    return (
+                      <div
+                        key={log.id}
+                        className={cn(
+                          "rounded-lg border p-2.5 text-xs flex items-start gap-2",
+                          ok
+                            ? "border-emerald-500/30 bg-emerald-500/5"
+                            : "border-red-500/30 bg-red-500/5"
+                        )}
+                      >
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "shrink-0 text-[10px]",
+                            ok
+                              ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                              : "bg-red-500/10 text-red-500 border-red-500/30"
+                          )}
+                        >
+                          {ok ? "Sucesso" : "Erro"}
+                        </Badge>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium truncate">
+                            {log.extracted_summary?.companyName || log.linkedin_url || "Importação manual"}
+                          </p>
+                          {log.extracted_summary?.jobTitle && (
+                            <p className="text-muted-foreground truncate">
+                              {log.extracted_summary.jobTitle}
+                              {log.extracted_summary?.aboutLength
+                                ? ` • ${log.extracted_summary.aboutLength} caracteres`
+                                : ""}
+                            </p>
+                          )}
+                          {log.error_message && (
+                            <p className="text-red-500/80 mt-1 break-words">{log.error_message}</p>
+                          )}
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            {new Date(log.created_at).toLocaleString("pt-BR")}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </CardContent>
           </Card>

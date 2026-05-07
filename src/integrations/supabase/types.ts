@@ -1310,6 +1310,53 @@ export type Database = {
           },
         ]
       }
+      linkedin_import_logs: {
+        Row: {
+          company_id: string | null
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          extracted_summary: Json | null
+          id: string
+          linkedin_url: string | null
+          prospect_id: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          extracted_summary?: Json | null
+          id?: string
+          linkedin_url?: string | null
+          prospect_id?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          extracted_summary?: Json | null
+          id?: string
+          linkedin_url?: string | null
+          prospect_id?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "linkedin_import_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       monthly_focus: {
         Row: {
           company_id: string | null
