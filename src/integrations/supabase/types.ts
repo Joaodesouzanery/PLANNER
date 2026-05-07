@@ -445,6 +445,74 @@ export type Database = {
           },
         ]
       }
+      commercial_prospects: {
+        Row: {
+          company_id: string | null
+          company_name: string
+          contacts: Json
+          created_at: string
+          extracted_tasks: Json
+          id: string
+          job_about: string | null
+          job_title: string | null
+          linkedin_job_url: string | null
+          location: string | null
+          meeting_date: string | null
+          notes: string | null
+          operational_diagnosis: Json
+          priority: string
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          company_name: string
+          contacts?: Json
+          created_at?: string
+          extracted_tasks?: Json
+          id?: string
+          job_about?: string | null
+          job_title?: string | null
+          linkedin_job_url?: string | null
+          location?: string | null
+          meeting_date?: string | null
+          notes?: string | null
+          operational_diagnosis?: Json
+          priority?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          company_name?: string
+          contacts?: Json
+          created_at?: string
+          extracted_tasks?: Json
+          id?: string
+          job_about?: string | null
+          job_title?: string | null
+          linkedin_job_url?: string | null
+          location?: string | null
+          meeting_date?: string | null
+          notes?: string | null
+          operational_diagnosis?: Json
+          priority?: string
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commercial_prospects_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       commercial_structure_items: {
         Row: {
           attachment_name: string | null
