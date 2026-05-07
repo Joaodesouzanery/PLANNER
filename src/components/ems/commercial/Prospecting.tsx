@@ -393,17 +393,53 @@ export const Prospecting = () => {
     },
   });
 
+  const logImport = async (
+    status: "success" | "error",
+    payload: { url?: string; errorMessage?: string; summary?: any }
+  ) => {
+    try {
+      await (supabase as any).from("linkedin_import_logs").insert({
+        linkedin_url: payload.url || null,
+        status,
+        error_message: payload.errorMessage || null,
+        extracted_summary: payload.summary || {},
+        company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
+        completed_at: new Date().toISOString(),
+      });
+      queryClient.invalidateQueries({ queryKey: ["linkedin-import-logs"] });
+    } catch (e) {
+      console.warn("Falha ao registrar log de import:", e);
+    }
+  };
+
   const importLinkedInMutation = useMutation({
     mutationFn: async () => {
-      const body = form.linkedin_job_url.trim()
-        ? { url: form.linkedin_job_url.trim(), text: linkedinPaste.trim() || undefined }
-        : { text: linkedinPaste.trim() };
+      const url = form.linkedin_job_url.trim();
+      const text = linkedinPaste.trim();
+      if (!url && !text) {
+        throw new Error("Informe a URL da vaga ou cole o texto antes de importar.");
+      }
+      const body = url ? { url, text: text || undefined } : { text };
       const { data, error } = await supabase.functions.invoke("linkedin-job-parser", { body });
-      if (error) throw error;
+      if (error) {
+        let detail = error.message;
+        try {
+          const ctx: any = (error as any).context;
+          if (ctx?.json) {
+            const json = await ctx.json();
+            if (json?.error) detail = json.error;
+          } else if (ctx?.text) {
+            detail = await ctx.text();
+          }
+        } catch {
+          // ignore
+        }
+        throw new Error(detail || "Falha ao chamar a importacao da vaga.");
+      }
       if (data?.error) throw new Error(data.error);
-      return data as { companyName?: string; location?: string; jobTitle?: string; about?: string };
+      return { data: data as { companyName?: string; location?: string; jobTitle?: string; about?: string }, url };
     },
-    onSuccess: (data) => {
+    onSuccess: ({ data, url }) => {
       setForm((prev) => ({
         ...prev,
         company_name: data.companyName || prev.company_name,
@@ -411,14 +447,47 @@ export const Prospecting = () => {
         job_title: data.jobTitle || prev.job_title,
         job_about: data.about || prev.job_about,
       }));
+      logImport("success", {
+        url,
+        summary: {
+          companyName: data.companyName,
+          jobTitle: data.jobTitle,
+          location: data.location,
+          aboutLength: data.about?.length || 0,
+        },
+      });
       toast({ title: "Vaga importada", description: "Revise os dados antes de salvar o prospect." });
     },
     onError: (error: any) => {
+      const msg = error?.message || "Erro desconhecido ao importar pela URL.";
+      logImport("error", { url: form.linkedin_job_url.trim() || undefined, errorMessage: msg });
       toast({
         title: "Nao consegui importar pela URL",
-        description: error?.message || "Cole o texto da vaga no campo de apoio e tente novamente.",
+        description: `${msg} Se a URL exigir login no LinkedIn, cole o texto da vaga no campo de apoio.`,
         variant: "destructive",
       });
+    },
+  });
+
+  const { data: importLogs = [] } = useQuery({
+    queryKey: ["linkedin-import-logs", selectedCompanyId],
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("linkedin_import_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data || []) as Array<{
+        id: string;
+        linkedin_url: string | null;
+        status: string;
+        error_message: string | null;
+        extracted_summary: any;
+        created_at: string;
+      }>;
     },
   });
 
