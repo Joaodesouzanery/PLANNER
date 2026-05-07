@@ -97,6 +97,7 @@ const App = () => (
               <Route path="/ems/daily-report" element={<ProtectedPage><DailyReport /></ProtectedPage>} />
               <Route path="/ems/conselho" element={<ProtectedPage><BoardCouncil /></ProtectedPage>} />
               <Route path="/ems/comercial" element={<ProtectedPage><Commercial /></ProtectedPage>} />
+              <Route path="/ems/comercial/prospeccao" element={<Navigate to="/ems/comercial?tab=prospecting" replace />} />
               <Route path="/ems/comercial/contatos" element={<ProtectedPage><Contacts /></ProtectedPage>} />
               <Route path="/ems/comercial/estrutura" element={<ProtectedPage><CommercialStructure /></ProtectedPage>} />
               <Route path="/ems/comercial/comparativo" element={<ProtectedPage><CommercialComparison /></ProtectedPage>} />

@@ -17,7 +17,7 @@ import {
   FileText, Globe, BarChart3, Target, TrendingUp, Phone, Mail, Building2,
   Briefcase, Save, Settings2, Kanban, Tag, Flame, Thermometer, CalendarClock,
   X, Plus, AlertTriangle, Zap, UserPlus, Network, ClipboardCheck, Workflow,
-  HeartPulse, MapPinned
+  HeartPulse, MapPinned, FileSearch
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +32,7 @@ import { VisitRoutesContent } from "./VisitRoutes";
 const PipelineKanban = lazy(() => import("@/components/ems/commercial/PipelineKanban"));
 const FunnelReports = lazy(() => import("@/components/ems/commercial/FunnelReports"));
 const ClientRelationshipKanban = lazy(() => import("@/components/ems/commercial/ClientRelationshipKanban"));
+const Prospecting = lazy(() => import("@/components/ems/commercial/Prospecting"));
 
 
 const phaseIcons: Record<string, typeof Target> = {
@@ -104,6 +105,11 @@ const Commercial = () => {
       }
     }
   }, [searchParams, contacts]);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab) setActiveTab(tab);
+  }, [searchParams]);
 
   // Fetch tracking for selected contact
   const { data: tracking = [] } = useQuery({
@@ -294,6 +300,7 @@ const Commercial = () => {
     { title: "Contatos", description: "Cadastro, interações e tarefas vinculadas aos contatos.", icon: UserPlus, path: "/ems/comercial/contatos", color: "text-blue-500", bg: "bg-blue-500/10", border: "border-blue-500/20" },
     { title: "Comercial Automatizado", description: "Pipeline, relatórios e gestão das etapas do funil.", icon: Kanban, tab: "pipeline", color: "text-primary", bg: "bg-primary/10", border: "border-primary/20" },
     { title: "Clientes", description: "Kanban de relacionamento, riscos, receita e próximas ações por conta.", icon: HeartPulse, tab: "clients", color: "text-rose-500", bg: "bg-rose-500/10", border: "border-rose-500/20" },
+    { title: "Prospecção", description: "Empresas alvo, vagas do LinkedIn, contatos e diagnóstico operacional.", icon: FileSearch, tab: "prospecting", color: "text-cyan-500", bg: "bg-cyan-500/10", border: "border-cyan-500/20" },
     { title: "Estrutura Comercial", description: "Processos comerciais por empresa e comparativos.", icon: Network, path: "/ems/comercial/estrutura", color: "text-emerald-500", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
     { title: "Onboarding", description: "Acompanhamento de documentos e etapas do cliente.", icon: ClipboardCheck, path: "/ems/comercial/onboarding", color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/20" },
     { title: "Implementação Ágil", description: "Roadmaps e rotas de implantação após a venda.", icon: Workflow, path: "/ems/comercial/implementacao-agil", color: "text-purple-500", bg: "bg-purple-500/10", border: "border-purple-500/20" },
@@ -672,11 +679,12 @@ const Commercial = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-7 h-auto">
+          <TabsList className="grid w-full grid-cols-4 sm:grid-cols-8 h-auto">
             <TabsTrigger value="central" className="gap-1.5"><Briefcase className="h-4 w-4" /><span className="hidden sm:inline">Central</span></TabsTrigger>
             <TabsTrigger value="contacts" className="gap-1.5"><Users className="h-4 w-4" /><span className="hidden sm:inline">Funil</span></TabsTrigger>
             <TabsTrigger value="pipeline" className="gap-1.5"><Kanban className="h-4 w-4" /><span className="hidden sm:inline">Pipeline</span></TabsTrigger>
             <TabsTrigger value="clients" className="gap-1.5"><HeartPulse className="h-4 w-4" /><span className="hidden sm:inline">Clientes</span></TabsTrigger>
+            <TabsTrigger value="prospecting" className="gap-1.5"><FileSearch className="h-4 w-4" /><span className="hidden sm:inline">Prospecção</span></TabsTrigger>
             <TabsTrigger value="routes" className="gap-1.5"><MapPinned className="h-4 w-4" /><span className="hidden sm:inline">Rotas</span></TabsTrigger>
             <TabsTrigger value="reports" className="gap-1.5"><BarChart3 className="h-4 w-4" /><span className="hidden sm:inline">Relatórios</span></TabsTrigger>
             <TabsTrigger value="manage" className="gap-1.5"><Settings2 className="h-4 w-4" /><span className="hidden sm:inline">Gerenciar</span></TabsTrigger>
@@ -873,6 +881,14 @@ const Commercial = () => {
             {activeTab === "clients" && (
               <Suspense fallback={<Card><CardContent className="p-6 text-sm text-muted-foreground">Carregando clientes...</CardContent></Card>}>
                 <ClientRelationshipKanban enabled={activeTab === "clients"} />
+              </Suspense>
+            )}
+          </TabsContent>
+
+          <TabsContent value="prospecting" className="mt-4">
+            {activeTab === "prospecting" && (
+              <Suspense fallback={<Card><CardContent className="p-6 text-sm text-muted-foreground">Carregando prospecção...</CardContent></Card>}>
+                <Prospecting />
               </Suspense>
             )}
           </TabsContent>
