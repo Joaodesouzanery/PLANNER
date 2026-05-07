@@ -8,6 +8,7 @@ import {
   Building2,
   CalendarClock,
   ClipboardList,
+  Copy,
   Edit2,
   ExternalLink,
   FileSearch,
@@ -21,6 +22,7 @@ import {
   RefreshCw,
   Save,
   Search,
+  Send,
   Sparkles,
   Trash2,
   UserPlus,
@@ -48,13 +50,43 @@ interface ProspectContact {
   name?: string;
 }
 
+interface DiagnosisEvidence {
+  id: string;
+  quote: string;
+  source: "Sobre a vaga";
+  sourceIndex: number;
+  matchedKeywords: string[];
+}
+
+interface DiagnosisRisk {
+  id: string;
+  task: string;
+  risk: string;
+  module: string;
+  recommendation: string;
+  evidences: DiagnosisEvidence[];
+}
+
 interface Diagnosis {
+  caseTitle?: string;
   observedWork: string;
   operationalHypothesis: string;
   commonRisks: string[];
   whereConstruDataFits: string[];
+  risks?: DiagnosisRisk[];
   suggestedMessage: string;
+  messageDraft?: string;
+  sourceSnapshot?: {
+    companyName: string;
+    location: string;
+    jobTitle: string;
+    linkedinJobUrl: string;
+    jobAbout: string;
+    generatedFrom: "linkedin" | "manual";
+    importedAt?: string;
+  };
   generatedAt: string;
+  updatedAt?: string;
 }
 
 interface Prospect {
@@ -134,42 +166,49 @@ const taskPatterns = [
     label: "Controle de ponto e equipe",
     keywords: ["ponto", "colaborador", "funcionario", "equipe", "vale transporte", "alimentacao", "epi", "epis"],
     risk: "Controle de equipe disperso entre planilhas, papel e conversas, dificultando conferencia e tomada de decisao.",
+    module: "Gestao de equipe + RDO inteligente",
     solution: "Gestao de equipe, registros de campo e evidencias operacionais vinculadas ao responsavel.",
   },
   {
     label: "Admissao, demissao e documentos",
     keywords: ["admissao", "demissao", "documentos", "documentacao", "arquivo", "arquivos"],
     risk: "Documentos importantes podem ficar fora do fluxo da obra e perder rastreabilidade entre campo e escritorio.",
+    module: "Documentos e trilha operacional",
     solution: "Centralizacao de documentos, trilha de responsabilidade e historico por obra.",
   },
   {
     label: "RDO, relatorios e planilhas",
     keywords: ["rdo", "relatorio", "relatorios", "planilha", "planilhas", "controle", "lancar", "sistema"],
     risk: "RDO preenchido tarde ou incompleto e relatorios consolidados depois que o problema ja impactou a obra.",
+    module: "RDO inteligente + indicadores por obra",
     solution: "RDO inteligente com fotos, clima, GPS, indicadores por obra e visao executiva.",
   },
   {
     label: "Notas fiscais, requisicoes e suprimentos",
     keywords: ["nota fiscal", "notas fiscais", "requisicao", "requisicoes", "material", "materiais", "pedido", "pedidos", "suprimentos"],
     risk: "Suprimentos sem rastreabilidade clara ate o impacto no prazo, custo e produtividade da obra.",
+    module: "Suprimentos e pedidos de material",
     solution: "Pedidos de material, rastreamento de requisicoes e comparacao entre consumo real e planejado.",
   },
   {
     label: "Fotos e evidencias de campo",
     keywords: ["foto", "fotos", "evidencia", "evidencias", "qualidade", "inspecao", "vistoria"],
     risk: "Fotos sem vinculo com etapa, local ou responsavel reduzem a forca operacional das evidencias.",
+    module: "Evidencias rastreaveis + qualidade",
     solution: "Evidencias com origem, local, responsavel, etapa e rastreabilidade para auditoria e medicao.",
   },
   {
     label: "Apoio a engenharia e alinhamento",
     keywords: ["engenheiro", "mestre de obras", "demanda", "acompanhar", "apoio", "administrativa", "administrativo"],
     risk: "Decisoes importantes podem se perder entre obra e escritorio quando o fluxo depende de repasses manuais.",
+    module: "Campo, escritorio e visao executiva",
     solution: "Modulos conectados entre campo, qualidade, suprimentos, planejamento e diretoria.",
   },
   {
     label: "Medicao, producao e avancos",
     keywords: ["medicao", "medicoes", "producao", "avanco", "avancos", "cronograma", "planejamento", "meta"],
     risk: "Medicao sem evidencia operacional forte dificulta confianca sobre avanco fisico e gargalos.",
+    module: "Controle de producao + medicoes",
     solution: "Controle de producao, metas, indicadores de avance e relatorios por periodo e projeto.",
   },
 ];
@@ -189,9 +228,16 @@ const normalize = (value: string) =>
 
 const splitSentences = (text: string) =>
   text
-    .split(/\n|\.|;|•|-/)
+    .split(/\n|\.|;|•|â€¢|-/)
     .map((part) => part.trim())
     .filter((part) => part.length > 12);
+
+const splitEvidenceChunks = (text: string): Array<{ quote: string; sourceIndex: number }> =>
+  text
+    .split(/\n|\.|;|•|â€¢|-/)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 12)
+    .map((quote, index) => ({ quote, sourceIndex: index + 1 }));
 
 const extractTasks = (about: string) => {
   const normalized = normalize(about);
@@ -213,8 +259,44 @@ const buildTaskEvidence = (about: string) => {
     .filter((task) => task.count > 0);
 };
 
+const buildRiskFindings = (about: string): DiagnosisRisk[] => {
+  const chunks = splitEvidenceChunks(about);
+
+  return taskPatterns
+    .map((task, index) => {
+      const evidences = chunks
+        .map((chunk) => {
+          const normalized = normalize(chunk.quote);
+          const matchedKeywords = task.keywords.filter((keyword) => normalized.includes(normalize(keyword)));
+          if (matchedKeywords.length === 0) return null;
+
+          return {
+            id: `evidencia-${index + 1}-${chunk.sourceIndex}`,
+            quote: chunk.quote,
+            source: "Sobre a vaga" as const,
+            sourceIndex: chunk.sourceIndex,
+            matchedKeywords,
+          };
+        })
+        .filter(Boolean) as DiagnosisEvidence[];
+
+      if (evidences.length === 0) return null;
+
+      return {
+        id: `risco-${index + 1}`,
+        task: task.label,
+        risk: task.risk,
+        module: task.module,
+        recommendation: task.solution,
+        evidences: evidences.slice(0, 3),
+      };
+    })
+    .filter(Boolean) as DiagnosisRisk[];
+};
+
 const generateDiagnosis = (form: ProspectForm, tasks: string[]): Diagnosis => {
   const matchedPatterns = taskPatterns.filter((pattern) => tasks.includes(pattern.label));
+  const risksWithEvidence = buildRiskFindings(form.job_about);
   const topTasks = matchedPatterns.slice(0, 4).map((task) => task.label);
   const constructionSignals = topTasks.length > 0 ? topTasks.join(", ") : "gestao administrativa e operacional de obra";
   const solutions = matchedPatterns.length > 0
@@ -235,18 +317,31 @@ const generateDiagnosis = (form: ProspectForm, tasks: string[]): Diagnosis => {
   const problemList = topTasks.length > 0 ? topTasks.join(", ") : "registros soltos, baixa rastreabilidade e consolidacao tardia";
   const construFit = Array.from(new Set([...solutions, ...construDataBase.pillars])).slice(0, 6);
   const featuresMessage = construFit.slice(0, 3).join("; ");
+  const suggestedMessage =
+    `Ola! Vi que a ${form.company_name || "empresa"} esta com a vaga de ${form.job_title || "operacao de obra"} aberta, normalmente ligada a ${problemList}. ` +
+    `Isso costuma indicar a necessidade de mais controle sobre o que acontece em campo, menos dependencia de planilhas soltas e mais velocidade para a diretoria enxergar avancos, pendencias e gargalos. ` +
+    `O ConstruData entrega exatamente isso, com ${featuresMessage}. Podemos agendar uma reuniao rapida de 20 minutos?\n\n` +
+    `Como funciona o meu trabalho: em X dias, identificamos X, Y, Z problemas e encontramos solucoes X, Y, Z, otimizando a operacao em X, Y, Z. Alem disso, voce recebe relatorios do que melhorou e do que ainda esta travando a operacao.`;
 
   return {
+    caseTitle: `Caso operacional - ${form.company_name || "Empresa sem nome"}`,
     observedWork: `${form.job_title || "Vaga analisada"}${form.location ? ` em ${form.location}` : ""}${form.company_name ? ` - ${form.company_name}` : ""}. Pelo tipo e porte da obra observado, a descricao indica rotinas ligadas a ${constructionSignals}.`,
     operationalHypothesis:
       `Pelo tipo e porte da obra, e provavel que exista alto volume de registro de campo, fotos, solicitacoes, medicoes, qualidade e alinhamento entre obra e escritorio. Quando isso depende de planilhas soltas e repasses manuais, a diretoria tende a enxergar avancos, pendencias e gargalos tarde demais, perdendo velocidade na decisao.`,
-    commonRisks: risks,
+    commonRisks: risksWithEvidence.length ? risksWithEvidence.map((risk) => risk.risk) : risks,
     whereConstruDataFits: construFit,
-    suggestedMessage:
-      `Ola! Vi que a ${form.company_name || "empresa"} esta com a vaga de ${form.job_title || "operacao de obra"} aberta, normalmente ligada a ${problemList}. ` +
-      `Isso costuma indicar a necessidade de mais controle sobre o que acontece em campo, menos dependencia de planilhas soltas e mais velocidade para a diretoria enxergar avancos, pendencias e gargalos. ` +
-      `O ConstruData entrega exatamente isso, com ${featuresMessage}. Podemos agendar uma reuniao rapida de 20 minutos?\n\n` +
-      `Como funciona o meu trabalho: em X dias, identificamos X, Y, Z problemas e encontramos solucoes X, Y, Z, otimizando a operacao em X, Y, Z. Alem disso, voce recebe relatorios do que melhorou e do que ainda esta travando a operacao.`,
+    risks: risksWithEvidence,
+    suggestedMessage,
+    messageDraft: suggestedMessage,
+    sourceSnapshot: {
+      companyName: form.company_name,
+      location: form.location,
+      jobTitle: form.job_title,
+      linkedinJobUrl: form.linkedin_job_url,
+      jobAbout: form.job_about,
+      generatedFrom: form.linkedin_job_url ? "linkedin" : "manual",
+      importedAt: new Date().toISOString(),
+    },
     generatedAt: new Date().toISOString(),
   };
 };
@@ -263,6 +358,7 @@ export const Prospecting = () => {
   const [selectedProspect, setSelectedProspect] = useState<Prospect | null>(null);
   const [form, setForm] = useState<ProspectForm>(emptyForm);
   const [linkedinPaste, setLinkedinPaste] = useState("");
+  const [messageDraft, setMessageDraft] = useState("");
 
   const { data: prospects = [], isLoading } = useQuery({
     queryKey: ["commercial-prospects", selectedCompanyId],
@@ -322,6 +418,13 @@ export const Prospecting = () => {
     mutationFn: async () => {
       const tasks = extractTasks(form.job_about);
       const diagnosis = generateDiagnosis(form, tasks);
+      const existingDiagnosis = editingProspect && hasDiagnosis(editingProspect.operational_diagnosis)
+        ? editingProspect.operational_diagnosis
+        : null;
+      if (existingDiagnosis?.messageDraft && existingDiagnosis.sourceSnapshot?.jobAbout === form.job_about) {
+        diagnosis.messageDraft = existingDiagnosis.messageDraft;
+        diagnosis.suggestedMessage = existingDiagnosis.messageDraft;
+      }
       const contacts = form.contacts.filter((contact) => contact.value.trim());
       const payload = {
         company_name: form.company_name.trim(),
@@ -411,6 +514,33 @@ export const Prospecting = () => {
       console.warn("Falha ao registrar log de import:", e);
     }
   };
+
+  const saveDiagnosisMessageMutation = useMutation({
+    mutationFn: async ({ prospect, draft }: { prospect: Prospect; draft: string }) => {
+      const currentDiagnosis = hasDiagnosis(prospect.operational_diagnosis)
+        ? prospect.operational_diagnosis
+        : generateDiagnosis(prospectToForm(prospect), prospect.extracted_tasks || []);
+      const nextDiagnosis: Diagnosis = {
+        ...currentDiagnosis,
+        suggestedMessage: draft,
+        messageDraft: draft,
+        updatedAt: new Date().toISOString(),
+      };
+
+      const { error } = await (supabase as any)
+        .from("commercial_prospects")
+        .update({ operational_diagnosis: nextDiagnosis })
+        .eq("id", prospect.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["commercial-prospects"] });
+      toast({ title: "Mensagem do diagnostico salva!" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Erro ao salvar mensagem", description: error?.message, variant: "destructive" });
+    },
+  });
 
   const importLinkedInMutation = useMutation({
     mutationFn: async () => {
@@ -540,9 +670,50 @@ export const Prospecting = () => {
     }));
   };
 
+  const copyMessage = async () => {
+    if (!messageDraft.trim()) return;
+    try {
+      await navigator.clipboard.writeText(messageDraft);
+      toast({ title: "Mensagem copiada!" });
+    } catch (error: any) {
+      toast({ title: "Erro ao copiar", description: error?.message, variant: "destructive" });
+    }
+  };
+
+  const sendMessage = () => {
+    if (!selectedProspect || !messageDraft.trim()) return;
+    const email = selectedProspect.contacts?.find((contact) => contact.type === "email" && contact.value)?.value;
+    const phone = selectedProspect.contacts?.find((contact) => contact.type === "celular" && contact.value)?.value;
+
+    if (email) {
+      const subject = encodeURIComponent(`Diagnostico operacional - ${selectedProspect.company_name}`);
+      const body = encodeURIComponent(messageDraft);
+      window.open(`mailto:${email}?subject=${subject}&body=${body}`, "_blank");
+      return;
+    }
+
+    if (phone) {
+      const cleanPhone = phone.replace(/\D/g, "");
+      window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(messageDraft)}`, "_blank");
+      return;
+    }
+
+    toast({ title: "Nenhum email ou celular salvo", description: "Adicione um contato na empresa antes de enviar." });
+  };
+
   const selectedDiagnosis = selectedProspect && hasDiagnosis(selectedProspect.operational_diagnosis)
     ? selectedProspect.operational_diagnosis
     : null;
+
+  const selectedRisks = selectedDiagnosis
+    ? selectedDiagnosis.risks?.length
+      ? selectedDiagnosis.risks
+      : buildRiskFindings(selectedProspect?.job_about || "")
+    : [];
+
+  useEffect(() => {
+    setMessageDraft(selectedDiagnosis?.messageDraft || selectedDiagnosis?.suggestedMessage || "");
+  }, [selectedDiagnosis?.generatedAt, selectedDiagnosis?.updatedAt, selectedProspect?.id]);
 
   const totalWithDiagnosis = prospects.filter((prospect) => hasDiagnosis(prospect.operational_diagnosis)).length;
   const meetingCount = prospects.filter((prospect) => prospect.status === "meeting").length;
@@ -813,7 +984,7 @@ export const Prospecting = () => {
             <div className="flex items-center justify-between gap-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" />
-                Diagnóstico salvo
+                Caso/Diagnostico Operacional
               </CardTitle>
               {selectedProspect && (
                 <Button
@@ -834,7 +1005,7 @@ export const Prospecting = () => {
               <div className="py-12 text-center">
                 <ClipboardList className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
                 <p className="text-sm font-medium">Selecione uma empresa</p>
-                <p className="text-xs text-muted-foreground mt-1">O diagnostico da vaga fica salvo aqui para usar antes da reuniao.</p>
+                <p className="text-xs text-muted-foreground mt-1">O caso gerado pela vaga fica salvo aqui para revisar antes da reuniao.</p>
               </div>
             ) : !selectedDiagnosis ? (
               <div className="py-12 text-center">
@@ -845,9 +1016,21 @@ export const Prospecting = () => {
             ) : (
               <div className="space-y-4">
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Empresa</p>
-                  <h3 className="font-bold text-lg">{selectedProspect.company_name}</h3>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Caso salvo</p>
+                  <h3 className="font-bold text-lg">{selectedDiagnosis.caseTitle || `Caso operacional - ${selectedProspect.company_name}`}</h3>
                   <p className="text-xs text-muted-foreground">{selectedProspect.job_title || "Vaga sem titulo"}</p>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    <Badge variant="outline" className="text-[10px]">
+                      Fonte: {selectedDiagnosis.sourceSnapshot?.generatedFrom === "linkedin" ? "LinkedIn" : "Manual"}
+                    </Badge>
+                    {selectedDiagnosis.sourceSnapshot?.linkedinJobUrl && (
+                      <a href={selectedDiagnosis.sourceSnapshot.linkedinJobUrl} target="_blank" rel="noreferrer">
+                        <Badge variant="outline" className="text-[10px] gap-1 cursor-pointer hover:bg-primary/10">
+                          Vaga original <ExternalLink className="h-3 w-3" />
+                        </Badge>
+                      </a>
+                    )}
+                  </div>
                 </div>
 
                 {[
@@ -861,32 +1044,90 @@ export const Prospecting = () => {
                 ))}
 
                 <div className="rounded-lg border p-3 bg-amber-500/5 border-amber-500/20">
-                  <p className="text-xs font-semibold mb-2">Riscos comuns na operação</p>
-                  <ul className="space-y-1.5">
-                    {selectedDiagnosis.commonRisks.map((risk) => (
-                      <li key={risk} className="text-xs text-muted-foreground flex items-start gap-2">
+                  <p className="text-xs font-semibold mb-2">Riscos, evidencias e modulo associado</p>
+                  <div className="space-y-3">
+                    {selectedRisks.length > 0 ? selectedRisks.map((risk) => (
+                      <div key={risk.id} className="rounded-lg border bg-background/80 p-3">
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-500 mt-0.5 shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold">{risk.risk}</p>
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                              <Badge variant="secondary" className="text-[10px]">{risk.task}</Badge>
+                              <Badge variant="outline" className="text-[10px] bg-emerald-500/5 border-emerald-500/30">
+                                {risk.module}
+                              </Badge>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground leading-relaxed mt-2">
+                              Recomendacao: {risk.recommendation}
+                            </p>
+                            <div className="mt-2 space-y-1.5">
+                              {risk.evidences.map((evidence) => (
+                                <a
+                                  key={evidence.id}
+                                  href={`#fonte-${evidence.sourceIndex}`}
+                                  className="block rounded-md border border-dashed bg-muted/30 p-2 text-[11px] text-muted-foreground hover:border-primary/40 hover:bg-primary/5"
+                                >
+                                  <span className="font-semibold text-foreground">[{evidence.source} #{evidence.sourceIndex}]</span>{" "}
+                                  "{evidence.quote}"
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )) : selectedDiagnosis.commonRisks.map((risk) => (
+                      <div key={risk} className="text-xs text-muted-foreground flex items-start gap-2">
                         <AlertTriangle className="h-3 w-3 text-amber-500 mt-0.5 shrink-0" />
                         <span>{risk}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="rounded-lg border p-3 bg-emerald-500/5 border-emerald-500/20">
-                  <p className="text-xs font-semibold mb-2">Onde entra o ConstruData</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedDiagnosis.whereConstruDataFits.map((item) => (
-                      <Badge key={item} variant="outline" className="text-[10px] bg-background">
-                        {item}
-                      </Badge>
+                      </div>
                     ))}
                   </div>
                 </div>
 
                 <div className="rounded-lg border p-3">
-                  <p className="text-xs font-semibold mb-2">3. Mensagem sugerida</p>
-                  <Textarea value={selectedDiagnosis.suggestedMessage} readOnly rows={8} className="text-xs resize-none bg-muted/30" />
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
+                    <p className="text-xs font-semibold">3. Mensagem sugerida revisavel</p>
+                    <div className="flex gap-1">
+                      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={copyMessage} disabled={!messageDraft.trim()}>
+                        <Copy className="h-3.5 w-3.5" />
+                        Copiar
+                      </Button>
+                      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={sendMessage} disabled={!messageDraft.trim()}>
+                        <Send className="h-3.5 w-3.5" />
+                        Enviar
+                      </Button>
+                    </div>
+                  </div>
+                  <Textarea
+                    value={messageDraft}
+                    onChange={(event) => setMessageDraft(event.target.value)}
+                    rows={9}
+                    className="text-xs resize-none bg-muted/30"
+                  />
+                  <Button
+                    size="sm"
+                    className="mt-2 h-8 gap-1.5 rounded-lg"
+                    onClick={() => saveDiagnosisMessageMutation.mutate({ prospect: selectedProspect, draft: messageDraft })}
+                    disabled={!messageDraft.trim() || saveDiagnosisMessageMutation.isPending}
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                    {saveDiagnosisMessageMutation.isPending ? "Salvando..." : "Salvar revisao"}
+                  </Button>
                 </div>
+
+                {selectedDiagnosis.sourceSnapshot?.jobAbout && (
+                  <div className="rounded-lg border p-3 bg-muted/20">
+                    <p className="text-xs font-semibold mb-2">Fonte salva: Sobre a vaga</p>
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {splitEvidenceChunks(selectedDiagnosis.sourceSnapshot.jobAbout).map((chunk) => (
+                        <p key={chunk.sourceIndex} id={`fonte-${chunk.sourceIndex}`} className="text-[11px] text-muted-foreground leading-relaxed rounded-md bg-background/70 p-2">
+                          <span className="font-semibold text-foreground">#{chunk.sourceIndex}</span> {chunk.quote}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
