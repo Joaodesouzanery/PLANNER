@@ -139,9 +139,9 @@ const Contacts = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["contact-tasks"] }),
   });
 
-  const resetContactForm = () => { setContactForm({ name: "", email: "", phone: "", company: "", notes: "", project_id: "", pipeline_stage: "lead" }); setEditingContact(null); };
+  const resetContactForm = () => { setContactForm({ name: "", email: "", phone: "", company: "", notes: "", project_id: "", pipeline_stage: "lead", address: "", latitude: "", longitude: "" }); setEditingContact(null); };
   const resetTaskForm = () => { setTaskForm({ title: "", description: "", priority: "medium", due_date: null, contact_id: "", project_id: "" }); setEditingTask(null); };
-  const openEditContact = (contact: Contact) => { setEditingContact(contact); setContactForm({ name: contact.name, email: contact.email || "", phone: contact.phone || "", company: contact.company || "", notes: contact.notes || "", project_id: contact.project_id || "", pipeline_stage: contact.pipeline_stage || "lead" }); setContactDialogOpen(true); };
+  const openEditContact = (contact: any) => { setEditingContact(contact); setContactForm({ name: contact.name, email: contact.email || "", phone: contact.phone || "", company: contact.company || "", notes: contact.notes || "", project_id: contact.project_id || "", pipeline_stage: contact.pipeline_stage || "lead", address: contact.address || "", latitude: contact.latitude != null ? String(contact.latitude) : "", longitude: contact.longitude != null ? String(contact.longitude) : "" }); setContactDialogOpen(true); };
   const openEditTask = (task: Task) => { setEditingTask(task); setTaskForm({ title: task.title, description: task.description || "", priority: task.priority, due_date: task.due_date ? new Date(task.due_date + "T00:00:00") : null, contact_id: task.contact_id || "", project_id: task.project_id || "" }); setTaskDialogOpen(true); };
 
   const filteredContacts = contacts.filter((c) => {
