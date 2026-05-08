@@ -67,6 +67,30 @@ interface DiagnosisRisk {
   evidences: DiagnosisEvidence[];
 }
 
+interface ModuleMatch {
+  moduleId: string;
+  moduleName: string;
+  category: string;
+  score: number;
+  priority: "Oferta principal" | "Complementares" | "Possivel expansao";
+  demandSignals: string[];
+  risk: string;
+  recommendation: string;
+  offerAngle: string;
+  evidences: DiagnosisEvidence[];
+}
+
+interface GlobalModuleContext {
+  generatedAt: string;
+  totalProspects: number;
+  topModules: Array<{
+    moduleId: string;
+    moduleName: string;
+    count: number;
+    percent: number;
+  }>;
+}
+
 interface Diagnosis {
   caseTitle?: string;
   observedWork: string;
@@ -74,6 +98,9 @@ interface Diagnosis {
   commonRisks: string[];
   whereConstruDataFits: string[];
   risks?: DiagnosisRisk[];
+  moduleMatches?: ModuleMatch[];
+  topModules?: ModuleMatch[];
+  globalContext?: GlobalModuleContext;
   suggestedMessage: string;
   messageDraft?: string;
   sourceSnapshot?: {
@@ -103,6 +130,7 @@ interface Prospect {
   priority: ProspectPriority;
   meeting_date: string | null;
   notes: string | null;
+  job_fingerprint?: string | null;
   created_at: string;
 }
 
@@ -147,69 +175,264 @@ const priorityConfig: Record<ProspectPriority, { label: string; className: strin
   low: { label: "Baixa", className: "bg-sky-500/10 text-sky-500 border-sky-500/30" },
 };
 
-// ConstruData base (lida da landing page https://www.construdata.software/)
 const construDataBase = {
   pitch:
-    "Plataforma operacional para obras e saneamento: integra campo, qualidade, medicao, planejamento, suprimentos e gestao em uma unica base operacional, com origem e rastreabilidade em cada dado.",
+    "Plataforma operacional para obras: integra campo, RDO, qualidade, medicao, planejamento, suprimentos, recursos, financeiro, auditoria e gestao executiva em uma unica base rastreavel.",
   pillars: [
-    "RDO inteligente (boletim, equipe, clima, servicos, fotos, GPS e assinatura)",
-    "Qualidade (FVS, nao conformidades e evidencias tecnicas)",
-    "Recursos (mao de obra, equipamentos e produtividade)",
-    "Medicao liberada com quantidades por servico, origem e evidencia",
-    "Gestao com CPI, SPI, custo, prazo e risco em tempo real",
-    "Torre de controle com alertas, decisoes e proximos passos por projeto",
+    "RDO Inteligente",
+    "Qualidade",
+    "Medicao",
+    "Planejamento",
+    "Gestao 360",
+    "Torre de Controle",
+    "Suprimentos",
+    "Mao de Obra",
+    "Financeiro",
   ],
 };
 
-const taskPatterns = [
+const moduleCatalog = [
   {
-    label: "Controle de ponto e equipe",
-    keywords: ["ponto", "colaborador", "funcionario", "equipe", "vale transporte", "alimentacao", "epi", "epis"],
-    risk: "Controle de equipe disperso entre planilhas, papel e conversas, dificultando conferencia e tomada de decisao.",
-    module: "Gestao de equipe + RDO inteligente",
-    solution: "Gestao de equipe, registros de campo e evidencias operacionais vinculadas ao responsavel.",
+    moduleId: "rdo-inteligente",
+    moduleName: "RDO Inteligente",
+    category: "Campo",
+    keywords: ["rdo", "diario", "boletim", "foto", "fotos", "texto", "formulario", "servicos executados", "assinatura", "campo", "execucao"],
+    demandSignals: ["Foto, texto ou formulario viram diario estruturado.", "Servicos executados seguem para Medicao."],
+    risk: "Registros de campo ficam incompletos, tardios ou sem origem confiavel para medicao e auditoria.",
+    recommendation: "Estruturar RDO com fotos, textos, formularios, assinatura e servicos vinculados a medicao.",
+    offerAngle: "Transformar o registro diario da obra em dado operacional rastreavel.",
+    weight: 10,
   },
   {
-    label: "Admissao, demissao e documentos",
-    keywords: ["admissao", "demissao", "documentos", "documentacao", "arquivo", "arquivos"],
-    risk: "Documentos importantes podem ficar fora do fluxo da obra e perder rastreabilidade entre campo e escritorio.",
-    module: "Documentos e trilha operacional",
-    solution: "Centralizacao de documentos, trilha de responsabilidade e historico por obra.",
+    moduleId: "rdo-automatico",
+    moduleName: "RDO automatico",
+    category: "Campo",
+    keywords: ["boletim por foto", "foto do boletim", "leitura de boletim", "ocr", "assinatura presente", "preservando o original", "auditoria"],
+    demandSignals: ["Le boletim por foto.", "Identifica campos e assinatura preservando original para auditoria."],
+    risk: "Boletins fisicos podem perder informacoes, assinatura e comprovacao original.",
+    recommendation: "Usar leitura automatica de boletins com preservacao do documento original para auditoria.",
+    offerAngle: "Reduzir digitacao manual e manter prova operacional auditavel.",
+    weight: 8,
   },
   {
-    label: "RDO, relatorios e planilhas",
-    keywords: ["rdo", "relatorio", "relatorios", "planilha", "planilhas", "controle", "lancar", "sistema"],
-    risk: "RDO preenchido tarde ou incompleto e relatorios consolidados depois que o problema ja impactou a obra.",
-    module: "RDO inteligente + indicadores por obra",
-    solution: "RDO inteligente com fotos, clima, GPS, indicadores por obra e visao executiva.",
+    moduleId: "qualidade",
+    moduleName: "Qualidade",
+    category: "Qualidade",
+    keywords: ["fvs", "qualidade", "nao conformidade", "nao conformidades", "bloqueio tecnico", "inspecao", "vistoria", "evidencia tecnica", "liberacao"],
+    demandSignals: ["FVS, nao conformidades, evidencias e bloqueios tecnicos antes da medicao."],
+    risk: "Servicos podem ser medidos sem evidencias ou liberacao tecnica adequada.",
+    recommendation: "Vincular FVS, nao conformidades e bloqueios tecnicos ao fluxo de medicao.",
+    offerAngle: "Evitar medicao de servico sem qualidade comprovada.",
+    weight: 9,
   },
   {
-    label: "Notas fiscais, requisicoes e suprimentos",
-    keywords: ["nota fiscal", "notas fiscais", "requisicao", "requisicoes", "material", "materiais", "pedido", "pedidos", "suprimentos"],
-    risk: "Suprimentos sem rastreabilidade clara ate o impacto no prazo, custo e produtividade da obra.",
-    module: "Suprimentos e pedidos de material",
-    solution: "Pedidos de material, rastreamento de requisicoes e comparacao entre consumo real e planejado.",
+    moduleId: "medicao",
+    moduleName: "Medicao",
+    category: "Controle",
+    keywords: ["medicao", "medicoes", "quantidade", "quantidades", "servico", "servicos", "contrato", "evidencia", "boletim de medicao", "status de qualidade"],
+    demandSignals: ["Quantidades consolidadas por servico, contrato, origem, qualidade e evidencia."],
+    risk: "Medicoes podem ficar sem lastro de campo, contrato, evidencia ou status de qualidade.",
+    recommendation: "Consolidar medicao por servico, contrato, origem e evidencia operacional.",
+    offerAngle: "Dar lastro operacional forte para aprovar medicao.",
+    weight: 10,
   },
   {
-    label: "Fotos e evidencias de campo",
-    keywords: ["foto", "fotos", "evidencia", "evidencias", "qualidade", "inspecao", "vistoria"],
-    risk: "Fotos sem vinculo com etapa, local ou responsavel reduzem a forca operacional das evidencias.",
-    module: "Evidencias rastreaveis + qualidade",
-    solution: "Evidencias com origem, local, responsavel, etapa e rastreabilidade para auditoria e medicao.",
+    moduleId: "planejamento",
+    moduleName: "Planejamento",
+    category: "Prazo",
+    keywords: ["planejamento", "cronograma", "curva", "restricao", "restricoes", "look-ahead", "prazo", "atraso", "frente", "impacto"],
+    demandSignals: ["Cronograma, curva, restricoes, look-ahead e impacto real do campo sobre prazo."],
+    risk: "O cronograma pode nao refletir as restricoes e impactos reais do campo.",
+    recommendation: "Conectar execucao, restricoes e avancos reais ao planejamento da obra.",
+    offerAngle: "Mostrar impacto real do campo no prazo.",
+    weight: 9,
   },
   {
-    label: "Apoio a engenharia e alinhamento",
-    keywords: ["engenheiro", "mestre de obras", "demanda", "acompanhar", "apoio", "administrativa", "administrativo"],
-    risk: "Decisoes importantes podem se perder entre obra e escritorio quando o fluxo depende de repasses manuais.",
-    module: "Campo, escritorio e visao executiva",
-    solution: "Modulos conectados entre campo, qualidade, suprimentos, planejamento e diretoria.",
+    moduleId: "gestao-360",
+    moduleName: "Gestao 360",
+    category: "Executivo",
+    keywords: ["cpi", "spi", "custo", "prazo", "risco", "alerta", "alertas", "indicador", "indicadores", "executivo", "diretoria", "gestao"],
+    demandSignals: ["CPI, SPI, custo, prazo, risco e alertas executivos conectados ao campo."],
+    risk: "A diretoria recebe indicadores tarde ou desconectados da origem operacional.",
+    recommendation: "Conectar campo, custo, prazo, risco e alertas em uma visao executiva.",
+    offerAngle: "Levar a obra para uma visao executiva em tempo quase real.",
+    weight: 8,
   },
   {
-    label: "Medicao, producao e avancos",
-    keywords: ["medicao", "medicoes", "producao", "avanco", "avancos", "cronograma", "planejamento", "meta"],
-    risk: "Medicao sem evidencia operacional forte dificulta confianca sobre avanco fisico e gargalos.",
-    module: "Controle de producao + medicoes",
-    solution: "Controle de producao, metas, indicadores de avance e relatorios por periodo e projeto.",
+    moduleId: "relatorio-360",
+    moduleName: "Relatorio 360",
+    category: "Executivo",
+    keywords: ["relatorio", "relatorios", "foto", "fotos", "decisao", "decisoes", "historico", "mapa", "indicadores", "consolidado"],
+    demandSignals: ["Relatorios vivos com fotos, decisoes, historico, mapa e indicadores."],
+    risk: "Relatorios podem virar retrabalho manual sem fotos, decisoes e historico integrados.",
+    recommendation: "Gerar relatorios vivos a partir dos registros operacionais da obra.",
+    offerAngle: "Trocar relatorios estaticos por acompanhamento vivo e rastreavel.",
+    weight: 7,
+  },
+  {
+    moduleId: "torre-controle",
+    moduleName: "Torre de Controle",
+    category: "Executivo",
+    keywords: ["torre de controle", "war room", "multiobra", "portfolio", "projetos", "alertas", "mapa", "drill-down", "diretoria"],
+    demandSignals: ["War room multiobra com portfolio, projetos, alertas, mapa e drill-down."],
+    risk: "Gestao multiobra perde prioridade, alertas e visao comparativa entre projetos.",
+    recommendation: "Usar torre de controle para portfolio, alertas, mapa e drill-down por obra.",
+    offerAngle: "Dar comando multiobra para diretoria e operacao.",
+    weight: 7,
+  },
+  {
+    moduleId: "projetos",
+    moduleName: "Projetos",
+    category: "Governanca",
+    keywords: ["obra", "obras", "projeto", "projetos", "nucleo", "nucleos", "orcamento", "documentos", "responsabilidades", "governanca"],
+    demandSignals: ["Cada obra centraliza orcamento, documentos, BIM, planejamento, execucao, medicoes e governanca."],
+    risk: "Informacoes centrais da obra ficam fragmentadas entre documentos, orcamento e responsaveis.",
+    recommendation: "Centralizar obra, nucleo, orcamento, documentos e responsabilidades em Projetos.",
+    offerAngle: "Criar uma base unica por obra.",
+    weight: 8,
+  },
+  {
+    moduleId: "mapa-interativo",
+    moduleName: "Mapa Interativo",
+    category: "Territorio",
+    keywords: ["mapa", "territorio", "trecho", "trechos", "rede", "redes", "frente", "frentes", "status fisico", "georreferenciado", "localizacao"],
+    demandSignals: ["Trechos, redes, frentes, status fisico, custo e risco no territorio."],
+    risk: "Frentes, trechos e redes podem ficar sem leitura territorial de status, custo e risco.",
+    recommendation: "Mapear frentes, trechos, redes e status fisico em mapa operacional.",
+    offerAngle: "Enxergar a obra no territorio, nao so em planilhas.",
+    weight: 8,
+  },
+  {
+    moduleId: "suprimentos",
+    moduleName: "Suprimentos inteligente",
+    category: "Suprimentos",
+    keywords: ["suprimentos", "requisicao", "requisicoes", "cotacao", "cotacoes", "compra", "compras", "pedido", "pedidos", "contrato", "recebimento", "nota fiscal", "notas fiscais", "almoxarifado", "estoque", "material", "materiais", "equipamentos", "frotas"],
+    demandSignals: ["Requisicao, cotacao, pedido, contrato, recebimento, nota fiscal, almoxarifado e estoque conectados."],
+    risk: "Materiais, compras e notas podem perder rastreabilidade ate prazo, custo e impacto na obra.",
+    recommendation: "Conectar requisicoes, cotacoes, compras, estoque, notas e cronograma.",
+    offerAngle: "Dar rastreabilidade de suprimentos ate o impacto operacional e financeiro.",
+    weight: 10,
+  },
+  {
+    moduleId: "mao-de-obra",
+    moduleName: "Mao de Obra",
+    category: "Recursos",
+    keywords: ["mao de obra", "equipe", "equipes", "colaborador", "colaboradores", "funcionario", "funcionarios", "alocacao", "apontamento", "apontamentos", "produtividade", "disponibilidade", "ponto", "custo por frente"],
+    demandSignals: ["Cadastro, equipes, alocacao diaria, disponibilidade, produtividade e custo por frente."],
+    risk: "Equipe, produtividade e custo por frente ficam dificeis de conferir e comparar.",
+    recommendation: "Controlar equipes, alocacao, apontamentos, disponibilidade, produtividade e custo.",
+    offerAngle: "Transformar mao de obra em indicador operacional por frente.",
+    weight: 10,
+  },
+  {
+    moduleId: "equipamentos",
+    moduleName: "Equipamentos",
+    category: "Recursos",
+    keywords: ["equipamento", "equipamentos", "frota", "frotas", "manutencao", "disponibilidade", "produtividade por frente", "maquina", "maquinas"],
+    demandSignals: ["Frota, manutencao, disponibilidade e produtividade por frente."],
+    risk: "Equipamentos podem gerar custo e atraso sem leitura de disponibilidade e produtividade.",
+    recommendation: "Controlar frota, manutencao, disponibilidade e produtividade por frente.",
+    offerAngle: "Conectar equipamento parado ou improdutivo ao impacto na obra.",
+    weight: 7,
+  },
+  {
+    moduleId: "bim",
+    moduleName: "BIM 3D/4D/5D",
+    category: "Projetos",
+    keywords: ["bim", "3d", "4d", "5d", "modelo", "orcamento", "modelo bim", "prazo e custo"],
+    demandSignals: ["Modelo, prazo e custo conectados ao planejamento e orcamento."],
+    risk: "Modelo, planejamento e custo podem ficar desconectados da execucao.",
+    recommendation: "Conectar BIM 3D/4D/5D a planejamento, orcamento e acompanhamento.",
+    offerAngle: "Transformar BIM em base operacional de prazo e custo.",
+    weight: 6,
+  },
+  {
+    moduleId: "evm",
+    moduleName: "EVM",
+    category: "Financeiro",
+    keywords: ["evm", "valor agregado", "custo planejado", "executado", "previsto", "cpi", "spi", "desvio"],
+    demandSignals: ["Valor agregado com custo planejado, executado e previsto."],
+    risk: "Custo, prazo e progresso podem ser analisados sem previsao confiavel de desvio.",
+    recommendation: "Aplicar EVM com CPI/SPI, custo planejado, executado e previsto.",
+    offerAngle: "Antecipar desvio financeiro e de prazo com valor agregado.",
+    weight: 7,
+  },
+  {
+    moduleId: "lps-lean",
+    moduleName: "LPS / Lean e agenda",
+    category: "Prazo",
+    keywords: ["lps", "lean", "last planner", "look-ahead", "ppc", "restricoes", "compromissos", "pareto", "melhoria continua", "agenda", "semanas"],
+    demandSignals: ["Look-ahead de 6 semanas, PPC semanal, restricoes, compromissos, agenda e cronogramas."],
+    risk: "Compromissos semanais, restricoes e causas de atraso ficam sem rotina de aprendizagem.",
+    recommendation: "Usar LPS/Lean com look-ahead, PPC, restricoes e Pareto de causas.",
+    offerAngle: "Criar rotina de producao confiavel e melhoria continua.",
+    weight: 8,
+  },
+  {
+    moduleId: "agenda-cronogramas",
+    moduleName: "Agenda e Cronogramas",
+    category: "Prazo",
+    keywords: ["agenda", "calendario", "cronograma", "linha de base", "curva", "tarefas", "marcos", "conflitos", "atraso por frente"],
+    demandSignals: ["Calendario operacional, linha de base, curva, tarefas, marcos, conflitos e impacto de atraso por frente."],
+    risk: "Agenda, tarefas e conflitos podem nao refletir atraso por frente.",
+    recommendation: "Unificar agenda operacional, cronogramas, marcos, conflitos e impacto por frente.",
+    offerAngle: "Dar clareza diaria de agenda e impacto no cronograma.",
+    weight: 8,
+  },
+  {
+    moduleId: "financeiro",
+    moduleName: "Financeiro operacional",
+    category: "Financeiro",
+    keywords: ["financeiro", "contrato", "contratos", "contas a pagar", "contas a receber", "fluxo de caixa", "custo", "custos", "medicoes aprovadas", "impacto financeiro", "previsao"],
+    demandSignals: ["Contratos, medicoes, custos de suprimentos, mao de obra, equipamentos e fluxo de caixa."],
+    risk: "Campo, medicao, compras e contratos podem nao alimentar previsao financeira confiavel.",
+    recommendation: "Conectar medicoes aprovadas, custos, contratos, fluxo de caixa, EVM e CPI/SPI.",
+    offerAngle: "Ligar operacao de campo ao financeiro da obra.",
+    weight: 8,
+  },
+  {
+    moduleId: "pre-construcao",
+    moduleName: "Pre-construcao",
+    category: "Planejamento",
+    keywords: ["pre-construcao", "estudo", "estudos", "cenario", "cenarios", "risco", "orcamento inicial", "premissa", "premissas", "viabilidade"],
+    demandSignals: ["Estudos, cenarios, risco, orcamento inicial e premissas."],
+    risk: "Premissas iniciais, riscos e orcamento podem nao seguir para a operacao.",
+    recommendation: "Registrar estudos, cenarios, premissas, risco e orcamento inicial.",
+    offerAngle: "Levar a decisao de pre-construcao para a execucao rastreavel.",
+    weight: 6,
+  },
+  {
+    moduleId: "auditoria",
+    moduleName: "Auditoria",
+    category: "Governanca",
+    keywords: ["auditoria", "aprovacao", "aprovacoes", "historico", "retencao", "exportacao", "acao critica", "acoes criticas", "rastreabilidade", "trilha"],
+    demandSignals: ["Acoes criticas, aprovacoes, historico, retencao e exportacao."],
+    risk: "Decisoes, aprovacoes e evidencias podem nao ter trilha auditavel.",
+    recommendation: "Criar trilha de auditoria com acoes criticas, aprovacoes, historico e exportacao.",
+    offerAngle: "Proteger decisoes e evidencias com governanca auditavel.",
+    weight: 7,
+  },
+  {
+    moduleId: "automacao-operacional",
+    moduleName: "Automacao operacional",
+    category: "Automacao",
+    keywords: ["automacao", "alerta", "alertas", "excecao", "excecoes", "bloqueio", "bloqueios", "reconciliacao", "trilha de decisao", "sem dupla digitacao"],
+    demandSignals: ["Alertas de excecao, bloqueios por qualidade, reconciliacao de dados e trilha de decisao."],
+    risk: "Excecoes, bloqueios e decisoes podem depender de monitoramento manual.",
+    recommendation: "Automatizar alertas, bloqueios, reconciliacao de dados e trilha de decisao.",
+    offerAngle: "Reduzir dependencia de controle manual e dupla digitacao.",
+    weight: 7,
+  },
+  {
+    moduleId: "quantitativos-automaticos",
+    moduleName: "Quantitativos automaticos",
+    category: "Controle",
+    keywords: ["quantitativo", "quantitativos", "consolidar", "consolidacao", "origem rastreavel", "dupla digitacao", "itens de projeto", "servicos do rdo"],
+    demandSignals: ["Servicos do RDO, itens de projeto, medicoes, materiais e frentes consolidados com origem rastreavel."],
+    risk: "Servicos, materiais e medicoes podem ser digitados mais de uma vez sem origem rastreavel.",
+    recommendation: "Consolidar quantitativos automaticamente a partir de RDO, projeto, materiais e frentes.",
+    offerAngle: "Evitar dupla digitacao e criar quantitativo com origem rastreavel.",
+    weight: 8,
   },
 ];
 
@@ -224,54 +447,59 @@ const normalize = (value: string) =>
   value
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 
 const splitSentences = (text: string) =>
   text
-    .split(/\n|\.|;|•|â€¢|-/)
+    .split(/\n|\.|;|\u2022|-/)
     .map((part) => part.trim())
     .filter((part) => part.length > 12);
 
 const splitEvidenceChunks = (text: string): Array<{ quote: string; sourceIndex: number }> =>
   text
-    .split(/\n|\.|;|•|â€¢|-/)
+    .split(/\n|\.|;|\u2022|-/)
     .map((part) => part.trim())
     .filter((part) => part.length > 12)
     .map((quote, index) => ({ quote, sourceIndex: index + 1 }));
 
 const extractTasks = (about: string) => {
-  const normalized = normalize(about);
-  return taskPatterns
-    .filter((task) => task.keywords.some((keyword) => normalized.includes(normalize(keyword))))
-    .map((task) => task.label);
+  return computeModuleMatches(about).map((match) => match.moduleName);
 };
 
 const buildTaskEvidence = (about: string) => {
-  const sentences = splitSentences(about);
-  return taskPatterns
-    .map((task) => {
-      const hits = sentences.filter((sentence) => {
-        const normalized = normalize(sentence);
-        return task.keywords.some((keyword) => normalized.includes(normalize(keyword)));
+  const chunks = splitEvidenceChunks(about);
+  return moduleCatalog
+    .map((module) => {
+      const hits = chunks.filter((chunk) => {
+        const normalized = normalize(chunk.quote);
+        return module.keywords.some((keyword) => normalized.includes(normalize(keyword)));
       });
-      return { label: task.label, examples: hits.slice(0, 2), count: hits.length };
+      return { label: module.moduleName, examples: hits.slice(0, 2).map((hit) => hit.quote), count: hits.length };
     })
     .filter((task) => task.count > 0);
 };
 
-const buildRiskFindings = (about: string): DiagnosisRisk[] => {
+const priorityByIndex = (index: number): ModuleMatch["priority"] => {
+  if (index === 0) return "Oferta principal";
+  if (index <= 3) return "Complementares";
+  return "Possivel expansao";
+};
+
+const computeModuleMatches = (about: string): ModuleMatch[] => {
   const chunks = splitEvidenceChunks(about);
 
-  return taskPatterns
-    .map((task, index) => {
+  return moduleCatalog
+    .map((module) => {
       const evidences = chunks
         .map((chunk) => {
           const normalized = normalize(chunk.quote);
-          const matchedKeywords = task.keywords.filter((keyword) => normalized.includes(normalize(keyword)));
+          const matchedKeywords = module.keywords.filter((keyword) => normalized.includes(normalize(keyword)));
           if (matchedKeywords.length === 0) return null;
 
           return {
-            id: `evidencia-${index + 1}-${chunk.sourceIndex}`,
+            id: `evidencia-${module.moduleId}-${chunk.sourceIndex}`,
             quote: chunk.quote,
             source: "Sobre a vaga" as const,
             sourceIndex: chunk.sourceIndex,
@@ -282,29 +510,71 @@ const buildRiskFindings = (about: string): DiagnosisRisk[] => {
 
       if (evidences.length === 0) return null;
 
+      const uniqueKeywords = new Set(evidences.flatMap((evidence) => evidence.matchedKeywords.map(normalize)));
+      const score = Math.min(100, module.weight * uniqueKeywords.size + evidences.length * 8);
+
       return {
-        id: `risco-${index + 1}`,
-        task: task.label,
-        risk: task.risk,
-        module: task.module,
-        recommendation: task.solution,
+        moduleId: module.moduleId,
+        moduleName: module.moduleName,
+        category: module.category,
+        score,
+        priority: "Possivel expansao" as const,
+        demandSignals: module.demandSignals,
+        risk: module.risk,
+        recommendation: module.recommendation,
+        offerAngle: module.offerAngle,
         evidences: evidences.slice(0, 3),
       };
     })
-    .filter(Boolean) as DiagnosisRisk[];
+    .filter(Boolean)
+    .sort((a, b) => b!.score - a!.score)
+    .map((match, index) => ({ ...match!, priority: priorityByIndex(index) }));
 };
 
-const generateDiagnosis = (form: ProspectForm, tasks: string[]): Diagnosis => {
-  const matchedPatterns = taskPatterns.filter((pattern) => tasks.includes(pattern.label));
-  const risksWithEvidence = buildRiskFindings(form.job_about);
-  const topTasks = matchedPatterns.slice(0, 4).map((task) => task.label);
-  const constructionSignals = topTasks.length > 0 ? topTasks.join(", ") : "gestao administrativa e operacional de obra";
-  const solutions = matchedPatterns.length > 0
-    ? matchedPatterns.map((pattern) => pattern.solution)
-    : construDataBase.pillars.slice(0, 3);
+const buildRiskFindings = (about: string): DiagnosisRisk[] => {
+  return computeModuleMatches(about).map((match) => ({
+    id: `risco-${match.moduleId}`,
+    task: match.moduleName,
+    risk: match.risk,
+    module: match.moduleName,
+    recommendation: match.recommendation,
+    evidences: match.evidences,
+  }));
+};
 
-  const risks = matchedPatterns.length > 0
-    ? matchedPatterns.map((pattern) => pattern.risk)
+const buildGlobalModuleContext = (prospects: Prospect[]): GlobalModuleContext => {
+  const prospectsWithJobs = prospects.filter((prospect) => prospect.job_about?.trim()).length || 1;
+  const counts = new Map<string, { moduleId: string; moduleName: string; count: number }>();
+
+  prospects.forEach((prospect) => {
+    const matches = hasDiagnosis(prospect.operational_diagnosis) && prospect.operational_diagnosis.moduleMatches?.length
+      ? prospect.operational_diagnosis.moduleMatches
+      : computeModuleMatches(prospect.job_about || "");
+    new Set(matches.map((match) => match.moduleId)).forEach((moduleId) => {
+      const moduleName = matches.find((match) => match.moduleId === moduleId)?.moduleName || moduleId;
+      const current = counts.get(moduleId) || { moduleId, moduleName, count: 0 };
+      current.count += 1;
+      counts.set(moduleId, current);
+    });
+  });
+
+  return {
+    generatedAt: new Date().toISOString(),
+    totalProspects: prospectsWithJobs,
+    topModules: Array.from(counts.values())
+      .map((item) => ({ ...item, percent: Math.round((item.count / prospectsWithJobs) * 100) }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8),
+  };
+};
+
+const generateDiagnosis = (form: ProspectForm, _tasks: string[], prospectsContext: Prospect[] = []): Diagnosis => {
+  const moduleMatches = computeModuleMatches(form.job_about);
+  const topModules = moduleMatches.slice(0, 6);
+  const moduleNames = topModules.map((match) => match.moduleName);
+  const constructionSignals = moduleNames.length > 0 ? moduleNames.join(", ") : "gestao administrativa e operacional de obra";
+  const risks = topModules.length > 0
+    ? topModules.map((match) => match.risk)
     : [
         "RDO preenchido tarde ou incompleto.",
         "Fotos sem vinculo com etapa, local ou responsavel.",
@@ -314,8 +584,8 @@ const generateDiagnosis = (form: ProspectForm, tasks: string[]): Diagnosis => {
         "Medicao sem evidencia operacional forte.",
       ];
 
-  const problemList = topTasks.length > 0 ? topTasks.join(", ") : "registros soltos, baixa rastreabilidade e consolidacao tardia";
-  const construFit = Array.from(new Set([...solutions, ...construDataBase.pillars])).slice(0, 6);
+  const problemList = moduleNames.length > 0 ? moduleNames.slice(0, 4).join(", ") : "registros soltos, baixa rastreabilidade e consolidacao tardia";
+  const construFit = Array.from(new Set([...moduleNames, ...construDataBase.pillars])).slice(0, 8);
   const featuresMessage = construFit.slice(0, 3).join("; ");
   const suggestedMessage =
     `Ola! Vi que a ${form.company_name || "empresa"} esta com a vaga de ${form.job_title || "operacao de obra"} aberta, normalmente ligada a ${problemList}. ` +
@@ -328,9 +598,12 @@ const generateDiagnosis = (form: ProspectForm, tasks: string[]): Diagnosis => {
     observedWork: `${form.job_title || "Vaga analisada"}${form.location ? ` em ${form.location}` : ""}${form.company_name ? ` - ${form.company_name}` : ""}. Pelo tipo e porte da obra observado, a descricao indica rotinas ligadas a ${constructionSignals}.`,
     operationalHypothesis:
       `Pelo tipo e porte da obra, e provavel que exista alto volume de registro de campo, fotos, solicitacoes, medicoes, qualidade e alinhamento entre obra e escritorio. Quando isso depende de planilhas soltas e repasses manuais, a diretoria tende a enxergar avancos, pendencias e gargalos tarde demais, perdendo velocidade na decisao.`,
-    commonRisks: risksWithEvidence.length ? risksWithEvidence.map((risk) => risk.risk) : risks,
+    commonRisks: risks,
     whereConstruDataFits: construFit,
-    risks: risksWithEvidence,
+    risks: buildRiskFindings(form.job_about),
+    moduleMatches,
+    topModules,
+    globalContext: buildGlobalModuleContext(prospectsContext),
     suggestedMessage,
     messageDraft: suggestedMessage,
     sourceSnapshot: {
@@ -348,6 +621,42 @@ const generateDiagnosis = (form: ProspectForm, tasks: string[]): Diagnosis => {
 
 const hasDiagnosis = (value: Prospect["operational_diagnosis"]): value is Diagnosis =>
   !!value && "suggestedMessage" in value;
+
+const extractLinkedInJobId = (url: string) => {
+  const match = url.match(/jobs\/view\/(\d+)/i) || url.match(/[?&]currentJobId=(\d+)/i);
+  return match?.[1] || "";
+};
+
+const stableHash = (value: string) => {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(index);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
+};
+
+const buildJobFingerprint = (data: Pick<ProspectForm, "company_name" | "job_title" | "job_about" | "linkedin_job_url">) => {
+  const linkedInId = extractLinkedInJobId(data.linkedin_job_url || "");
+  if (linkedInId) return `linkedin:${linkedInId}`;
+
+  const normalized = [
+    normalize(data.company_name || ""),
+    normalize(data.job_title || ""),
+    normalize((data.job_about || "").slice(0, 700)),
+  ].join("|");
+
+  return normalized.replace(/\|/g, "").trim() ? `manual:${stableHash(normalized)}` : "";
+};
+
+const getProspectFingerprint = (prospect: Prospect) =>
+  prospect.job_fingerprint ||
+  buildJobFingerprint({
+    company_name: prospect.company_name || "",
+    job_title: prospect.job_title || "",
+    job_about: prospect.job_about || "",
+    linkedin_job_url: prospect.linkedin_job_url || "",
+  });
 
 export const Prospecting = () => {
   const queryClient = useQueryClient();
@@ -414,10 +723,46 @@ export const Prospecting = () => {
       .sort((a, b) => b.count - a.count);
   }, [prospects]);
 
+  const moduleReport = useMemo(() => {
+    const companiesWithJobs = prospects.filter((prospect) => prospect.job_about?.trim()).length || 1;
+    const counts = new Map<string, { moduleId: string; moduleName: string; count: number; companies: string[] }>();
+
+    prospects.forEach((prospect) => {
+      const matches = hasDiagnosis(prospect.operational_diagnosis) && prospect.operational_diagnosis.moduleMatches?.length
+        ? prospect.operational_diagnosis.moduleMatches
+        : computeModuleMatches(prospect.job_about || "");
+
+      new Set(matches.map((match) => match.moduleId)).forEach((moduleId) => {
+        const moduleName = matches.find((match) => match.moduleId === moduleId)?.moduleName || moduleId;
+        const current = counts.get(moduleId) || { moduleId, moduleName, count: 0, companies: [] };
+        current.count += 1;
+        current.companies.push(prospect.company_name);
+        counts.set(moduleId, current);
+      });
+    });
+
+    return Array.from(counts.values())
+      .map((item) => ({ ...item, percent: Math.round((item.count / companiesWithJobs) * 100) }))
+      .sort((a, b) => b.count - a.count);
+  }, [prospects]);
+
+  const formFingerprint = useMemo(() => buildJobFingerprint(form), [form.company_name, form.job_title, form.job_about, form.linkedin_job_url]);
+  const formModuleMatches = useMemo(() => computeModuleMatches(form.job_about), [form.job_about]);
+  const duplicateProspect = useMemo(() => {
+    if (!formFingerprint) return null;
+    return prospects.find((prospect) =>
+      prospect.id !== editingProspect?.id &&
+      getProspectFingerprint(prospect) === formFingerprint
+    ) || null;
+  }, [prospects, formFingerprint, editingProspect?.id]);
+
   const saveProspectMutation = useMutation({
     mutationFn: async () => {
+      if (duplicateProspect) {
+        throw new Error(`Vaga duplicada: ja existe um prospect para ${duplicateProspect.company_name}. Abra o registro existente para revisar.`);
+      }
       const tasks = extractTasks(form.job_about);
-      const diagnosis = generateDiagnosis(form, tasks);
+      const diagnosis = generateDiagnosis(form, tasks, prospects);
       const existingDiagnosis = editingProspect && hasDiagnosis(editingProspect.operational_diagnosis)
         ? editingProspect.operational_diagnosis
         : null;
@@ -435,6 +780,7 @@ export const Prospecting = () => {
         contacts,
         extracted_tasks: tasks,
         operational_diagnosis: diagnosis,
+        job_fingerprint: formFingerprint || null,
         status: form.status,
         priority: form.priority,
         meeting_date: form.meeting_date || null,
@@ -480,10 +826,11 @@ export const Prospecting = () => {
     mutationFn: async (prospect: Prospect) => {
       const nextForm = prospectToForm(prospect);
       const tasks = extractTasks(nextForm.job_about);
-      const diagnosis = generateDiagnosis(nextForm, tasks);
+      const diagnosis = generateDiagnosis(nextForm, tasks, prospects);
+      const jobFingerprint = buildJobFingerprint(nextForm);
       const { error } = await (supabase as any)
         .from("commercial_prospects")
-        .update({ extracted_tasks: tasks, operational_diagnosis: diagnosis })
+        .update({ extracted_tasks: tasks, operational_diagnosis: diagnosis, job_fingerprint: jobFingerprint || null })
         .eq("id", prospect.id);
       if (error) throw error;
     },
@@ -711,6 +1058,12 @@ export const Prospecting = () => {
       : buildRiskFindings(selectedProspect?.job_about || "")
     : [];
 
+  const selectedModuleMatches = selectedDiagnosis
+    ? selectedDiagnosis.topModules?.length
+      ? selectedDiagnosis.topModules
+      : computeModuleMatches(selectedProspect?.job_about || "").slice(0, 6)
+    : [];
+
   useEffect(() => {
     setMessageDraft(selectedDiagnosis?.messageDraft || selectedDiagnosis?.suggestedMessage || "");
   }, [selectedDiagnosis?.generatedAt, selectedDiagnosis?.updatedAt, selectedProspect?.id]);
@@ -794,13 +1147,15 @@ export const Prospecting = () => {
                       <TableHead>Empresa</TableHead>
                       <TableHead className="hidden lg:table-cell">Vaga</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead className="hidden md:table-cell">Tarefas</TableHead>
+                      <TableHead className="hidden md:table-cell">Modulos</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredProspects.map((prospect) => {
-                      const tasks = prospect.extracted_tasks?.length ? prospect.extracted_tasks : extractTasks(prospect.job_about || "");
+                      const moduleBadges = hasDiagnosis(prospect.operational_diagnosis) && prospect.operational_diagnosis.topModules?.length
+                        ? prospect.operational_diagnosis.topModules
+                        : computeModuleMatches(prospect.job_about || "");
                       return (
                         <TableRow
                           key={prospect.id}
@@ -852,12 +1207,13 @@ export const Prospecting = () => {
                           </TableCell>
                           <TableCell className="hidden md:table-cell">
                             <div className="flex flex-wrap gap-1 max-w-[280px]">
-                              {tasks.slice(0, 2).map((task) => (
-                                <Badge key={task} variant="secondary" className="text-[10px]">
-                                  {task}
+                              {moduleBadges.slice(0, 2).map((module) => (
+                                <Badge key={module.moduleId} variant="secondary" className="text-[10px]">
+                                  {module.moduleName}
                                 </Badge>
                               ))}
-                              {tasks.length > 2 && <Badge variant="outline" className="text-[10px]">+{tasks.length - 2}</Badge>}
+                              {moduleBadges.length > 2 && <Badge variant="outline" className="text-[10px]">+{moduleBadges.length - 2}</Badge>}
+                              {moduleBadges.length === 0 && <Badge variant="outline" className="text-[10px]">Sem sinais</Badge>}
                             </div>
                           </TableCell>
                           <TableCell className="text-right">
@@ -908,6 +1264,36 @@ export const Prospecting = () => {
                       <span className="text-sm font-bold tabular-nums">{task.percent}%</span>
                     </div>
                     <Progress value={task.percent} className="h-2" />
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Modulos ConstruData mais indicados
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {moduleReport.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-6 text-center">Cadastre vagas com descricao para ranquear os modulos recomendados.</p>
+              ) : (
+                moduleReport.slice(0, 10).map((module) => (
+                  <div key={module.moduleId} className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">{module.moduleName}</p>
+                        <p className="text-xs text-muted-foreground truncate max-w-[680px]">
+                          {module.count} empresa{module.count > 1 ? "s" : ""}: {module.companies.slice(0, 4).join(", ")}
+                          {module.companies.length > 4 ? ` +${module.companies.length - 4}` : ""}
+                        </p>
+                      </div>
+                      <span className="text-sm font-bold tabular-nums">{module.percent}%</span>
+                    </div>
+                    <Progress value={module.percent} className="h-2" />
                   </div>
                 ))
               )}
@@ -1043,6 +1429,48 @@ export const Prospecting = () => {
                   </div>
                 ))}
 
+                <div className="rounded-lg border p-3 bg-primary/5 border-primary/20">
+                  <p className="text-xs font-semibold mb-2">Modulos recomendados por prioridade</p>
+                  {selectedModuleMatches.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Nenhum modulo foi identificado a partir do Sobre a vaga.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {["Oferta principal", "Complementares", "Possivel expansao"].map((priority) => {
+                        const modules = selectedModuleMatches.filter((module) => module.priority === priority);
+                        if (modules.length === 0) return null;
+                        return (
+                          <div key={priority} className="space-y-2">
+                            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">{priority}</p>
+                            {modules.map((module) => (
+                              <div key={module.moduleId} className="rounded-lg border bg-background/80 p-3">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-semibold">{module.moduleName}</p>
+                                    <p className="text-[11px] text-muted-foreground mt-1">{module.offerAngle}</p>
+                                  </div>
+                                  <Badge variant="outline" className="text-[10px] shrink-0">{module.score} pts</Badge>
+                                </div>
+                                <Progress value={Math.min(100, module.score * 10)} className="h-1.5 mt-2" />
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                  {module.evidences.slice(0, 3).map((evidence) => (
+                                    <a
+                                      key={evidence.id}
+                                      href={`#fonte-${evidence.sourceIndex}`}
+                                      className="text-[10px] rounded-full border px-2 py-0.5 text-muted-foreground hover:border-primary/40 hover:bg-primary/5"
+                                    >
+                                      #{evidence.sourceIndex} {evidence.matchedKeywords.slice(0, 2).join(", ")}
+                                    </a>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 <div className="rounded-lg border p-3 bg-amber-500/5 border-amber-500/20">
                   <p className="text-xs font-semibold mb-2">Riscos, evidencias e modulo associado</p>
                   <div className="space-y-3">
@@ -1173,7 +1601,44 @@ export const Prospecting = () => {
                     className="mt-1 rounded-xl"
                   />
                 </div>
+                {formFingerprint && (
+                  <p className="text-[10px] text-muted-foreground mt-2">
+                    Fingerprint: {formFingerprint}
+                  </p>
+                )}
+                {duplicateProspect && (
+                  <p className="text-[11px] text-red-500 mt-2">
+                    Prospect duplicado bloqueado. Abra o registro existente para revisar.
+                  </p>
+                )}
               </div>
+
+              {duplicateProspect && (
+                <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-3">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-red-600">Vaga duplicada detectada</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Ja existe um prospect para {duplicateProspect.company_name}
+                        {duplicateProspect.job_title ? ` - ${duplicateProspect.job_title}` : ""}. A criacao fica bloqueada para evitar registros repetidos.
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-2 h-8 rounded-lg"
+                        onClick={() => {
+                          setSelectedProspect(duplicateProspect);
+                          setDialogOpen(false);
+                          resetForm();
+                        }}
+                      >
+                        Abrir registro existente
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -1311,13 +1776,15 @@ export const Prospecting = () => {
                   Diagnóstico automático
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Ao salvar, a plataforma extrai tarefas recorrentes da descrição, calcula os relatórios e grava o diagnóstico operacional preliminar com mensagem sugerida.
+                  Ao salvar, a plataforma extrai demandas da descrição, ranqueia os módulos ConstruData e grava o diagnóstico operacional preliminar com mensagem sugerida.
                 </p>
                 <div className="flex flex-wrap gap-1.5 mt-3">
-                  {extractTasks(form.job_about).map((task) => (
-                    <Badge key={task} variant="secondary" className="text-[10px]">{task}</Badge>
+                  {formModuleMatches.slice(0, 5).map((module) => (
+                    <Badge key={module.moduleId} variant="secondary" className="text-[10px]">
+                      {module.moduleName} ({module.score})
+                    </Badge>
                   ))}
-                  {extractTasks(form.job_about).length === 0 && <Badge variant="outline" className="text-[10px]">Aguardando descrição da vaga</Badge>}
+                  {formModuleMatches.length === 0 && <Badge variant="outline" className="text-[10px]">Aguardando descrição da vaga</Badge>}
                 </div>
               </div>
             </div>
@@ -1330,7 +1797,7 @@ export const Prospecting = () => {
             <Button
               className="rounded-xl shadow-lg shadow-primary/20 w-full sm:w-auto gap-2"
               onClick={() => saveProspectMutation.mutate()}
-              disabled={!form.company_name.trim() || saveProspectMutation.isPending}
+              disabled={!form.company_name.trim() || saveProspectMutation.isPending || !!duplicateProspect}
             >
               <Save className="h-4 w-4" />
               {saveProspectMutation.isPending ? "Salvando..." : "Salvar prospect"}
