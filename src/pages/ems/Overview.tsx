@@ -249,7 +249,7 @@ const Overview = () => {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <TrueNorthPanel />
+          <OverviewMapCard />
         </motion.div>
 
         {/* Orbit-style KPI cards: numeral gigante + delta */}
@@ -498,7 +498,7 @@ const Overview = () => {
         <motion.div variants={itemVariants}><RecentActivity /></motion.div>
 
         <motion.div variants={itemVariants}>
-          <OverviewMapCard />
+          <TrueNorthPanel />
         </motion.div>
 
         <motion.div variants={itemVariants} className="pt-2">

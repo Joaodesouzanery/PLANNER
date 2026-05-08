@@ -56,7 +56,7 @@ export const LocationMap = ({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-xl border border-border/40 bg-[hsl(220_15%_8%)]",
+        "relative overflow-hidden rounded-xl border border-border/40 bg-[hsl(220_14%_13%)] [&_.leaflet-tile]:brightness-[1.16] [&_.leaflet-tile]:contrast-[0.95]",
         className
       )}
       style={{ height }}
@@ -66,7 +66,7 @@ export const LocationMap = ({
         zoom={zoom}
         scrollWheelZoom
         className="h-full w-full"
-        style={{ background: "hsl(220 15% 8%)" }}
+        style={{ background: "hsl(220 14% 13%)" }}
       >
         <TileLayer url={TILE_URL} attribution={TILE_ATTR} />
         <TileLayer url={LABELS_URL} />
