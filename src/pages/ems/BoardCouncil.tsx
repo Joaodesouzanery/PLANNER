@@ -79,6 +79,9 @@ const emptyItem = {
   effort: "",
   roi: "",
   contingency: "",
+  meeting_topic: "",
+  decision_needed: "",
+  follow_up: "",
 };
 
 const emptyLog = { title: "", notes: "", happened_at: new Date().toISOString().slice(0, 10) };
@@ -220,6 +223,27 @@ const BoardCouncil = () => {
     return { byCategory, nextActions };
   }, [allItems]);
 
+  const meetingPack = useMemo(() => {
+    const actionable = allItems.filter((item: any) => !["done", "archived"].includes(item.status));
+    const agenda = actionable
+      .filter((item: any) => item.metadata?.meeting_topic || ["critical", "high"].includes(item.priority))
+      .slice(0, 6);
+    const decisions = actionable
+      .filter((item: any) => item.metadata?.decision_needed || item.category === "decisions")
+      .slice(0, 6);
+    const followUps = actionable
+      .filter((item: any) => item.metadata?.follow_up || item.due_date)
+      .sort((a: any, b: any) => String(a.due_date || "9999-12-31").localeCompare(String(b.due_date || "9999-12-31")))
+      .slice(0, 6);
+    const owners = actionable.reduce<Record<string, number>>((acc, item: any) => {
+      const owner = item.owner || "Sem responsavel";
+      acc[owner] = (acc[owner] || 0) + 1;
+      return acc;
+    }, {});
+    const ownerList = Object.entries(owners).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    return { agenda, decisions, followUps, ownerList };
+  }, [allItems]);
+
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["governance-items"] });
     queryClient.invalidateQueries({ queryKey: ["governance-logs"] });
@@ -244,6 +268,9 @@ const BoardCouncil = () => {
           effort: itemForm.effort || null,
           roi: itemForm.roi || null,
           contingency: itemForm.contingency || null,
+          meeting_topic: itemForm.meeting_topic || null,
+          decision_needed: itemForm.decision_needed || null,
+          follow_up: itemForm.follow_up || null,
         },
       };
       const query = (supabase as any).from("governance_items");
@@ -348,6 +375,9 @@ const BoardCouncil = () => {
       effort: item.metadata?.effort || "",
       roi: item.metadata?.roi || "",
       contingency: item.metadata?.contingency || "",
+      meeting_topic: item.metadata?.meeting_topic || "",
+      decision_needed: item.metadata?.decision_needed || "",
+      follow_up: item.metadata?.follow_up || "",
     });
     setItemDialogOpen(true);
   };
@@ -427,6 +457,51 @@ const BoardCouncil = () => {
                   </button>
                 );
               })}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-3">
+          <Card className="xl:col-span-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2"><CalendarClock className="h-4 w-4 text-primary" /> Reunião do Conselho</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 md:grid-cols-3">
+              {[
+                { title: "Pauta", items: meetingPack.agenda, empty: "Sem pauta crítica." },
+                { title: "Decisões", items: meetingPack.decisions, empty: "Sem decisão pendente." },
+                { title: "Follow-ups", items: meetingPack.followUps, empty: "Sem follow-up aberto." },
+              ].map((section) => (
+                <div key={section.title} className="rounded-lg border border-border/50 p-3">
+                  <p className="mb-2 text-sm font-semibold">{section.title}</p>
+                  <div className="space-y-2">
+                    {section.items.length === 0 ? (
+                      <p className="py-4 text-center text-xs text-muted-foreground">{section.empty}</p>
+                    ) : section.items.slice(0, 4).map((item: any) => (
+                      <button key={item.id} type="button" onClick={() => setActiveCategory(item.category)} className="block w-full rounded-md bg-muted/25 p-2 text-left text-xs hover:bg-primary/10">
+                        <span className="block truncate font-medium">{item.title}</span>
+                        <span className="text-muted-foreground">{item.owner || "Sem responsável"} {item.due_date ? `- ${dateLabel(item.due_date)}` : ""}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Responsáveis</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {meetingPack.ownerList.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">Sem responsáveis em aberto.</p>
+              ) : meetingPack.ownerList.map(([owner, count]) => (
+                <div key={owner} className="flex items-center justify-between rounded-lg border border-border/50 p-2 text-sm">
+                  <span className="truncate">{owner}</span>
+                  <Badge variant="outline" className="text-[10px]">{count}</Badge>
+                </div>
+              ))}
             </CardContent>
           </Card>
         </div>
@@ -527,6 +602,13 @@ const BoardCouncil = () => {
                           </a>
                         )}
                         {item.metadata?.contingency && <p className="text-xs text-muted-foreground">Contingência: {item.metadata.contingency}</p>}
+                        {(item.metadata?.meeting_topic || item.metadata?.decision_needed || item.metadata?.follow_up) && (
+                          <div className="grid gap-2 rounded-lg border border-border/50 bg-muted/20 p-2 text-xs text-muted-foreground">
+                            {item.metadata?.meeting_topic && <p><span className="font-medium text-foreground">Pauta:</span> {item.metadata.meeting_topic}</p>}
+                            {item.metadata?.decision_needed && <p><span className="font-medium text-foreground">Decisão:</span> {item.metadata.decision_needed}</p>}
+                            {item.metadata?.follow_up && <p><span className="font-medium text-foreground">Follow-up:</span> {item.metadata.follow_up}</p>}
+                          </div>
+                        )}
                         <div className="flex justify-between items-center gap-2">
                           <Button variant="outline" size="sm" className="h-8" onClick={() => openEdit(item)}>Editar</Button>
                         </div>
@@ -625,6 +707,11 @@ const BoardCouncil = () => {
               <Input placeholder="Impacto" value={itemForm.impact} onChange={(e) => setItemForm({ ...itemForm, impact: e.target.value })} />
               <Input placeholder="Esforço" value={itemForm.effort} onChange={(e) => setItemForm({ ...itemForm, effort: e.target.value })} />
               <Input placeholder="ROI estimado" value={itemForm.roi} onChange={(e) => setItemForm({ ...itemForm, roi: e.target.value })} />
+            </div>
+            <div className="grid sm:grid-cols-3 gap-3">
+              <Input placeholder="Assunto de pauta" value={itemForm.meeting_topic} onChange={(e) => setItemForm({ ...itemForm, meeting_topic: e.target.value })} />
+              <Input placeholder="Decisão necessária" value={itemForm.decision_needed} onChange={(e) => setItemForm({ ...itemForm, decision_needed: e.target.value })} />
+              <Input placeholder="Follow-up" value={itemForm.follow_up} onChange={(e) => setItemForm({ ...itemForm, follow_up: e.target.value })} />
             </div>
             <Textarea placeholder="Plano de contingência / observações de prontidão" value={itemForm.contingency} onChange={(e) => setItemForm({ ...itemForm, contingency: e.target.value })} />
           </div>

@@ -40,7 +40,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { LocationMap } from "@/components/ems/LocationMap";
+import { OperationalMapPanel } from "@/components/ems/OperationalMapPanel";
 import { useMapPins } from "@/hooks/useMapPins";
 
 type ProspectStatus = "new" | "researching" | "contacted" | "meeting" | "won" | "lost";
@@ -1127,57 +1127,47 @@ export const Prospecting = () => {
         ))}
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <CardTitle className="text-base flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-primary" />
-                Mapa operacional de clientes e projetos
-              </CardTitle>
-              <p className="text-xs text-muted-foreground mt-1">
-                Mesmo mapa usado em Dashboard, Contatos e Projetos.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {[
-                { key: "all", label: "Todos" },
-                { key: "overdue", label: "Com alerta" },
-                { key: "today", label: "Hoje/atrasadas" },
-              ].map((filter) => (
-                <Button
-                  key={filter.key}
-                  variant={mapTaskFilter === filter.key ? "secondary" : "outline"}
-                  size="sm"
-                  className="h-8 rounded-lg text-xs"
-                  onClick={() => setMapTaskFilter(filter.key as typeof mapTaskFilter)}
-                >
-                  {filter.label}
-                </Button>
-              ))}
+      <OperationalMapPanel
+        title="Mapa operacional de clientes e projetos"
+        description="Mesmo mapa usado em Dashboard, Contatos e Projetos."
+        pinsOverride={prospectingMapPins}
+        height={420}
+        headerActions={
+          <>
+            {[
+              { key: "all", label: "Todos" },
+              { key: "overdue", label: "Com alerta" },
+              { key: "today", label: "Hoje/atrasadas" },
+            ].map((filter) => (
               <Button
-                variant="outline"
+                key={filter.key}
+                variant={mapTaskFilter === filter.key ? "secondary" : "outline"}
                 size="sm"
-                className={cn("h-8 rounded-lg text-xs", mapLayers.contacts && "bg-primary/10 text-primary")}
-                onClick={() => setMapLayers((prev) => ({ ...prev, contacts: !prev.contacts }))}
+                className="h-8 rounded-lg text-xs"
+                onClick={() => setMapTaskFilter(filter.key as typeof mapTaskFilter)}
               >
-                Contatos
+                {filter.label}
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className={cn("h-8 rounded-lg text-xs", mapLayers.projects && "bg-primary/10 text-primary")}
-                onClick={() => setMapLayers((prev) => ({ ...prev, projects: !prev.projects }))}
-              >
-                Projetos
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <LocationMap pins={prospectingMapPins} height={420} />
-        </CardContent>
-      </Card>
+            ))}
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn("h-8 rounded-lg text-xs", mapLayers.contacts && "bg-primary/10 text-primary")}
+              onClick={() => setMapLayers((prev) => ({ ...prev, contacts: !prev.contacts }))}
+            >
+              Contatos
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className={cn("h-8 rounded-lg text-xs", mapLayers.projects && "bg-primary/10 text-primary")}
+              onClick={() => setMapLayers((prev) => ({ ...prev, projects: !prev.projects }))}
+            >
+              Projetos
+            </Button>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)] gap-4">
         <div className="space-y-4">

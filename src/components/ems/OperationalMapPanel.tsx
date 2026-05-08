@@ -1,16 +1,22 @@
+import type { ReactNode } from "react";
 import { CalendarClock, FolderKanban, ListTodo } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { LocationMap, type MapPinKind } from "@/components/ems/LocationMap";
+import { LocationMap, type MapPin, type MapPinKind } from "@/components/ems/LocationMap";
 import { useMapPins, useMapTaskGroups } from "@/hooks/useMapPins";
 import { cn } from "@/lib/utils";
 
 interface OperationalMapPanelProps {
   title?: string;
+  description?: string;
   height?: number | string;
   filterKinds?: MapPinKind[];
   sidebar?: boolean;
+  pinsOverride?: MapPin[];
+  headerActions?: ReactNode;
+  sidebarTitle?: string;
+  maxSidebarHeight?: string;
 }
 
 const kindLabel: Record<MapPinKind, string> = {
@@ -29,12 +35,18 @@ const dateLabel = (date?: string | null) => {
 
 export const OperationalMapPanel = ({
   title = "Mapa operacional",
+  description,
   height = 380,
   filterKinds,
   sidebar = true,
+  pinsOverride,
+  headerActions,
+  sidebarTitle = "Tarefas por projeto",
+  maxSidebarHeight = "380px",
 }: OperationalMapPanelProps) => {
-  const { data: pins = [], isLoading } = useMapPins();
+  const { data: basePins = [], isLoading } = useMapPins();
   const { data: taskGroups = [] } = useMapTaskGroups();
+  const pins = pinsOverride ?? basePins;
   const visiblePins = filterKinds?.length ? pins.filter((pin) => filterKinds.includes(pin.kind || "default")) : pins;
   const alertCount = visiblePins.filter((pin) => pin.alert).length;
   const kindCounts = visiblePins.reduce<Record<string, number>>((acc, pin) => {
@@ -46,22 +58,28 @@ export const OperationalMapPanel = ({
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center justify-between gap-2 text-base">
-          <span className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-            {title}
-          </span>
-          <span className="text-xs font-normal text-muted-foreground">
-            {visiblePins.length} ponto{visiblePins.length === 1 ? "" : "s"}
-            {alertCount > 0 && <span className="ml-2 text-red-400">- {alertCount} com alerta</span>}
-          </span>
-        </CardTitle>
-        <div className="flex flex-wrap gap-1.5">
-          {(Object.entries(kindCounts) as Array<[MapPinKind, number]>).map(([kind, count]) => (
-            <Badge key={kind} variant="outline" className="h-5 text-[10px]">
-              {count} {kindLabel[kind] || "pontos"}
-            </Badge>
-          ))}
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 space-y-2">
+            <CardTitle className="flex items-center justify-between gap-2 text-base lg:justify-start">
+              <span className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                {title}
+              </span>
+              <span className="text-xs font-normal text-muted-foreground">
+                {visiblePins.length} ponto{visiblePins.length === 1 ? "" : "s"}
+                {alertCount > 0 && <span className="ml-2 text-red-400">- {alertCount} com alerta</span>}
+              </span>
+            </CardTitle>
+            {description && <p className="text-xs text-muted-foreground">{description}</p>}
+            <div className="flex flex-wrap gap-1.5">
+              {(Object.entries(kindCounts) as Array<[MapPinKind, number]>).map(([kind, count]) => (
+                <Badge key={kind} variant="outline" className="h-5 text-[10px]">
+                  {count} {kindLabel[kind] || "pontos"}
+                </Badge>
+              ))}
+            </div>
+          </div>
+          {headerActions && <div className="flex shrink-0 flex-wrap items-center gap-2">{headerActions}</div>}
         </div>
       </CardHeader>
       <CardContent>
@@ -72,13 +90,13 @@ export const OperationalMapPanel = ({
               <div className="flex items-center justify-between border-b border-border/50 p-3">
                 <div className="flex items-center gap-2">
                   <ListTodo className="h-4 w-4 text-primary" />
-                  <p className="text-sm font-semibold">Tarefas por projeto</p>
+                  <p className="text-sm font-semibold">{sidebarTitle}</p>
                 </div>
                 <Badge variant="secondary" className="h-5 text-[10px]">
                   {taskGroups.reduce((sum, group) => sum + group.tasks.length, 0)}
                 </Badge>
               </div>
-              <div className="max-h-[380px] space-y-3 overflow-y-auto p-3">
+              <div className="space-y-3 overflow-y-auto p-3" style={{ maxHeight: maxSidebarHeight }}>
                 {taskGroups.length === 0 ? (
                   <p className="py-8 text-center text-xs text-muted-foreground">Nenhuma tarefa aberta.</p>
                 ) : (

@@ -25,8 +25,7 @@ import { ptBR } from "date-fns/locale";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { LocationMap } from "@/components/ems/LocationMap";
-import { useMapPins } from "@/hooks/useMapPins";
+import { OperationalMapPanel } from "@/components/ems/OperationalMapPanel";
 import AddressAutocomplete from "@/components/ems/AddressAutocomplete";
 
 interface Contact {
@@ -70,31 +69,6 @@ const kanbanStatuses = [
   { key: "in_progress", label: "Em Andamento", icon: ListTodo, gradient: "from-blue-500/20 to-blue-600/5", border: "border-blue-500/40" },
   { key: "completed", label: "Concluídas", icon: CheckCircle2, gradient: "from-emerald-500/20 to-emerald-600/5", border: "border-emerald-500/40" },
 ];
-
-const ContactsMapCard = () => {
-  const { data: pins = [] } = useMapPins();
-  const clientPins = pins.filter((p) => p.id.startsWith("c-"));
-  const alertCount = clientPins.filter((p) => p.alert).length;
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center justify-between gap-2">
-          <span className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-            Mapa de clientes
-          </span>
-          <span className="text-xs font-normal text-muted-foreground">
-            {clientPins.length} cliente{clientPins.length === 1 ? "" : "s"}
-            {alertCount > 0 && <span className="ml-2 text-red-400">• {alertCount} com tarefas pendentes</span>}
-          </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <LocationMap pins={clientPins} height={300} />
-      </CardContent>
-    </Card>
-  );
-};
 
 const Contacts = () => {
   const queryClient = useQueryClient();
@@ -242,7 +216,12 @@ const Contacts = () => {
           </div>
         </div>
 
-        <ContactsMapCard />
+        <OperationalMapPanel
+          title="Mapa de clientes e tarefas"
+          description="Contatos, clientes e tarefas vinculadas no mesmo mapa operacional dos demais módulos."
+          filterKinds={["client", "task"]}
+          height={320}
+        />
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3">

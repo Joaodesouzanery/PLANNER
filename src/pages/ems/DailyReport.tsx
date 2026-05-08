@@ -6,6 +6,7 @@ import {
   Bot,
   BookOpen,
   Briefcase,
+  Building2,
   CalendarClock,
   CheckCircle2,
   DollarSign,
@@ -42,16 +43,20 @@ const isDone = (status?: string | null) => ["done", "completed", "concluido", "c
 const money = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const DailyReport = () => {
-  const { selectedCompanyId } = useCompany();
+  const { selectedCompanyId, companies } = useCompany();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const today = format(new Date(), "yyyy-MM-dd");
   const [selectedDate, setSelectedDate] = useState(today);
   const [viewMode, setViewMode] = useState("daily");
+  const [clientId, setClientId] = useState("all");
   const [projectId, setProjectId] = useState("all");
   const [area, setArea] = useState("geral");
   const [form, setForm] = useState({ decisions: "", notes: "", blockers: "" });
   const hasCompanyFilter = selectedCompanyId !== "all";
+  const effectiveCompanyId = clientId !== "all" ? clientId : hasCompanyFilter ? selectedCompanyId : "all";
+  const hasEffectiveCompanyFilter = effectiveCompanyId !== "all";
+  const availableClients = hasCompanyFilter ? companies.filter((company) => company.id === selectedCompanyId) : companies;
 
   const dateWindow = useMemo(() => {
     const base = new Date(`${selectedDate}T12:00:00`);
@@ -65,10 +70,10 @@ const DailyReport = () => {
     };
   }, [selectedDate]);
 
-  const companyFilter = (query: any) => hasCompanyFilter ? query.eq("company_id", selectedCompanyId) : query;
+  const companyFilter = (query: any) => hasEffectiveCompanyFilter ? query.eq("company_id", effectiveCompanyId) : query;
 
   const { data: projects = [] } = useQuery({
-    queryKey: ["daily-projects", selectedCompanyId],
+    queryKey: ["daily-projects", selectedCompanyId, clientId],
     staleTime: 1000 * 60 * 5,
     queryFn: async () => {
       let q = (supabase as any).from("projects").select("id,title,status,due_date,client,next_invoice_date,company_id").order("title");
@@ -80,7 +85,7 @@ const DailyReport = () => {
   });
 
   const { data: tasks = [] } = useQuery({
-    queryKey: ["daily-tasks", selectedCompanyId, projectId, dateWindow.weekStart, dateWindow.monthEnd],
+    queryKey: ["daily-tasks", selectedCompanyId, clientId, projectId, dateWindow.weekStart, dateWindow.monthEnd],
     staleTime: 1000 * 60,
     queryFn: async () => {
       let q = (supabase as any)
@@ -99,7 +104,7 @@ const DailyReport = () => {
   });
 
   const { data: transactions = [] } = useQuery({
-    queryKey: ["daily-financial", selectedCompanyId, dateWindow.yesterday, dateWindow.monthEnd],
+    queryKey: ["daily-financial", selectedCompanyId, clientId, dateWindow.yesterday, dateWindow.monthEnd],
     staleTime: 1000 * 60 * 2,
     queryFn: async () => {
       let q = (supabase as any)
@@ -116,7 +121,7 @@ const DailyReport = () => {
   });
 
   const { data: commercialActions = [] } = useQuery({
-    queryKey: ["daily-commercial", selectedCompanyId, dateWindow.yesterday, dateWindow.monthEnd],
+    queryKey: ["daily-commercial", selectedCompanyId, clientId, dateWindow.yesterday, dateWindow.monthEnd],
     staleTime: 1000 * 60 * 2,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
@@ -126,7 +131,7 @@ const DailyReport = () => {
         .gte("next_action_date", dateWindow.yesterday)
         .lte("next_action_date", dateWindow.monthEnd);
       if (error) throw error;
-      return hasCompanyFilter ? (data || []).filter((item: any) => item.contact?.company_id === selectedCompanyId) : (data || []);
+      return hasEffectiveCompanyFilter ? (data || []).filter((item: any) => item.contact?.company_id === effectiveCompanyId) : (data || []);
     },
   });
 
@@ -160,7 +165,7 @@ const DailyReport = () => {
   });
 
   const { data: events = [] } = useQuery({
-    queryKey: ["daily-events", selectedCompanyId, dateWindow.weekStart, dateWindow.monthEnd],
+    queryKey: ["daily-events", selectedCompanyId, clientId, dateWindow.weekStart, dateWindow.monthEnd],
     staleTime: 1000 * 60 * 2,
     queryFn: async () => {
       let q = (supabase as any)
@@ -177,7 +182,7 @@ const DailyReport = () => {
   });
 
   const { data: governance = [] } = useQuery({
-    queryKey: ["daily-governance", selectedCompanyId, dateWindow.weekStart, dateWindow.monthEnd],
+    queryKey: ["daily-governance", selectedCompanyId, clientId, dateWindow.weekStart, dateWindow.monthEnd],
     staleTime: 1000 * 60 * 2,
     queryFn: async () => {
       let q = (supabase as any)
@@ -194,7 +199,7 @@ const DailyReport = () => {
   });
 
   const { data: inboxPending = [] } = useQuery({
-    queryKey: ["daily-inbox", selectedCompanyId],
+    queryKey: ["daily-inbox", selectedCompanyId, clientId],
     staleTime: 1000 * 30,
     queryFn: async () => {
       let q = (supabase as any)
@@ -211,7 +216,7 @@ const DailyReport = () => {
   });
 
   const { data: capacityCheckins = [] } = useQuery({
-    queryKey: ["daily-capacity", selectedCompanyId],
+    queryKey: ["daily-capacity", selectedCompanyId, clientId],
     staleTime: 1000 * 60,
     queryFn: async () => {
       let q = (supabase as any)
@@ -227,7 +232,7 @@ const DailyReport = () => {
   });
 
   const { data: expiringDocuments = [] } = useQuery({
-    queryKey: ["daily-documents", selectedCompanyId, dateWindow.monthEnd],
+    queryKey: ["daily-documents", selectedCompanyId, clientId, dateWindow.monthEnd],
     staleTime: 1000 * 60 * 2,
     queryFn: async () => {
       let q = (supabase as any)
@@ -237,7 +242,7 @@ const DailyReport = () => {
         .lte("expires_at", dateWindow.monthEnd)
         .order("expires_at", { ascending: true })
         .limit(20);
-      if (hasCompanyFilter) q = q.or(`company_id.eq.${selectedCompanyId},client_company_id.eq.${selectedCompanyId}`);
+      if (hasEffectiveCompanyFilter) q = q.or(`company_id.eq.${effectiveCompanyId},client_company_id.eq.${effectiveCompanyId}`);
       const { data, error } = await q;
       if (error) throw error;
       return data || [];
@@ -245,7 +250,7 @@ const DailyReport = () => {
   });
 
   const { data: report = null } = useQuery({
-    queryKey: ["daily-report-entry", selectedCompanyId, selectedDate, projectId, area],
+    queryKey: ["daily-report-entry", selectedCompanyId, clientId, selectedDate, projectId, area],
     staleTime: 1000 * 30,
     queryFn: async () => {
       let q = (supabase as any)
@@ -253,7 +258,7 @@ const DailyReport = () => {
         .select("*")
         .eq("report_date", selectedDate)
         .eq("area", area);
-      q = hasCompanyFilter ? q.eq("company_id", selectedCompanyId) : q.is("company_id", null);
+      q = hasEffectiveCompanyFilter ? q.eq("company_id", effectiveCompanyId) : q.is("company_id", null);
       q = projectId !== "all" ? q.eq("project_id", projectId) : q.is("project_id", null);
       const { data, error } = await q.maybeSingle();
       if (error) throw error;
@@ -268,7 +273,7 @@ const DailyReport = () => {
         report_date: selectedDate,
         area,
         project_id: projectId === "all" ? null : projectId,
-        company_id: hasCompanyFilter ? selectedCompanyId : null,
+        company_id: hasEffectiveCompanyFilter ? effectiveCompanyId : null,
         decisions: form.decisions || null,
         notes: form.notes || null,
         blockers: form.blockers || null,
@@ -302,6 +307,41 @@ const DailyReport = () => {
   const documentAlerts = expiringDocuments.filter((doc: any) => {
     const due = Math.ceil((new Date(`${doc.expires_at}T12:00:00`).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
     return due >= 0 && due <= Number(doc.alert_days || 30);
+  });
+
+  const client360 = useMemo(() => {
+    const clientList = clientId === "all" ? availableClients : availableClients.filter((company) => company.id === clientId);
+    return clientList.map((company) => {
+      const clientProjects = projects.filter((project: any) => project.company_id === company.id);
+      const projectIds = new Set(clientProjects.map((project: any) => project.id));
+      const clientTasks = tasks.filter((task: any) => task.company_id === company.id || projectIds.has(task.project_id));
+      const clientDocs = expiringDocuments.filter((doc: any) => doc.company_id === company.id || doc.client_company_id === company.id);
+      const clientGovernance = governance.filter((item: any) => item.company_id === company.id);
+      const clientCommercial = commercialActions.filter((item: any) => item.contact?.company_id === company.id);
+      return {
+        id: company.id,
+        name: company.name,
+        projects: clientProjects,
+        tasks: clientTasks,
+        overdue: clientTasks.filter((task: any) => task.due_date < selectedDate && !isDone(task.status)),
+        invoices: clientProjects.filter((project: any) => project.next_invoice_date && project.next_invoice_date <= dateWindow.monthEnd),
+        documents: clientDocs,
+        governance: clientGovernance.filter((item: any) => !isDone(item.status)),
+        commercial: clientCommercial,
+      };
+    });
+  }, [availableClients, clientId, commercialActions, dateWindow.monthEnd, expiringDocuments, governance, projects, selectedDate, tasks]);
+
+  const project360 = projectFilteredProjects.map((project: any) => {
+    const projectTasks = tasks.filter((task: any) => task.project_id === project.id);
+    return {
+      ...project,
+      tasks: projectTasks,
+      overdue: projectTasks.filter((task: any) => task.due_date < selectedDate && !isDone(task.status)),
+      governance: governance.filter((item: any) => item.company_id === project.company_id && !isDone(item.status)),
+      commercial: commercialActions.filter((item: any) => item.contact?.company_id === project.company_id),
+      documents: expiringDocuments.filter((doc: any) => doc.company_id === project.company_id || doc.client_company_id === project.company_id),
+    };
   });
 
   const timeline = [
@@ -353,7 +393,7 @@ const DailyReport = () => {
             </h1>
             <p className="text-sm text-muted-foreground">Visão 360° da operação, prioridades e decisões do dia.</p>
           </div>
-          <div className="grid sm:grid-cols-4 gap-2">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-2">
             <Input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} />
             <Select value={viewMode} onValueChange={setViewMode}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -361,6 +401,13 @@ const DailyReport = () => {
                 <SelectItem value="daily">Diário</SelectItem>
                 <SelectItem value="weekly">Semanal</SelectItem>
                 <SelectItem value="monthly">Mensal</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={clientId} onValueChange={(value) => { setClientId(value); setProjectId("all"); }}>
+              <SelectTrigger><SelectValue placeholder="Cliente/empresa" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os clientes</SelectItem>
+                {availableClients.map((company) => <SelectItem key={company.id} value={company.id}>{company.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={projectId} onValueChange={setProjectId}>
@@ -409,6 +456,72 @@ const DailyReport = () => {
             </CardContent>
           </Card>
         )}
+
+        <div className="grid gap-4 xl:grid-cols-[1fr_1fr_0.8fr]">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" /> Cliente / Empresa</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {client360.slice(0, 4).map((client) => (
+                <div key={client.id} className="rounded-lg border border-border/50 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate text-sm font-semibold">{client.name}</p>
+                    <Badge variant="outline" className="text-[10px]">{client.projects.length} projetos</Badge>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                    <span>{client.tasks.length} tarefas</span>
+                    <span>{client.overdue.length} vencidas</span>
+                    <span>{client.invoices.length} NFs</span>
+                    <span>{client.governance.length} conselho</span>
+                    <span>{client.documents.length} docs</span>
+                    <span>{client.commercial.length} follow-ups</span>
+                  </div>
+                </div>
+              ))}
+              {client360.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">Sem empresa/cliente no filtro.</p>}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><FolderKanban className="h-4 w-4 text-primary" /> Projeto</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {project360.slice(0, 5).map((project: any) => (
+                <div key={project.id} className="rounded-lg border border-border/50 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate text-sm font-semibold">{project.title}</p>
+                    {project.next_invoice_date && <Badge variant="secondary" className="text-[10px]">NF {dateLabel(project.next_invoice_date)}</Badge>}
+                  </div>
+                  <p className="mt-1 truncate text-xs text-muted-foreground">{project.client || "Sem cliente informado"}</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <Badge variant={project.overdue.length ? "destructive" : "outline"} className="text-[10px]">{project.overdue.length} atrasadas</Badge>
+                    <Badge variant="outline" className="text-[10px]">{project.tasks.length} tarefas</Badge>
+                    <Badge variant="outline" className="text-[10px]">{project.governance.length} riscos/decisões</Badge>
+                    <Badge variant="outline" className="text-[10px]">{project.documents.length} docs</Badge>
+                  </div>
+                </div>
+              ))}
+              {project360.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">Sem projeto no filtro.</p>}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2"><Activity className="h-4 w-4 text-primary" /> Operação</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex justify-between gap-2"><span className="text-muted-foreground">Receitas no radar</span><strong>{money(monthlyProjection)}</strong></div>
+              <div className="flex justify-between gap-2"><span className="text-muted-foreground">Inbox pendente</span><strong>{inboxPending.length}</strong></div>
+              <div className="flex justify-between gap-2"><span className="text-muted-foreground">Docs críticos</span><strong>{documentAlerts.length}</strong></div>
+              <div className="flex justify-between gap-2"><span className="text-muted-foreground">Capacidade</span><strong>{capacityRisk ? "Atenção" : "Estável"}</strong></div>
+              <div className="rounded-lg border border-border/50 bg-muted/20 p-3 text-xs text-muted-foreground">
+                O diário executivo abaixo grava o contexto filtrado por data, cliente, projeto e área.
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {radar.map((item) => (

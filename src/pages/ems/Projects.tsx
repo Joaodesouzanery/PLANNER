@@ -28,34 +28,8 @@ import { cn } from "@/lib/utils";
 import { AttachmentManager } from "@/components/ems/AttachmentManager";
 import { ConferenciaContent } from "./Conferencia";
 import { OrgChartContent } from "./OrgChart";
-import { LocationMap } from "@/components/ems/LocationMap";
-import { useMapPins } from "@/hooks/useMapPins";
+import { OperationalMapPanel } from "@/components/ems/OperationalMapPanel";
 import AddressAutocomplete from "@/components/ems/AddressAutocomplete";
-
-const ProjectsMapCard = () => {
-  const { data: pins = [] } = useMapPins();
-  const projectPins = pins.filter((p) => p.id.startsWith("p-"));
-  const alertCount = projectPins.filter((p) => p.alert).length;
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center justify-between gap-2">
-          <span className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-            Mapa de projetos
-          </span>
-          <span className="text-xs font-normal text-muted-foreground">
-            {projectPins.length} projeto{projectPins.length === 1 ? "" : "s"}
-            {alertCount > 0 && <span className="ml-2 text-red-400">• {alertCount} com tarefas pendentes</span>}
-          </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <LocationMap pins={projectPins} height={300} />
-      </CardContent>
-    </Card>
-  );
-};
 
 interface Project {
   id: string;
@@ -167,6 +141,17 @@ const priorityConfig: Record<string, { label: string; color: string; border: str
 const CHART_COLORS = ["hsl(var(--primary))", "#f59e0b", "#10b981", "#8b5cf6", "#ec4899", "#f97316", "#06b6d4", "#ef4444"];
 const fmtMoney = (value: number) => `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
+type GraphTone = "document" | "revenue" | "risk" | "plan" | "governance" | "org";
+
+const GRAPH_TONES: Record<GraphTone, { node: string; icon: string; stroke: string }> = {
+  document: { node: "border-blue-500/60 bg-blue-500/10 shadow-blue-500/10", icon: "text-blue-300", stroke: "rgba(96, 165, 250, 0.72)" },
+  revenue: { node: "border-emerald-500/60 bg-emerald-500/10 shadow-emerald-500/10", icon: "text-emerald-300", stroke: "rgba(52, 211, 153, 0.72)" },
+  risk: { node: "border-red-500/65 bg-red-500/10 shadow-red-500/10", icon: "text-red-300", stroke: "rgba(248, 113, 113, 0.78)" },
+  plan: { node: "border-primary/70 bg-primary/10 shadow-primary/10", icon: "text-primary", stroke: "hsl(var(--primary) / 0.76)" },
+  governance: { node: "border-cyan-400/60 bg-cyan-500/10 shadow-cyan-500/10", icon: "text-cyan-300", stroke: "rgba(103, 232, 249, 0.72)" },
+  org: { node: "border-violet-400/60 bg-violet-500/10 shadow-violet-500/10", icon: "text-violet-300", stroke: "rgba(196, 181, 253, 0.72)" },
+};
+
 const emptyProjectForm = {
   title: "",
   description: "",
@@ -234,6 +219,7 @@ const Projects = () => {
   const [conferenceProject, setConferenceProject] = useState<Project | null>(null);
   const [orgChartProject, setOrgChartProject] = useState<Project | null>(null);
   const [planningProject, setPlanningProject] = useState<Project | null>(null);
+  const [project360, setProject360] = useState<Project | null>(null);
   const [opportunityProjectId, setOpportunityProjectId] = useState("");
   const [opportunityForm, setOpportunityForm] = useState({ title: "", value: "", stage: "nova", probability: "50", expected_close_date: "" });
 
@@ -746,7 +732,12 @@ const Projects = () => {
           </motion.div>
         </div>
 
-        <ProjectsMapCard />
+        <OperationalMapPanel
+          title="Mapa de projetos"
+          description="Projetos e tarefas aparecem no mesmo mapa operacional do Dashboard e Comercial."
+          filterKinds={["project", "task"]}
+          height={340}
+        />
 
         {/* Filters */}
         <div className="flex flex-wrap gap-2 md:gap-4 items-center">
@@ -859,17 +850,17 @@ const Projects = () => {
               {activeProjects.map((project, index) => {
                 const { linkedGoals, goalProgress, progress, projectOpps, opportunityValue: oppValue, financialImpacts, plannedFinancial, risks, assumptions } = getGraphMetrics(project);
                 const graphNodes = [
-                  graphVisibleNodes.contracts && { key: "contracts", label: `${projectContractCounts[project.id] || 0} contratos`, sub: "PDFs e anexos", icon: FileText, x: 4, y: 8, onClick: () => setEditingProject(project) },
-                  graphVisibleNodes.opportunities && { key: "opportunities", label: `${projectOpps.length} oportunidades`, sub: fmtMoney(oppValue), icon: LinkIcon, x: 72, y: 8, onClick: () => openOpportunityModal(project.id) },
-                  graphVisibleNodes.goals && { key: "goals", label: `${linkedGoals.length} metas`, sub: `${goalProgress}% medio`, icon: Goal, x: 4, y: 41, onClick: () => setPlanningProject(project) },
-                  graphVisibleNodes.finance && { key: "finance", label: fmtMoney(oppValue), sub: "oportunidades", icon: DollarSign, x: 72, y: 41, onClick: () => openOpportunityModal(project.id) },
-                  graphVisibleNodes.plan && { key: "plan", label: "Plano + Metas", sub: linkedGoals.length ? `${linkedGoals.length} iniciativas` : "criar plano rapido", icon: Target, x: 38, y: 5, onClick: () => setPlanningProject(project) },
-                  graphVisibleNodes.financialImpact && { key: "financialImpact", label: fmtMoney(plannedFinancial), sub: `${financialImpacts.length} impactos`, icon: TrendingUp, x: 38, y: 86, onClick: () => setPlanningProject(project) },
-                  graphVisibleNodes.risks && { key: "risks", label: `${risks.length} riscos`, sub: risks[0]?.risk || "monitoramento", icon: AlertTriangle, x: 4, y: 74, onClick: () => setPlanningProject(project) },
-                  graphVisibleNodes.assumptions && { key: "assumptions", label: `${assumptions.length} suposicoes`, sub: assumptions[0]?.assumption || "apostas do plano", icon: Lightbulb, x: 72, y: 74, onClick: () => setPlanningProject(project) },
-                  graphVisibleNodes.conference && { key: "conference", label: "Conferencia", sub: "controle por projeto", icon: ShieldCheck, x: 38, y: 25, onClick: () => setConferenceProject(project) },
-                  graphVisibleNodes.orgchart && { key: "orgchart", label: "Organograma", sub: "estrutura vinculada", icon: Users, x: 38, y: 65, onClick: () => setOrgChartProject(project) },
-                ].filter(Boolean) as { key: string; label: string; sub: string; icon: any; x: number; y: number; onClick: () => void }[];
+                  graphVisibleNodes.contracts && { key: "contracts", tone: "document", label: `${projectContractCounts[project.id] || 0} contratos`, sub: "PDFs e anexos", icon: FileText, x: 3, y: 8, onClick: () => setEditingProject(project) },
+                  graphVisibleNodes.opportunities && { key: "opportunities", tone: "revenue", label: `${projectOpps.length} oportunidades`, sub: fmtMoney(oppValue), icon: LinkIcon, x: 68, y: 8, onClick: () => openOpportunityModal(project.id) },
+                  graphVisibleNodes.goals && { key: "goals", tone: "plan", label: `${linkedGoals.length} metas`, sub: `${goalProgress}% medio`, icon: Goal, x: 3, y: 40, onClick: () => setPlanningProject(project) },
+                  graphVisibleNodes.finance && { key: "finance", tone: "revenue", label: fmtMoney(oppValue), sub: "oportunidades", icon: DollarSign, x: 68, y: 40, onClick: () => openOpportunityModal(project.id) },
+                  graphVisibleNodes.plan && { key: "plan", tone: "plan", label: "Plano + Metas", sub: linkedGoals.length ? `${linkedGoals.length} iniciativas` : "criar plano rapido", icon: Target, x: 36, y: 5, onClick: () => setPlanningProject(project) },
+                  graphVisibleNodes.financialImpact && { key: "financialImpact", tone: "revenue", label: fmtMoney(plannedFinancial), sub: `${financialImpacts.length} impactos`, icon: TrendingUp, x: 36, y: 86, onClick: () => setPlanningProject(project) },
+                  graphVisibleNodes.risks && { key: "risks", tone: "risk", label: `${risks.length} riscos`, sub: risks[0]?.risk || "monitoramento", icon: AlertTriangle, x: 3, y: 73, onClick: () => setPlanningProject(project) },
+                  graphVisibleNodes.assumptions && { key: "assumptions", tone: "plan", label: `${assumptions.length} suposicoes`, sub: assumptions[0]?.assumption || "apostas do plano", icon: Lightbulb, x: 68, y: 73, onClick: () => setPlanningProject(project) },
+                  graphVisibleNodes.conference && { key: "conference", tone: "governance", label: "Conferencia", sub: "controle por projeto", icon: ShieldCheck, x: 36, y: 25, onClick: () => setConferenceProject(project) },
+                  graphVisibleNodes.orgchart && { key: "orgchart", tone: "org", label: "Organograma", sub: "estrutura vinculada", icon: Users, x: 36, y: 64, onClick: () => setOrgChartProject(project) },
+                ].filter(Boolean) as { key: string; tone: GraphTone; label: string; sub: string; icon: any; x: number; y: number; onClick: () => void }[];
                 return (
                   <motion.div key={project.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }}>
                     <Card className="border-border/50 bg-card/80 overflow-hidden">
@@ -885,7 +876,7 @@ const Projects = () => {
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <div
-                          className="relative min-h-[420px] rounded-lg border border-border/50 overflow-hidden bg-background"
+                          className="relative min-h-[520px] rounded-lg border border-border/70 overflow-hidden bg-background"
                           style={{
                             backgroundImage: "linear-gradient(hsl(var(--border) / .22) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--border) / .22) 1px, transparent 1px)",
                             backgroundSize: "18px 18px",
@@ -897,37 +888,40 @@ const Projects = () => {
                                 key={node.key}
                                 x1="50"
                                 y1="50"
-                                x2={node.x + 13}
-                                y2={node.y + 7}
-                                stroke="hsl(var(--border))"
-                                strokeWidth="0.35"
-                                strokeDasharray={node.key === "conference" || node.key === "orgchart" ? "1.4 1.4" : "0"}
+                                x2={node.x + 14}
+                                y2={node.y + 5}
+                                stroke={GRAPH_TONES[node.tone].stroke}
+                                strokeWidth="0.75"
+                                strokeDasharray={node.key === "conference" || node.key === "orgchart" ? "1.6 1.4" : "0"}
                               />
                             ))}
                           </svg>
                           <button
-                            className="absolute left-1/2 top-1/2 z-10 w-40 -translate-x-1/2 -translate-y-1/2 rounded-xl border border-primary/40 bg-background/95 p-3 text-left shadow-lg"
+                            className="absolute left-1/2 top-1/2 z-10 w-52 -translate-x-1/2 -translate-y-1/2 rounded-xl border-2 border-primary/70 bg-background/95 p-4 text-left shadow-xl shadow-primary/10"
                             onClick={() => setEditingProject(project)}
                           >
                             <div className="flex items-center gap-2">
-                              <FolderKanban className="h-4 w-4 text-primary" />
-                              <span className="text-xs font-semibold line-clamp-2">{project.title}</span>
+                              <FolderKanban className="h-5 w-5 text-primary" />
+                              <span className="text-sm font-semibold leading-tight line-clamp-2">{project.title}</span>
                             </div>
-                            <p className="text-[10px] text-muted-foreground mt-2">{project.client || "Sem cliente"}</p>
-                            <Progress value={progress} className="h-1.5 mt-2" />
+                            <p className="text-xs text-muted-foreground mt-2">{project.client || "Sem cliente"}</p>
+                            <Progress value={progress} className="h-2 mt-3" />
                           </button>
                           {graphNodes.map((node) => (
                             <button
                               key={node.key}
-                              className="absolute z-20 w-32 sm:w-36 rounded-lg border border-border/70 bg-card/95 p-2 text-left shadow-md transition hover:border-primary/50 hover:bg-primary/5"
+                              className={cn(
+                                "absolute z-20 w-40 rounded-lg border-2 p-3 text-left shadow-lg transition hover:-translate-y-0.5 hover:bg-card sm:w-52",
+                                GRAPH_TONES[node.tone].node
+                              )}
                               style={{ left: `${node.x}%`, top: `${node.y}%` }}
                               onClick={node.onClick}
                             >
-                              <div className="flex items-center gap-1.5 text-xs font-semibold">
-                                <node.icon className="h-3.5 w-3.5 text-primary" />
+                              <div className="flex items-center gap-2 text-sm font-semibold">
+                                <node.icon className={cn("h-4 w-4 shrink-0", GRAPH_TONES[node.tone].icon)} />
                                 <span className="truncate">{node.label}</span>
                               </div>
-                              <p className="text-[10px] text-muted-foreground truncate mt-1">{node.sub}</p>
+                              <p className="text-xs text-muted-foreground truncate mt-1.5">{node.sub}</p>
                             </button>
                           ))}
                         </div>
@@ -971,6 +965,9 @@ const Projects = () => {
                           </Button>
                           <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setOrgChartProject(project)}>
                             <Users className="h-3.5 w-3.5 mr-1" />Organograma
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setProject360(project)}>
+                            <BarChart3 className="h-3.5 w-3.5 mr-1" />360
                           </Button>
                           <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setView("kanban")}>Ir ao Kanban</Button>
                         </div>
@@ -1110,6 +1107,18 @@ const Projects = () => {
                                                     </span>
                                                   )}
                                                   {isOverdue && <Badge variant="destructive" className="text-[9px] md:text-[10px] px-1 py-0 animate-pulse">Atrasado</Badge>}
+                                                  {project.next_invoice_date && (
+                                                    <Badge variant="outline" className="text-[9px] md:text-[10px] px-1 md:px-1.5 gap-0.5 border-emerald-500/30 text-emerald-300 bg-emerald-500/10">
+                                                      <DollarSign className="h-2.5 w-2.5" />
+                                                      NF {format(new Date(project.next_invoice_date + "T00:00:00"), "dd/MM", { locale: ptBR })}
+                                                    </Badge>
+                                                  )}
+                                                  {projectRisks.filter((risk) => risk.project_id === project.id).length > 0 && (
+                                                    <Badge variant="outline" className="text-[9px] md:text-[10px] px-1 md:px-1.5 gap-0.5 border-red-500/30 text-red-300 bg-red-500/10">
+                                                      <AlertTriangle className="h-2.5 w-2.5" />
+                                                      {projectRisks.filter((risk) => risk.project_id === project.id).length} riscos
+                                                    </Badge>
+                                                  )}
                                                   {project.notes && <span title="Tem notas" className="text-muted-foreground/60"><FileText className="h-2.5 w-2.5" /></span>}
                                                   {Array.isArray(project.checklist) && project.checklist.length > 0 && (
                                                     <span className="text-[9px] md:text-[10px] text-muted-foreground font-mono">
@@ -1129,6 +1138,14 @@ const Projects = () => {
                                                     </button>
                                                   )}
                                                 </div>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className="mt-2 ml-5 md:ml-6 h-7 px-2 text-[10px] text-primary hover:bg-primary/10"
+                                                  onClick={(e) => { e.stopPropagation(); setProject360(project); }}
+                                                >
+                                                  <BarChart3 className="h-3 w-3 mr-1" />360 do projeto
+                                                </Button>
                                                 {(totalTaskCounts[project.id] || 0) > 0 && (() => {
                                                   const total = totalTaskCounts[project.id];
                                                   const pending = pendingTaskCounts[project.id] || 0;
@@ -1478,6 +1495,70 @@ const Projects = () => {
               <Button variant="outline" size="sm" onClick={() => setShowColumnModal(false)}>Cancelar</Button>
               <Button size="sm" onClick={addColumn}>Criar Coluna</Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!project360} onOpenChange={(open) => !open && setProject360(null)}>
+          <DialogContent className="max-w-[95vw] sm:max-w-3xl">
+            <DialogHeader>
+              <DialogTitle className="text-base md:text-lg">360 do projeto</DialogTitle>
+            </DialogHeader>
+            {project360 && (() => {
+              const metrics = getGraphMetrics(project360);
+              const openTasks = pendingTaskCounts[project360.id] || 0;
+              const totalTasks = totalTaskCounts[project360.id] || 0;
+              const projectRiskList = projectRisks.filter((risk) => risk.project_id === project360.id);
+              return (
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-border/50 bg-muted/20 p-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold">{project360.title}</h3>
+                        <p className="text-sm text-muted-foreground">{project360.client || "Sem cliente informado"}</p>
+                      </div>
+                      <Badge variant="outline" className="w-fit font-mono">{metrics.progress}%</Badge>
+                    </div>
+                    <Progress value={metrics.progress} className="mt-3 h-2" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                    {[
+                      { label: "Tarefas abertas", value: openTasks, hint: `${totalTasks} totais`, icon: Clock, color: "text-amber-300" },
+                      { label: "Oportunidades", value: fmtMoney(metrics.opportunityValue), hint: `${metrics.projectOpps.length} registros`, icon: DollarSign, color: "text-emerald-300" },
+                      { label: "Proxima NF", value: project360.next_invoice_date ? format(new Date(project360.next_invoice_date + "T00:00:00"), "dd/MM", { locale: ptBR }) : "Sem data", hint: project360.invoice_notes || "alerta financeiro", icon: FileText, color: "text-blue-300" },
+                      { label: "Riscos", value: projectRiskList.length, hint: projectRiskList[0]?.risk || "monitoramento", icon: AlertTriangle, color: "text-red-300" },
+                    ].map((item) => (
+                      <Card key={item.label} className="border-border/50">
+                        <CardContent className="p-3">
+                          <item.icon className={cn("mb-2 h-4 w-4", item.color)} />
+                          <p className="truncate text-lg font-bold font-mono">{item.value}</p>
+                          <p className="text-xs font-medium">{item.label}</p>
+                          <p className="mt-1 truncate text-[10px] text-muted-foreground">{item.hint}</p>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Card className="border-border/50">
+                      <CardHeader className="pb-2"><CardTitle className="text-sm">Plano e metas</CardTitle></CardHeader>
+                      <CardContent className="space-y-2 text-sm">
+                        <div className="flex justify-between"><span className="text-muted-foreground">Metas vinculadas</span><strong>{metrics.linkedGoals.length}</strong></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Progresso medio</span><strong>{metrics.goalProgress}%</strong></div>
+                        <div className="flex justify-between"><span className="text-muted-foreground">Impacto planejado</span><strong>{fmtMoney(metrics.plannedFinancial)}</strong></div>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-border/50">
+                      <CardHeader className="pb-2"><CardTitle className="text-sm">Acoes rapidas</CardTitle></CardHeader>
+                      <CardContent className="flex flex-wrap gap-2">
+                        <Button size="sm" variant="outline" onClick={() => { setPlanningProject(project360); setProject360(null); }}>Plano</Button>
+                        <Button size="sm" variant="outline" onClick={() => { openOpportunityModal(project360.id); setProject360(null); }}>Oportunidade</Button>
+                        <Button size="sm" variant="outline" onClick={() => navigate(`/ems/tasks?project=${project360.id}`)}>Tarefas</Button>
+                        <Button size="sm" variant="outline" onClick={() => { setEditingProject(project360); setProject360(null); }}>Editar</Button>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              );
+            })()}
           </DialogContent>
         </Dialog>
 

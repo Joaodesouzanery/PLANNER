@@ -20,8 +20,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { RecentActivity } from "@/components/ems/RecentActivity";
-import { LocationMap } from "@/components/ems/LocationMap";
-import { useMapPins } from "@/hooks/useMapPins";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrueNorthPanel } from "@/components/ems/TrueNorthPanel";
 import { ExecutiveDashboardContent } from "./Executive";
@@ -38,30 +36,6 @@ interface MonthlyFocus { id: string; title: string; description: string; }
 interface ContactTask { id: string; title: string; priority: string; due_date: string | null; status: string; contact: { id: string; name: string; company: string | null; } | null; }
 interface MonthlyData { month: string; income: number; expense: number; }
 interface DashboardReminder { id: string; phrase: string; created_at: string; }
-
-const OverviewMapCard = () => {
-  const { data: pins = [] } = useMapPins();
-  const alertCount = pins.filter((p) => p.alert).length;
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center justify-between gap-2">
-          <span className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-            Mapa operacional
-          </span>
-          <span className="text-xs font-normal text-muted-foreground">
-            {pins.length} ponto{pins.length === 1 ? "" : "s"}
-            {alertCount > 0 && <span className="ml-2 text-red-400">• {alertCount} com alerta</span>}
-          </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <LocationMap pins={pins} height={380} />
-      </CardContent>
-    </Card>
-  );
-};
 
 const Overview = () => {
   const { toast } = useToast();

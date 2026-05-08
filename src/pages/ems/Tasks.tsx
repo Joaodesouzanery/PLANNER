@@ -334,6 +334,8 @@ const Tasks = () => {
     pending: parentTasks.filter((t) => t.status !== "completed").length,
     completed: parentTasks.filter((t) => t.status === "completed").length,
     urgent: parentTasks.filter((t) => t.priority === "urgent" && t.status !== "completed").length,
+    overdue: parentTasks.filter((t) => t.due_date && new Date(t.due_date + "T23:59:59") < new Date() && t.status !== "completed").length,
+    unassigned: parentTasks.filter((t) => !t.project_id && t.status !== "completed").length,
   };
 
   const completionRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
@@ -459,12 +461,14 @@ const Tasks = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-7 gap-3">
           {[
             { label: "Total", value: stats.total, icon: ListTodo, color: "text-primary", gradient: "from-primary/10 to-primary/5" },
             { label: "Pendentes", value: stats.pending, icon: Clock, color: "text-yellow-400", gradient: "from-yellow-500/10 to-yellow-500/5" },
             { label: "Concluídas", value: stats.completed, icon: CheckCircle2, color: "text-emerald-400", gradient: "from-emerald-500/10 to-emerald-500/5" },
             { label: "Urgentes", value: stats.urgent, icon: AlertTriangle, color: "text-red-400", gradient: "from-red-500/10 to-red-500/5" },
+            { label: "Atrasadas", value: stats.overdue, icon: Calendar, color: "text-red-400", gradient: "from-red-500/10 to-red-500/5" },
+            { label: "Sem projeto", value: stats.unassigned, icon: FolderKanban, color: "text-blue-400", gradient: "from-blue-500/10 to-blue-500/5" },
           ].map((s, i) => (
             <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
               <div className="stat-card">
@@ -659,6 +663,22 @@ const Tasks = () => {
                               {format(new Date(task.due_date + "T00:00:00"), "dd/MM", { locale: ptBR })}
                             </span>
                           )}
+                          <div className="hidden w-44 shrink-0 md:block" onClick={(e) => e.stopPropagation()}>
+                            <Select
+                              value={task.project_id || "none"}
+                              onValueChange={(value) => reassignProjectMutation.mutate({ taskId: task.id, projectId: value === "none" ? null : value })}
+                            >
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue placeholder="Projeto" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Sem projeto</SelectItem>
+                                {projects.map((project) => (
+                                  <SelectItem key={project.id} value={project.id}>{project.title}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                           <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-primary" onClick={(e) => { e.stopPropagation(); openEdit(task); }}>
                             <Edit2 className="h-3.5 w-3.5" />
                           </Button>
@@ -671,6 +691,23 @@ const Tasks = () => {
                           {isExpanded && (
                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                               <div className="mt-3 ml-7 space-y-4 border-t border-border/30 pt-3">
+                                <div className="md:hidden">
+                                  <p className="text-xs font-medium text-muted-foreground mb-2">Projeto vinculado</p>
+                                  <Select
+                                    value={task.project_id || "none"}
+                                    onValueChange={(value) => reassignProjectMutation.mutate({ taskId: task.id, projectId: value === "none" ? null : value })}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs">
+                                      <SelectValue placeholder="Projeto" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="none">Sem projeto</SelectItem>
+                                      {projects.map((project) => (
+                                        <SelectItem key={project.id} value={project.id}>{project.title}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
                                 {subtasks.length > 0 && (
                                   <div>
                                     <div className="flex items-center justify-between mb-1.5">
@@ -738,6 +775,7 @@ const Tasks = () => {
                       <div className="space-y-4">
                         {groupedByProject.map((group) => {
                           const droppableId = group.id || "__none__";
+                          const groupOverdue = group.tasks.filter((task) => task.due_date && new Date(task.due_date + "T23:59:59") < new Date() && task.status !== "completed").length;
                           return (
                             <Droppable key={droppableId} droppableId={droppableId} type="TASK">
                               {(provided, snapshot) => (
@@ -752,6 +790,7 @@ const Tasks = () => {
                                   <div className="flex items-center gap-2 px-1 py-1.5 sticky top-0 bg-card/90 backdrop-blur-sm z-10 border-b border-border/40">
                                     <FolderKanban className={cn("h-4 w-4", group.id ? "text-primary" : "text-muted-foreground")} />
                                     <h3 className="font-semibold text-sm text-foreground">{group.title}</h3>
+                                    {groupOverdue > 0 && <Badge variant="destructive" className="text-[10px]">{groupOverdue} atrasadas</Badge>}
                                     <Badge variant="outline" className="ml-auto font-mono text-[10px]">{group.tasks.length}</Badge>
                                   </div>
                                   <div className="space-y-1.5 min-h-[40px]">
@@ -789,6 +828,9 @@ const Tasks = () => {
                           <div className="flex items-center gap-2 px-1 py-1.5 sticky top-0 bg-card/90 backdrop-blur-sm z-10 border-b border-border/40">
                             <Building2 className={cn("h-4 w-4", group.client !== "Sem cliente" ? "text-primary" : "text-muted-foreground")} />
                             <h3 className="font-semibold text-sm text-foreground">{group.client}</h3>
+                            {group.tasks.some((task) => task.priority === "urgent" && task.status !== "completed") && (
+                              <Badge variant="destructive" className="text-[10px]">urgente</Badge>
+                            )}
                             <Badge variant="outline" className="ml-auto font-mono text-[10px]">{group.tasks.length}</Badge>
                           </div>
                           <div className="space-y-1.5">
