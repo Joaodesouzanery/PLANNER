@@ -25,6 +25,8 @@ import { ptBR } from "date-fns/locale";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { LocationMap } from "@/components/ems/LocationMap";
+import { useMapPins } from "@/hooks/useMapPins";
 
 interface Contact {
   id: string; name: string; email: string | null; phone: string | null;
@@ -67,6 +69,31 @@ const kanbanStatuses = [
   { key: "completed", label: "Concluídas", icon: CheckCircle2, gradient: "from-emerald-500/20 to-emerald-600/5", border: "border-emerald-500/40" },
 ];
 
+const ContactsMapCard = () => {
+  const { data: pins = [] } = useMapPins();
+  const clientPins = pins.filter((p) => p.id.startsWith("c-"));
+  const alertCount = clientPins.filter((p) => p.alert).length;
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            Mapa de clientes
+          </span>
+          <span className="text-xs font-normal text-muted-foreground">
+            {clientPins.length} cliente{clientPins.length === 1 ? "" : "s"}
+            {alertCount > 0 && <span className="ml-2 text-red-400">• {alertCount} com tarefas pendentes</span>}
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <LocationMap pins={clientPins} height={300} />
+      </CardContent>
+    </Card>
+  );
+};
+
 const Contacts = () => {
   const queryClient = useQueryClient();
   const { selectedCompanyId } = useCompany();
@@ -79,7 +106,7 @@ const Contacts = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
-  const [contactForm, setContactForm] = useState({ name: "", email: "", phone: "", company: "", notes: "", project_id: "", pipeline_stage: "lead" });
+  const [contactForm, setContactForm] = useState({ name: "", email: "", phone: "", company: "", notes: "", project_id: "", pipeline_stage: "lead", address: "", latitude: "", longitude: "" });
   const [taskForm, setTaskForm] = useState({ title: "", description: "", priority: "medium", due_date: null as Date | null, contact_id: "", project_id: "" });
   const [interactionDialogOpen, setInteractionDialogOpen] = useState(false);
   const [interactionContactId, setInteractionContactId] = useState<string | null>(null);
@@ -104,7 +131,7 @@ const Contacts = () => {
   });
   const saveContactMutation = useMutation({
     mutationFn: async () => {
-      const payload = { name: contactForm.name, email: contactForm.email || null, phone: contactForm.phone || null, company: contactForm.company || null, notes: contactForm.notes || null, project_id: contactForm.project_id || null, pipeline_stage: contactForm.pipeline_stage || "lead", company_id: selectedCompanyId !== "all" ? selectedCompanyId : null };
+      const payload = { name: contactForm.name, email: contactForm.email || null, phone: contactForm.phone || null, company: contactForm.company || null, notes: contactForm.notes || null, project_id: contactForm.project_id || null, pipeline_stage: contactForm.pipeline_stage || "lead", company_id: selectedCompanyId !== "all" ? selectedCompanyId : null, address: contactForm.address || null, latitude: contactForm.latitude ? Number(contactForm.latitude) : null, longitude: contactForm.longitude ? Number(contactForm.longitude) : null };
       if (editingContact) { const { error } = await supabase.from("contacts").update(payload).eq("id", editingContact.id); if (error) throw error; }
       else { const { error } = await supabase.from("contacts").insert(payload); if (error) throw error; }
     },
@@ -139,9 +166,9 @@ const Contacts = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["contact-tasks"] }),
   });
 
-  const resetContactForm = () => { setContactForm({ name: "", email: "", phone: "", company: "", notes: "", project_id: "", pipeline_stage: "lead" }); setEditingContact(null); };
+  const resetContactForm = () => { setContactForm({ name: "", email: "", phone: "", company: "", notes: "", project_id: "", pipeline_stage: "lead", address: "", latitude: "", longitude: "" }); setEditingContact(null); };
   const resetTaskForm = () => { setTaskForm({ title: "", description: "", priority: "medium", due_date: null, contact_id: "", project_id: "" }); setEditingTask(null); };
-  const openEditContact = (contact: Contact) => { setEditingContact(contact); setContactForm({ name: contact.name, email: contact.email || "", phone: contact.phone || "", company: contact.company || "", notes: contact.notes || "", project_id: contact.project_id || "", pipeline_stage: contact.pipeline_stage || "lead" }); setContactDialogOpen(true); };
+  const openEditContact = (contact: any) => { setEditingContact(contact); setContactForm({ name: contact.name, email: contact.email || "", phone: contact.phone || "", company: contact.company || "", notes: contact.notes || "", project_id: contact.project_id || "", pipeline_stage: contact.pipeline_stage || "lead", address: contact.address || "", latitude: contact.latitude != null ? String(contact.latitude) : "", longitude: contact.longitude != null ? String(contact.longitude) : "" }); setContactDialogOpen(true); };
   const openEditTask = (task: Task) => { setEditingTask(task); setTaskForm({ title: task.title, description: task.description || "", priority: task.priority, due_date: task.due_date ? new Date(task.due_date + "T00:00:00") : null, contact_id: task.contact_id || "", project_id: task.project_id || "" }); setTaskDialogOpen(true); };
 
   const filteredContacts = contacts.filter((c) => {
@@ -212,6 +239,8 @@ const Contacts = () => {
             </Button>
           </div>
         </div>
+
+        <ContactsMapCard />
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
@@ -467,6 +496,11 @@ const Contacts = () => {
               <div><label className="text-sm font-medium">Projeto</label><Select value={contactForm.project_id || "none"} onValueChange={(v) => setContactForm({ ...contactForm, project_id: v === "none" ? "" : v })}><SelectTrigger className="mt-1 rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Nenhum</SelectItem>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}</SelectContent></Select></div>
             </div>
             <div><label className="text-sm font-medium">Estágio do Pipeline</label><Select value={contactForm.pipeline_stage} onValueChange={(v) => setContactForm({ ...contactForm, pipeline_stage: v })}><SelectTrigger className="mt-1 rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{pipelineStages.map((s) => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}</SelectContent></Select></div>
+            <div><label className="text-sm font-medium">Endereço (para mapa)</label><Input value={contactForm.address} onChange={(e) => setContactForm({ ...contactForm, address: e.target.value })} placeholder="Rua, cidade, estado" className="mt-1 rounded-xl" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className="text-xs text-muted-foreground">Latitude</label><Input value={contactForm.latitude} onChange={(e) => setContactForm({ ...contactForm, latitude: e.target.value })} placeholder="-15.78" className="mt-1 rounded-xl" /></div>
+              <div><label className="text-xs text-muted-foreground">Longitude</label><Input value={contactForm.longitude} onChange={(e) => setContactForm({ ...contactForm, longitude: e.target.value })} placeholder="-47.93" className="mt-1 rounded-xl" /></div>
+            </div>
             <div><label className="text-sm font-medium">Observações</label><Textarea value={contactForm.notes} onChange={(e) => setContactForm({ ...contactForm, notes: e.target.value })} placeholder="Notas sobre o contato..." rows={2} className="mt-1 rounded-xl" /></div>
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2">

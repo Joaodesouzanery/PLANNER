@@ -28,6 +28,33 @@ import { cn } from "@/lib/utils";
 import { AttachmentManager } from "@/components/ems/AttachmentManager";
 import { ConferenciaContent } from "./Conferencia";
 import { OrgChartContent } from "./OrgChart";
+import { LocationMap } from "@/components/ems/LocationMap";
+import { useMapPins } from "@/hooks/useMapPins";
+
+const ProjectsMapCard = () => {
+  const { data: pins = [] } = useMapPins();
+  const projectPins = pins.filter((p) => p.id.startsWith("p-"));
+  const alertCount = projectPins.filter((p) => p.alert).length;
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            Mapa de projetos
+          </span>
+          <span className="text-xs font-normal text-muted-foreground">
+            {projectPins.length} projeto{projectPins.length === 1 ? "" : "s"}
+            {alertCount > 0 && <span className="ml-2 text-red-400">• {alertCount} com tarefas pendentes</span>}
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <LocationMap pins={projectPins} height={300} />
+      </CardContent>
+    </Card>
+  );
+};
 
 interface Project {
   id: string;
@@ -151,6 +178,9 @@ const emptyProjectForm = {
   next_invoice_date: "",
   invoice_alert_days: "7",
   invoice_notes: "",
+  address: "",
+  latitude: "",
+  longitude: "",
 };
 
 const Projects = () => {
@@ -395,6 +425,9 @@ const Projects = () => {
       next_invoice_date: projectForm.next_invoice_date || null,
       invoice_alert_days: Number(projectForm.invoice_alert_days) || 7,
       invoice_notes: projectForm.invoice_notes || null,
+      address: projectForm.address || null,
+      latitude: projectForm.latitude ? Number(projectForm.latitude) : null,
+      longitude: projectForm.longitude ? Number(projectForm.longitude) : null,
     });
     setProjectForm(emptyProjectForm);
     setShowAddProject(false);
@@ -419,6 +452,9 @@ const Projects = () => {
       next_invoice_date: projectForm.next_invoice_date || null,
       invoice_alert_days: Number(projectForm.invoice_alert_days) || 7,
       invoice_notes: projectForm.invoice_notes || null,
+      address: projectForm.address || null,
+      latitude: projectForm.latitude ? Number(projectForm.latitude) : null,
+      longitude: projectForm.longitude ? Number(projectForm.longitude) : null,
     }).eq("id", editingProject.id);
     setEditingProject(null);
     setProjectForm(emptyProjectForm);
@@ -708,6 +744,8 @@ const Projects = () => {
             </div>
           </motion.div>
         </div>
+
+        <ProjectsMapCard />
 
         {/* Filters */}
         <div className="flex flex-wrap gap-2 md:gap-4 items-center">
@@ -1040,6 +1078,9 @@ const Projects = () => {
                                                         next_invoice_date: project.next_invoice_date || "",
                                                         invoice_alert_days: String(project.invoice_alert_days ?? 7),
                                                         invoice_notes: project.invoice_notes || "",
+                                                        address: (project as any).address || "",
+                                                        latitude: (project as any).latitude != null ? String((project as any).latitude) : "",
+                                                        longitude: (project as any).longitude != null ? String((project as any).longitude) : "",
                                                       });
                                                       setChecklistItems(Array.isArray(project.checklist) ? project.checklist : []);
                                                     }}>
@@ -1318,7 +1359,12 @@ const Projects = () => {
                 <div><Label className="text-xs md:text-sm">PrÃ³xima Nota Fiscal</Label><Input type="date" value={projectForm.next_invoice_date} onChange={(e) => setProjectForm({ ...projectForm, next_invoice_date: e.target.value })} className="text-sm" /></div>
                 <div><Label className="text-xs md:text-sm">Alertar com antecedÃªncia (dias)</Label><Input type="number" min="0" value={projectForm.invoice_alert_days} onChange={(e) => setProjectForm({ ...projectForm, invoice_alert_days: e.target.value })} className="text-sm" /></div>
               </div>
-              <div><Label className="text-xs md:text-sm">ObservaÃ§Ãµes da Nota Fiscal</Label><Textarea value={projectForm.invoice_notes} onChange={(e) => setProjectForm({ ...projectForm, invoice_notes: e.target.value })} placeholder="CompetÃªncia, valor previsto, dados de faturamento..." className="text-sm" rows={2} /></div>
+              <div><Label className="text-xs md:text-sm">Observações da Nota Fiscal</Label><Textarea value={projectForm.invoice_notes} onChange={(e) => setProjectForm({ ...projectForm, invoice_notes: e.target.value })} placeholder="Competência, valor previsto, dados de faturamento..." className="text-sm" rows={2} /></div>
+              <div><Label className="text-xs md:text-sm">Endereço (para mapa)</Label><Input value={projectForm.address} onChange={(e) => setProjectForm({ ...projectForm, address: e.target.value })} placeholder="Rua, cidade, estado" className="text-sm" /></div>
+              <div className="grid grid-cols-2 gap-2">
+                <div><Label className="text-[11px] text-muted-foreground">Latitude</Label><Input value={projectForm.latitude} onChange={(e) => setProjectForm({ ...projectForm, latitude: e.target.value })} placeholder="-15.78" className="text-sm" /></div>
+                <div><Label className="text-[11px] text-muted-foreground">Longitude</Label><Input value={projectForm.longitude} onChange={(e) => setProjectForm({ ...projectForm, longitude: e.target.value })} placeholder="-47.93" className="text-sm" /></div>
+              </div>
               {editingProject && (
                 <div>
                   <Label className="text-xs md:text-sm">Coluna / Status</Label>

@@ -992,11 +992,14 @@ export type Database = {
       }
       contacts: {
         Row: {
+          address: string | null
           company: string | null
           company_id: string | null
           created_at: string
           email: string | null
           id: string
+          latitude: number | null
+          longitude: number | null
           name: string
           notes: string | null
           phone: string | null
@@ -1006,11 +1009,14 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          address?: string | null
           company?: string | null
           company_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           name: string
           notes?: string | null
           phone?: string | null
@@ -1020,11 +1026,14 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          address?: string | null
           company?: string | null
           company_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           name?: string
           notes?: string | null
           phone?: string | null
@@ -1724,6 +1733,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          address: string | null
           checklist: Json | null
           client: string | null
           column_order: number | null
@@ -1733,6 +1743,8 @@ export type Database = {
           due_date: string | null
           id: string
           labels: string[] | null
+          latitude: number | null
+          longitude: number | null
           notes: string | null
           priority: string | null
           status: string
@@ -1741,6 +1753,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          address?: string | null
           checklist?: Json | null
           client?: string | null
           column_order?: number | null
@@ -1750,6 +1763,8 @@ export type Database = {
           due_date?: string | null
           id?: string
           labels?: string[] | null
+          latitude?: number | null
+          longitude?: number | null
           notes?: string | null
           priority?: string | null
           status?: string
@@ -1758,6 +1773,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          address?: string | null
           checklist?: Json | null
           client?: string | null
           column_order?: number | null
@@ -1767,6 +1783,8 @@ export type Database = {
           due_date?: string | null
           id?: string
           labels?: string[] | null
+          latitude?: number | null
+          longitude?: number | null
           notes?: string | null
           priority?: string | null
           status?: string
