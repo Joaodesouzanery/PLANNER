@@ -69,6 +69,31 @@ const kanbanStatuses = [
   { key: "completed", label: "Concluídas", icon: CheckCircle2, gradient: "from-emerald-500/20 to-emerald-600/5", border: "border-emerald-500/40" },
 ];
 
+const ContactsMapCard = () => {
+  const { data: pins = [] } = useMapPins();
+  const clientPins = pins.filter((p) => p.id.startsWith("c-"));
+  const alertCount = clientPins.filter((p) => p.alert).length;
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            Mapa de clientes
+          </span>
+          <span className="text-xs font-normal text-muted-foreground">
+            {clientPins.length} cliente{clientPins.length === 1 ? "" : "s"}
+            {alertCount > 0 && <span className="ml-2 text-red-400">• {alertCount} com tarefas pendentes</span>}
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <LocationMap pins={clientPins} height={300} />
+      </CardContent>
+    </Card>
+  );
+};
+
 const Contacts = () => {
   const queryClient = useQueryClient();
   const { selectedCompanyId } = useCompany();
