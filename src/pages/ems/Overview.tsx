@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -13,7 +14,7 @@ import { motion } from "framer-motion";
 import {
   Target, Rocket, Users, TrendingUp, CheckCircle2, Clock, DollarSign, Plus, Edit2, Save, X,
   AlertTriangle, UserCheck, Calendar, ArrowUpRight, ArrowDownRight, FolderKanban, ListTodo, Contact,
-  Download, FileText, Folder,
+  Download, FileText, Folder, ChevronDown, Trash2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -24,6 +25,7 @@ import { useMapPins } from "@/hooks/useMapPins";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrueNorthPanel } from "@/components/ems/TrueNorthPanel";
 import { ExecutiveDashboardContent } from "./Executive";
+import { OperationalMapPanel } from "@/components/ems/OperationalMapPanel";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow, parseISO, isBefore, startOfWeek, endOfWeek, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -35,6 +37,7 @@ interface Pillar { id: string; title: string; description: string; icon: string;
 interface MonthlyFocus { id: string; title: string; description: string; }
 interface ContactTask { id: string; title: string; priority: string; due_date: string | null; status: string; contact: { id: string; name: string; company: string | null; } | null; }
 interface MonthlyData { month: string; income: number; expense: number; }
+interface DashboardReminder { id: string; phrase: string; created_at: string; }
 
 const OverviewMapCard = () => {
   const { data: pins = [] } = useMapPins();
@@ -69,13 +72,13 @@ const Overview = () => {
   const [focusForm, setFocusForm] = useState({ title: "", description: "" });
   const [editingPillar, setEditingPillar] = useState<string | null>(null);
   const [pillarForm, setPillarForm] = useState({ title: "", description: "" });
+  const [remindersOpen, setRemindersOpen] = useState(false);
+  const [reminderText, setReminderText] = useState("");
 
   const cf = selectedCompanyId !== "all";
   const cid = selectedCompanyId;
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
   const userName = auth?.user?.email?.split("@")[0]?.replace(/[._]/g, " ") || "";
 
   const { data: pillars = [], isLoading: pillarsLoading } = useQuery({
@@ -162,6 +165,45 @@ const Overview = () => {
     },
   });
 
+  const { data: reminders = [] } = useQuery({
+    queryKey: ["dashboard-reminders", cid],
+    queryFn: async () => {
+      let q = (supabase as any)
+        .from("dashboard_reminders")
+        .select("id, phrase, created_at")
+        .order("created_at", { ascending: false });
+      if (cf) q = q.eq("company_id", cid);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data || []) as DashboardReminder[];
+    },
+  });
+
+  const addReminderMutation = useMutation({
+    mutationFn: async () => {
+      const phrase = reminderText.trim();
+      if (!phrase) return;
+      const { error } = await (supabase as any).from("dashboard_reminders").insert({
+        phrase,
+        company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setReminderText("");
+      queryClient.invalidateQueries({ queryKey: ["dashboard-reminders"] });
+      toast({ title: "Frase salva!" });
+    },
+  });
+
+  const deleteReminderMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any).from("dashboard_reminders").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dashboard-reminders"] }),
+  });
+
   const { data: recentProjects = [], isLoading: recentLoading } = useQuery({
     queryKey: ["overview-recent-projects", cid],
     queryFn: async () => {
@@ -236,9 +278,51 @@ const Overview = () => {
               <span className="text-border">•</span>
               <span>{counts.projects} projetos ativos</span>
             </div>
-            <h1 className="text-3xl md:text-5xl font-bold text-foreground tracking-tight capitalize">
-              {greeting}{userName ? `, ${userName.split(" ")[0]}` : ""}
-            </h1>
+            <Collapsible open={remindersOpen} onOpenChange={setRemindersOpen} className="max-w-3xl rounded-xl border border-border/50 bg-card/80">
+              <CollapsibleTrigger asChild>
+                <button className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold">Frases para lembrar</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {reminders[0]?.phrase || "Abra para registrar o que precisa ficar no radar."}
+                    </p>
+                  </div>
+                  <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", remindersOpen && "rotate-180")} />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="space-y-3 border-t border-border/50 p-3">
+                  <div className="flex gap-2">
+                    <Input
+                      value={reminderText}
+                      onChange={(event) => setReminderText(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") addReminderMutation.mutate();
+                      }}
+                      placeholder="Escreva uma frase curta para lembrar amanha"
+                      className="h-9"
+                    />
+                    <Button size="sm" className="h-9" onClick={() => addReminderMutation.mutate()} disabled={!reminderText.trim()}>
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="max-h-32 space-y-1.5 overflow-y-auto">
+                    {reminders.length === 0 ? (
+                      <p className="py-3 text-center text-xs text-muted-foreground">Nenhuma frase salva.</p>
+                    ) : (
+                      reminders.map((item) => (
+                        <div key={item.id} className="flex items-center gap-2 rounded-lg border border-border/40 bg-background/50 px-3 py-2">
+                          <p className="min-w-0 flex-1 truncate text-sm">{item.phrase}</p>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => deleteReminderMutation.mutate(item.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Atualizado às {format(new Date(), "HH:mm")}</span>
@@ -249,7 +333,7 @@ const Overview = () => {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <OverviewMapCard />
+          <OperationalMapPanel />
         </motion.div>
 
         {/* Orbit-style KPI cards: numeral gigante + delta */}

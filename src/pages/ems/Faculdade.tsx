@@ -21,9 +21,10 @@ import { useToast } from "@/hooks/use-toast";
 import { format, differenceInDays, isPast, isToday, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import AddressAutocomplete from "@/components/ems/AddressAutocomplete";
 
 // --- Types ---
-interface Disciplina { id: string; name: string; professor: string | null; color: string; notes: string | null; created_at: string; }
+interface Disciplina { id: string; name: string; professor: string | null; color: string; notes: string | null; address?: string | null; latitude?: number | null; longitude?: number | null; created_at: string; }
 interface Prova { id: string; disciplina_id: string; title: string; exam_date: string; priority: string; status: string; notes: string | null; grade: number | null; created_at: string; }
 interface Tarefa { id: string; disciplina_id: string | null; title: string; description: string | null; due_date: string | null; priority: string; status: string; created_at: string; }
 interface Documento { id: string; entity_type: string; entity_id: string; file_name: string; file_url: string; file_size: number | null; content_type: string | null; created_at: string; }
@@ -89,7 +90,7 @@ const Faculdade = () => {
   // Disciplina dialog
   const [showDiscDialog, setShowDiscDialog] = useState(false);
   const [editingDisc, setEditingDisc] = useState<Disciplina | null>(null);
-  const [discForm, setDiscForm] = useState({ name: "", professor: "", color: "blue", notes: "" });
+  const [discForm, setDiscForm] = useState({ name: "", professor: "", color: "blue", notes: "", address: "", latitude: "", longitude: "" });
 
   // Prova dialog
   const [showProvaDialog, setShowProvaDialog] = useState(false);
@@ -134,16 +135,16 @@ const Faculdade = () => {
   }, [provas, tarefas]);
 
   // --- Disciplina CRUD ---
-  const openAddDisc = () => { setEditingDisc(null); setDiscForm({ name: "", professor: "", color: "blue", notes: "" }); setShowDiscDialog(true); };
-  const openEditDisc = (d: Disciplina) => { setEditingDisc(d); setDiscForm({ name: d.name, professor: d.professor || "", color: d.color, notes: d.notes || "" }); setShowDiscDialog(true); };
+  const openAddDisc = () => { setEditingDisc(null); setDiscForm({ name: "", professor: "", color: "blue", notes: "", address: "", latitude: "", longitude: "" }); setShowDiscDialog(true); };
+  const openEditDisc = (d: Disciplina) => { setEditingDisc(d); setDiscForm({ name: d.name, professor: d.professor || "", color: d.color, notes: d.notes || "", address: d.address || "", latitude: d.latitude != null ? String(d.latitude) : "", longitude: d.longitude != null ? String(d.longitude) : "" }); setShowDiscDialog(true); };
   const saveDisc = async () => {
     if (!discForm.name.trim()) { toast({ title: "Nome é obrigatório", variant: "destructive" }); return; }
     const userId = await getUserId();
     if (editingDisc) {
-      await supabase.from("faculdade_disciplinas").update({ name: discForm.name, professor: discForm.professor || null, color: discForm.color, notes: discForm.notes || null }).eq("id", editingDisc.id);
+      await (supabase as any).from("faculdade_disciplinas").update({ name: discForm.name, professor: discForm.professor || null, color: discForm.color, notes: discForm.notes || null, address: discForm.address || null, latitude: discForm.latitude ? Number(discForm.latitude) : null, longitude: discForm.longitude ? Number(discForm.longitude) : null }).eq("id", editingDisc.id);
       toast({ title: "Disciplina atualizada!" });
     } else {
-      await supabase.from("faculdade_disciplinas").insert({ name: discForm.name, professor: discForm.professor || null, color: discForm.color, notes: discForm.notes || null, user_id: userId });
+      await (supabase as any).from("faculdade_disciplinas").insert({ name: discForm.name, professor: discForm.professor || null, color: discForm.color, notes: discForm.notes || null, address: discForm.address || null, latitude: discForm.latitude ? Number(discForm.latitude) : null, longitude: discForm.longitude ? Number(discForm.longitude) : null, user_id: userId });
       toast({ title: "Disciplina criada!" });
     }
     setShowDiscDialog(false);
@@ -633,6 +634,19 @@ const Faculdade = () => {
             <div className="space-y-4 py-2">
               <div><Label className="text-xs md:text-sm">Nome *</Label><Input value={discForm.name} onChange={e => setDiscForm({ ...discForm, name: e.target.value })} placeholder="Ex: Cálculo I" className="text-sm" /></div>
               <div><Label className="text-xs md:text-sm">Professor</Label><Input value={discForm.professor} onChange={e => setDiscForm({ ...discForm, professor: e.target.value })} placeholder="Nome do professor" className="text-sm" /></div>
+              <div>
+                <Label className="text-xs md:text-sm">Endereco / campus</Label>
+                <AddressAutocomplete
+                  value={discForm.address}
+                  onChange={(address) => setDiscForm((prev) => ({ ...prev, address }))}
+                  onResolved={(result) => setDiscForm((prev) => ({ ...prev, address: result.label, latitude: result.lat.toString(), longitude: result.lng.toString() }))}
+                  placeholder="Campus, predio ou endereco"
+                  className="mt-1"
+                />
+                {(discForm.latitude || discForm.longitude) && (
+                  <p className="mt-1 text-xs text-muted-foreground">Lat {discForm.latitude || "-"} / Lng {discForm.longitude || "-"}</p>
+                )}
+              </div>
               <div>
                 <Label className="text-xs md:text-sm">Cor</Label>
                 <div className="flex gap-2 mt-2">

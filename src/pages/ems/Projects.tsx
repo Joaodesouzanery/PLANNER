@@ -859,16 +859,16 @@ const Projects = () => {
               {activeProjects.map((project, index) => {
                 const { linkedGoals, goalProgress, progress, projectOpps, opportunityValue: oppValue, financialImpacts, plannedFinancial, risks, assumptions } = getGraphMetrics(project);
                 const graphNodes = [
-                  graphVisibleNodes.contracts && { key: "contracts", label: `${projectContractCounts[project.id] || 0} contratos`, sub: "PDFs e anexos", icon: FileText, x: 4, y: 12, onClick: () => setEditingProject(project) },
-                  graphVisibleNodes.opportunities && { key: "opportunities", label: `${projectOpps.length} oportunidades`, sub: fmtMoney(oppValue), icon: LinkIcon, x: 70, y: 12, onClick: () => openOpportunityModal(project.id) },
-                  graphVisibleNodes.goals && { key: "goals", label: `${linkedGoals.length} metas`, sub: `${goalProgress}% medio`, icon: Goal, x: 5, y: 42, onClick: () => setPlanningProject(project) },
-                  graphVisibleNodes.finance && { key: "finance", label: fmtMoney(oppValue), sub: "oportunidades", icon: DollarSign, x: 70, y: 42, onClick: () => openOpportunityModal(project.id) },
-                  graphVisibleNodes.plan && { key: "plan", label: "Plano + Metas", sub: linkedGoals.length ? `${linkedGoals.length} iniciativas` : "criar plano rapido", icon: Target, x: 31, y: 7, onClick: () => setPlanningProject(project) },
-                  graphVisibleNodes.financialImpact && { key: "financialImpact", label: fmtMoney(plannedFinancial), sub: `${financialImpacts.length} impactos`, icon: TrendingUp, x: 31, y: 78, onClick: () => setPlanningProject(project) },
-                  graphVisibleNodes.risks && { key: "risks", label: `${risks.length} riscos`, sub: risks[0]?.risk || "monitoramento", icon: AlertTriangle, x: 4, y: 72, onClick: () => setPlanningProject(project) },
-                  graphVisibleNodes.assumptions && { key: "assumptions", label: `${assumptions.length} suposicoes`, sub: assumptions[0]?.assumption || "apostas do plano", icon: Lightbulb, x: 70, y: 72, onClick: () => setPlanningProject(project) },
-                  graphVisibleNodes.conference && { key: "conference", label: "Conferencia", sub: "controle por projeto", icon: ShieldCheck, x: 31, y: 22, onClick: () => setConferenceProject(project) },
-                  graphVisibleNodes.orgchart && { key: "orgchart", label: "Organograma", sub: "estrutura vinculada", icon: Users, x: 31, y: 62, onClick: () => setOrgChartProject(project) },
+                  graphVisibleNodes.contracts && { key: "contracts", label: `${projectContractCounts[project.id] || 0} contratos`, sub: "PDFs e anexos", icon: FileText, x: 4, y: 8, onClick: () => setEditingProject(project) },
+                  graphVisibleNodes.opportunities && { key: "opportunities", label: `${projectOpps.length} oportunidades`, sub: fmtMoney(oppValue), icon: LinkIcon, x: 72, y: 8, onClick: () => openOpportunityModal(project.id) },
+                  graphVisibleNodes.goals && { key: "goals", label: `${linkedGoals.length} metas`, sub: `${goalProgress}% medio`, icon: Goal, x: 4, y: 41, onClick: () => setPlanningProject(project) },
+                  graphVisibleNodes.finance && { key: "finance", label: fmtMoney(oppValue), sub: "oportunidades", icon: DollarSign, x: 72, y: 41, onClick: () => openOpportunityModal(project.id) },
+                  graphVisibleNodes.plan && { key: "plan", label: "Plano + Metas", sub: linkedGoals.length ? `${linkedGoals.length} iniciativas` : "criar plano rapido", icon: Target, x: 38, y: 5, onClick: () => setPlanningProject(project) },
+                  graphVisibleNodes.financialImpact && { key: "financialImpact", label: fmtMoney(plannedFinancial), sub: `${financialImpacts.length} impactos`, icon: TrendingUp, x: 38, y: 86, onClick: () => setPlanningProject(project) },
+                  graphVisibleNodes.risks && { key: "risks", label: `${risks.length} riscos`, sub: risks[0]?.risk || "monitoramento", icon: AlertTriangle, x: 4, y: 74, onClick: () => setPlanningProject(project) },
+                  graphVisibleNodes.assumptions && { key: "assumptions", label: `${assumptions.length} suposicoes`, sub: assumptions[0]?.assumption || "apostas do plano", icon: Lightbulb, x: 72, y: 74, onClick: () => setPlanningProject(project) },
+                  graphVisibleNodes.conference && { key: "conference", label: "Conferencia", sub: "controle por projeto", icon: ShieldCheck, x: 38, y: 25, onClick: () => setConferenceProject(project) },
+                  graphVisibleNodes.orgchart && { key: "orgchart", label: "Organograma", sub: "estrutura vinculada", icon: Users, x: 38, y: 65, onClick: () => setOrgChartProject(project) },
                 ].filter(Boolean) as { key: string; label: string; sub: string; icon: any; x: number; y: number; onClick: () => void }[];
                 return (
                   <motion.div key={project.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }}>
@@ -885,7 +885,7 @@ const Projects = () => {
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <div
-                          className="relative min-h-[280px] rounded-lg border border-border/50 overflow-hidden bg-background"
+                          className="relative min-h-[420px] rounded-lg border border-border/50 overflow-hidden bg-background"
                           style={{
                             backgroundImage: "linear-gradient(hsl(var(--border) / .22) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--border) / .22) 1px, transparent 1px)",
                             backgroundSize: "18px 18px",
@@ -919,7 +919,7 @@ const Projects = () => {
                           {graphNodes.map((node) => (
                             <button
                               key={node.key}
-                              className="absolute z-20 w-36 rounded-lg border border-border/70 bg-card/95 p-2 text-left shadow-md transition hover:border-primary/50 hover:bg-primary/5"
+                              className="absolute z-20 w-32 sm:w-36 rounded-lg border border-border/70 bg-card/95 p-2 text-left shadow-md transition hover:border-primary/50 hover:bg-primary/5"
                               style={{ left: `${node.x}%`, top: `${node.y}%` }}
                               onClick={node.onClick}
                             >

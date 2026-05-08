@@ -9,6 +9,7 @@ import {
   GripVertical,
   HeartPulse,
   Search,
+  UserPlus,
   Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +24,7 @@ import { useCompany } from "@/contexts/CompanyContext";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { AttachmentManager } from "@/components/ems/AttachmentManager";
+import { OperationalMapPanel } from "@/components/ems/OperationalMapPanel";
 
 type ClientStage = "new" | "onboarding" | "active" | "expansion" | "risk" | "recovery";
 
@@ -43,6 +45,16 @@ interface ContactRow {
   company_id: string | null;
   last_contact_date?: string | null;
   next_action_date?: string | null;
+}
+
+interface ClosedContactClient {
+  id: string;
+  name: string;
+  company: string | null;
+  email?: string | null;
+  phone?: string | null;
+  project_id?: string | null;
+  project?: { title: string } | null;
 }
 
 const CLIENT_STAGES: Array<{ id: ClientStage; title: string; hint: string; color: string }> = [
@@ -80,6 +92,7 @@ const ClientRelationshipKanban = ({ enabled = true }: { enabled?: boolean }) => 
   const [search, setSearch] = useState("");
   const [health, setHealth] = useState("all");
   const [editing, setEditing] = useState<ClientCompany | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const [form, setForm] = useState({ priority: "medium", health: "green", nextAction: "", notes: "" });
   const hasCompanyFilter = selectedCompanyId !== "all";
 
@@ -128,6 +141,58 @@ const ClientRelationshipKanban = ({ enabled = true }: { enabled?: boolean }) => 
         last_contact_date: metaByContact[row.id]?.last_contact_date || null,
         next_action_date: metaByContact[row.id]?.next_action_date || null,
       })) as ContactRow[];
+    },
+  });
+
+  const { data: closedContactClients = [] } = useQuery({
+    queryKey: ["client-kanban-closed-contacts", selectedCompanyId],
+    enabled,
+    staleTime: 1000 * 60 * 3,
+    queryFn: async () => {
+      let q = supabase
+        .from("contacts")
+        .select("id, name, company, email, phone, project_id, project:projects(title)")
+        .eq("pipeline_stage", "closed")
+        .order("name");
+      if (hasCompanyFilter) q = q.eq("company_id", selectedCompanyId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data || []) as ClosedContactClient[];
+    },
+  });
+
+  const { data: importableContacts = [] } = useQuery({
+    queryKey: ["client-kanban-importable-contacts", selectedCompanyId],
+    enabled,
+    staleTime: 1000 * 60 * 3,
+    queryFn: async () => {
+      let q = supabase
+        .from("contacts")
+        .select("id, name, company, pipeline_stage")
+        .neq("pipeline_stage", "closed")
+        .order("name");
+      if (hasCompanyFilter) q = q.eq("company_id", selectedCompanyId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const closedContactIds = useMemo(() => closedContactClients.map((contact) => contact.id), [closedContactClients]);
+
+  const { data: closedContactTasks = [] } = useQuery({
+    queryKey: ["client-kanban-closed-contact-tasks", closedContactIds],
+    enabled: enabled && closedContactIds.length > 0,
+    staleTime: 1000 * 60 * 2,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("id, contact_id, status")
+        .in("contact_id", closedContactIds)
+        .neq("status", "completed")
+        .neq("status", "done");
+      if (error) throw error;
+      return data || [];
     },
   });
 
@@ -238,6 +303,24 @@ const ClientRelationshipKanban = ({ enabled = true }: { enabled?: boolean }) => 
     onError: (error: any) => toast({ title: "Erro ao atualizar cliente", description: error?.message, variant: "destructive" }),
   });
 
+  const importContactAsClient = useMutation({
+    mutationFn: async (contactId: string) => {
+      const { error } = await supabase
+        .from("contacts")
+        .update({ pipeline_stage: "closed", relationship_stage: "new" } as any)
+        .eq("id", contactId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["client-kanban-closed-contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["client-kanban-importable-contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      setImportOpen(false);
+      toast({ title: "Cliente adicionado dos Contatos" });
+    },
+    onError: (error: any) => toast({ title: "Erro ao adicionar cliente", description: error?.message, variant: "destructive" }),
+  });
+
   const onDragEnd = (result: DropResult) => {
     if (!result.destination || result.source.droppableId === result.destination.droppableId) return;
     updateCompany.mutate({
@@ -295,8 +378,48 @@ const ClientRelationshipKanban = ({ enabled = true }: { enabled?: boolean }) => 
               <SelectItem value="red">Crítico</SelectItem>
             </SelectContent>
           </Select>
+          <Button variant="outline" className="gap-2" onClick={() => setImportOpen(true)}>
+            <UserPlus className="h-4 w-4" />Adicionar dos Contatos
+          </Button>
         </div>
       </div>
+
+      <Card className="border-border/50 bg-card/70">
+        <CardContent className="p-3">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold">Clientes fechados vindos de Contatos</p>
+              <p className="text-xs text-muted-foreground">Contatos marcados como Fechado aparecem aqui com tarefas vinculadas.</p>
+            </div>
+            <Badge variant="secondary" className="text-[10px]">{closedContactClients.length}</Badge>
+          </div>
+          {closedContactClients.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border/60 py-6 text-center text-xs text-muted-foreground">
+              Nenhum contato fechado cadastrado como cliente ainda.
+            </p>
+          ) : (
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {closedContactClients.map((contact) => {
+                const openTasks = closedContactTasks.filter((task: any) => task.contact_id === contact.id).length;
+                return (
+                  <div key={contact.id} className="rounded-lg border border-border/50 bg-background/50 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">{contact.company || contact.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">{contact.company ? contact.name : contact.email || "Contato fechado"}</p>
+                      </div>
+                      <Badge variant="outline" className="text-[10px]">{openTasks} tarefas</Badge>
+                    </div>
+                    {contact.project?.title && <p className="mt-2 truncate text-[11px] text-muted-foreground">Projeto: {contact.project.title}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <OperationalMapPanel title="Mapa de clientes e tarefas" filterKinds={["client", "task"]} height={320} />
 
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex gap-3 overflow-x-auto pb-4 min-h-[430px]">
@@ -378,6 +501,34 @@ const ClientRelationshipKanban = ({ enabled = true }: { enabled?: boolean }) => 
           ))}
         </div>
       </DragDropContext>
+
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Adicionar cliente dos Contatos</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[420px] space-y-2 overflow-y-auto">
+            {importableContacts.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">Todos os contatos elegiveis ja estao como clientes fechados.</p>
+            ) : (
+              importableContacts.map((contact: any) => (
+                <div key={contact.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/50 p-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{contact.company || contact.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">{contact.company ? contact.name : "Contato sem empresa informada"}</p>
+                  </div>
+                  <Button size="sm" onClick={() => importContactAsClient.mutate(contact.id)} disabled={importContactAsClient.isPending}>
+                    Adicionar
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportOpen(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent className="max-w-2xl">
