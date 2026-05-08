@@ -19,6 +19,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { RecentActivity } from "@/components/ems/RecentActivity";
+import { LocationMap } from "@/components/ems/LocationMap";
+import { useMapPins } from "@/hooks/useMapPins";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrueNorthPanel } from "@/components/ems/TrueNorthPanel";
 import { ExecutiveDashboardContent } from "./Executive";
