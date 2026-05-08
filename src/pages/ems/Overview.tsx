@@ -26,7 +26,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TrueNorthPanel } from "@/components/ems/TrueNorthPanel";
 import { ExecutiveDashboardContent } from "./Executive";
 import { OperationalMapPanel } from "@/components/ems/OperationalMapPanel";
-import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow, parseISO, isBefore, startOfWeek, endOfWeek, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -288,7 +287,7 @@ const Overview = () => {
                       {reminders[0]?.phrase || "Abra para registrar o que precisa ficar no radar."}
                     </p>
                   </div>
-                  <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", remindersOpen && "rotate-180")} />
+                  <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${remindersOpen ? "rotate-180" : ""}`} />
                 </button>
               </CollapsibleTrigger>
               <CollapsibleContent>
