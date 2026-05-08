@@ -26,6 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TrueNorthPanel } from "@/components/ems/TrueNorthPanel";
 import { ExecutiveDashboardContent } from "./Executive";
 import { OperationalMapPanel } from "@/components/ems/OperationalMapPanel";
+import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow, parseISO, isBefore, startOfWeek, endOfWeek, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
