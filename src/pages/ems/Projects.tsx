@@ -28,6 +28,33 @@ import { cn } from "@/lib/utils";
 import { AttachmentManager } from "@/components/ems/AttachmentManager";
 import { ConferenciaContent } from "./Conferencia";
 import { OrgChartContent } from "./OrgChart";
+import { LocationMap } from "@/components/ems/LocationMap";
+import { useMapPins } from "@/hooks/useMapPins";
+
+const ProjectsMapCard = () => {
+  const { data: pins = [] } = useMapPins();
+  const projectPins = pins.filter((p) => p.id.startsWith("p-"));
+  const alertCount = projectPins.filter((p) => p.alert).length;
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            Mapa de projetos
+          </span>
+          <span className="text-xs font-normal text-muted-foreground">
+            {projectPins.length} projeto{projectPins.length === 1 ? "" : "s"}
+            {alertCount > 0 && <span className="ml-2 text-red-400">• {alertCount} com tarefas pendentes</span>}
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <LocationMap pins={projectPins} height={300} />
+      </CardContent>
+    </Card>
+  );
+};
 
 interface Project {
   id: string;
@@ -717,6 +744,8 @@ const Projects = () => {
             </div>
           </motion.div>
         </div>
+
+        <ProjectsMapCard />
 
         {/* Filters */}
         <div className="flex flex-wrap gap-2 md:gap-4 items-center">
