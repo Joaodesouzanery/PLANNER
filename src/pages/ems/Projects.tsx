@@ -151,6 +151,9 @@ const emptyProjectForm = {
   next_invoice_date: "",
   invoice_alert_days: "7",
   invoice_notes: "",
+  address: "",
+  latitude: "",
+  longitude: "",
 };
 
 const Projects = () => {
