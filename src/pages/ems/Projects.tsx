@@ -398,6 +398,9 @@ const Projects = () => {
       next_invoice_date: projectForm.next_invoice_date || null,
       invoice_alert_days: Number(projectForm.invoice_alert_days) || 7,
       invoice_notes: projectForm.invoice_notes || null,
+      address: projectForm.address || null,
+      latitude: projectForm.latitude ? Number(projectForm.latitude) : null,
+      longitude: projectForm.longitude ? Number(projectForm.longitude) : null,
     });
     setProjectForm(emptyProjectForm);
     setShowAddProject(false);
@@ -422,6 +425,9 @@ const Projects = () => {
       next_invoice_date: projectForm.next_invoice_date || null,
       invoice_alert_days: Number(projectForm.invoice_alert_days) || 7,
       invoice_notes: projectForm.invoice_notes || null,
+      address: projectForm.address || null,
+      latitude: projectForm.latitude ? Number(projectForm.latitude) : null,
+      longitude: projectForm.longitude ? Number(projectForm.longitude) : null,
     }).eq("id", editingProject.id);
     setEditingProject(null);
     setProjectForm(emptyProjectForm);
@@ -1043,6 +1049,9 @@ const Projects = () => {
                                                         next_invoice_date: project.next_invoice_date || "",
                                                         invoice_alert_days: String(project.invoice_alert_days ?? 7),
                                                         invoice_notes: project.invoice_notes || "",
+                                                        address: (project as any).address || "",
+                                                        latitude: (project as any).latitude != null ? String((project as any).latitude) : "",
+                                                        longitude: (project as any).longitude != null ? String((project as any).longitude) : "",
                                                       });
                                                       setChecklistItems(Array.isArray(project.checklist) ? project.checklist : []);
                                                     }}>
