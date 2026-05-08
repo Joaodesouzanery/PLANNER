@@ -1143,12 +1143,12 @@ export const Prospecting = () => {
               ) : (
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Empresa</TableHead>
-                      <TableHead className="hidden lg:table-cell">Vaga</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="hidden md:table-cell">Modulos</TableHead>
-                      <TableHead className="text-right">Ações</TableHead>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="h-9 py-1.5 text-[11px] uppercase tracking-wide">Empresa</TableHead>
+                      <TableHead className="h-9 py-1.5 text-[11px] uppercase tracking-wide hidden lg:table-cell">Vaga</TableHead>
+                      <TableHead className="h-9 py-1.5 text-[11px] uppercase tracking-wide">Status</TableHead>
+                      <TableHead className="h-9 py-1.5 text-[11px] uppercase tracking-wide hidden md:table-cell">Módulos</TableHead>
+                      <TableHead className="h-9 py-1.5 text-[11px] uppercase tracking-wide text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1159,75 +1159,73 @@ export const Prospecting = () => {
                       return (
                         <TableRow
                           key={prospect.id}
-                          className={cn("cursor-pointer", selectedProspect?.id === prospect.id && "bg-muted/60")}
+                          className={cn("cursor-pointer h-11", selectedProspect?.id === prospect.id && "bg-muted/50")}
                           onClick={() => setSelectedProspect(prospect)}
                         >
-                          <TableCell>
-                            <div className="space-y-1">
-                              <p className="font-medium">{prospect.company_name}</p>
-                              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                                {prospect.location && (
-                                  <span className="flex items-center gap-1">
-                                    <MapPin className="h-3 w-3" />
-                                    {prospect.location}
-                                  </span>
-                                )}
-                                {prospect.contacts?.[0]?.value && (
-                                  <span className="flex items-center gap-1">
-                                    <Phone className="h-3 w-3" />
-                                    {prospect.contacts[0].value}
-                                  </span>
-                                )}
-                              </div>
+                          <TableCell className="py-1.5">
+                            <p className="text-sm font-medium leading-tight">{prospect.company_name}</p>
+                            <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground mt-0.5">
+                              {prospect.location && (
+                                <span className="flex items-center gap-1">
+                                  <MapPin className="h-3 w-3" />
+                                  {prospect.location}
+                                </span>
+                              )}
+                              {prospect.contacts?.[0]?.value && (
+                                <span className="flex items-center gap-1">
+                                  <Phone className="h-3 w-3" />
+                                  {prospect.contacts[0].value}
+                                </span>
+                              )}
                             </div>
                           </TableCell>
-                          <TableCell className="hidden lg:table-cell max-w-[260px]">
-                            <p className="truncate text-sm">{prospect.job_title || "Vaga nao informada"}</p>
+                          <TableCell className="py-1.5 hidden lg:table-cell max-w-[260px]">
+                            <p className="truncate text-xs">{prospect.job_title || "—"}</p>
                             {prospect.linkedin_job_url && (
                               <a
                                 href={prospect.linkedin_job_url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="text-xs text-primary inline-flex items-center gap-1"
+                                className="text-[11px] text-primary inline-flex items-center gap-1"
                                 onClick={(event) => event.stopPropagation()}
                               >
-                                LinkedIn <ExternalLink className="h-3 w-3" />
+                                LinkedIn <ExternalLink className="h-2.5 w-2.5" />
                               </a>
                             )}
                           </TableCell>
-                          <TableCell>
-                            <div className="flex flex-col gap-1">
-                              <Badge variant="outline" className={cn("w-fit text-[11px]", statusConfig[prospect.status]?.className)}>
+                          <TableCell className="py-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-4", statusConfig[prospect.status]?.className)}>
                                 {statusConfig[prospect.status]?.label || prospect.status}
                               </Badge>
-                              <Badge variant="outline" className={cn("w-fit text-[11px]", priorityConfig[prospect.priority]?.className)}>
+                              <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-4", priorityConfig[prospect.priority]?.className)}>
                                 {priorityConfig[prospect.priority]?.label || prospect.priority}
                               </Badge>
                             </div>
                           </TableCell>
-                          <TableCell className="hidden md:table-cell">
-                            <div className="flex flex-wrap gap-1 max-w-[280px]">
+                          <TableCell className="py-1.5 hidden md:table-cell">
+                            <div className="flex flex-wrap gap-1 max-w-[260px]">
                               {moduleBadges.slice(0, 2).map((module) => (
-                                <Badge key={module.moduleId} variant="secondary" className="text-[10px]">
+                                <Badge key={module.moduleId} variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
                                   {module.moduleName}
                                 </Badge>
                               ))}
-                              {moduleBadges.length > 2 && <Badge variant="outline" className="text-[10px]">+{moduleBadges.length - 2}</Badge>}
-                              {moduleBadges.length === 0 && <Badge variant="outline" className="text-[10px]">Sem sinais</Badge>}
+                              {moduleBadges.length > 2 && <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">+{moduleBadges.length - 2}</Badge>}
+                              {moduleBadges.length === 0 && <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">—</Badge>}
                             </div>
                           </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(event) => { event.stopPropagation(); openEdit(prospect); }}>
-                                <Edit2 className="h-4 w-4" />
+                          <TableCell className="py-1.5 text-right">
+                            <div className="flex justify-end gap-0.5">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(event) => { event.stopPropagation(); openEdit(prospect); }}>
+                                <Edit2 className="h-3.5 w-3.5" />
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                                 onClick={(event) => { event.stopPropagation(); deleteProspectMutation.mutate(prospect.id); }}
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </div>
                           </TableCell>
