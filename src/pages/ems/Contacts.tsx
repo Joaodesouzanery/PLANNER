@@ -215,6 +215,8 @@ const Contacts = () => {
           </div>
         </div>
 
+        <ContactsMapCard />
+
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
