@@ -79,7 +79,7 @@ const Contacts = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [projectFilter, setProjectFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
-  const [contactForm, setContactForm] = useState({ name: "", email: "", phone: "", company: "", notes: "", project_id: "", pipeline_stage: "lead" });
+  const [contactForm, setContactForm] = useState({ name: "", email: "", phone: "", company: "", notes: "", project_id: "", pipeline_stage: "lead", address: "", latitude: "", longitude: "" });
   const [taskForm, setTaskForm] = useState({ title: "", description: "", priority: "medium", due_date: null as Date | null, contact_id: "", project_id: "" });
   const [interactionDialogOpen, setInteractionDialogOpen] = useState(false);
   const [interactionContactId, setInteractionContactId] = useState<string | null>(null);
@@ -104,7 +104,7 @@ const Contacts = () => {
   });
   const saveContactMutation = useMutation({
     mutationFn: async () => {
-      const payload = { name: contactForm.name, email: contactForm.email || null, phone: contactForm.phone || null, company: contactForm.company || null, notes: contactForm.notes || null, project_id: contactForm.project_id || null, pipeline_stage: contactForm.pipeline_stage || "lead", company_id: selectedCompanyId !== "all" ? selectedCompanyId : null };
+      const payload = { name: contactForm.name, email: contactForm.email || null, phone: contactForm.phone || null, company: contactForm.company || null, notes: contactForm.notes || null, project_id: contactForm.project_id || null, pipeline_stage: contactForm.pipeline_stage || "lead", company_id: selectedCompanyId !== "all" ? selectedCompanyId : null, address: contactForm.address || null, latitude: contactForm.latitude ? Number(contactForm.latitude) : null, longitude: contactForm.longitude ? Number(contactForm.longitude) : null };
       if (editingContact) { const { error } = await supabase.from("contacts").update(payload).eq("id", editingContact.id); if (error) throw error; }
       else { const { error } = await supabase.from("contacts").insert(payload); if (error) throw error; }
     },
@@ -467,6 +467,11 @@ const Contacts = () => {
               <div><label className="text-sm font-medium">Projeto</label><Select value={contactForm.project_id || "none"} onValueChange={(v) => setContactForm({ ...contactForm, project_id: v === "none" ? "" : v })}><SelectTrigger className="mt-1 rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Nenhum</SelectItem>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}</SelectContent></Select></div>
             </div>
             <div><label className="text-sm font-medium">Estágio do Pipeline</label><Select value={contactForm.pipeline_stage} onValueChange={(v) => setContactForm({ ...contactForm, pipeline_stage: v })}><SelectTrigger className="mt-1 rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{pipelineStages.map((s) => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}</SelectContent></Select></div>
+            <div><label className="text-sm font-medium">Endereço (para mapa)</label><Input value={contactForm.address} onChange={(e) => setContactForm({ ...contactForm, address: e.target.value })} placeholder="Rua, cidade, estado" className="mt-1 rounded-xl" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className="text-xs text-muted-foreground">Latitude</label><Input value={contactForm.latitude} onChange={(e) => setContactForm({ ...contactForm, latitude: e.target.value })} placeholder="-15.78" className="mt-1 rounded-xl" /></div>
+              <div><label className="text-xs text-muted-foreground">Longitude</label><Input value={contactForm.longitude} onChange={(e) => setContactForm({ ...contactForm, longitude: e.target.value })} placeholder="-47.93" className="mt-1 rounded-xl" /></div>
+            </div>
             <div><label className="text-sm font-medium">Observações</label><Textarea value={contactForm.notes} onChange={(e) => setContactForm({ ...contactForm, notes: e.target.value })} placeholder="Notas sobre o contato..." rows={2} className="mt-1 rounded-xl" /></div>
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2">
