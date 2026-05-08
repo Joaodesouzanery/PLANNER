@@ -1330,7 +1330,12 @@ const Projects = () => {
                 <div><Label className="text-xs md:text-sm">PrÃ³xima Nota Fiscal</Label><Input type="date" value={projectForm.next_invoice_date} onChange={(e) => setProjectForm({ ...projectForm, next_invoice_date: e.target.value })} className="text-sm" /></div>
                 <div><Label className="text-xs md:text-sm">Alertar com antecedÃªncia (dias)</Label><Input type="number" min="0" value={projectForm.invoice_alert_days} onChange={(e) => setProjectForm({ ...projectForm, invoice_alert_days: e.target.value })} className="text-sm" /></div>
               </div>
-              <div><Label className="text-xs md:text-sm">ObservaÃ§Ãµes da Nota Fiscal</Label><Textarea value={projectForm.invoice_notes} onChange={(e) => setProjectForm({ ...projectForm, invoice_notes: e.target.value })} placeholder="CompetÃªncia, valor previsto, dados de faturamento..." className="text-sm" rows={2} /></div>
+              <div><Label className="text-xs md:text-sm">Observações da Nota Fiscal</Label><Textarea value={projectForm.invoice_notes} onChange={(e) => setProjectForm({ ...projectForm, invoice_notes: e.target.value })} placeholder="Competência, valor previsto, dados de faturamento..." className="text-sm" rows={2} /></div>
+              <div><Label className="text-xs md:text-sm">Endereço (para mapa)</Label><Input value={projectForm.address} onChange={(e) => setProjectForm({ ...projectForm, address: e.target.value })} placeholder="Rua, cidade, estado" className="text-sm" /></div>
+              <div className="grid grid-cols-2 gap-2">
+                <div><Label className="text-[11px] text-muted-foreground">Latitude</Label><Input value={projectForm.latitude} onChange={(e) => setProjectForm({ ...projectForm, latitude: e.target.value })} placeholder="-15.78" className="text-sm" /></div>
+                <div><Label className="text-[11px] text-muted-foreground">Longitude</Label><Input value={projectForm.longitude} onChange={(e) => setProjectForm({ ...projectForm, longitude: e.target.value })} placeholder="-47.93" className="text-sm" /></div>
+              </div>
               {editingProject && (
                 <div>
                   <Label className="text-xs md:text-sm">Coluna / Status</Label>
