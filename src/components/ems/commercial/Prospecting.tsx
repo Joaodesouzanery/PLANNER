@@ -13,18 +13,23 @@ import {
   ExternalLink,
   FileSearch,
   Link2,
+  LocateFixed,
   Loader2,
   Mail,
   MapPin,
   MessageSquareText,
+  Minus,
+  Navigation,
   Phone,
   Plus,
   RefreshCw,
   Save,
   Search,
   Send,
+  SlidersHorizontal,
   Sparkles,
   Trash2,
+  X,
   UserPlus,
 } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -132,6 +137,50 @@ interface Prospect {
   notes: string | null;
   job_fingerprint?: string | null;
   created_at: string;
+}
+
+interface MapContact {
+  id: string;
+  name: string;
+  company: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  project_id: string | null;
+}
+
+interface MapProject {
+  id: string;
+  title: string;
+  client: string | null;
+  status: string | null;
+  due_date: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+interface MapTask {
+  id: string;
+  title: string;
+  status: string | null;
+  due_date: string | null;
+  priority: string | null;
+  contact_id: string | null;
+  project_id: string | null;
+}
+
+interface MapEntity {
+  id: string;
+  type: "contact" | "project";
+  title: string;
+  subtitle: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  tasks: MapTask[];
 }
 
 interface ProspectForm {
@@ -658,6 +707,64 @@ const getProspectFingerprint = (prospect: Prospect) =>
     linkedin_job_url: prospect.linkedin_job_url || "",
   });
 
+const MAP_WIDTH = 1000;
+const MAP_HEIGHT = 520;
+const TILE_SIZE = 256;
+const DEFAULT_MAP_CENTER = { lat: -14.235, lng: -51.925 };
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const toWorldPoint = (lat: number, lng: number, zoom: number) => {
+  const scale = TILE_SIZE * 2 ** zoom;
+  const sin = Math.sin((clamp(lat, -85.0511, 85.0511) * Math.PI) / 180);
+  return {
+    x: ((lng + 180) / 360) * scale,
+    y: (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * scale,
+  };
+};
+
+const getMapTiles = (center: { lat: number; lng: number }, zoom: number) => {
+  const centerPoint = toWorldPoint(center.lat, center.lng, zoom);
+  const startTileX = Math.floor((centerPoint.x - MAP_WIDTH / 2) / TILE_SIZE);
+  const endTileX = Math.floor((centerPoint.x + MAP_WIDTH / 2) / TILE_SIZE);
+  const startTileY = Math.floor((centerPoint.y - MAP_HEIGHT / 2) / TILE_SIZE);
+  const endTileY = Math.floor((centerPoint.y + MAP_HEIGHT / 2) / TILE_SIZE);
+  const maxTile = 2 ** zoom;
+  const tiles: Array<{ key: string; url: string; x: number; y: number }> = [];
+
+  for (let x = startTileX; x <= endTileX; x += 1) {
+    for (let y = startTileY; y <= endTileY; y += 1) {
+      if (y < 0 || y >= maxTile) continue;
+      const wrappedX = ((x % maxTile) + maxTile) % maxTile;
+      const subdomain = ["a", "b", "c"][Math.abs(x + y) % 3];
+      tiles.push({
+        key: `${zoom}-${x}-${y}`,
+        url: `https://${subdomain}.basemaps.cartocdn.com/dark_all/${zoom}/${wrappedX}/${y}@2x.png`,
+        x: x * TILE_SIZE - centerPoint.x + MAP_WIDTH / 2,
+        y: y * TILE_SIZE - centerPoint.y + MAP_HEIGHT / 2,
+      });
+    }
+  }
+
+  return tiles;
+};
+
+const projectToMap = (lat: number, lng: number, center: { lat: number; lng: number }, zoom: number) => {
+  const point = toWorldPoint(lat, lng, zoom);
+  const centerPoint = toWorldPoint(center.lat, center.lng, zoom);
+  return {
+    x: point.x - centerPoint.x + MAP_WIDTH / 2,
+    y: point.y - centerPoint.y + MAP_HEIGHT / 2,
+  };
+};
+
+const taskDueState = (task: Pick<MapTask, "due_date" | "status">, todayIso: string) => {
+  if (!task.due_date || task.status === "completed") return "none";
+  if (task.due_date < todayIso) return "overdue";
+  if (task.due_date === todayIso) return "today";
+  return "future";
+};
+
 export const Prospecting = () => {
   const queryClient = useQueryClient();
   const { selectedCompanyId } = useCompany();
@@ -668,6 +775,11 @@ export const Prospecting = () => {
   const [form, setForm] = useState<ProspectForm>(emptyForm);
   const [linkedinPaste, setLinkedinPaste] = useState("");
   const [messageDraft, setMessageDraft] = useState("");
+  const [mapZoom, setMapZoom] = useState(4);
+  const [mapCenter, setMapCenter] = useState(DEFAULT_MAP_CENTER);
+  const [mapTaskFilter, setMapTaskFilter] = useState<"all" | "overdue" | "today">("all");
+  const [mapLayers, setMapLayers] = useState({ contacts: true, projects: true });
+  const [selectedMapEntity, setSelectedMapEntity] = useState<MapEntity | null>(null);
 
   const { data: prospects = [], isLoading } = useQuery({
     queryKey: ["commercial-prospects", selectedCompanyId],
@@ -680,6 +792,61 @@ export const Prospecting = () => {
       const { data, error } = await query;
       if (error) throw error;
       return (data || []) as Prospect[];
+    },
+  });
+
+  const { data: mapContacts = [] } = useQuery({
+    queryKey: ["prospecting-map-contacts", selectedCompanyId],
+    queryFn: async () => {
+      let query = (supabase as any)
+        .from("contacts")
+        .select("id, name, company, email, phone, address, latitude, longitude, project_id")
+        .not("latitude", "is", null)
+        .not("longitude", "is", null)
+        .order("name");
+      if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []).map((item: any) => ({
+        ...item,
+        latitude: item.latitude == null ? null : Number(item.latitude),
+        longitude: item.longitude == null ? null : Number(item.longitude),
+      })) as MapContact[];
+    },
+  });
+
+  const { data: mapProjects = [] } = useQuery({
+    queryKey: ["prospecting-map-projects", selectedCompanyId],
+    queryFn: async () => {
+      let query = (supabase as any)
+        .from("projects")
+        .select("id, title, client, status, due_date, address, latitude, longitude")
+        .not("latitude", "is", null)
+        .not("longitude", "is", null)
+        .order("title");
+      if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []).map((item: any) => ({
+        ...item,
+        latitude: item.latitude == null ? null : Number(item.latitude),
+        longitude: item.longitude == null ? null : Number(item.longitude),
+      })) as MapProject[];
+    },
+  });
+
+  const { data: mapTasks = [] } = useQuery({
+    queryKey: ["prospecting-map-tasks", selectedCompanyId],
+    queryFn: async () => {
+      let query = (supabase as any)
+        .from("tasks")
+        .select("id, title, status, due_date, priority, contact_id, project_id")
+        .or("contact_id.not.is.null,project_id.not.is.null")
+        .order("due_date", { ascending: true });
+      if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []) as MapTask[];
     },
   });
 
@@ -755,6 +922,83 @@ export const Prospecting = () => {
       getProspectFingerprint(prospect) === formFingerprint
     ) || null;
   }, [prospects, formFingerprint, editingProspect?.id]);
+
+  const todayIso = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  const mapEntities = useMemo<MapEntity[]>(() => {
+    const contactEntities = mapContacts
+      .filter((contact) => mapLayers.contacts && contact.latitude != null && contact.longitude != null)
+      .map((contact) => {
+        const tasks = mapTasks.filter((task) => task.contact_id === contact.id || (contact.project_id && task.project_id === contact.project_id));
+        return {
+          id: contact.id,
+          type: "contact" as const,
+          title: contact.name,
+          subtitle: contact.company || "Contato sem empresa vinculada",
+          address: contact.address || "Endereco nao informado",
+          latitude: Number(contact.latitude),
+          longitude: Number(contact.longitude),
+          tasks,
+        };
+      });
+
+    const projectEntities = mapProjects
+      .filter((project) => mapLayers.projects && project.latitude != null && project.longitude != null)
+      .map((project) => ({
+        id: project.id,
+        type: "project" as const,
+        title: project.title,
+        subtitle: project.client || "Projeto sem cliente vinculado",
+        address: project.address || "Endereco nao informado",
+        latitude: Number(project.latitude),
+        longitude: Number(project.longitude),
+        tasks: mapTasks.filter((task) => task.project_id === project.id),
+      }));
+
+    return [...contactEntities, ...projectEntities].filter((entity) => {
+      if (mapTaskFilter === "all") return true;
+      return entity.tasks.some((task) => taskDueState(task, todayIso) === mapTaskFilter);
+    });
+  }, [mapContacts, mapProjects, mapTasks, mapLayers.contacts, mapLayers.projects, mapTaskFilter, todayIso]);
+
+  const mapStats = useMemo(() => {
+    const uniqueTasks = new Map<string, MapTask>();
+    mapEntities.forEach((entity) => entity.tasks.forEach((task) => uniqueTasks.set(task.id, task)));
+    const tasks = Array.from(uniqueTasks.values());
+    return {
+      visible: mapEntities.length,
+      overdue: tasks.filter((task) => taskDueState(task, todayIso) === "overdue").length,
+      today: tasks.filter((task) => taskDueState(task, todayIso) === "today").length,
+    };
+  }, [mapEntities, todayIso]);
+
+  useEffect(() => {
+    if (mapEntities.length === 0) return;
+    const lat = mapEntities.reduce((sum, entity) => sum + entity.latitude, 0) / mapEntities.length;
+    const lng = mapEntities.reduce((sum, entity) => sum + entity.longitude, 0) / mapEntities.length;
+    setMapCenter((current) => (current.lat === DEFAULT_MAP_CENTER.lat && current.lng === DEFAULT_MAP_CENTER.lng ? { lat, lng } : current));
+  }, [mapEntities]);
+
+  const mapTiles = useMemo(() => getMapTiles(mapCenter, mapZoom), [mapCenter, mapZoom]);
+  const clusteredMapEntities = useMemo(() => {
+    const projected = mapEntities
+      .map((entity) => ({ entity, ...projectToMap(entity.latitude, entity.longitude, mapCenter, mapZoom) }))
+      .filter((item) => item.x > -80 && item.x < MAP_WIDTH + 80 && item.y > -80 && item.y < MAP_HEIGHT + 80);
+    const clusters: Array<{ id: string; x: number; y: number; entities: MapEntity[] }> = [];
+
+    projected.forEach((item) => {
+      const cluster = clusters.find((current) => Math.hypot(current.x - item.x, current.y - item.y) < 44);
+      if (cluster) {
+        cluster.entities.push(item.entity);
+        cluster.x = (cluster.x * (cluster.entities.length - 1) + item.x) / cluster.entities.length;
+        cluster.y = (cluster.y * (cluster.entities.length - 1) + item.y) / cluster.entities.length;
+      } else {
+        clusters.push({ id: item.entity.id, x: item.x, y: item.y, entities: [item.entity] });
+      }
+    });
+
+    return clusters;
+  }, [mapEntities, mapCenter, mapZoom]);
 
   const saveProspectMutation = useMutation({
     mutationFn: async () => {
@@ -1111,6 +1355,222 @@ export const Prospecting = () => {
         ))}
       </div>
 
+      <Card className="overflow-hidden border-zinc-800 bg-zinc-950 text-zinc-100 shadow-2xl shadow-black/30">
+        <CardHeader className="border-b border-zinc-800/80 pb-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2 text-zinc-50">
+                <Navigation className="h-4 w-4 text-cyan-300" />
+                Mapa operacional de clientes e projetos
+              </CardTitle>
+              <p className="text-xs text-zinc-500 mt-1">
+                Coloquei o mapa aqui, antes da tabela, para virar a visao de comando da prospeccao sem esconder o diagnostico.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                { key: "all", label: "Todos" },
+                { key: "overdue", label: `Vencidas ${mapStats.overdue}` },
+                { key: "today", label: `Hoje ${mapStats.today}` },
+              ].map((filter) => (
+                <Button
+                  key={filter.key}
+                  variant={mapTaskFilter === filter.key ? "secondary" : "outline"}
+                  size="sm"
+                  className={cn(
+                    "h-8 rounded-lg border-zinc-800 text-xs",
+                    mapTaskFilter === filter.key ? "bg-zinc-100 text-zinc-950" : "bg-zinc-900/70 text-zinc-300 hover:bg-zinc-800"
+                  )}
+                  onClick={() => setMapTaskFilter(filter.key as typeof mapTaskFilter)}
+                >
+                  {filter.label}
+                </Button>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn("h-8 rounded-lg border-zinc-800 text-xs", mapLayers.contacts ? "bg-cyan-400/10 text-cyan-200" : "bg-zinc-900/70 text-zinc-500")}
+                onClick={() => setMapLayers((prev) => ({ ...prev, contacts: !prev.contacts }))}
+              >
+                Contatos
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn("h-8 rounded-lg border-zinc-800 text-xs", mapLayers.projects ? "bg-emerald-400/10 text-emerald-200" : "bg-zinc-900/70 text-zinc-500")}
+                onClick={() => setMapLayers((prev) => ({ ...prev, projects: !prev.projects }))}
+              >
+                Projetos
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="relative h-[460px] overflow-hidden bg-black">
+              <div className="absolute left-3 top-3 z-20 flex flex-col gap-2">
+                <Button size="icon" variant="outline" className="h-9 w-9 border-zinc-700 bg-zinc-950/90 text-zinc-100 hover:bg-zinc-800" onClick={() => setMapZoom((zoom) => Math.min(14, zoom + 1))}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+                <Button size="icon" variant="outline" className="h-9 w-9 border-zinc-700 bg-zinc-950/90 text-zinc-100 hover:bg-zinc-800" onClick={() => setMapZoom((zoom) => Math.max(3, zoom - 1))}>
+                  <Minus className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-9 w-9 border-zinc-700 bg-zinc-950/90 text-zinc-100 hover:bg-zinc-800"
+                  onClick={() => {
+                    if (mapEntities.length === 0) return;
+                    setMapCenter({
+                      lat: mapEntities.reduce((sum, entity) => sum + entity.latitude, 0) / mapEntities.length,
+                      lng: mapEntities.reduce((sum, entity) => sum + entity.longitude, 0) / mapEntities.length,
+                    });
+                    setMapZoom(mapEntities.length > 1 ? 5 : 10);
+                  }}
+                >
+                  <LocateFixed className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="absolute inset-0">
+                {mapTiles.map((tile) => (
+                  <img
+                    key={tile.key}
+                    src={tile.url}
+                    alt=""
+                    className="absolute select-none opacity-95"
+                    draggable={false}
+                    style={{
+                      left: `${(tile.x / MAP_WIDTH) * 100}%`,
+                      top: `${(tile.y / MAP_HEIGHT) * 100}%`,
+                      width: `${(TILE_SIZE / MAP_WIDTH) * 100}%`,
+                      height: `${(TILE_SIZE / MAP_HEIGHT) * 100}%`,
+                    }}
+                  />
+                ))}
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(34,211,238,0.12),transparent_42%),linear-gradient(180deg,rgba(0,0,0,0.15),rgba(0,0,0,0.55))]" />
+              </div>
+
+              {clusteredMapEntities.map((cluster) => {
+                const hasOverdue = cluster.entities.some((entity) => entity.tasks.some((task) => taskDueState(task, todayIso) === "overdue"));
+                const hasToday = cluster.entities.some((entity) => entity.tasks.some((task) => taskDueState(task, todayIso) === "today"));
+                const only = cluster.entities[0];
+                const color = hasOverdue ? "bg-red-400 border-red-200 shadow-red-500/40" : hasToday ? "bg-amber-300 border-amber-100 shadow-amber-500/30" : only.type === "project" ? "bg-emerald-300 border-emerald-100 shadow-emerald-500/30" : "bg-cyan-300 border-cyan-100 shadow-cyan-500/30";
+                return (
+                  <button
+                    key={cluster.entities.map((entity) => entity.id).join("-")}
+                    type="button"
+                    className={cn(
+                      "absolute z-10 -translate-x-1/2 -translate-y-1/2 border text-zinc-950 shadow-lg transition hover:scale-110",
+                      cluster.entities.length > 1 ? "h-9 min-w-9 rounded-full px-2 text-xs font-bold" : "h-5 w-5 rounded-full ring-4 ring-white/15",
+                      color
+                    )}
+                    style={{ left: `${(cluster.x / MAP_WIDTH) * 100}%`, top: `${(cluster.y / MAP_HEIGHT) * 100}%` }}
+                    onClick={() => {
+                      if (cluster.entities.length > 1) {
+                        setMapCenter({
+                          lat: cluster.entities.reduce((sum, entity) => sum + entity.latitude, 0) / cluster.entities.length,
+                          lng: cluster.entities.reduce((sum, entity) => sum + entity.longitude, 0) / cluster.entities.length,
+                        });
+                        setMapZoom((zoom) => Math.min(14, zoom + 2));
+                      } else {
+                        setSelectedMapEntity(only);
+                        setMapCenter({ lat: only.latitude, lng: only.longitude });
+                      }
+                    }}
+                  >
+                    {cluster.entities.length > 1 ? cluster.entities.length : ""}
+                  </button>
+                );
+              })}
+
+              {mapEntities.length === 0 && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40">
+                  <div className="max-w-sm text-center">
+                    <MapPin className="mx-auto h-9 w-9 text-zinc-600 mb-3" />
+                    <p className="text-sm font-semibold text-zinc-200">Nenhum contato ou projeto com coordenadas</p>
+                    <p className="text-xs text-zinc-500 mt-1">Cadastre um endereco em Contatos ou Projetos para preencher latitude e longitude automaticamente.</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="absolute bottom-3 left-3 z-20 rounded-full border border-zinc-800 bg-zinc-950/90 px-3 py-1 text-[10px] text-zinc-400">
+                CARTO, OpenStreetMap contributors - {mapStats.visible} pontos visiveis
+              </div>
+            </div>
+
+            <div className="border-t border-zinc-800 bg-zinc-950/95 p-4 xl:border-l xl:border-t-0">
+              {selectedMapEntity ? (
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <Badge variant="outline" className={cn("mb-2 border-zinc-700 text-[10px]", selectedMapEntity.type === "project" ? "text-emerald-300" : "text-cyan-300")}>
+                        {selectedMapEntity.type === "project" ? "Projeto" : "Contato"}
+                      </Badge>
+                      <h3 className="text-sm font-semibold text-zinc-50">{selectedMapEntity.title}</h3>
+                      <p className="text-xs text-zinc-500">{selectedMapEntity.subtitle}</p>
+                    </div>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-zinc-500 hover:bg-zinc-900 hover:text-zinc-100" onClick={() => setSelectedMapEntity(null)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Endereco</p>
+                    <p className="mt-1 text-xs text-zinc-300">{selectedMapEntity.address}</p>
+                  </div>
+                  <div>
+                    <div className="mb-2 flex items-center justify-between">
+                      <p className="text-xs font-semibold text-zinc-200">Tarefas vencidas/hoje</p>
+                      <Badge variant="outline" className="border-zinc-700 text-[10px] text-zinc-400">{selectedMapEntity.tasks.length}</Badge>
+                    </div>
+                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                      {selectedMapEntity.tasks
+                        .filter((task) => ["overdue", "today"].includes(taskDueState(task, todayIso)))
+                        .map((task) => {
+                          const state = taskDueState(task, todayIso);
+                          return (
+                            <div key={task.id} className={cn("rounded-lg border p-2.5", state === "overdue" ? "border-red-500/30 bg-red-500/10" : "border-amber-500/30 bg-amber-500/10")}>
+                              <p className="text-xs font-medium text-zinc-100">{task.title}</p>
+                              <p className="mt-1 text-[10px] text-zinc-400">
+                                {state === "overdue" ? "Vencida" : "Hoje"} {task.due_date ? `- ${new Date(task.due_date + "T00:00:00").toLocaleDateString("pt-BR")}` : ""}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      {selectedMapEntity.tasks.filter((task) => ["overdue", "today"].includes(taskDueState(task, todayIso))).length === 0 && (
+                        <p className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 text-xs text-zinc-500">Sem tarefas vencidas ou para hoje neste ponto.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex h-full min-h-[240px] flex-col justify-between">
+                  <div>
+                    <SlidersHorizontal className="h-5 w-5 text-zinc-500 mb-3" />
+                    <h3 className="text-sm font-semibold text-zinc-100">Clique em um pin</h3>
+                    <p className="mt-1 text-xs text-zinc-500">O painel abre com cliente/projeto, endereco e tarefas vencidas ou de hoje. Clusters aproximam o zoom para manter o mapa legivel.</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-lg border border-zinc-800 p-2">
+                      <p className="text-lg font-bold text-zinc-50">{mapStats.visible}</p>
+                      <p className="text-[10px] text-zinc-500">pontos</p>
+                    </div>
+                    <div className="rounded-lg border border-red-500/30 p-2">
+                      <p className="text-lg font-bold text-red-300">{mapStats.overdue}</p>
+                      <p className="text-[10px] text-zinc-500">vencidas</p>
+                    </div>
+                    <div className="rounded-lg border border-amber-500/30 p-2">
+                      <p className="text-lg font-bold text-amber-200">{mapStats.today}</p>
+                      <p className="text-[10px] text-zinc-500">hoje</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)] gap-4">
         <div className="space-y-4">
           <Card>
@@ -1143,12 +1603,12 @@ export const Prospecting = () => {
               ) : (
                 <Table>
                   <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="h-9 py-1.5 text-[11px] uppercase tracking-wide">Empresa</TableHead>
-                      <TableHead className="h-9 py-1.5 text-[11px] uppercase tracking-wide hidden lg:table-cell">Vaga</TableHead>
-                      <TableHead className="h-9 py-1.5 text-[11px] uppercase tracking-wide">Status</TableHead>
-                      <TableHead className="h-9 py-1.5 text-[11px] uppercase tracking-wide hidden md:table-cell">Módulos</TableHead>
-                      <TableHead className="h-9 py-1.5 text-[11px] uppercase tracking-wide text-right">Ações</TableHead>
+                    <TableRow>
+                      <TableHead className="h-9 px-3">Empresa</TableHead>
+                      <TableHead className="hidden h-9 px-3 lg:table-cell">Vaga</TableHead>
+                      <TableHead className="h-9 px-3">Status</TableHead>
+                      <TableHead className="hidden h-9 px-3 md:table-cell">Modulos</TableHead>
+                      <TableHead className="h-9 px-3 text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1159,73 +1619,75 @@ export const Prospecting = () => {
                       return (
                         <TableRow
                           key={prospect.id}
-                          className={cn("cursor-pointer h-11", selectedProspect?.id === prospect.id && "bg-muted/50")}
+                          className={cn("cursor-pointer", selectedProspect?.id === prospect.id && "bg-muted/60")}
                           onClick={() => setSelectedProspect(prospect)}
                         >
-                          <TableCell className="py-1.5">
-                            <p className="text-sm font-medium leading-tight">{prospect.company_name}</p>
-                            <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground mt-0.5">
-                              {prospect.location && (
-                                <span className="flex items-center gap-1">
-                                  <MapPin className="h-3 w-3" />
-                                  {prospect.location}
-                                </span>
-                              )}
-                              {prospect.contacts?.[0]?.value && (
-                                <span className="flex items-center gap-1">
-                                  <Phone className="h-3 w-3" />
-                                  {prospect.contacts[0].value}
-                                </span>
-                              )}
+                          <TableCell className="px-3 py-2">
+                            <div className="space-y-0.5">
+                              <p className="text-sm font-medium leading-tight">{prospect.company_name}</p>
+                              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                                {prospect.location && (
+                                  <span className="flex items-center gap-1">
+                                    <MapPin className="h-3 w-3" />
+                                    {prospect.location}
+                                  </span>
+                                )}
+                                {prospect.contacts?.[0]?.value && (
+                                  <span className="flex items-center gap-1">
+                                    <Phone className="h-3 w-3" />
+                                    {prospect.contacts[0].value}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </TableCell>
-                          <TableCell className="py-1.5 hidden lg:table-cell max-w-[260px]">
-                            <p className="truncate text-xs">{prospect.job_title || "—"}</p>
+                          <TableCell className="hidden max-w-[260px] px-3 py-2 lg:table-cell">
+                            <p className="truncate text-sm">{prospect.job_title || "Vaga nao informada"}</p>
                             {prospect.linkedin_job_url && (
                               <a
                                 href={prospect.linkedin_job_url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="text-[11px] text-primary inline-flex items-center gap-1"
+                                className="text-xs text-primary inline-flex items-center gap-1"
                                 onClick={(event) => event.stopPropagation()}
                               >
-                                LinkedIn <ExternalLink className="h-2.5 w-2.5" />
+                                LinkedIn <ExternalLink className="h-3 w-3" />
                               </a>
                             )}
                           </TableCell>
-                          <TableCell className="py-1.5">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-4", statusConfig[prospect.status]?.className)}>
+                          <TableCell className="px-3 py-2">
+                            <div className="flex flex-col gap-0.5">
+                              <Badge variant="outline" className={cn("w-fit text-[11px]", statusConfig[prospect.status]?.className)}>
                                 {statusConfig[prospect.status]?.label || prospect.status}
                               </Badge>
-                              <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-4", priorityConfig[prospect.priority]?.className)}>
+                              <Badge variant="outline" className={cn("w-fit text-[11px]", priorityConfig[prospect.priority]?.className)}>
                                 {priorityConfig[prospect.priority]?.label || prospect.priority}
                               </Badge>
                             </div>
                           </TableCell>
-                          <TableCell className="py-1.5 hidden md:table-cell">
-                            <div className="flex flex-wrap gap-1 max-w-[260px]">
+                          <TableCell className="hidden px-3 py-2 md:table-cell">
+                            <div className="flex flex-wrap gap-1 max-w-[280px]">
                               {moduleBadges.slice(0, 2).map((module) => (
-                                <Badge key={module.moduleId} variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                                <Badge key={module.moduleId} variant="secondary" className="text-[10px]">
                                   {module.moduleName}
                                 </Badge>
                               ))}
-                              {moduleBadges.length > 2 && <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">+{moduleBadges.length - 2}</Badge>}
-                              {moduleBadges.length === 0 && <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">—</Badge>}
+                              {moduleBadges.length > 2 && <Badge variant="outline" className="text-[10px]">+{moduleBadges.length - 2}</Badge>}
+                              {moduleBadges.length === 0 && <Badge variant="outline" className="text-[10px]">Sem sinais</Badge>}
                             </div>
                           </TableCell>
-                          <TableCell className="py-1.5 text-right">
-                            <div className="flex justify-end gap-0.5">
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(event) => { event.stopPropagation(); openEdit(prospect); }}>
-                                <Edit2 className="h-3.5 w-3.5" />
+                          <TableCell className="px-3 py-2 text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(event) => { event.stopPropagation(); openEdit(prospect); }}>
+                                <Edit2 className="h-4 w-4" />
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                                 onClick={(event) => { event.stopPropagation(); deleteProspectMutation.mutate(prospect.id); }}
                               >
-                                <Trash2 className="h-3.5 w-3.5" />
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
                           </TableCell>

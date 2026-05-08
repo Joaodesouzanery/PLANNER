@@ -27,10 +27,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { LocationMap } from "@/components/ems/LocationMap";
 import { useMapPins } from "@/hooks/useMapPins";
+import AddressAutocomplete from "@/components/ems/AddressAutocomplete";
 
 interface Contact {
   id: string; name: string; email: string | null; phone: string | null;
   company: string | null; notes: string | null; pipeline_stage: string | null;
+  address: string | null; latitude: number | null; longitude: number | null;
   project_id: string | null; created_at: string; project?: { title: string } | null;
 }
 interface Interaction { id: string; contact_id: string; type: string; description: string; date: string; created_at: string; }
@@ -496,10 +498,18 @@ const Contacts = () => {
               <div><label className="text-sm font-medium">Projeto</label><Select value={contactForm.project_id || "none"} onValueChange={(v) => setContactForm({ ...contactForm, project_id: v === "none" ? "" : v })}><SelectTrigger className="mt-1 rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Nenhum</SelectItem>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}</SelectContent></Select></div>
             </div>
             <div><label className="text-sm font-medium">Estágio do Pipeline</label><Select value={contactForm.pipeline_stage} onValueChange={(v) => setContactForm({ ...contactForm, pipeline_stage: v })}><SelectTrigger className="mt-1 rounded-xl"><SelectValue /></SelectTrigger><SelectContent>{pipelineStages.map((s) => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}</SelectContent></Select></div>
-            <div><label className="text-sm font-medium">Endereço (para mapa)</label><Input value={contactForm.address} onChange={(e) => setContactForm({ ...contactForm, address: e.target.value })} placeholder="Rua, cidade, estado" className="mt-1 rounded-xl" /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><label className="text-xs text-muted-foreground">Latitude</label><Input value={contactForm.latitude} onChange={(e) => setContactForm({ ...contactForm, latitude: e.target.value })} placeholder="-15.78" className="mt-1 rounded-xl" /></div>
-              <div><label className="text-xs text-muted-foreground">Longitude</label><Input value={contactForm.longitude} onChange={(e) => setContactForm({ ...contactForm, longitude: e.target.value })} placeholder="-47.93" className="mt-1 rounded-xl" /></div>
+            <div>
+              <label className="text-sm font-medium">Endereco</label>
+              <AddressAutocomplete
+                value={contactForm.address}
+                onChange={(address) => setContactForm((prev) => ({ ...prev, address }))}
+                onResolved={(result) => setContactForm((prev) => ({ ...prev, address: result.label, latitude: result.lat.toString(), longitude: result.lng.toString() }))}
+                placeholder="Rua, numero, cidade, UF"
+                className="mt-1"
+              />
+              {(contactForm.latitude || contactForm.longitude) && (
+                <p className="mt-1 text-xs text-muted-foreground">Lat {contactForm.latitude || "-"} / Lng {contactForm.longitude || "-"}</p>
+              )}
             </div>
             <div><label className="text-sm font-medium">Observações</label><Textarea value={contactForm.notes} onChange={(e) => setContactForm({ ...contactForm, notes: e.target.value })} placeholder="Notas sobre o contato..." rows={2} className="mt-1 rounded-xl" /></div>
           </div>
