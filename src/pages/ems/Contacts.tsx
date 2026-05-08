@@ -25,6 +25,8 @@ import { ptBR } from "date-fns/locale";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { LocationMap } from "@/components/ems/LocationMap";
+import { useMapPins } from "@/hooks/useMapPins";
 
 interface Contact {
   id: string; name: string; email: string | null; phone: string | null;
