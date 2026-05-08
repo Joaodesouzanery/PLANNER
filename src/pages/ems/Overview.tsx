@@ -36,6 +36,30 @@ interface MonthlyFocus { id: string; title: string; description: string; }
 interface ContactTask { id: string; title: string; priority: string; due_date: string | null; status: string; contact: { id: string; name: string; company: string | null; } | null; }
 interface MonthlyData { month: string; income: number; expense: number; }
 
+const OverviewMapCard = () => {
+  const { data: pins = [] } = useMapPins();
+  const alertCount = pins.filter((p) => p.alert).length;
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+            Mapa operacional
+          </span>
+          <span className="text-xs font-normal text-muted-foreground">
+            {pins.length} ponto{pins.length === 1 ? "" : "s"}
+            {alertCount > 0 && <span className="ml-2 text-red-400">• {alertCount} com alerta</span>}
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <LocationMap pins={pins} height={380} />
+      </CardContent>
+    </Card>
+  );
+};
+
 const Overview = () => {
   const { toast } = useToast();
   const { selectedCompanyId } = useCompany();
@@ -472,6 +496,11 @@ const Overview = () => {
         </motion.div>
 
         <motion.div variants={itemVariants}><RecentActivity /></motion.div>
+
+        <motion.div variants={itemVariants}>
+          <OverviewMapCard />
+        </motion.div>
+
         <motion.div variants={itemVariants} className="pt-2">
           <ExecutiveDashboardContent />
         </motion.div>
