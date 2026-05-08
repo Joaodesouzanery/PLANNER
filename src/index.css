@@ -18,15 +18,15 @@
 
 @layer base {
   :root {
-    /* Warm dark theme - high contrast */
-    --background: 20 10% 12%;
-    --foreground: 40 20% 93%;
+    /* Warm dark theme — refined Régate-style depth */
+    --background: 24 8% 8%;
+    --foreground: 36 12% 88%;
 
-    --card: 20 8% 16%;
-    --card-foreground: 40 20% 93%;
+    --card: 24 8% 11%;
+    --card-foreground: 36 12% 88%;
 
-    --popover: 20 8% 16%;
-    --popover-foreground: 40 20% 93%;
+    --popover: 24 8% 12%;
+    --popover-foreground: 36 12% 88%;
 
     /* Primary - Warm Orange/Amber */
     --primary: 28 100% 55%;
@@ -43,8 +43,8 @@
     --accent-foreground: 20 14% 4%;
     --accent-light: 32 100% 65%;
 
-    --muted: 20 8% 20%;
-    --muted-foreground: 25 10% 75%;
+    --muted: 24 8% 14%;
+    --muted-foreground: 30 6% 60%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
@@ -52,18 +52,18 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 25 8% 45%;
-    --input: 20 8% 22%;
+    --border: 24 6% 20%;
+    --input: 24 8% 16%;
     --ring: 28 100% 55%;
 
-    --radius: 0.75rem;
+    --radius: 0.625rem;
 
     /* Sidebar */
-    --sidebar: 20 10% 10%;
-    --sidebar-foreground: 25 10% 75%;
+    --sidebar: 24 8% 6%;
+    --sidebar-foreground: 30 6% 65%;
     --sidebar-active: 28 100% 55%;
-    --sidebar-hover: 20 8% 18%;
-    --sidebar-border: 25 8% 45%;
+    --sidebar-hover: 24 8% 12%;
+    --sidebar-border: 24 6% 18%;
 
     /* Chart colors */
     --chart-1: 28 100% 55%;
@@ -135,14 +135,14 @@
   }
 
   .dark {
-    --background: 20 10% 12%;
-    --foreground: 40 20% 93%;
+    --background: 24 8% 8%;
+    --foreground: 36 12% 88%;
 
-    --card: 20 8% 16%;
-    --card-foreground: 40 20% 93%;
+    --card: 24 8% 11%;
+    --card-foreground: 36 12% 88%;
 
-    --popover: 20 8% 16%;
-    --popover-foreground: 40 20% 93%;
+    --popover: 24 8% 12%;
+    --popover-foreground: 36 12% 88%;
 
     --primary: 28 100% 55%;
     --primary-foreground: 20 14% 4%;
@@ -156,21 +156,21 @@
     --accent-foreground: 20 14% 4%;
     --accent-light: 32 100% 65%;
 
-    --muted: 20 8% 20%;
-    --muted-foreground: 25 10% 75%;
+    --muted: 24 8% 14%;
+    --muted-foreground: 30 6% 60%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 25 8% 45%;
-    --input: 20 8% 22%;
+    --border: 24 6% 20%;
+    --input: 24 8% 16%;
     --ring: 28 100% 55%;
 
-    --sidebar: 20 10% 10%;
-    --sidebar-foreground: 25 10% 75%;
+    --sidebar: 24 8% 6%;
+    --sidebar-foreground: 30 6% 65%;
     --sidebar-active: 28 100% 55%;
-    --sidebar-hover: 20 8% 18%;
-    --sidebar-border: 25 8% 45%;
+    --sidebar-hover: 24 8% 12%;
+    --sidebar-border: 24 6% 18%;
 
     --chart-1: 28 100% 55%;
     --chart-2: 160 60% 45%;
