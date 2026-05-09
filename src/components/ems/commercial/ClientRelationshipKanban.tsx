@@ -51,6 +51,7 @@ interface ClosedContactClient {
   id: string;
   name: string;
   company: string | null;
+  company_id?: string | null;
   email?: string | null;
   phone?: string | null;
   project_id?: string | null;
@@ -151,7 +152,7 @@ const ClientRelationshipKanban = ({ enabled = true }: { enabled?: boolean }) => 
     queryFn: async () => {
       let q = supabase
         .from("contacts")
-        .select("id, name, company, email, phone, project_id, project:projects(title)")
+        .select("id, name, company, company_id, email, phone, project_id, project:projects(title)")
         .eq("pipeline_stage", "closed")
         .order("name");
       if (hasCompanyFilter) q = q.eq("company_id", selectedCompanyId);
@@ -168,7 +169,7 @@ const ClientRelationshipKanban = ({ enabled = true }: { enabled?: boolean }) => 
     queryFn: async () => {
       let q = supabase
         .from("contacts")
-        .select("id, name, company, pipeline_stage")
+        .select("id, name, company, company_id, email, phone, project_id, pipeline_stage")
         .neq("pipeline_stage", "closed")
         .order("name");
       if (hasCompanyFilter) q = q.eq("company_id", selectedCompanyId);
@@ -305,15 +306,60 @@ const ClientRelationshipKanban = ({ enabled = true }: { enabled?: boolean }) => 
 
   const importContactAsClient = useMutation({
     mutationFn: async (contactId: string) => {
+      const { data: contact, error: contactError } = await supabase
+        .from("contacts")
+        .select("id, name, company, company_id, email, phone, project_id")
+        .eq("id", contactId)
+        .maybeSingle();
+      if (contactError) throw contactError;
+      if (!contact) throw new Error("Contato não encontrado");
+
+      let companyId = contact.company_id;
+      if (!companyId) {
+        const accountName = (contact.company || contact.name || "").trim();
+        if (!accountName) throw new Error("Contato sem nome para criar cliente");
+
+        let companyQuery = (supabase as any)
+          .from("companies")
+          .select("id")
+          .ilike("name", accountName)
+          .limit(1);
+        if (hasCompanyFilter) companyQuery = companyQuery.eq("id", selectedCompanyId);
+        const { data: existingCompany, error: existingError } = await companyQuery.maybeSingle();
+        if (existingError) throw existingError;
+
+        if (existingCompany?.id) {
+          companyId = existingCompany.id;
+        } else {
+          const { data: createdCompany, error: createError } = await (supabase as any)
+            .from("companies")
+            .insert({
+              name: accountName,
+              description: contact.email || contact.phone ? [contact.email, contact.phone].filter(Boolean).join(" - ") : null,
+              relationship_stage: "new",
+              relationship_priority: "medium",
+              relationship_health: "green",
+            })
+            .select("id")
+            .single();
+          if (createError) throw createError;
+          companyId = createdCompany.id;
+        }
+      }
+
       const { error } = await supabase
         .from("contacts")
-        .update({ pipeline_stage: "closed", relationship_stage: "new" } as any)
+        .update({ pipeline_stage: "closed", company_id: companyId, relationship_stage: "new" } as any)
         .eq("id", contactId);
       if (error) throw error;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["client-kanban-companies"] });
       queryClient.invalidateQueries({ queryKey: ["client-kanban-closed-contacts"] });
       queryClient.invalidateQueries({ queryKey: ["client-kanban-importable-contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["client-kanban-contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["companies"] });
+      queryClient.invalidateQueries({ queryKey: ["map-pins"] });
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
       setImportOpen(false);
       toast({ title: "Cliente adicionado dos Contatos" });

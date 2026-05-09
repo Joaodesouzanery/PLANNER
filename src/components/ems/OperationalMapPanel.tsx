@@ -13,6 +13,7 @@ interface OperationalMapPanelProps {
   height?: number | string;
   filterKinds?: MapPinKind[];
   sidebar?: boolean;
+  projectId?: string;
   pinsOverride?: MapPin[];
   headerActions?: ReactNode;
   sidebarTitle?: string;
@@ -39,13 +40,14 @@ export const OperationalMapPanel = ({
   height = 380,
   filterKinds,
   sidebar = true,
+  projectId,
   pinsOverride,
   headerActions,
   sidebarTitle = "Tarefas por projeto",
   maxSidebarHeight = "380px",
 }: OperationalMapPanelProps) => {
-  const { data: basePins = [], isLoading } = useMapPins();
-  const { data: taskGroups = [] } = useMapTaskGroups();
+  const { data: basePins = [], isLoading } = useMapPins(projectId);
+  const { data: taskGroups = [] } = useMapTaskGroups(projectId);
   const pins = pinsOverride ?? basePins;
   const visiblePins = filterKinds?.length ? pins.filter((pin) => filterKinds.includes(pin.kind || "default")) : pins;
   const alertCount = visiblePins.filter((pin) => pin.alert).length;
@@ -56,7 +58,7 @@ export const OperationalMapPanel = ({
   }, {});
 
   return (
-    <Card>
+    <Card className="relative z-0 overflow-hidden">
       <CardHeader className="pb-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 space-y-2">

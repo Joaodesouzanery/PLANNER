@@ -97,6 +97,7 @@ export const LocationMap = ({
     <div
       className={cn(
         "relative overflow-hidden rounded-xl border border-border/40 bg-[hsl(220_14%_13%)] [&_.leaflet-tile]:brightness-[1.16] [&_.leaflet-tile]:contrast-[0.95]",
+        "[&_.leaflet-container]:z-0 [&_.leaflet-control-container]:relative [&_.leaflet-control-container]:z-[1] [&_.leaflet-pane]:z-0 [&_.leaflet-top]:z-[2] [&_.leaflet-bottom]:z-[2]",
         className
       )}
       style={{ height }}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useCompany } from "@/contexts/CompanyContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +30,8 @@ import { ConferenciaContent } from "./Conferencia";
 import { OrgChartContent } from "./OrgChart";
 import { OperationalMapPanel } from "@/components/ems/OperationalMapPanel";
 import AddressAutocomplete from "@/components/ems/AddressAutocomplete";
+import { ProjectPlanningPanel } from "@/components/ems/projects/ProjectPlanningPanel";
+import type { MapPinKind } from "@/components/ems/LocationMap";
 
 interface Project {
   id: string;
@@ -158,6 +160,7 @@ const emptyProjectForm = {
   priority: "medium",
   due_date: "",
   client: "",
+  client_company_id: "",
   labels: "",
   status: "todo",
   notes: "",
@@ -172,8 +175,10 @@ const emptyProjectForm = {
 const Projects = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { selectedCompanyId, companies } = useCompany();
-  const [view, setView] = useState<"graph" | "kanban" | "timeline" | "dashboard">("graph");
+  const initialView = searchParams.get("tab") === "planning" ? "planning" : "graph";
+  const [view, setView] = useState<"graph" | "kanban" | "timeline" | "dashboard" | "planning">(initialView);
   const [projects, setProjects] = useState<Project[]>([]);
   const [columns, setColumns] = useState<KanbanColumn[]>(DEFAULT_COLUMNS);
   const [showAddProject, setShowAddProject] = useState(false);
@@ -184,6 +189,8 @@ const Projects = () => {
   const [newColumnTitle, setNewColumnTitle] = useState("");
   const [newColumnColor, setNewColumnColor] = useState("purple");
   const [clientFilter, setClientFilter] = useState<string>("all");
+  const [mapProjectId, setMapProjectId] = useState<string>("all");
+  const [mapVisibleKinds, setMapVisibleKinds] = useState({ project: true, client: true, task: true });
   const [graphStatusFilter, setGraphStatusFilter] = useState<string>("in_progress");
   const [graphMinProgress, setGraphMinProgress] = useState("0");
   const [graphMinOpportunity, setGraphMinOpportunity] = useState("0");
@@ -400,6 +407,9 @@ const Projects = () => {
   };
 
   const uniqueClients = [...new Set(projects.map(p => p.client).filter(Boolean))] as string[];
+  const mapFilterKinds = (Object.entries(mapVisibleKinds)
+    .filter(([, visible]) => visible)
+    .map(([kind]) => kind)) as MapPinKind[];
 
   const handleAddProject = async () => {
     if (!projectForm.title) return;
@@ -407,7 +417,7 @@ const Projects = () => {
     await (supabase as any).from("projects").insert({
       title: projectForm.title, description: projectForm.description || null, priority: projectForm.priority,
       due_date: projectForm.due_date || null, status: "todo", column_order: maxOrder,
-      company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
+      company_id: projectForm.client_company_id || (selectedCompanyId !== "all" ? selectedCompanyId : null),
       client: projectForm.client || null, labels: projectForm.labels ? projectForm.labels.split(",").map(l => l.trim()).filter(Boolean) : [],
       next_invoice_date: projectForm.next_invoice_date || null,
       invoice_alert_days: Number(projectForm.invoice_alert_days) || 7,
@@ -434,6 +444,7 @@ const Projects = () => {
     await (supabase as any).from("projects").update({
       title: projectForm.title, description: projectForm.description, priority: projectForm.priority,
       due_date: projectForm.due_date || null, client: projectForm.client || null,
+      company_id: projectForm.client_company_id || editingProject.company_id || (selectedCompanyId !== "all" ? selectedCompanyId : null),
       labels: projectForm.labels ? projectForm.labels.split(",").map(l => l.trim()).filter(Boolean) : [],
       status: newStatus, notes: projectForm.notes || null, checklist: checklistItems as unknown as any,
       next_invoice_date: projectForm.next_invoice_date || null,
@@ -734,9 +745,42 @@ const Projects = () => {
 
         <OperationalMapPanel
           title="Mapa de projetos"
-          description="Projetos e tarefas aparecem no mesmo mapa operacional do Dashboard e Comercial."
-          filterKinds={["project", "task"]}
-          height={340}
+          description="Filtre um projeto e ligue/desligue camadas para ver clientes, obra e tarefas separadamente."
+          projectId={mapProjectId === "all" ? undefined : mapProjectId}
+          filterKinds={mapFilterKinds}
+          height={320}
+          maxSidebarHeight="320px"
+          headerActions={
+            <>
+              <Select value={mapProjectId} onValueChange={setMapProjectId}>
+                <SelectTrigger className="h-8 w-full text-xs sm:w-[240px]">
+                  <SelectValue placeholder="Projeto no mapa" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os projetos</SelectItem>
+                  {projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.title}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  ["project", "Projetos"],
+                  ["client", "Clientes"],
+                  ["task", "Tarefas"],
+                ].map(([kind, label]) => (
+                  <Button
+                    key={kind}
+                    type="button"
+                    size="sm"
+                    variant={mapVisibleKinds[kind as keyof typeof mapVisibleKinds] ? "default" : "outline"}
+                    className="h-8 text-xs"
+                    onClick={() => setMapVisibleKinds((current) => ({ ...current, [kind]: !current[kind as keyof typeof current] }))}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            </>
+          }
         />
 
         {/* Filters */}
@@ -758,11 +802,12 @@ const Projects = () => {
         </div>
 
         {/* View Toggle */}
-        <Tabs value={view} onValueChange={(v) => setView(v as "graph" | "kanban" | "timeline" | "dashboard")}>
+        <Tabs value={view} onValueChange={(v) => setView(v as "graph" | "kanban" | "timeline" | "dashboard" | "planning")}>
           <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="graph" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><Network className="h-3.5 w-3.5 md:h-4 md:w-4" />Vinculos</TabsTrigger>
             <TabsTrigger value="kanban" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><LayoutGrid className="h-3.5 w-3.5 md:h-4 md:w-4" />Kanban</TabsTrigger>
             <TabsTrigger value="timeline" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><GanttChart className="h-3.5 w-3.5 md:h-4 md:w-4" />Timeline</TabsTrigger>
+            <TabsTrigger value="planning" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><Target className="h-3.5 w-3.5 md:h-4 md:w-4" />Plano e Metas</TabsTrigger>
             <TabsTrigger value="dashboard" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><BarChart3 className="h-3.5 w-3.5 md:h-4 md:w-4" />Dashboard</TabsTrigger>
           </TabsList>
 
@@ -876,7 +921,7 @@ const Projects = () => {
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <div
-                          className="relative min-h-[520px] rounded-lg border border-border/70 overflow-hidden bg-background"
+                          className="relative min-h-[430px] rounded-lg border border-border/70 overflow-hidden bg-background"
                           style={{
                             backgroundImage: "linear-gradient(hsl(var(--border) / .22) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--border) / .22) 1px, transparent 1px)",
                             backgroundSize: "18px 18px",
@@ -888,40 +933,40 @@ const Projects = () => {
                                 key={node.key}
                                 x1="50"
                                 y1="50"
-                                x2={node.x + 14}
+                                x2={node.x + 11}
                                 y2={node.y + 5}
                                 stroke={GRAPH_TONES[node.tone].stroke}
-                                strokeWidth="0.75"
+                                strokeWidth="0.65"
                                 strokeDasharray={node.key === "conference" || node.key === "orgchart" ? "1.6 1.4" : "0"}
                               />
                             ))}
                           </svg>
                           <button
-                            className="absolute left-1/2 top-1/2 z-10 w-52 -translate-x-1/2 -translate-y-1/2 rounded-xl border-2 border-primary/70 bg-background/95 p-4 text-left shadow-xl shadow-primary/10"
+                            className="absolute left-1/2 top-1/2 z-10 w-44 -translate-x-1/2 -translate-y-1/2 rounded-lg border-2 border-primary/70 bg-background/95 p-3 text-left shadow-lg shadow-primary/10"
                             onClick={() => setEditingProject(project)}
                           >
                             <div className="flex items-center gap-2">
-                              <FolderKanban className="h-5 w-5 text-primary" />
-                              <span className="text-sm font-semibold leading-tight line-clamp-2">{project.title}</span>
+                              <FolderKanban className="h-4 w-4 text-primary" />
+                              <span className="text-xs font-semibold leading-tight line-clamp-2">{project.title}</span>
                             </div>
-                            <p className="text-xs text-muted-foreground mt-2">{project.client || "Sem cliente"}</p>
-                            <Progress value={progress} className="h-2 mt-3" />
+                            <p className="text-[11px] text-muted-foreground mt-1.5">{project.client || "Sem cliente"}</p>
+                            <Progress value={progress} className="h-1.5 mt-2" />
                           </button>
                           {graphNodes.map((node) => (
                             <button
                               key={node.key}
                               className={cn(
-                                "absolute z-20 w-40 rounded-lg border-2 p-3 text-left shadow-lg transition hover:-translate-y-0.5 hover:bg-card sm:w-52",
+                                "absolute z-20 w-32 rounded-lg border p-2.5 text-left shadow-md transition hover:-translate-y-0.5 hover:bg-card sm:w-40",
                                 GRAPH_TONES[node.tone].node
                               )}
                               style={{ left: `${node.x}%`, top: `${node.y}%` }}
                               onClick={node.onClick}
                             >
-                              <div className="flex items-center gap-2 text-sm font-semibold">
-                                <node.icon className={cn("h-4 w-4 shrink-0", GRAPH_TONES[node.tone].icon)} />
+                              <div className="flex items-center gap-1.5 text-xs font-semibold">
+                                <node.icon className={cn("h-3.5 w-3.5 shrink-0", GRAPH_TONES[node.tone].icon)} />
                                 <span className="truncate">{node.label}</span>
                               </div>
-                              <p className="text-xs text-muted-foreground truncate mt-1.5">{node.sub}</p>
+                              <p className="text-[11px] text-muted-foreground truncate mt-1">{node.sub}</p>
                             </button>
                           ))}
                         </div>
@@ -982,6 +1027,10 @@ const Projects = () => {
                 </Card>
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="planning" className="mt-4 md:mt-6">
+            <ProjectPlanningPanel initialProjectId={mapProjectId === "all" ? "all" : mapProjectId} />
           </TabsContent>
 
           <TabsContent value="kanban" className="mt-4 md:mt-6">
@@ -1070,6 +1119,7 @@ const Projects = () => {
                                                         priority: project.priority || "medium",
                                                         due_date: project.due_date || "",
                                                         client: project.client || "",
+                                                        client_company_id: project.company_id || "",
                                                         labels: project.labels?.join(", ") || "",
                                                         status: project.status,
                                                         notes: project.notes || "",
@@ -1357,7 +1407,27 @@ const Projects = () => {
             <div className="space-y-3 md:space-y-4 py-2 md:py-4 overflow-y-auto flex-1 pr-1">
               <div><Label className="text-xs md:text-sm">Título</Label><Input value={projectForm.title} onChange={(e) => setProjectForm({ ...projectForm, title: e.target.value })} placeholder="Nome do projeto" className="text-sm" /></div>
               <div><Label className="text-xs md:text-sm">Descrição</Label><Textarea value={projectForm.description} onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })} placeholder="Descrição do projeto" className="text-sm" /></div>
-              <div><Label className="text-xs md:text-sm">Cliente / Empresa</Label><Input value={projectForm.client} onChange={(e) => setProjectForm({ ...projectForm, client: e.target.value })} placeholder="Nome do cliente ou empresa" className="text-sm" /></div>
+              <div>
+                <Label className="text-xs md:text-sm">Cliente / Empresa</Label>
+                <Select
+                  value={projectForm.client_company_id || "custom"}
+                  onValueChange={(value) => {
+                    if (value === "custom") {
+                      setProjectForm({ ...projectForm, client_company_id: "" });
+                      return;
+                    }
+                    const company = companies.find((item) => item.id === value);
+                    setProjectForm({ ...projectForm, client_company_id: value, client: company?.name || projectForm.client });
+                  }}
+                >
+                  <SelectTrigger className="text-sm"><SelectValue placeholder="Escolha um cliente" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="custom">Informar manualmente</SelectItem>
+                    {companies.map((company) => <SelectItem key={company.id} value={company.id}>{company.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Input value={projectForm.client} onChange={(e) => setProjectForm({ ...projectForm, client: e.target.value })} placeholder="Nome do cliente ou empresa" className="mt-2 text-sm" />
+              </div>
               <div><Label className="text-xs md:text-sm">Labels</Label><Input value={projectForm.labels} onChange={(e) => setProjectForm({ ...projectForm, labels: e.target.value })} placeholder="Ex: frontend, urgente (separados por vírgula)" className="text-sm" /></div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 <div>

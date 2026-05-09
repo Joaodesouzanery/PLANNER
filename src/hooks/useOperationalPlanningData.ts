@@ -121,6 +121,7 @@ export interface FinancialImpact {
 
 export interface ReviewCycle {
   id: string;
+  project_id: string | null;
   cycle_type: string;
   period_start: string;
   period_end: string;
@@ -155,7 +156,7 @@ export const operationalDefaults = {
   time: { week_start: new Date().toISOString().slice(0, 10), category: "produto", product_area: "", project_id: "none", horizon: "h1", planned_hours: "", actual_hours: "", notes: "" },
   decision: { title: "", context: "", options_considered: "", decision: "", expected_result: "", review_date: "", outcome: "", category: "Produto", tags: "", decision_criteria: "", involved_people: "", result: "", project_id: "none" },
   financialImpact: { title: "", impact_type: "revenue", expected_amount: "", expected_date: "", confidence: "medium", status: "planned", notes: "", project_id: "none", okr_id: "none", goal_id: "none", key_result_id: "none" },
-  review: { cycle_type: "weekly", period_start: new Date().toISOString().slice(0, 10), period_end: new Date().toISOString().slice(0, 10), agenda: "", summary: "", decisions: "", next_actions: "" },
+  review: { cycle_type: "weekly", period_start: new Date().toISOString().slice(0, 10), period_end: new Date().toISOString().slice(0, 10), agenda: "", summary: "", decisions: "", next_actions: "", project_id: "none" },
 };
 
 export const scoreLabel = (value?: string | null) => value === "high" ? "Alta" : value === "low" ? "Baixa" : "Media";
@@ -386,6 +387,7 @@ export function useOperationalPlanningData() {
       summary: form.summary || null,
       decisions: form.decisions || null,
       next_actions: form.next_actions || null,
+      project_id: nullableId(form.project_id),
     },
   });
 

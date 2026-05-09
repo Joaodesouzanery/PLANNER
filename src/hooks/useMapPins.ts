@@ -7,6 +7,8 @@ interface GeoContact {
   id: string;
   name: string;
   company: string | null;
+  company_id: string | null;
+  project_id: string | null;
   address: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -15,6 +17,7 @@ interface GeoContact {
 interface GeoProject {
   id: string;
   title: string;
+  company_id: string | null;
   client: string | null;
   address: string | null;
   latitude: number | null;
@@ -76,25 +79,25 @@ const offsetPin = (lat: number, lng: number, index: number) => {
   };
 };
 
-export function useMapPins() {
+export function useMapPins(projectId?: string) {
   const { selectedCompanyId } = useCompany();
   const cf = selectedCompanyId !== "all";
 
   return useQuery({
-    queryKey: ["map-pins", selectedCompanyId],
+    queryKey: ["map-pins", selectedCompanyId, projectId || "all-projects"],
     queryFn: async (): Promise<MapPin[]> => {
       const todayIso = new Date().toISOString().slice(0, 10);
 
       let qc = supabase
         .from("contacts")
-        .select("id,name,company,address,latitude,longitude")
+        .select("id,name,company,company_id,project_id,address,latitude,longitude")
         .not("latitude", "is", null)
         .not("longitude", "is", null);
       if (cf) qc = qc.eq("company_id", selectedCompanyId);
 
       let qp = supabase
         .from("projects")
-        .select("id,title,client,address,latitude,longitude,status")
+        .select("id,title,company_id,client,address,latitude,longitude,status")
         .not("latitude", "is", null)
         .not("longitude", "is", null);
       if (cf) qp = qp.eq("company_id", selectedCompanyId);
@@ -125,9 +128,18 @@ export function useMapPins() {
         qFaculdadeTasks,
       ]);
 
-      const contacts = (contactsRes.data || []) as GeoContact[];
-      const projects = (projectsRes.data || []) as GeoProject[];
-      const tasks = (tasksRes.data || []) as OpenTask[];
+      const allContacts = (contactsRes.data || []) as GeoContact[];
+      const allProjects = (projectsRes.data || []) as GeoProject[];
+      const selectedProject = projectId ? allProjects.find((item) => item.id === projectId) : null;
+      const projects = projectId ? allProjects.filter((item) => item.id === projectId) : allProjects;
+      const contacts = projectId
+        ? allContacts.filter((item) => item.project_id === projectId || (!!selectedProject?.company_id && item.company_id === selectedProject.company_id))
+        : allContacts;
+      const tasks = ((tasksRes.data || []) as OpenTask[]).filter((task) => {
+        if (!projectId) return true;
+        if (task.project_id === projectId) return true;
+        return !!task.contact_id && contacts.some((contact) => contact.id === task.contact_id);
+      });
       const disciplinas = (disciplinasRes.data || []) as FaculdadeDisciplina[];
       const faculdadeTasks = (faculdadeTasksRes.data || []) as FaculdadeTask[];
 
@@ -215,12 +227,12 @@ export function useMapPins() {
   });
 }
 
-export function useMapTaskGroups() {
+export function useMapTaskGroups(projectId?: string) {
   const { selectedCompanyId } = useCompany();
   const cf = selectedCompanyId !== "all";
 
   return useQuery({
-    queryKey: ["map-task-groups", selectedCompanyId],
+    queryKey: ["map-task-groups", selectedCompanyId, projectId || "all-projects"],
     queryFn: async (): Promise<MapTaskGroup[]> => {
       let q = supabase
         .from("tasks")
@@ -229,6 +241,7 @@ export function useMapTaskGroups() {
         .neq("status", "done")
         .order("due_date", { ascending: true, nullsFirst: false });
       if (cf) q = q.eq("company_id", selectedCompanyId);
+      if (projectId) q = q.eq("project_id", projectId);
       const { data, error } = await q;
       if (error) throw error;
 

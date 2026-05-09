@@ -13,7 +13,6 @@ import {
   FileText,
   Moon,
   Sun,
-  Target,
   ListTodo,
   StickyNote,
   CalendarDays,
@@ -60,7 +59,6 @@ const menuGroups: MenuGroup[] = [
     items: [
       { icon: Briefcase, label: "Comercial", path: "/ems/comercial" },
 
-      { icon: Target, label: "Planejamento e Metas", path: "/ems/planning" },
     ],
   },
   {

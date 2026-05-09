@@ -85,20 +85,21 @@ const Overview = () => {
     },
   });
 
-  const { data: financeData = { totalIncome: 0, totalExpense: 0, balance: 0, monthlyData: [] as MonthlyData[] } } = useQuery({
+  const { data: financeData = { totalIncome: 0, totalExpense: 0, monthlyIncome: 0, monthlyExpense: 0, monthlyBalance: 0, balance: 0, monthlyData: [] as MonthlyData[] } } = useQuery({
     queryKey: ["overview-finance", cid],
     queryFn: async () => {
       let q = supabase.from("financial_transactions").select("amount, type, date");
       if (cf) q = q.eq("company_id", cid);
       const { data } = await q;
-      if (!data) return { totalIncome: 0, totalExpense: 0, balance: 0, monthlyData: [] as MonthlyData[] };
+      if (!data) return { totalIncome: 0, totalExpense: 0, monthlyIncome: 0, monthlyExpense: 0, monthlyBalance: 0, balance: 0, monthlyData: [] as MonthlyData[] };
       let inc = 0, exp = 0;
       data.forEach(t => { if (t.type === "income") inc += Number(t.amount); else exp += Number(t.amount); });
       const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
       const monthMap: Record<number, { income: number; expense: number }> = {};
       for (let i = 0; i < 12; i++) monthMap[i] = { income: 0, expense: 0 };
       data.forEach(t => { const d = new Date(t.date); if (d.getFullYear() === currentYear) { const m = d.getMonth(); if (t.type === "income") monthMap[m].income += Number(t.amount); else monthMap[m].expense += Number(t.amount); } });
-      return { totalIncome: inc, totalExpense: exp, balance: inc - exp, monthlyData: months.map((m, i) => ({ month: m, income: monthMap[i].income, expense: monthMap[i].expense })) };
+      const monthData = monthMap[currentMonth - 1];
+      return { totalIncome: inc, totalExpense: exp, monthlyIncome: monthData.income, monthlyExpense: monthData.expense, monthlyBalance: monthData.income - monthData.expense, balance: inc - exp, monthlyData: months.map((m, i) => ({ month: m, income: monthMap[i].income, expense: monthMap[i].expense })) };
     },
   });
 
@@ -168,6 +169,7 @@ const Overview = () => {
       queryClient.invalidateQueries({ queryKey: ["dashboard-reminders"] });
       toast({ title: "Frase salva!" });
     },
+    onError: (error: any) => toast({ title: "Erro ao salvar frase", description: error?.message, variant: "destructive" }),
   });
 
   const deleteReminderMutation = useMutation({
@@ -176,6 +178,7 @@ const Overview = () => {
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["dashboard-reminders"] }),
+    onError: (error: any) => toast({ title: "Erro ao remover frase", description: error?.message, variant: "destructive" }),
   });
 
   const { data: recentProjects = [], isLoading: recentLoading } = useQuery({
@@ -307,7 +310,7 @@ const Overview = () => {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <OperationalMapPanel />
+          <OperationalMapPanel height={320} maxSidebarHeight="320px" />
         </motion.div>
 
         {/* Orbit-style KPI cards: numeral gigante + delta */}
@@ -324,7 +327,7 @@ const Overview = () => {
             { label: "Projetos Ativos", value: counts.projects, delta: `+${projectStats.pending}`, deltaLabel: "pendentes", Icon: FolderKanban, accent: true },
             { label: "Tarefas Concluídas", value: counts.completedTasks, delta: `+${counts.pendingTasks}`, deltaLabel: "abertas", Icon: CheckCircle2 },
             { label: "Total de Contatos", value: counts.contacts, delta: "ativo", deltaLabel: "este mês", Icon: Contact },
-            { label: "Receita do Mês", value: `R$${(financeData.totalIncome / 1000).toFixed(1)}k`, delta: financeData.balance >= 0 ? `+R$${(financeData.balance/1000).toFixed(1)}k` : `-R$${(Math.abs(financeData.balance)/1000).toFixed(1)}k`, deltaLabel: "saldo", Icon: DollarSign },
+            { label: "Receita do Mês", value: `R$${(financeData.monthlyIncome / 1000).toFixed(1)}k`, delta: financeData.monthlyBalance >= 0 ? `+R$${(financeData.monthlyBalance/1000).toFixed(1)}k` : `-R$${(Math.abs(financeData.monthlyBalance)/1000).toFixed(1)}k`, deltaLabel: "saldo mensal", Icon: DollarSign },
           ].map(({ label, value, delta, deltaLabel, Icon, accent }, i) => (
             <Card key={i} className={`relative overflow-hidden transition-all hover:border-primary/40 ${accent ? "border-primary/30 bg-gradient-to-br from-primary/[0.06] to-card" : ""}`}>
               <CardContent className="p-5">
@@ -350,9 +353,14 @@ const Overview = () => {
                   <CardTitle className="text-3xl font-bold tracking-tight tabular-nums mt-1">
                     R$ {weeklyRevenue.reduce((a, b) => a + b.value, 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </CardTitle>
-                  <p className="text-xs text-muted-foreground mt-1">Esta semana</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Esta semana - mês: R$ {financeData.monthlyIncome.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </p>
                 </div>
-                <Badge variant="outline" className="text-[10px]">Semanal</Badge>
+                <div className="flex flex-col items-end gap-1">
+                  <Badge variant="outline" className="text-[10px]">Semanal</Badge>
+                  <Badge variant="secondary" className="text-[10px]">Mensal</Badge>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
