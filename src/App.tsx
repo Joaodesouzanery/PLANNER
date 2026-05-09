@@ -27,6 +27,7 @@ const Onboarding = lazy(() => import("./pages/ems/Onboarding"));
 const CommercialStructure = lazy(() => import("./pages/ems/CommercialStructure"));
 const CommercialComparison = lazy(() => import("./pages/ems/CommercialComparison"));
 const Faculdade = lazy(() => import("./pages/ems/Faculdade"));
+const Gratitude = lazy(() => import("./pages/ems/Gratitude"));
 const ComercialAutomatizado = lazy(() => import("./pages/ems/ComercialAutomatizado"));
 const AgileImplementation = lazy(() => import("./pages/ems/AgileImplementation"));
 const DailyReport = lazy(() => import("./pages/ems/DailyReport"));
