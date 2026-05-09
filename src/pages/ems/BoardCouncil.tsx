@@ -499,7 +499,7 @@ const BoardCouncil = () => {
               ) : meetingPack.ownerList.map(([owner, count]) => (
                 <div key={owner} className="flex items-center justify-between rounded-lg border border-border/50 p-2 text-sm">
                   <span className="truncate">{owner}</span>
-                  <Badge variant="outline" className="text-[10px]">{count}</Badge>
+                  <Badge variant="outline" className="text-[10px]">{count as number}</Badge>
                 </div>
               ))}
             </CardContent>
