@@ -31,6 +31,7 @@ import { VisitRoutesContent } from "./VisitRoutes";
 
 const PipelineKanban = lazy(() => import("@/components/ems/commercial/PipelineKanban"));
 const FunnelReports = lazy(() => import("@/components/ems/commercial/FunnelReports"));
+const MediaPlanningPanel = lazy(() => import("@/components/ems/commercial/MediaPlanningPanel"));
 const ClientRelationshipKanban = lazy(() => import("@/components/ems/commercial/ClientRelationshipKanban"));
 const Prospecting = lazy(() => import("@/components/ems/commercial/Prospecting"));
 
