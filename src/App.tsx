@@ -27,6 +27,7 @@ const Onboarding = lazy(() => import("./pages/ems/Onboarding"));
 const CommercialStructure = lazy(() => import("./pages/ems/CommercialStructure"));
 const CommercialComparison = lazy(() => import("./pages/ems/CommercialComparison"));
 const Faculdade = lazy(() => import("./pages/ems/Faculdade"));
+const Gratitude = lazy(() => import("./pages/ems/Gratitude"));
 const ComercialAutomatizado = lazy(() => import("./pages/ems/ComercialAutomatizado"));
 const AgileImplementation = lazy(() => import("./pages/ems/AgileImplementation"));
 const DailyReport = lazy(() => import("./pages/ems/DailyReport"));
@@ -109,6 +110,7 @@ const App = () => (
               <Route path="/ems/timesheet" element={<Navigate to="/ems" replace />} />
               <Route path="/ems/companies" element={<ProtectedPage><Companies /></ProtectedPage>} />
               <Route path="/ems/faculdade" element={<ProtectedPage><Faculdade /></ProtectedPage>} />
+              <Route path="/ems/gratidao" element={<ProtectedPage><Gratitude /></ProtectedPage>} />
               <Route path="/ems/comercial-automatizado" element={<ProtectedPage><ComercialAutomatizado /></ProtectedPage>} />
               <Route path="/ems/implementacao-agil" element={<ProtectedPage><AgileImplementation /></ProtectedPage>} />
               <Route path="/ems/conferencia" element={<Navigate to="/ems/projects" replace />} />

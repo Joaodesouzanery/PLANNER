@@ -31,6 +31,7 @@ import { VisitRoutesContent } from "./VisitRoutes";
 
 const PipelineKanban = lazy(() => import("@/components/ems/commercial/PipelineKanban"));
 const FunnelReports = lazy(() => import("@/components/ems/commercial/FunnelReports"));
+const MediaPlanningPanel = lazy(() => import("@/components/ems/commercial/MediaPlanningPanel"));
 const ClientRelationshipKanban = lazy(() => import("@/components/ems/commercial/ClientRelationshipKanban"));
 const Prospecting = lazy(() => import("@/components/ems/commercial/Prospecting"));
 
@@ -679,12 +680,13 @@ const Commercial = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 sm:grid-cols-8 h-auto">
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-9 h-auto">
             <TabsTrigger value="central" className="gap-1.5"><Briefcase className="h-4 w-4" /><span className="hidden sm:inline">Central</span></TabsTrigger>
             <TabsTrigger value="contacts" className="gap-1.5"><Users className="h-4 w-4" /><span className="hidden sm:inline">Funil</span></TabsTrigger>
             <TabsTrigger value="pipeline" className="gap-1.5"><Kanban className="h-4 w-4" /><span className="hidden sm:inline">Pipeline</span></TabsTrigger>
             <TabsTrigger value="clients" className="gap-1.5"><HeartPulse className="h-4 w-4" /><span className="hidden sm:inline">Clientes</span></TabsTrigger>
             <TabsTrigger value="prospecting" className="gap-1.5"><FileSearch className="h-4 w-4" /><span className="hidden sm:inline">Prospecção</span></TabsTrigger>
+            <TabsTrigger value="media" className="gap-1.5"><BarChart3 className="h-4 w-4" /><span className="hidden sm:inline">Mídia</span></TabsTrigger>
             <TabsTrigger value="routes" className="gap-1.5"><MapPinned className="h-4 w-4" /><span className="hidden sm:inline">Rotas</span></TabsTrigger>
             <TabsTrigger value="reports" className="gap-1.5"><BarChart3 className="h-4 w-4" /><span className="hidden sm:inline">Relatórios</span></TabsTrigger>
             <TabsTrigger value="manage" className="gap-1.5"><Settings2 className="h-4 w-4" /><span className="hidden sm:inline">Gerenciar</span></TabsTrigger>
@@ -895,6 +897,14 @@ const Commercial = () => {
 
           <TabsContent value="routes" className="mt-4">
             <VisitRoutesContent embedded />
+          </TabsContent>
+
+          <TabsContent value="media" className="mt-4">
+            {activeTab === "media" && (
+              <Suspense fallback={<Card><CardContent className="p-6 text-sm text-muted-foreground">Carregando mídia...</CardContent></Card>}>
+                <MediaPlanningPanel />
+              </Suspense>
+            )}
           </TabsContent>
 
           <TabsContent value="reports" className="mt-4">

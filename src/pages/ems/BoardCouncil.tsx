@@ -235,12 +235,12 @@ const BoardCouncil = () => {
       .filter((item: any) => item.metadata?.follow_up || item.due_date)
       .sort((a: any, b: any) => String(a.due_date || "9999-12-31").localeCompare(String(b.due_date || "9999-12-31")))
       .slice(0, 6);
-    const owners = actionable.reduce<Record<string, number>>((acc, item: any) => {
+    const owners: Record<string, number> = {};
+    (actionable as any[]).forEach((item) => {
       const owner = item.owner || "Sem responsavel";
-      acc[owner] = (acc[owner] || 0) + 1;
-      return acc;
-    }, {});
-    const ownerList = Object.entries(owners).sort((a, b) => b[1] - a[1]).slice(0, 5);
+      owners[owner] = (owners[owner] || 0) + 1;
+    });
+    const ownerList = Object.entries(owners).sort((a, b) => (b[1] as number) - (a[1] as number)).slice(0, 5);
     return { agenda, decisions, followUps, ownerList };
   }, [allItems]);
 
@@ -499,7 +499,7 @@ const BoardCouncil = () => {
               ) : meetingPack.ownerList.map(([owner, count]) => (
                 <div key={owner} className="flex items-center justify-between rounded-lg border border-border/50 p-2 text-sm">
                   <span className="truncate">{owner}</span>
-                  <Badge variant="outline" className="text-[10px]">{count}</Badge>
+                  <Badge variant="outline" className="text-[10px]">{count as number}</Badge>
                 </div>
               ))}
             </CardContent>
