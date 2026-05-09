@@ -23,6 +23,7 @@ import {
   LogOut,
   GraduationCap,
   User as UserIcon,
+  Heart,
   Flag,
   Landmark,
   BrainCircuit,
