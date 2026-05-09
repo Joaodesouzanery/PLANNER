@@ -898,6 +898,14 @@ const Commercial = () => {
             <VisitRoutesContent embedded />
           </TabsContent>
 
+          <TabsContent value="media" className="mt-4">
+            {activeTab === "media" && (
+              <Suspense fallback={<Card><CardContent className="p-6 text-sm text-muted-foreground">Carregando mídia...</CardContent></Card>}>
+                <MediaPlanningPanel />
+              </Suspense>
+            )}
+          </TabsContent>
+
           <TabsContent value="reports" className="mt-4">
             {activeTab === "reports" && (
               <Suspense fallback={<Card><CardContent className="p-6 text-sm text-muted-foreground">Carregando relatórios...</CardContent></Card>}>
