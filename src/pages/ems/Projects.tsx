@@ -146,12 +146,12 @@ const fmtMoney = (value: number) => `R$ ${value.toLocaleString("pt-BR", { minimu
 type GraphTone = "document" | "revenue" | "risk" | "plan" | "governance" | "org";
 
 const GRAPH_TONES: Record<GraphTone, { node: string; icon: string; stroke: string }> = {
-  document: { node: "border-blue-500/60 bg-blue-500/10 shadow-blue-500/10", icon: "text-blue-300", stroke: "rgba(96, 165, 250, 0.72)" },
-  revenue: { node: "border-emerald-500/60 bg-emerald-500/10 shadow-emerald-500/10", icon: "text-emerald-300", stroke: "rgba(52, 211, 153, 0.72)" },
-  risk: { node: "border-red-500/65 bg-red-500/10 shadow-red-500/10", icon: "text-red-300", stroke: "rgba(248, 113, 113, 0.78)" },
-  plan: { node: "border-primary/70 bg-primary/10 shadow-primary/10", icon: "text-primary", stroke: "hsl(var(--primary) / 0.76)" },
-  governance: { node: "border-cyan-400/60 bg-cyan-500/10 shadow-cyan-500/10", icon: "text-cyan-300", stroke: "rgba(103, 232, 249, 0.72)" },
-  org: { node: "border-violet-400/60 bg-violet-500/10 shadow-violet-500/10", icon: "text-violet-300", stroke: "rgba(196, 181, 253, 0.72)" },
+  document: { node: "border-border/60 bg-muted/30", icon: "text-muted-foreground", stroke: "hsl(var(--border))" },
+  revenue:  { node: "border-primary/40 bg-primary/5",  icon: "text-primary",          stroke: "hsl(var(--primary) / 0.55)" },
+  risk:     { node: "border-destructive/45 bg-destructive/5", icon: "text-destructive", stroke: "hsl(var(--destructive) / 0.55)" },
+  plan:     { node: "border-border/60 bg-card",        icon: "text-foreground/80",     stroke: "hsl(var(--border))" },
+  governance:{ node: "border-border/60 bg-muted/20",   icon: "text-muted-foreground",  stroke: "hsl(var(--border))" },
+  org:      { node: "border-border/60 bg-muted/20",    icon: "text-muted-foreground",  stroke: "hsl(var(--border))" },
 };
 
 const emptyProjectForm = {
