@@ -75,6 +75,10 @@ const Contacts = () => {
   const queryClient = useQueryClient();
   const { selectedCompanyId } = useCompany();
   const navigate = useNavigate();
+  const invalidateTaskMaps = () => {
+    queryClient.invalidateQueries({ queryKey: ["map-pins"] });
+    queryClient.invalidateQueries({ queryKey: ["map-task-groups"] });
+  };
   const [activeTab, setActiveTab] = useState("contacts");
   const [contactDialogOpen, setContactDialogOpen] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
@@ -127,21 +131,21 @@ const Contacts = () => {
       if (editingTask) { const { error } = await supabase.from("tasks").update(payload).eq("id", editingTask.id); if (error) throw error; }
       else { const { error } = await supabase.from("tasks").insert(payload); if (error) throw error; }
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["contact-tasks"] }); queryClient.invalidateQueries({ queryKey: ["tasks"] }); setTaskDialogOpen(false); resetTaskForm(); toast({ title: editingTask ? "Tarefa atualizada!" : "Tarefa criada!" }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["contact-tasks"] }); queryClient.invalidateQueries({ queryKey: ["tasks"] }); invalidateTaskMaps(); setTaskDialogOpen(false); resetTaskForm(); toast({ title: editingTask ? "Tarefa atualizada!" : "Tarefa criada!" }); },
     onError: (error: any) => { toast({ title: "Erro ao salvar tarefa", description: error?.message, variant: "destructive" }); },
   });
   const toggleTaskMutation = useMutation({
     mutationFn: async ({ id, completed }: { id: string; completed: boolean }) => { const { error } = await supabase.from("tasks").update({ status: completed ? "completed" : "pending", completed_at: completed ? new Date().toISOString() : null }).eq("id", id); if (error) throw error; },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["contact-tasks"] }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["contact-tasks"] }); queryClient.invalidateQueries({ queryKey: ["tasks"] }); invalidateTaskMaps(); },
   });
   const deleteTaskMutation = useMutation({
     mutationFn: async (id: string) => { const { error } = await supabase.from("tasks").delete().eq("id", id); if (error) throw error; },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["contact-tasks"] }); queryClient.invalidateQueries({ queryKey: ["tasks"] }); toast({ title: "Tarefa removida" }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["contact-tasks"] }); queryClient.invalidateQueries({ queryKey: ["tasks"] }); invalidateTaskMaps(); toast({ title: "Tarefa removida" }); },
     onError: (error: any) => { toast({ title: "Erro ao remover tarefa", description: error?.message, variant: "destructive" }); },
   });
   const updateTaskStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => { const { error } = await supabase.from("tasks").update({ status, completed_at: status === "completed" ? new Date().toISOString() : null }).eq("id", id); if (error) throw error; },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["contact-tasks"] }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["contact-tasks"] }); queryClient.invalidateQueries({ queryKey: ["tasks"] }); invalidateTaskMaps(); },
   });
 
   const resetContactForm = () => { setContactForm({ name: "", email: "", phone: "", company: "", notes: "", project_id: "", pipeline_stage: "lead", address: "", latitude: "", longitude: "" }); setEditingContact(null); };

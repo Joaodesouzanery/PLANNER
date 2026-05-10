@@ -69,7 +69,17 @@ export interface MapTaskGroup {
   tasks: MapTaskItem[];
 }
 
-const isOpenStatus = (status?: string | null) => status !== "completed" && status !== "done";
+const normalizeStatus = (status?: string | null) =>
+  (status || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+
+const isOpenStatus = (status?: string | null) => {
+  const normalized = normalizeStatus(status);
+  return normalized !== "completed" && normalized !== "done" && normalized !== "concluido" && normalized !== "concluida";
+};
 
 export function useMapPins(projectId?: string) {
   const { selectedCompanyId } = useCompany();
@@ -129,6 +139,7 @@ export function useMapPins(projectId?: string) {
         : allContacts;
       const contactIds = new Set(contacts.map((item) => item.id));
       const tasks = ((tasksRes.data || []) as OpenTask[]).filter((task) => {
+        if (!isOpenStatus(task.status)) return false;
         if (!projectId && cf) {
           return task.company_id === selectedCompanyId || (!!task.project_id && projectIds.has(task.project_id)) || (!!task.contact_id && contactIds.has(task.contact_id));
         }
@@ -137,7 +148,7 @@ export function useMapPins(projectId?: string) {
         return !!task.contact_id && contacts.some((contact) => contact.id === task.contact_id);
       });
       const disciplinas = (disciplinasRes.data || []) as FaculdadeDisciplina[];
-      const faculdadeTasks = (faculdadeTasksRes.data || []) as FaculdadeTask[];
+      const faculdadeTasks = ((faculdadeTasksRes.data || []) as FaculdadeTask[]).filter((task) => isOpenStatus(task.status));
 
       const contactsById = new Map(contacts.map((item) => [item.id, item]));
       const projectsById = new Map(projects.map((item) => [item.id, item]));

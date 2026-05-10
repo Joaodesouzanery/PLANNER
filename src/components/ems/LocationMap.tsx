@@ -1,7 +1,5 @@
-import { useMemo, useState } from "react";
-import { divIcon } from "leaflet";
-import { renderToStaticMarkup } from "react-dom/server";
-import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMapEvents } from "react-leaflet";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MapContainer, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import { BookOpen, BriefcaseBusiness, FolderKanban, ListTodo, MapPin as MapPinIcon } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import { cn } from "@/lib/utils";
@@ -28,6 +26,10 @@ interface LocationMapProps {
 }
 
 interface VisiblePin extends MapPin {
+  baseX: number;
+  baseY: number;
+  x: number;
+  y: number;
   offsetX: number;
   offsetY: number;
 }
@@ -45,17 +47,34 @@ const PIN_STYLE: Record<MapPinKind, { bg: string; fg: string; Icon: typeof MapPi
   default: { bg: "hsl(28 100% 55%)", fg: "white", Icon: MapPinIcon, label: "Ponto" },
 };
 
+const KIND_ORDER: Record<MapPinKind, number> = {
+  project: 0,
+  client: 1,
+  task: 2,
+  faculdade: 3,
+  default: 4,
+};
+
+const sortPins = (pins: MapPin[]) =>
+  [...pins].sort((a, b) => {
+    const kindA = a.kind || "default";
+    const kindB = b.kind || "default";
+    const kindDiff = KIND_ORDER[kindA] - KIND_ORDER[kindB];
+    if (kindDiff !== 0) return kindDiff;
+    return `${a.name}-${a.id}`.localeCompare(`${b.name}-${b.id}`);
+  });
+
 const spreadOffset = (index: number, count: number) => {
-  if (count === 2) return { x: index === 0 ? -22 : 22, y: 0 };
+  if (count === 2) return { x: index === 0 ? -25 : 25, y: 0 };
   if (count === 3) {
-    const positions = [{ x: 0, y: -24 }, { x: -24, y: 18 }, { x: 24, y: 18 }];
+    const positions = [{ x: 0, y: -28 }, { x: -28, y: 20 }, { x: 28, y: 20 }];
     return positions[index];
   }
 
   const ring = Math.floor(index / 8);
   const positionInRing = index % 8;
   const itemsInRing = Math.min(8, count - ring * 8);
-  const radius = 26 + ring * 20;
+  const radius = 34 + ring * 24;
   const angle = (Math.PI * 2 * positionInRing) / itemsInRing - Math.PI / 2;
   return {
     x: Math.round(Math.cos(angle) * radius),
@@ -63,54 +82,44 @@ const spreadOffset = (index: number, count: number) => {
   };
 };
 
-const buildPinIcon = (kind: MapPinKind = "default", alert = false, offsetX = 0, offsetY = 0) => {
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
+const PinGlyph = ({ kind = "default", alert = false }: { kind?: MapPinKind; alert?: boolean }) => {
   const style = PIN_STYLE[kind] || PIN_STYLE.default;
   const Icon = style.Icon;
-  const html = renderToStaticMarkup(
+
+  return (
     <div
+      className="grid h-[30px] w-[30px] place-items-center rounded-full border-2 border-white/90 shadow-[0_10px_24px_rgba(0,0,0,.35)]"
       style={{
-        width: 30,
-        height: 30,
-        borderRadius: 999,
-        display: "grid",
-        placeItems: "center",
         color: style.fg,
         background: alert ? "hsl(0 75% 55%)" : style.bg,
-        border: "2px solid rgba(255,255,255,.92)",
         boxShadow: alert
           ? "0 0 0 6px rgba(239,68,68,.22), 0 10px 24px rgba(0,0,0,.35)"
           : "0 10px 24px rgba(0,0,0,.35)",
-        transform: `translate(${offsetX}px, ${offsetY}px)`,
       }}
     >
       <Icon size={15} strokeWidth={2.4} />
     </div>
   );
-
-  return divIcon({
-    html,
-    className: "ems-map-pin",
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
-    popupAnchor: [offsetX, offsetY - 14],
-  });
 };
 
-const MapMarkers = ({ pins }: { pins: MapPin[] }) => {
-  const [viewTick, setViewTick] = useState(0);
-  const map = useMapEvents({
-    moveend: () => setViewTick((tick) => tick + 1),
-    zoomend: () => setViewTick((tick) => tick + 1),
-    resize: () => setViewTick((tick) => tick + 1),
-  });
+const MapPinOverlay = ({ pins }: { pins: MapPin[] }) => {
+  const map = useMap();
+  const rafRef = useRef<number>();
+  const [visiblePins, setVisiblePins] = useState<VisiblePin[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  const visiblePins = useMemo<VisiblePin[]>(() => {
-    const projected = pins.map((pin) => ({
+  const calculatePins = useCallback(() => {
+    const sortedPins = sortPins(pins);
+    const size = map.getSize();
+    const projected = sortedPins.map((pin) => ({
       pin,
       point: map.latLngToContainerPoint([pin.lat, pin.lng]),
     }));
     const groups: Array<{ items: typeof projected; x: number; y: number }> = [];
-    const threshold = 42;
+    const threshold = 44;
 
     projected.forEach((item) => {
       const group = groups.find((candidate) => {
@@ -129,50 +138,117 @@ const MapMarkers = ({ pins }: { pins: MapPin[] }) => {
       group.y = group.items.reduce((sum, entry) => sum + entry.point.y, 0) / group.items.length;
     });
 
-    return groups.flatMap((group) => {
-      if (group.items.length === 1) {
-        const item = group.items[0];
-        return [{ ...item.pin, offsetX: 0, offsetY: 0 }];
-      }
+    const margin = 18;
+    setVisiblePins(
+      groups.flatMap((group) =>
+        group.items.map((item, index) => {
+          const offset = group.items.length > 1 ? spreadOffset(index, group.items.length) : { x: 0, y: 0 };
+          const x = clamp(item.point.x + offset.x, margin, Math.max(margin, size.x - margin));
+          const y = clamp(item.point.y + offset.y, margin, Math.max(margin, size.y - margin));
+          return {
+            ...item.pin,
+            baseX: item.point.x,
+            baseY: item.point.y,
+            x,
+            y,
+            offsetX: x - item.point.x,
+            offsetY: y - item.point.y,
+          };
+        })
+      )
+    );
+  }, [map, pins]);
 
-      return group.items.map((item, index) => {
-        const offset = spreadOffset(index, group.items.length);
-        return { ...item.pin, offsetX: offset.x, offsetY: offset.y };
-      });
-    });
-  }, [map, pins, viewTick]);
+  const scheduleUpdate = useCallback(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(calculatePins);
+  }, [calculatePins]);
+
+  useMapEvents({
+    move: scheduleUpdate,
+    zoom: scheduleUpdate,
+    moveend: scheduleUpdate,
+    zoomend: scheduleUpdate,
+    resize: scheduleUpdate,
+  });
+
+  useEffect(() => {
+    scheduleUpdate();
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [scheduleUpdate]);
+
+  useEffect(() => {
+    if (activeId && !pins.some((pin) => pin.id === activeId)) setActiveId(null);
+    if (hoveredId && !pins.some((pin) => pin.id === hoveredId)) setHoveredId(null);
+  }, [activeId, hoveredId, pins]);
+
+  const activePin = visiblePins.find((pin) => pin.id === activeId);
+  const hoveredPin = visiblePins.find((pin) => pin.id === hoveredId && pin.id !== activeId);
+  const detailPin = activePin || hoveredPin;
 
   return (
-    <>
+    <div className="pointer-events-none absolute inset-0 z-[700]">
+      <svg className="absolute inset-0 h-full w-full overflow-visible" aria-hidden>
+        {visiblePins.map((pin) => {
+          if (Math.abs(pin.offsetX) < 2 && Math.abs(pin.offsetY) < 2) return null;
+          return (
+            <g key={`line-${pin.id}`}>
+              <line x1={pin.baseX} y1={pin.baseY} x2={pin.x} y2={pin.y} stroke="rgba(255,255,255,.42)" strokeWidth="1" />
+              <circle cx={pin.baseX} cy={pin.baseY} r="2" fill="rgba(255,255,255,.62)" />
+            </g>
+          );
+        })}
+      </svg>
+
       {visiblePins.map((pin, index) => {
         const kind = pin.kind || "default";
+        const style = PIN_STYLE[kind] || PIN_STYLE.default;
         return (
-          <Marker
+          <button
             key={pin.id}
-            position={[pin.lat, pin.lng]}
-            icon={buildPinIcon(kind, pin.alert, pin.offsetX, pin.offsetY)}
-            zIndexOffset={1000 + index}
-            eventHandlers={pin.onClick ? { click: () => pin.onClick?.() } : undefined}
+            type="button"
+            className="pointer-events-auto absolute grid h-[34px] w-[34px] place-items-center rounded-full outline-none transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-white/80"
+            style={{
+              left: pin.x,
+              top: pin.y,
+              zIndex: 800 + index,
+              transform: "translate(-50%, -50%)",
+            }}
+            aria-label={`${style.label}: ${pin.name}`}
+            onMouseEnter={() => setHoveredId(pin.id)}
+            onMouseLeave={() => setHoveredId((current) => (current === pin.id ? null : current))}
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              setActiveId((current) => (current === pin.id ? null : pin.id));
+              pin.onClick?.();
+            }}
           >
-            <Tooltip direction="top" offset={[pin.offsetX, pin.offsetY - 6]} opacity={0.95}>
-              <div className="text-xs">
-                <div className="text-[10px] uppercase tracking-wide opacity-60">{PIN_STYLE[kind]?.label || "Ponto"}</div>
-                <div className="font-medium">{pin.name}</div>
-                {pin.subtitle && <div className="text-[10px] opacity-70">{pin.subtitle}</div>}
-                {pin.alert && <div className="text-[10px] text-red-400 mt-0.5">Atividades pendentes</div>}
-              </div>
-            </Tooltip>
-            <Popup>
-              <div className="text-xs">
-                <div className="text-[10px] uppercase tracking-wide opacity-60">{PIN_STYLE[kind]?.label || "Ponto"}</div>
-                <div className="font-medium">{pin.name}</div>
-                {pin.subtitle && <div className="opacity-70">{pin.subtitle}</div>}
-              </div>
-            </Popup>
-          </Marker>
+            <PinGlyph kind={kind} alert={pin.alert} />
+          </button>
         );
       })}
-    </>
+
+      {detailPin && (
+        <div
+          className="pointer-events-auto absolute min-w-[170px] max-w-[240px] rounded-lg border border-white/10 bg-popover/95 px-3 py-2 text-xs text-popover-foreground shadow-xl backdrop-blur"
+          style={{
+            left: detailPin.x,
+            top: detailPin.y - 22,
+            zIndex: 1200,
+            transform: "translate(-50%, -100%)",
+          }}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{PIN_STYLE[detailPin.kind || "default"]?.label || "Ponto"}</div>
+          <div className="font-medium">{detailPin.name}</div>
+          {detailPin.subtitle && <div className="mt-0.5 text-[10px] text-muted-foreground">{detailPin.subtitle}</div>}
+          {detailPin.alert && <div className="mt-1 text-[10px] text-red-400">Atividades pendentes</div>}
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -201,7 +277,7 @@ export const LocationMap = ({
     <div
       className={cn(
         "relative overflow-hidden rounded-xl border border-border/40 bg-[hsl(220_14%_13%)] [&_.leaflet-tile]:brightness-[1.16] [&_.leaflet-tile]:contrast-[0.95]",
-        "[&_.leaflet-container]:z-0 [&_.leaflet-control-container]:relative [&_.leaflet-control-container]:z-[1] [&_.leaflet-pane]:z-0 [&_.leaflet-top]:z-[2] [&_.leaflet-bottom]:z-[2]",
+        "[&_.leaflet-container]:z-0 [&_.leaflet-control-container]:relative [&_.leaflet-control-container]:z-[2] [&_.leaflet-pane]:z-0 [&_.leaflet-top]:z-[3] [&_.leaflet-bottom]:z-[3]",
         className
       )}
       style={{ height }}
@@ -215,13 +291,13 @@ export const LocationMap = ({
       >
         <TileLayer url={TILE_URL} attribution={TILE_ATTR} />
         <TileLayer url={LABELS_URL} />
-        <MapMarkers pins={valid} />
+        <MapPinOverlay pins={valid} />
       </MapContainer>
 
       {!valid.length && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
           <p className="rounded-md border border-border/40 bg-card/90 px-3 py-1.5 text-xs text-muted-foreground">
-            Cadastre latitude/longitude em contatos, clientes ou projetos para vê-los no mapa.
+            Cadastre latitude/longitude em contatos, clientes ou projetos para vÃª-los no mapa.
           </p>
         </div>
       )}

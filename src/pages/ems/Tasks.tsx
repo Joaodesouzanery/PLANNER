@@ -72,6 +72,10 @@ const priorityOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
 const Tasks = () => {
   const { selectedCompanyId, companies } = useCompany();
   const queryClient = useQueryClient();
+  const invalidateTaskMaps = () => {
+    queryClient.invalidateQueries({ queryKey: ["map-pins"] });
+    queryClient.invalidateQueries({ queryKey: ["map-task-groups"] });
+  };
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [filter, setFilter] = useState<"all" | "pending" | "completed">("all");
@@ -192,6 +196,7 @@ const Tasks = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      invalidateTaskMaps();
       setDialogOpen(false);
       resetForm();
       toast({ title: "Tarefa criada!" });
@@ -213,6 +218,7 @@ const Tasks = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      invalidateTaskMaps();
       setDialogOpen(false);
       resetForm();
       toast({ title: "Tarefa atualizada!" });
@@ -227,7 +233,10 @@ const Tasks = () => {
       }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      invalidateTaskMaps();
+    },
   });
 
   const deleteMutation = useMutation({
@@ -237,6 +246,7 @@ const Tasks = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      invalidateTaskMaps();
       toast({ title: "Tarefa removida" });
     },
   });
@@ -248,6 +258,7 @@ const Tasks = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      invalidateTaskMaps();
       queryClient.invalidateQueries({ queryKey: ["projects-pending-task-counts"] });
       toast({ title: "Projeto da tarefa atualizado!" });
     },
@@ -266,6 +277,7 @@ const Tasks = () => {
     await supabase.from("tasks").insert({ title: subtaskInput, priority: "medium", parent_task_id: parentId, due_date: format(new Date(), "yyyy-MM-dd") });
     setSubtaskInput("");
     queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    invalidateTaskMaps();
     toast({ title: "Subtarefa adicionada!" });
   };
 
