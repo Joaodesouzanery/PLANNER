@@ -21,7 +21,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { format, isWithinInterval, parseISO, startOfDay, endOfDay } from "date-fns";
+import { endOfMonth, endOfWeek, format, isWithinInterval, parseISO, startOfDay, endOfDay, startOfMonth, startOfWeek } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -76,6 +76,8 @@ const Tasks = () => {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [filter, setFilter] = useState<"all" | "pending" | "completed">("all");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [periodFilter, setPeriodFilter] = useState<"all" | "daily" | "weekly" | "monthly">("all");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [form, setForm] = useState({ title: "", description: "", priority: "medium", due_date: null as Date | null, tags: [] as string[], project_id: "none" as string });
   const [tagInput, setTagInput] = useState("");
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
@@ -285,11 +287,30 @@ const Tasks = () => {
   const filteredTasks = parentTasks.filter((t) => {
     if (filter === "pending" && t.status === "completed") return false;
     if (filter === "completed" && t.status !== "completed") return false;
+    if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
     if (tagFilter && !(t.tags || []).includes(tagFilter)) return false;
     if (projectFilter === "none" && t.project_id) return false;
     if (projectFilter !== "all" && projectFilter !== "none" && t.project_id !== projectFilter) return false;
+    if (periodFilter !== "all") {
+      if (!t.due_date) return false;
+      const due = new Date(`${t.due_date}T12:00:00`);
+      const now = new Date();
+      const ranges = {
+        daily: { start: startOfDay(now), end: endOfDay(now) },
+        weekly: { start: startOfWeek(now, { locale: ptBR }), end: endOfWeek(now, { locale: ptBR }) },
+        monthly: { start: startOfMonth(now), end: endOfMonth(now) },
+      };
+      if (!isWithinInterval(due, ranges[periodFilter])) return false;
+    }
     return true;
   });
+
+  const periodLabels = {
+    all: "Todos os períodos",
+    daily: "Hoje",
+    weekly: "Semana",
+    monthly: "Mês",
+  };
 
   const projectName = (id: string | null) => projects.find((p) => p.id === id)?.title || "Sem projeto";
 
@@ -525,6 +546,33 @@ const Tasks = () => {
             </SelectContent>
           </Select>
 
+          <Select value={periodFilter} onValueChange={(value) => setPeriodFilter(value as typeof periodFilter)}>
+            <SelectTrigger className="h-8 w-full sm:w-[160px] text-xs">
+              <Calendar className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+              <SelectValue placeholder="Período" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os períodos</SelectItem>
+              <SelectItem value="daily">Hoje</SelectItem>
+              <SelectItem value="weekly">Semana atual</SelectItem>
+              <SelectItem value="monthly">Mês atual</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="h-8 w-full sm:w-[170px] text-xs">
+              <Flag className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+              <SelectValue placeholder="Prioridade" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas prioridades</SelectItem>
+              <SelectItem value="urgent">Urgente</SelectItem>
+              <SelectItem value="high">Alta</SelectItem>
+              <SelectItem value="medium">Média</SelectItem>
+              <SelectItem value="low">Baixa</SelectItem>
+            </SelectContent>
+          </Select>
+
           {/* View mode toggle */}
           <div className="inline-flex rounded-md border border-border overflow-hidden">
             <Button
@@ -533,7 +581,7 @@ const Tasks = () => {
               className="h-8 rounded-none gap-1"
               onClick={() => setViewMode("list")}
             >
-              <LayoutList className="h-3.5 w-3.5" /> Lista
+              <LayoutList className="h-3.5 w-3.5" /> Macro
             </Button>
             <Button
               size="sm"
@@ -541,7 +589,7 @@ const Tasks = () => {
               className="h-8 rounded-none gap-1"
               onClick={() => setViewMode("byProject")}
             >
-              <FolderTree className="h-3.5 w-3.5" /> Por Projeto
+              <FolderTree className="h-3.5 w-3.5" /> Kanban por Projeto
             </Button>
             <Button
               size="sm"
@@ -577,6 +625,8 @@ const Tasks = () => {
               <ListTodo className="h-5 w-5 text-primary" />
               {filter === "all" ? "Todas as Tarefas" : filter === "pending" ? "Tarefas Pendentes" : "Tarefas Concluídas"}
               {tagFilter && <Badge variant="secondary" className="ml-2">#{tagFilter}</Badge>}
+              {periodFilter !== "all" && <Badge variant="secondary" className="ml-2">{periodLabels[periodFilter]}</Badge>}
+              {priorityFilter !== "all" && <Badge variant="secondary" className="ml-2">{priorityConfig[priorityFilter]?.label || priorityFilter}</Badge>}
               <Badge variant="outline" className="ml-auto font-mono text-xs">{filteredTasks.length}</Badge>
             </CardTitle>
           </CardHeader>

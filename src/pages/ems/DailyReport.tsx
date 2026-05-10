@@ -41,6 +41,14 @@ const AREA_OPTIONS = ["geral", "projetos", "comercial", "financeiro", "academico
 
 const isDone = (status?: string | null) => ["done", "completed", "concluido", "concluído"].includes(String(status || "").toLowerCase());
 const money = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const taskPriorityOrder: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+const taskPriorityLabel: Record<string, string> = { urgent: "Urgente", high: "Alta", medium: "Média", low: "Baixa" };
+const taskPriorityClass: Record<string, string> = {
+  urgent: "border-red-500/30 bg-red-500/10 text-red-500",
+  high: "border-orange-500/30 bg-orange-500/10 text-orange-500",
+  medium: "border-yellow-500/30 bg-yellow-500/10 text-yellow-500",
+  low: "border-blue-500/30 bg-blue-500/10 text-blue-500",
+};
 
 const DailyReport = () => {
   const { selectedCompanyId, companies } = useCompany();
@@ -293,6 +301,13 @@ const DailyReport = () => {
   const todayTasks = tasks.filter((t: any) => t.due_date === selectedDate);
   const yesterdayTasks = tasks.filter((t: any) => t.due_date === dateWindow.yesterday);
   const weekTasks = tasks.filter((t: any) => t.due_date >= dateWindow.weekStart && t.due_date <= dateWindow.weekEnd);
+  const sortTasksByPriority = (items: any[]) => [...items].sort((a, b) => {
+    const priorityDiff = (taskPriorityOrder[a.priority] ?? 2) - (taskPriorityOrder[b.priority] ?? 2);
+    if (priorityDiff !== 0) return priorityDiff;
+    return String(a.due_date || "").localeCompare(String(b.due_date || "")) || String(a.title || "").localeCompare(String(b.title || ""));
+  });
+  const todayTasksByPriority = sortTasksByPriority(todayTasks);
+  const weekTasksByPriority = sortTasksByPriority(weekTasks.filter((task: any) => task.due_date !== selectedDate));
   const overdueTasks = tasks.filter((t: any) => t.due_date < selectedDate && !isDone(t.status));
   const completedToday = todayTasks.filter((t: any) => isDone(t.status)).length;
   const incomeToday = transactions.filter((t: any) => t.date === selectedDate && t.type === "income").reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
@@ -383,6 +398,26 @@ const DailyReport = () => {
     invoices: invoices.length,
   };
 
+  const projectTitle = (id?: string | null) => projects.find((project: any) => project.id === id)?.title || "Sem projeto";
+  const renderPriorityTask = (task: any) => (
+    <div key={task.id} className="rounded-lg border border-border/50 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className={cn("truncate text-sm font-semibold", isDone(task.status) && "line-through text-muted-foreground")}>{task.title}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{projectTitle(task.project_id)} · {dateLabel(task.due_date)}</p>
+        </div>
+        <Badge variant="outline" className={cn("shrink-0 text-[10px]", taskPriorityClass[task.priority] || taskPriorityClass.medium)}>
+          {taskPriorityLabel[task.priority] || "Média"}
+        </Badge>
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <Badge variant={isDone(task.status) ? "secondary" : "outline"} className="text-[10px]">
+          {isDone(task.status) ? "Concluída" : "Aberta"}
+        </Badge>
+      </div>
+    </div>
+  );
+
   return (
     <EMSLayout>
       <div className="space-y-5">
@@ -456,6 +491,36 @@ const DailyReport = () => {
             </CardContent>
           </Card>
         )}
+
+        <div className="grid gap-4 xl:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <ListTodo className="h-4 w-4 text-primary" /> Tarefas de Hoje
+                <Badge variant="outline" className="ml-auto text-[10px]">{todayTasksByPriority.length}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {todayTasksByPriority.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">Sem tarefas para hoje no filtro atual.</p>
+              ) : todayTasksByPriority.map(renderPriorityTask)}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <CalendarClock className="h-4 w-4 text-primary" /> Tarefas da Semana
+                <Badge variant="outline" className="ml-auto text-[10px]">{weekTasksByPriority.length}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {weekTasksByPriority.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">Sem outras tarefas nesta semana.</p>
+              ) : weekTasksByPriority.map(renderPriorityTask)}
+            </CardContent>
+          </Card>
+        </div>
 
         <div className="grid gap-4 xl:grid-cols-[1fr_1fr_0.8fr]">
           <Card>
