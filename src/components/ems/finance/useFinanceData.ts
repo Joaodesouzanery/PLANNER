@@ -65,7 +65,7 @@ export const useFinanceData = () => {
       if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
       const { data, error } = await q;
       if (error) throw error;
-      return data as Transaction[];
+      return expandRecurringTransactions((data || []) as any) as Transaction[];
     },
   });
 
