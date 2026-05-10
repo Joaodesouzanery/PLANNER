@@ -31,6 +31,7 @@ interface OpenTask {
   priority: string | null;
   due_date: string | null;
   status: string;
+  company_id: string | null;
   contact_id: string | null;
   project_id: string | null;
 }
@@ -70,15 +71,6 @@ export interface MapTaskGroup {
 
 const isOpenStatus = (status?: string | null) => status !== "completed" && status !== "done";
 
-const offsetPin = (lat: number, lng: number, index: number) => {
-  const angle = index * 1.9;
-  const radius = 0.0018 + (index % 4) * 0.00045;
-  return {
-    lat: lat + Math.sin(angle) * radius,
-    lng: lng + Math.cos(angle) * radius,
-  };
-};
-
 export function useMapPins(projectId?: string) {
   const { selectedCompanyId } = useCompany();
   const cf = selectedCompanyId !== "all";
@@ -104,10 +96,9 @@ export function useMapPins(projectId?: string) {
 
       let qt = supabase
         .from("tasks")
-        .select("id,title,priority,contact_id,project_id,due_date,status")
+        .select("id,title,priority,company_id,contact_id,project_id,due_date,status")
         .neq("status", "completed")
         .neq("status", "done");
-      if (cf) qt = qt.eq("company_id", selectedCompanyId);
 
       const qDisciplines = (supabase as any)
         .from("faculdade_disciplinas")
@@ -132,10 +123,15 @@ export function useMapPins(projectId?: string) {
       const allProjects = (projectsRes.data || []) as GeoProject[];
       const selectedProject = projectId ? allProjects.find((item) => item.id === projectId) : null;
       const projects = projectId ? allProjects.filter((item) => item.id === projectId) : allProjects;
+      const projectIds = new Set(projects.map((item) => item.id));
       const contacts = projectId
         ? allContacts.filter((item) => item.project_id === projectId || (!!selectedProject?.company_id && item.company_id === selectedProject.company_id))
         : allContacts;
+      const contactIds = new Set(contacts.map((item) => item.id));
       const tasks = ((tasksRes.data || []) as OpenTask[]).filter((task) => {
+        if (!projectId && cf) {
+          return task.company_id === selectedCompanyId || (!!task.project_id && projectIds.has(task.project_id)) || (!!task.contact_id && contactIds.has(task.contact_id));
+        }
         if (!projectId) return true;
         if (task.project_id === projectId) return true;
         return !!task.contact_id && contacts.some((contact) => contact.id === task.contact_id);
@@ -153,18 +149,9 @@ export function useMapPins(projectId?: string) {
       );
 
       const pins: MapPin[] = [];
-      const seen = new Map<string, number>();
-      const pushWithOffset = (pin: MapPin) => {
-        const key = `${pin.lat.toFixed(4)},${pin.lng.toFixed(4)}`;
-        const idx = seen.get(key) ?? 0;
-        seen.set(key, idx + 1);
-        if (idx === 0) { pins.push(pin); return; }
-        const shifted = offsetPin(pin.lat, pin.lng, idx);
-        pins.push({ ...pin, lat: shifted.lat, lng: shifted.lng });
-      };
 
       for (const c of contacts) {
-        pushWithOffset({
+        pins.push({
           id: `c-${c.id}`,
           name: c.name,
           subtitle: c.company || c.address || "Cliente",
@@ -176,7 +163,7 @@ export function useMapPins(projectId?: string) {
       }
 
       for (const p of projects) {
-        pushWithOffset({
+        pins.push({
           id: `p-${p.id}`,
           name: p.title,
           subtitle: p.client || p.address || "Projeto",
@@ -187,18 +174,17 @@ export function useMapPins(projectId?: string) {
         });
       }
 
-      tasks.forEach((task, index) => {
+      tasks.forEach((task) => {
         const project = task.project_id ? projectsById.get(task.project_id) : null;
         const contact = task.contact_id ? contactsById.get(task.contact_id) : null;
         const source = project?.latitude != null && project.longitude != null ? project : contact;
         if (!source?.latitude || !source.longitude) return;
-        const shifted = offsetPin(Number(source.latitude), Number(source.longitude), index);
         pins.push({
           id: `t-${task.id}`,
           name: task.title,
           subtitle: project?.title || contact?.name || "Tarefa vinculada",
-          lat: shifted.lat,
-          lng: shifted.lng,
+          lat: Number(source.latitude),
+          lng: Number(source.longitude),
           kind: "task",
           alert: !!task.due_date && task.due_date <= todayIso,
         });
@@ -217,16 +203,15 @@ export function useMapPins(projectId?: string) {
         });
       }
 
-      faculdadeTasks.forEach((task, index) => {
+      faculdadeTasks.forEach((task) => {
         const disciplina = task.disciplina_id ? disciplinasById.get(task.disciplina_id) : null;
         if (!disciplina?.latitude || !disciplina.longitude) return;
-        const shifted = offsetPin(Number(disciplina.latitude), Number(disciplina.longitude), index + tasks.length);
         pins.push({
           id: `ft-${task.id}`,
           name: task.title,
           subtitle: disciplina.name,
-          lat: shifted.lat,
-          lng: shifted.lng,
+          lat: Number(disciplina.latitude),
+          lng: Number(disciplina.longitude),
           kind: "faculdade",
           alert: !!task.due_date && task.due_date <= todayIso,
         });
@@ -246,11 +231,10 @@ export function useMapTaskGroups(projectId?: string) {
     queryFn: async (): Promise<MapTaskGroup[]> => {
       let q = supabase
         .from("tasks")
-        .select("id,title,priority,due_date,status,project_id,contact_id,projects(id,title),contacts(id,name)")
+        .select("id,title,priority,due_date,status,company_id,project_id,contact_id,projects(id,title,company_id),contacts(id,name,company_id)")
         .neq("status", "completed")
         .neq("status", "done")
         .order("due_date", { ascending: true, nullsFirst: false });
-      if (cf) q = q.eq("company_id", selectedCompanyId);
       if (projectId) q = q.eq("project_id", projectId);
       const { data, error } = await q;
       if (error) throw error;
@@ -258,6 +242,7 @@ export function useMapTaskGroups(projectId?: string) {
       const grouped = new Map<string, MapTaskGroup>();
       (data || []).forEach((row: any) => {
         if (!isOpenStatus(row.status)) return;
+        if (!projectId && cf && row.company_id !== selectedCompanyId && row.projects?.company_id !== selectedCompanyId && row.contacts?.company_id !== selectedCompanyId) return;
         const projectId = row.project_id || "sem-projeto";
         const projectTitle = row.projects?.title || "Sem projeto";
         if (!grouped.has(projectId)) grouped.set(projectId, { projectId, projectTitle, tasks: [] });

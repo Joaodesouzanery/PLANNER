@@ -40,35 +40,78 @@ const PIN_STYLE: Record<MapPinKind, { bg: string; fg: string; Icon: typeof MapPi
   default: { bg: "hsl(28 100% 55%)", fg: "white", Icon: MapPinIcon, label: "Ponto" },
 };
 
-const buildPinIcon = (kind: MapPinKind = "default", alert = false) => {
+const groupPinOffsets = (pins: MapPin[]) => {
+  const groups = new Map<string, MapPin[]>();
+  pins.forEach((pin) => {
+    const key = `${pin.lat.toFixed(5)},${pin.lng.toFixed(5)}`;
+    groups.set(key, [...(groups.get(key) || []), pin]);
+  });
+
+  const offsets = new Map<string, { x: number; y: number }>();
+  groups.forEach((items) => {
+    if (items.length === 1) {
+      offsets.set(items[0].id, { x: 0, y: 0 });
+      return;
+    }
+
+    items.forEach((item, index) => {
+      const ring = Math.floor(index / 8);
+      const positionInRing = index % 8;
+      const itemsInRing = Math.min(8, items.length - ring * 8);
+      const radius = 24 + ring * 18;
+      const angle = (Math.PI * 2 * positionInRing) / itemsInRing - Math.PI / 2;
+      offsets.set(item.id, {
+        x: Math.round(Math.cos(angle) * radius),
+        y: Math.round(Math.sin(angle) * radius),
+      });
+    });
+  });
+
+  return offsets;
+};
+
+const buildPinIcon = (kind: MapPinKind = "default", alert = false, offset = { x: 0, y: 0 }) => {
   const style = PIN_STYLE[kind] || PIN_STYLE.default;
   const Icon = style.Icon;
   const html = renderToStaticMarkup(
     <div
       style={{
-        width: 30,
-        height: 30,
-        borderRadius: 999,
-        display: "grid",
-        placeItems: "center",
-        color: style.fg,
-        background: alert ? "hsl(0 75% 55%)" : style.bg,
-        border: "2px solid rgba(255,255,255,.92)",
-        boxShadow: alert
-          ? "0 0 0 6px rgba(239,68,68,.22), 0 10px 24px rgba(0,0,0,.35)"
-          : "0 10px 24px rgba(0,0,0,.35)",
+        width: 120,
+        height: 120,
+        position: "relative",
+        pointerEvents: "none",
       }}
     >
-      <Icon size={15} strokeWidth={2.4} />
+      <div
+        style={{
+          width: 30,
+          height: 30,
+          left: 45 + offset.x,
+          top: 45 + offset.y,
+          position: "absolute",
+          borderRadius: 999,
+          display: "grid",
+          placeItems: "center",
+          color: style.fg,
+          background: alert ? "hsl(0 75% 55%)" : style.bg,
+          border: "2px solid rgba(255,255,255,.92)",
+          boxShadow: alert
+            ? "0 0 0 6px rgba(239,68,68,.22), 0 10px 24px rgba(0,0,0,.35)"
+            : "0 10px 24px rgba(0,0,0,.35)",
+          pointerEvents: "auto",
+        }}
+      >
+        <Icon size={15} strokeWidth={2.4} />
+      </div>
     </div>
   );
 
   return divIcon({
     html,
     className: "ems-map-pin",
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
-    popupAnchor: [0, -14],
+    iconSize: [120, 120],
+    iconAnchor: [60, 60],
+    popupAnchor: [offset.x, offset.y - 18],
   });
 };
 
@@ -92,6 +135,7 @@ export const LocationMap = ({
   }, [valid, fallbackCenter]);
 
   const zoom = valid.length ? (valid.length === 1 ? 11 : 5) : fallbackZoom;
+  const visualOffsets = useMemo(() => groupPinOffsets(valid), [valid]);
 
   return (
     <div
@@ -113,14 +157,15 @@ export const LocationMap = ({
         <TileLayer url={LABELS_URL} />
         {valid.map((p) => {
           const kind = p.kind || "default";
+          const offset = visualOffsets.get(p.id) || { x: 0, y: 0 };
           return (
             <Marker
               key={p.id}
               position={[p.lat, p.lng]}
-              icon={buildPinIcon(kind, p.alert)}
+              icon={buildPinIcon(kind, p.alert, offset)}
               eventHandlers={p.onClick ? { click: () => p.onClick?.() } : undefined}
             >
-              <Tooltip direction="top" offset={[0, -6]} opacity={0.95}>
+              <Tooltip direction="top" offset={[offset.x, offset.y - 6]} opacity={0.95}>
                 <div className="text-xs">
                   <div className="text-[10px] uppercase tracking-wide opacity-60">{PIN_STYLE[kind]?.label || "Ponto"}</div>
                   <div className="font-medium">{p.name}</div>
@@ -143,7 +188,7 @@ export const LocationMap = ({
       {!valid.length && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
           <p className="rounded-md border border-border/40 bg-card/90 px-3 py-1.5 text-xs text-muted-foreground">
-            Cadastre latitude/longitude em contatos, clientes ou projetos para ve-los no mapa.
+            Cadastre latitude/longitude em contatos, clientes ou projetos para vê-los no mapa.
           </p>
         </div>
       )}

@@ -53,7 +53,7 @@ const categories = [
 
 const confidenceLabel: Record<string, string> = {
   high: "Alta confianca",
-  medium: "Media confianca",
+  medium: "Média confiança",
   low: "A testar",
 };
 
@@ -228,9 +228,9 @@ const Persuasion = () => {
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl md:text-3xl font-heading font-bold flex items-center gap-2">
-              <BrainCircuit className="h-7 w-7 text-primary" />Persuasao
+              <BrainCircuit className="h-7 w-7 text-primary" />Persuasão
             </h1>
-            <p className="text-sm text-muted-foreground">Estudos, principios, gatilhos e exemplos prontos para consultar.</p>
+            <p className="text-sm text-muted-foreground">Estudos, princípios, gatilhos e exemplos prontos para consultar.</p>
           </div>
           <Button onClick={openCreate} className="w-full md:w-auto">
             <Plus className="h-4 w-4 mr-2" />Novo estudo
@@ -240,7 +240,7 @@ const Persuasion = () => {
         <div className="grid gap-3 md:grid-cols-[1fr_220px]">
           <div className="relative">
             <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por titulo, tag, fonte ou exemplo" className="pl-9" />
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por título, tag, fonte ou exemplo" className="pl-9" />
           </div>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger><Filter className="h-4 w-4 mr-2" /><SelectValue /></SelectTrigger>
@@ -289,7 +289,7 @@ const Persuasion = () => {
                     </svg>
                     <div className="absolute left-1/2 top-1/2 z-10 w-44 -translate-x-1/2 -translate-y-1/2 rounded-xl border border-primary/40 bg-card/95 p-4 text-center shadow-lg">
                       <BrainCircuit className="h-6 w-6 mx-auto text-primary mb-2" />
-                      <p className="font-semibold">Biblioteca de Persuasao</p>
+                      <p className="font-semibold">Biblioteca de Persuasão</p>
                       <p className="text-xs text-muted-foreground">{filteredNotes.length} estudos filtrados</p>
                     </div>
                     {graphNodes.map((note, index) => {
@@ -336,7 +336,7 @@ const Persuasion = () => {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <p className="text-sm text-muted-foreground line-clamp-3">{note.principle || note.content || "Sem anotacao."}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-3">{note.principle || note.content || "Sem anotação."}</p>
                     {note.example && <p className="text-sm rounded-lg bg-muted/40 p-2 line-clamp-3">{note.example}</p>}
                     <div className="flex flex-wrap gap-1">
                       {(note.tags || []).map((tag) => <Badge key={tag} variant="outline" className="text-[10px]">{tag}</Badge>)}
@@ -359,11 +359,11 @@ const Persuasion = () => {
 
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>{editing ? "Editar estudo" : "Novo estudo de persuasao"}</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editing ? "Editar estudo" : "Novo estudo de persuasão"}</DialogTitle></DialogHeader>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>Titulo *</Label>
-                <Input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Ex: Reciprocidade em negociacoes" />
+                <Label>Título *</Label>
+                <Input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Ex: Reciprocidade em negociações" />
               </div>
               <div className="space-y-1.5">
                 <Label>Categoria</Label>
@@ -373,35 +373,35 @@ const Persuasion = () => {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Confianca</Label>
+                <Label>Confiança</Label>
                 <Select value={form.confidence} onValueChange={(value) => setForm({ ...form, confidence: value })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="high">Alta</SelectItem>
-                    <SelectItem value="medium">Media</SelectItem>
+                    <SelectItem value="medium">Média</SelectItem>
                     <SelectItem value="low">A testar</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>Principio / tese</Label>
+                <Label>Princípio / tese</Label>
                 <Textarea rows={3} value={form.principle} onChange={(event) => setForm({ ...form, principle: event.target.value })} />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>Anotacoes do estudo</Label>
+                <Label>Anotações do estudo</Label>
                 <Textarea rows={5} value={form.content} onChange={(event) => setForm({ ...form, content: event.target.value })} />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
-                <Label>Exemplo / aplicacao</Label>
+                <Label>Exemplo / aplicação</Label>
                 <Textarea rows={3} value={form.example} onChange={(event) => setForm({ ...form, example: event.target.value })} />
               </div>
               <div className="space-y-1.5">
                 <Label>Fonte</Label>
-                <Input value={form.source} onChange={(event) => setForm({ ...form, source: event.target.value })} placeholder="Livro, curso, video..." />
+                <Input value={form.source} onChange={(event) => setForm({ ...form, source: event.target.value })} placeholder="Livro, curso, vídeo..." />
               </div>
               <div className="space-y-1.5">
                 <Label>Tags</Label>
-                <Input value={form.tags} onChange={(event) => setForm({ ...form, tags: event.target.value })} placeholder="separadas por virgula" />
+                <Input value={form.tags} onChange={(event) => setForm({ ...form, tags: event.target.value })} placeholder="separadas por vírgula" />
               </div>
             </div>
             <DialogFooter className="gap-2">

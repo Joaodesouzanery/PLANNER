@@ -45,12 +45,12 @@ const emptyGoalForm: GoalFormData = {
 
 const confidenceOptions = [
   { value: "high", label: "Alta" },
-  { value: "medium", label: "Media" },
+  { value: "medium", label: "Média" },
   { value: "low", label: "Baixa" },
 ];
 
 const assumptionStatus = [
-  { value: "not_tested", label: "Nao testada" },
+  { value: "not_tested", label: "Não testada" },
   { value: "testing", label: "Testando" },
   { value: "confirmed", label: "Confirmada" },
   { value: "refuted", label: "Refutada" },
@@ -77,7 +77,7 @@ const horizonOptions = [
 ];
 
 const reviewTypes = [
-  { value: "daily", label: "Diario" },
+  { value: "daily", label: "Diário" },
   { value: "weekly", label: "Semanal" },
   { value: "monthly", label: "Mensal" },
   { value: "quarterly", label: "Trimestral" },
@@ -321,7 +321,7 @@ const Planning = () => {
         title: okr.title,
         value: asNumber(okr.current_value, okr.unit),
         meta: `Meta: ${asNumber(okr.target_value, okr.unit)}`,
-        status: progress >= 80 ? "No ritmo" : progress >= 40 ? "Atencao" : "Nao iniciado",
+        status: progress >= 80 ? "No ritmo" : progress >= 40 ? "Atenção" : "Não iniciado",
         progress,
       };
     });
@@ -375,11 +375,11 @@ const Planning = () => {
       title: "Metrica North Star",
       fields: [
         { name: "metric_name", label: "Metrica", required: true },
-        { name: "product_area", label: "Produto / area" },
+        { name: "product_area", label: "Produto / área" },
         { name: "current_value", label: "Valor atual", type: "number" },
         { name: "quarter_target", label: "Meta do trimestre", type: "number" },
         { name: "unit", label: "Unidade" },
-        { name: "history_note", label: "Historico / variacao", type: "textarea", span: "full" },
+        { name: "history_note", label: "Histórico / variação", type: "textarea", span: "full" },
         { name: "change_reason", label: "Por que subiu ou caiu", type: "textarea", span: "full" },
         { name: "levers", label: "Alavancas da semana", type: "textarea", span: "full" },
         { name: "project_id", label: "Projeto", type: "select", options: [{ value: "none", label: "Empresa inteira" }, ...operational.projects.map((project) => ({ value: project.id, label: project.title }))], span: "full" },
@@ -389,7 +389,7 @@ const Planning = () => {
       title: "OKR",
       fields: [
         { name: "title", label: "Objetivo", required: true, span: "full" },
-        { name: "description", label: "Descricao", type: "textarea", span: "full" },
+        { name: "description", label: "Descrição", type: "textarea", span: "full" },
         { name: "target_value", label: "Alvo", type: "number" },
         { name: "current_value", label: "Atual", type: "number" },
         { name: "unit", label: "Unidade" },
@@ -410,7 +410,7 @@ const Planning = () => {
         { name: "owner", label: "Dono" },
         { name: "cycle", label: "Ciclo" },
         { name: "project_id", label: "Projeto vinculado", type: "select", options: [{ value: "none", label: "Nenhum" }, ...operational.projects.map((project) => ({ value: project.id, label: project.title }))], span: "full" },
-        { name: "not_doing", label: "O que nao vamos fazer", type: "textarea", span: "full" },
+        { name: "not_doing", label: "O que não vamos fazer", type: "textarea", span: "full" },
         { name: "learning", label: "O que queremos aprender", type: "textarea", span: "full" },
         { name: "retrospective", label: "Retrospectiva", type: "textarea", span: "full" },
       ] as FieldConfig[],
@@ -419,7 +419,7 @@ const Planning = () => {
       title: "Suposicao",
       fields: [
         { name: "assumption", label: "Suposicao", required: true, span: "full" },
-        { name: "product_area", label: "Produto / area" },
+        { name: "product_area", label: "Produto / área" },
         { name: "criticality", label: "Criticidade", type: "select", options: confidenceOptions },
         { name: "status", label: "Status", type: "select", options: assumptionStatus },
         { name: "test_plan", label: "Como testar", type: "textarea", span: "full" },
@@ -432,7 +432,7 @@ const Planning = () => {
       title: "Risco",
       fields: [
         { name: "risk", label: "Risco", required: true, span: "full" },
-        { name: "product_area", label: "Produto / area" },
+        { name: "product_area", label: "Produto / área" },
         { name: "probability", label: "Probabilidade", type: "select", options: confidenceOptions },
         { name: "impact", label: "Impacto", type: "select", options: confidenceOptions },
         { name: "owner", label: "Dono" },
@@ -447,7 +447,7 @@ const Planning = () => {
       fields: [
         { name: "week_start", label: "Semana", type: "date", required: true },
         { name: "category", label: "Categoria", type: "select", options: timeCategories },
-        { name: "product_area", label: "Produto / area" },
+        { name: "product_area", label: "Produto / área" },
         { name: "horizon", label: "Horizonte", type: "select", options: horizonOptions },
         { name: "planned_hours", label: "Horas planejadas", type: "number" },
         { name: "actual_hours", label: "Horas reais", type: "number" },
@@ -456,13 +456,13 @@ const Planning = () => {
       ] as FieldConfig[],
     },
     decision: {
-      title: "Decisao",
+      title: "Decisão",
       fields: [
         { name: "title", label: "Tema", required: true, span: "full" },
-        { name: "decision", label: "Decisao tomada", type: "textarea", span: "full" },
+        { name: "decision", label: "Decisão tomada", type: "textarea", span: "full" },
         { name: "context", label: "Contexto", type: "textarea", span: "full" },
         { name: "options_considered", label: "Opcoes consideradas", type: "textarea", span: "full" },
-        { name: "decision_criteria", label: "Criterio de decisao", type: "textarea", span: "full" },
+        { name: "decision_criteria", label: "Critério de decisão", type: "textarea", span: "full" },
         { name: "involved_people", label: "Quem envolveu" },
         { name: "category", label: "Categoria" },
         { name: "tags", label: "Tags separadas por virgula" },
@@ -507,7 +507,7 @@ const Planning = () => {
         { name: "agenda", label: "Agenda / perguntas", type: "textarea", span: "full" },
         { name: "summary", label: "Resumo", type: "textarea", span: "full" },
         { name: "decisions", label: "Decisoes", type: "textarea", span: "full" },
-        { name: "next_actions", label: "Proximas acoes", type: "textarea", span: "full" },
+        { name: "next_actions", label: "Próximas ações", type: "textarea", span: "full" },
       ] as FieldConfig[],
     },
   } as Record<string, { title: string; fields: FieldConfig[] }>;
@@ -627,7 +627,7 @@ const Planning = () => {
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
                                 <p className="font-medium text-sm">{kr.title}</p>
-                                <p className="text-xs text-muted-foreground">{kr.owner || "Voce"} - confianca {scoreLabel(kr.confidence)}</p>
+                                <p className="text-xs text-muted-foreground">{kr.owner || "Você"} - confiança {scoreLabel(kr.confidence)}</p>
                               </div>
                               <Badge variant="secondary">{krProgress}%</Badge>
                             </div>
@@ -721,7 +721,7 @@ const Planning = () => {
           </TabsContent>
 
           <TabsContent value="decisions" className="mt-5 space-y-4">
-            <SectionHeader title="Decision log" description="Registre contexto, opcoes, criterio, envolvidos e resultado para nao reabrir debates ja decididos." action={<Button size="sm" onClick={() => openForm("decision", operationalDefaults.decision)}><Plus className="h-4 w-4 mr-1" />Decisao</Button>} />
+            <SectionHeader title="Decision log" description="Registre contexto, opções, critério, envolvidos e resultado para não reabrir debates já decididos." action={<Button size="sm" onClick={() => openForm("decision", operationalDefaults.decision)}><Plus className="h-4 w-4 mr-1" />Decisão</Button>} />
             <div className="space-y-3">
               {scopedDecisions.map((item: DecisionLog) => (
                 <Card key={item.id}>
@@ -742,11 +742,11 @@ const Planning = () => {
                 </Card>
               ))}
             </div>
-            {scopedDecisions.length === 0 && <EmptyState label="Nenhuma decisao registrada neste escopo." />}
+            {scopedDecisions.length === 0 && <EmptyState label="Nenhuma decisão registrada neste escopo." />}
           </TabsContent>
 
           <TabsContent value="risks" className="mt-5 space-y-4">
-            <SectionHeader title="Registro de riscos" description="Score automatico por probabilidade x impacto, com mitigacao e contingencia." action={<Button size="sm" onClick={() => openForm("risk", operationalDefaults.risk)}><Plus className="h-4 w-4 mr-1" />Risco</Button>} />
+            <SectionHeader title="Registro de riscos" description="Score automático por probabilidade x impacto, com mitigação e contingência." action={<Button size="sm" onClick={() => openForm("risk", operationalDefaults.risk)}><Plus className="h-4 w-4 mr-1" />Risco</Button>} />
             <div className="grid gap-3 md:grid-cols-2">
               {scopedRisks.map((item: PlanningRisk) => (
                 <Card key={item.id} className={cn(Number(item.score || 0) >= 6 && "border-destructive/40")}>
@@ -756,7 +756,7 @@ const Planning = () => {
                     {item.mitigation && <p className="text-sm"><span className="font-medium">Mitigacao:</span> {item.mitigation}</p>}
                     {item.contingency_plan && <p className="text-sm"><span className="font-medium">48h:</span> {item.contingency_plan}</p>}
                     <div className="flex items-center justify-between">
-                      <Badge variant="secondary">{item.owner || "Voce"}</Badge>
+                      <Badge variant="secondary">{item.owner || "Você"}</Badge>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" onClick={() => openForm("risk", operationalDefaults.risk, item)}><Edit2 className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" className="text-destructive" onClick={() => operational.deleteRecord("planning_risks", item.id)}><Trash2 className="h-4 w-4" /></Button>
@@ -817,7 +817,7 @@ const Planning = () => {
                 </Card>
               ))}
             </div>
-            <SectionHeader title="Historico de revisoes" description="Registre o que mudou, decidiu e precisa acontecer antes da proxima cadencia." action={<Button size="sm" onClick={() => openForm("review", operationalDefaults.review)}><Plus className="h-4 w-4 mr-1" />Revisao</Button>} />
+            <SectionHeader title="Histórico de revisões" description="Registre o que mudou, decidiu e precisa acontecer antes da próxima cadência." action={<Button size="sm" onClick={() => openForm("review", operationalDefaults.review)}><Plus className="h-4 w-4 mr-1" />Revisão</Button>} />
             <div className="space-y-3">
               {operational.reviews.map((item: ReviewCycle) => (
                 <Card key={item.id}>
@@ -854,7 +854,7 @@ const Planning = () => {
             <TabsContent value="overview" className="mt-5 space-y-4">
               <Card className="bg-muted/30">
                 <CardContent className="p-4 text-sm text-muted-foreground">
-                  Este e o painel de segunda-feira: em poucos minutos voce ve onde estao as metas, o que esta em execucao e o que esta travado.
+                  Este é o painel de segunda-feira: em poucos minutos você vê onde estão as metas, o que está em execução e o que está travado.
                 </CardContent>
               </Card>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -920,7 +920,7 @@ const Planning = () => {
               </Card>
 
               <Card>
-                <CardHeader><CardTitle className="text-base">Iniciativas em execucao agora</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-base">Iniciativas em execução agora</CardTitle></CardHeader>
                 <CardContent className="space-y-2">
                   {metaInitiatives.slice(0, 8).map((goal) => (
                     <div key={goal.id} className="flex items-start justify-between gap-3 border-b border-border/60 pb-3 last:border-0">
@@ -933,7 +933,7 @@ const Planning = () => {
                       </Badge>
                     </div>
                   ))}
-                  {metaInitiatives.length === 0 && <p className="text-sm text-muted-foreground text-center py-5">Nenhuma iniciativa em execucao.</p>}
+                  {metaInitiatives.length === 0 && <p className="text-sm text-muted-foreground text-center py-5">Nenhuma iniciativa em execução.</p>}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -1093,7 +1093,7 @@ const Planning = () => {
             <TabsContent value="ifthen" className="mt-5 space-y-4">
               <Card className="bg-muted/30">
                 <CardContent className="p-4 text-sm text-muted-foreground">
-                  Todo planejamento e uma cadeia de apostas: se eu fizer X, entao Y acontece. Quando a hipotese cai, voce sabe exatamente o que revisar.
+                  Todo planejamento é uma cadeia de apostas: se eu fizer X, então Y acontece. Quando a hipótese cai, você sabe exatamente o que revisar.
                 </CardContent>
               </Card>
               <div className="space-y-3">

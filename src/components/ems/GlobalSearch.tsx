@@ -20,7 +20,7 @@ const typeConfig = {
   contact: { icon: Users, label: "Contatos", path: "/ems/contacts" },
   note: { icon: StickyNote, label: "Notas", path: "/ems/quick-notes" },
   event: { icon: CalendarDays, label: "Eventos", path: "/ems/calendar" },
-  persuasion: { icon: BrainCircuit, label: "Persuasao", path: "/ems/persuasao" },
+  persuasion: { icon: BrainCircuit, label: "Persuasão", path: "/ems/persuasao" },
 };
 
 export const GlobalSearch = () => {

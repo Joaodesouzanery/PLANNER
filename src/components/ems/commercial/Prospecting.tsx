@@ -173,7 +173,7 @@ const statusConfig: Record<ProspectStatus, { label: string; className: string }>
 
 const priorityConfig: Record<ProspectPriority, { label: string; className: string }> = {
   high: { label: "Alta", className: "bg-red-500/10 text-red-500 border-red-500/30" },
-  medium: { label: "Media", className: "bg-amber-500/10 text-amber-600 border-amber-500/30" },
+  medium: { label: "Média", className: "bg-amber-500/10 text-amber-600 border-amber-500/30" },
   low: { label: "Baixa", className: "bg-sky-500/10 text-sky-500 border-sky-500/30" },
 };
 
@@ -574,7 +574,7 @@ const generateDiagnosis = (form: ProspectForm, _tasks: string[], prospectsContex
   const moduleMatches = computeModuleMatches(form.job_about);
   const topModules = moduleMatches.slice(0, 6);
   const moduleNames = topModules.map((match) => match.moduleName);
-  const constructionSignals = moduleNames.length > 0 ? moduleNames.join(", ") : "gestao administrativa e operacional de obra";
+  const constructionSignals = moduleNames.length > 0 ? moduleNames.join(", ") : "gestão administrativa e operacional de obra";
   const risks = topModules.length > 0
     ? topModules.map((match) => match.risk)
     : [
@@ -590,16 +590,16 @@ const generateDiagnosis = (form: ProspectForm, _tasks: string[], prospectsContex
   const construFit = Array.from(new Set([...moduleNames, ...construDataBase.pillars])).slice(0, 8);
   const featuresMessage = construFit.slice(0, 3).join("; ");
   const suggestedMessage =
-    `Ola! Vi que a ${form.company_name || "empresa"} esta com a vaga de ${form.job_title || "operacao de obra"} aberta, normalmente ligada a ${problemList}. ` +
+    `Olá! Vi que a ${form.company_name || "empresa"} está com a vaga de ${form.job_title || "operação de obra"} aberta, normalmente ligada a ${problemList}. ` +
     `Isso costuma indicar a necessidade de mais controle sobre o que acontece em campo, menos dependencia de planilhas soltas e mais velocidade para a diretoria enxergar avancos, pendencias e gargalos. ` +
     `O ConstruData entrega exatamente isso, com ${featuresMessage}. Podemos agendar uma reuniao rapida de 20 minutos?\n\n` +
-    `Como funciona o meu trabalho: em X dias, identificamos X, Y, Z problemas e encontramos solucoes X, Y, Z, otimizando a operacao em X, Y, Z. Alem disso, voce recebe relatorios do que melhorou e do que ainda esta travando a operacao.`;
+    `Como funciona o meu trabalho: em X dias, identificamos X, Y, Z problemas e encontramos soluções X, Y, Z, otimizando a operação em X, Y, Z. Além disso, você recebe relatórios do que melhorou e do que ainda está travando a operação.`;
 
   return {
     caseTitle: `Caso operacional - ${form.company_name || "Empresa sem nome"}`,
     observedWork: `${form.job_title || "Vaga analisada"}${form.location ? ` em ${form.location}` : ""}${form.company_name ? ` - ${form.company_name}` : ""}. Pelo tipo e porte da obra observado, a descricao indica rotinas ligadas a ${constructionSignals}.`,
     operationalHypothesis:
-      `Pelo tipo e porte da obra, e provavel que exista alto volume de registro de campo, fotos, solicitacoes, medicoes, qualidade e alinhamento entre obra e escritorio. Quando isso depende de planilhas soltas e repasses manuais, a diretoria tende a enxergar avancos, pendencias e gargalos tarde demais, perdendo velocidade na decisao.`,
+      `Pelo tipo e porte da obra, é provável que exista alto volume de registro de campo, fotos, solicitações, medições, qualidade e alinhamento entre obra e escritório. Quando isso depende de planilhas soltas e repasses manuais, a diretoria tende a enxergar avanços, pendências e gargalos tarde demais, perdendo velocidade na decisão.`,
     commonRisks: risks,
     whereConstruDataFits: construFit,
     risks: buildRiskFindings(form.job_about),
@@ -955,7 +955,7 @@ export const Prospecting = () => {
       const msg = error?.message || "Erro desconhecido ao importar pela URL.";
       logImport("error", { url: form.linkedin_job_url.trim() || undefined, errorMessage: msg });
       toast({
-        title: "Nao consegui importar pela URL",
+        title: "Não consegui importar pela URL",
         description: `${msg} Se a URL exigir login no LinkedIn, cole o texto da vaga no campo de apoio.`,
         variant: "destructive",
       });
@@ -1240,7 +1240,7 @@ export const Prospecting = () => {
                             </div>
                           </TableCell>
                           <TableCell className="hidden max-w-[260px] px-3 py-2 lg:table-cell">
-                            <p className="truncate text-sm">{prospect.job_title || "Vaga nao informada"}</p>
+                            <p className="truncate text-sm">{prospect.job_title || "Vaga não informada"}</p>
                             {prospect.linkedin_job_url && (
                               <a
                                 href={prospect.linkedin_job_url}

@@ -92,6 +92,7 @@ const Gratitude = () => {
   const [areaInput, setAreaInput] = useState("");
   const [areaFilter, setAreaFilter] = useState("all");
   const [tarantinoForm, setTarantinoForm] = useState({ area_id: "none", problem: "", solution: "", status: "aberto" });
+  const [editingTarantinoId, setEditingTarantinoId] = useState<string | null>(null);
   const [tarantinoAreas, setTarantinoAreas] = useState<TarantinoArea[]>([]);
   const [tarantinoItems, setTarantinoItems] = useState<TarantinoItem[]>([]);
 
@@ -105,7 +106,7 @@ const Gratitude = () => {
       areas: [
         { id: "relacionamento", name: "Relacionamento" },
         { id: "dinheiro", name: "Dinheiro" },
-        { id: "familia", name: "Familia" },
+        { id: "familia", name: "Família" },
       ],
       items: [],
     });
@@ -141,7 +142,7 @@ const Gratitude = () => {
 
   const create = useMutation({
     mutationFn: async () => {
-      if (!content.trim()) throw new Error("Escreva pelo que voce e grato.");
+      if (!content.trim()) throw new Error("Escreva pelo que você é grato.");
       const tags = tagsInput.split(",").map((t) => t.trim()).filter(Boolean);
       const payload: any = {
         content: content.trim(),
@@ -158,7 +159,7 @@ const Gratitude = () => {
       setMood("");
       setTagsInput("");
       qc.invalidateQueries({ queryKey: ["gratitude-entries"] });
-      toast({ title: "Gratidao registrada" });
+      toast({ title: "Gratidão registrada" });
     },
     onError: (e: any) => toast({ title: "Erro ao salvar", description: e.message, variant: "destructive" }),
   });
@@ -213,34 +214,61 @@ const Gratitude = () => {
     if (!name) return;
     const exists = tarantinoAreas.some((area) => area.name.toLowerCase() === name.toLowerCase());
     if (exists) {
-      toast({ title: "Area ja existe", variant: "destructive" });
+      toast({ title: "Área já existe", variant: "destructive" });
       return;
     }
     const area = { id: makeId(), name };
     setTarantinoAreas((current) => [...current, area]);
     setTarantinoForm((current) => ({ ...current, area_id: area.id }));
     setAreaInput("");
-    toast({ title: "Filtro de area criado" });
+    toast({ title: "Filtro de área criado" });
   };
 
   const addTarantinoItem = () => {
     if (tarantinoForm.area_id === "none" || !tarantinoForm.problem.trim() || !tarantinoForm.solution.trim()) {
-      toast({ title: "Preencha area, problema e solucao", variant: "destructive" });
+      toast({ title: "Preencha área, problema e solução", variant: "destructive" });
       return;
     }
-    setTarantinoItems((current) => [{
-      id: makeId(),
-      area_id: tarantinoForm.area_id,
-      problem: tarantinoForm.problem.trim(),
-      solution: tarantinoForm.solution.trim(),
-      status: tarantinoForm.status,
-      created_at: new Date().toISOString(),
-    }, ...current]);
+    if (editingTarantinoId) {
+      setTarantinoItems((current) => current.map((item) => item.id === editingTarantinoId ? {
+        ...item,
+        area_id: tarantinoForm.area_id,
+        problem: tarantinoForm.problem.trim(),
+        solution: tarantinoForm.solution.trim(),
+        status: tarantinoForm.status,
+      } : item));
+      setEditingTarantinoId(null);
+      toast({ title: "Linha atualizada localmente" });
+    } else {
+      setTarantinoItems((current) => [{
+        id: makeId(),
+        area_id: tarantinoForm.area_id,
+        problem: tarantinoForm.problem.trim(),
+        solution: tarantinoForm.solution.trim(),
+        status: tarantinoForm.status,
+        created_at: new Date().toISOString(),
+      }, ...current]);
+      toast({ title: "Problema e solução salvos localmente" });
+    }
     setTarantinoForm((current) => ({ ...current, problem: "", solution: "", status: "aberto" }));
-    toast({ title: "Problema e solucao salvos localmente" });
   };
 
-  const areaName = (id: string) => tarantinoAreas.find((area) => area.id === id)?.name || "Sem area";
+  const editTarantinoItem = (item: TarantinoItem) => {
+    setEditingTarantinoId(item.id);
+    setTarantinoForm({
+      area_id: item.area_id,
+      problem: item.problem,
+      solution: item.solution,
+      status: item.status,
+    });
+  };
+
+  const cancelTarantinoEdit = () => {
+    setEditingTarantinoId(null);
+    setTarantinoForm((current) => ({ ...current, problem: "", solution: "", status: "aberto" }));
+  };
+
+  const areaName = (id: string) => tarantinoAreas.find((area) => area.id === id)?.name || "Sem área";
   const filteredTarantinoItems = useMemo(
     () => tarantinoItems.filter((item) => areaFilter === "all" || item.area_id === areaFilter),
     [areaFilter, tarantinoItems],
@@ -254,14 +282,14 @@ const Gratitude = () => {
             <Heart className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-heading font-bold">Diario de Gratidao</h1>
-            <p className="text-sm text-muted-foreground">Anote gratidoes, frases espirituais, rotinas e mapas de problema x solucao.</p>
+            <h1 className="text-2xl font-heading font-bold">Diário de Gratidão</h1>
+            <p className="text-sm text-muted-foreground">Anote gratidões, frases espirituais, rotinas e mapas de problema x solução.</p>
           </div>
         </div>
 
         <Tabs defaultValue="gratidao" className="space-y-4">
           <TabsList className="grid w-full grid-cols-3 md:w-auto">
-            <TabsTrigger value="gratidao" className="gap-2"><Heart className="h-3.5 w-3.5" /> Gratidao</TabsTrigger>
+            <TabsTrigger value="gratidao" className="gap-2"><Heart className="h-3.5 w-3.5" /> Gratidão</TabsTrigger>
             <TabsTrigger value="espiritual" className="gap-2"><Sparkles className="h-3.5 w-3.5" /> Espiritual</TabsTrigger>
             <TabsTrigger value="tarantino" className="gap-2"><Brain className="h-3.5 w-3.5" /> Tarantino</TabsTrigger>
           </TabsList>
@@ -275,16 +303,16 @@ const Gratitude = () => {
                 <Textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Hoje sou grato por..." rows={4} />
                 <div className="grid gap-2 sm:grid-cols-2">
                   <Input value={mood} onChange={(e) => setMood(e.target.value)} placeholder="Humor (opcional): grato, leve, em paz..." />
-                  <Input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="Tags separadas por virgula" />
+                  <Input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} placeholder="Tags separadas por vírgula" />
                 </div>
                 <Button onClick={() => create.mutate()} disabled={create.isPending} className="w-full sm:w-auto">
-                  <Plus className="mr-2 h-4 w-4" />Salvar gratidao
+                  <Plus className="mr-2 h-4 w-4" />Salvar gratidão
                 </Button>
               </CardContent>
             </Card>
 
             <div className="space-y-4">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Historico</h2>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Histórico</h2>
               {isLoading ? (
                 <div className="space-y-2"><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div>
               ) : entries.length === 0 ? (
@@ -325,8 +353,8 @@ const Gratitude = () => {
                   <CardTitle className="flex items-center gap-2 text-base"><BookOpen className="h-4 w-4" />Frases espirituais</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Textarea value={spiritualPhrase} onChange={(event) => setSpiritualPhrase(event.target.value)} placeholder="Anote uma frase, oracao, insight ou principio espiritual..." rows={4} />
-                  <Input value={spiritualTags} onChange={(event) => setSpiritualTags(event.target.value)} placeholder="Tags separadas por virgula" />
+                  <Textarea value={spiritualPhrase} onChange={(event) => setSpiritualPhrase(event.target.value)} placeholder="Anote uma frase, oração, insight ou princípio espiritual..." rows={4} />
+                  <Input value={spiritualTags} onChange={(event) => setSpiritualTags(event.target.value)} placeholder="Tags separadas por vírgula" />
                   <Button onClick={addSpiritualPhrase} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" />Salvar frase</Button>
                 </CardContent>
               </Card>
@@ -336,18 +364,18 @@ const Gratitude = () => {
                   <CardTitle className="flex items-center gap-2 text-base"><CheckCircle2 className="h-4 w-4" />Rotinas espirituais</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Input value={routineForm.title} onChange={(event) => setRoutineForm({ ...routineForm, title: event.target.value })} placeholder="Ex: oracao, leitura, meditacao, exame de consciencia..." />
+                  <Input value={routineForm.title} onChange={(event) => setRoutineForm({ ...routineForm, title: event.target.value })} placeholder="Ex: oração, leitura, meditação, exame de consciência..." />
                   <div className="grid gap-2 sm:grid-cols-2">
                     <Select value={routineForm.cadence} onValueChange={(value) => setRoutineForm({ ...routineForm, cadence: value })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="diaria">Diaria</SelectItem>
+                        <SelectItem value="diaria">Diária</SelectItem>
                         <SelectItem value="semanal">Semanal</SelectItem>
                         <SelectItem value="mensal">Mensal</SelectItem>
                         <SelectItem value="livre">Livre</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Input value={routineForm.notes} onChange={(event) => setRoutineForm({ ...routineForm, notes: event.target.value })} placeholder="Notas rapidas" />
+                    <Input value={routineForm.notes} onChange={(event) => setRoutineForm({ ...routineForm, notes: event.target.value })} placeholder="Notas rápidas" />
                   </div>
                   <Button onClick={addSpiritualRoutine} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" />Salvar rotina</Button>
                 </CardContent>
@@ -403,20 +431,25 @@ const Gratitude = () => {
           <TabsContent value="tarantino" className="space-y-4">
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base"><Brain className="h-4 w-4" />Tarantino: Problemas x Solucoes</CardTitle>
+                <CardTitle className="flex items-center gap-2 text-base"><Brain className="h-4 w-4" />Tarantino: Problemas x Soluções</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                  <Input value={areaInput} onChange={(event) => setAreaInput(event.target.value)} placeholder="Criar filtro/area: relacionamento, dinheiro, familia..." />
-                  <Button onClick={addTarantinoArea} variant="outline"><Plus className="mr-2 h-4 w-4" />Criar area</Button>
+                  <Input
+                    value={areaInput}
+                    onChange={(event) => setAreaInput(event.target.value)}
+                    onKeyDown={(event) => event.key === "Enter" && addTarantinoArea()}
+                    placeholder="Criar filtro/área: relacionamento, dinheiro, família..."
+                  />
+                  <Button onClick={addTarantinoArea} variant="outline"><Plus className="mr-2 h-4 w-4" />Criar área</Button>
                 </div>
                 <div className="grid gap-3 md:grid-cols-3">
                   <div>
-                    <Label className="text-xs">Area</Label>
+                    <Label className="text-xs">Área</Label>
                     <Select value={tarantinoForm.area_id} onValueChange={(value) => setTarantinoForm({ ...tarantinoForm, area_id: value })}>
                       <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">Escolha uma area</SelectItem>
+                        <SelectItem value="none">Escolha uma área</SelectItem>
                         {tarantinoAreas.map((area) => <SelectItem key={area.id} value={area.id}>{area.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -437,7 +470,7 @@ const Gratitude = () => {
                     <Select value={areaFilter} onValueChange={setAreaFilter}>
                       <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Todas as areas</SelectItem>
+                        <SelectItem value="all">Todas as áreas</SelectItem>
                         {tarantinoAreas.map((area) => <SelectItem key={area.id} value={area.id}>{area.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -445,9 +478,14 @@ const Gratitude = () => {
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
                   <Textarea value={tarantinoForm.problem} onChange={(event) => setTarantinoForm({ ...tarantinoForm, problem: event.target.value })} placeholder="Problema..." rows={4} />
-                  <Textarea value={tarantinoForm.solution} onChange={(event) => setTarantinoForm({ ...tarantinoForm, solution: event.target.value })} placeholder="Solucoes possiveis..." rows={4} />
+                  <Textarea value={tarantinoForm.solution} onChange={(event) => setTarantinoForm({ ...tarantinoForm, solution: event.target.value })} placeholder="Soluções possíveis..." rows={4} />
                 </div>
-                <Button onClick={addTarantinoItem} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" />Adicionar na tabela</Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={addTarantinoItem} className="w-full sm:w-auto">
+                    <Plus className="mr-2 h-4 w-4" />{editingTarantinoId ? "Salvar edição" : "Adicionar na tabela"}
+                  </Button>
+                  {editingTarantinoId && <Button onClick={cancelTarantinoEdit} variant="outline">Cancelar edição</Button>}
+                </div>
               </CardContent>
             </Card>
 
@@ -471,9 +509,14 @@ const Gratitude = () => {
                       <p className="whitespace-pre-wrap text-sm">{item.problem}</p>
                     </div>
                     <p className="whitespace-pre-wrap text-sm text-muted-foreground">{item.solution}</p>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 justify-self-end" onClick={() => setTarantinoItems((current) => current.filter((row) => row.id !== item.id))}>
-                      <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-                    </Button>
+                    <div className="flex justify-self-end gap-1">
+                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => editTarantinoItem(item)}>
+                        Editar
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setTarantinoItems((current) => current.filter((row) => row.id !== item.id))}>
+                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </CardContent>
