@@ -88,16 +88,17 @@ const Overview = () => {
   const { data: financeData = { totalIncome: 0, totalExpense: 0, monthlyIncome: 0, monthlyExpense: 0, monthlyBalance: 0, balance: 0, monthlyData: [] as MonthlyData[] } } = useQuery({
     queryKey: ["overview-finance", cid],
     queryFn: async () => {
-      let q = supabase.from("financial_transactions").select("amount, type, date");
+      let q = supabase.from("financial_transactions").select("id, amount, type, date, is_recurring, recurrence_interval, category");
       if (cf) q = q.eq("company_id", cid);
       const { data } = await q;
       if (!data) return { totalIncome: 0, totalExpense: 0, monthlyIncome: 0, monthlyExpense: 0, monthlyBalance: 0, balance: 0, monthlyData: [] as MonthlyData[] };
+      const expanded = expandRecurringTransactions(data as any);
       let inc = 0, exp = 0;
-      data.forEach(t => { if (t.type === "income") inc += Number(t.amount); else exp += Number(t.amount); });
+      expanded.forEach(t => { if (t.type === "income") inc += Number(t.amount); else exp += Number(t.amount); });
       const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
       const monthMap: Record<number, { income: number; expense: number }> = {};
       for (let i = 0; i < 12; i++) monthMap[i] = { income: 0, expense: 0 };
-      data.forEach(t => { const d = new Date(t.date); if (d.getFullYear() === currentYear) { const m = d.getMonth(); if (t.type === "income") monthMap[m].income += Number(t.amount); else monthMap[m].expense += Number(t.amount); } });
+      expanded.forEach(t => { const d = new Date(t.date); if (d.getFullYear() === currentYear) { const m = d.getMonth(); if (t.type === "income") monthMap[m].income += Number(t.amount); else monthMap[m].expense += Number(t.amount); } });
       const monthData = monthMap[currentMonth - 1];
       return { totalIncome: inc, totalExpense: exp, monthlyIncome: monthData.income, monthlyExpense: monthData.expense, monthlyBalance: monthData.income - monthData.expense, balance: inc - exp, monthlyData: months.map((m, i) => ({ month: m, income: monthMap[i].income, expense: monthMap[i].expense })) };
     },
