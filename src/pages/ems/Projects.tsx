@@ -30,6 +30,7 @@ import { ConferenciaContent } from "./Conferencia";
 import { OrgChartContent } from "./OrgChart";
 import { OperationalMapPanel } from "@/components/ems/OperationalMapPanel";
 import AddressAutocomplete from "@/components/ems/AddressAutocomplete";
+import { ensureCoords } from "@/lib/geocode";
 import { ProjectPlanningPanel } from "@/components/ems/projects/ProjectPlanningPanel";
 import type { MapPinKind } from "@/components/ems/LocationMap";
 
