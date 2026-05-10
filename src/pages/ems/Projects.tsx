@@ -30,6 +30,7 @@ import { ConferenciaContent } from "./Conferencia";
 import { OrgChartContent } from "./OrgChart";
 import { OperationalMapPanel } from "@/components/ems/OperationalMapPanel";
 import AddressAutocomplete from "@/components/ems/AddressAutocomplete";
+import { ensureCoords } from "@/lib/geocode";
 import { ProjectPlanningPanel } from "@/components/ems/projects/ProjectPlanningPanel";
 import type { MapPinKind } from "@/components/ems/LocationMap";
 
@@ -414,6 +415,7 @@ const Projects = () => {
   const handleAddProject = async () => {
     if (!projectForm.title) return;
     const maxOrder = projects.filter(p => p.status === "todo").length;
+    const coords = await ensureCoords(projectForm.address, projectForm.latitude, projectForm.longitude);
     await (supabase as any).from("projects").insert({
       title: projectForm.title, description: projectForm.description || null, priority: projectForm.priority,
       due_date: projectForm.due_date || null, status: "todo", column_order: maxOrder,
@@ -423,8 +425,8 @@ const Projects = () => {
       invoice_alert_days: Number(projectForm.invoice_alert_days) || 7,
       invoice_notes: projectForm.invoice_notes || null,
       address: projectForm.address || null,
-      latitude: projectForm.latitude ? Number(projectForm.latitude) : null,
-      longitude: projectForm.longitude ? Number(projectForm.longitude) : null,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
     });
     setProjectForm(emptyProjectForm);
     setShowAddProject(false);
@@ -441,6 +443,7 @@ const Projects = () => {
       setShowExecutionModal(true);
       return;
     }
+    const coords = await ensureCoords(projectForm.address, projectForm.latitude, projectForm.longitude);
     await (supabase as any).from("projects").update({
       title: projectForm.title, description: projectForm.description, priority: projectForm.priority,
       due_date: projectForm.due_date || null, client: projectForm.client || null,
@@ -451,8 +454,8 @@ const Projects = () => {
       invoice_alert_days: Number(projectForm.invoice_alert_days) || 7,
       invoice_notes: projectForm.invoice_notes || null,
       address: projectForm.address || null,
-      latitude: projectForm.latitude ? Number(projectForm.latitude) : null,
-      longitude: projectForm.longitude ? Number(projectForm.longitude) : null,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
     }).eq("id", editingProject.id);
     setEditingProject(null);
     setProjectForm(emptyProjectForm);

@@ -153,8 +153,18 @@ export function useMapPins(projectId?: string) {
       );
 
       const pins: MapPin[] = [];
+      const seen = new Map<string, number>();
+      const pushWithOffset = (pin: MapPin) => {
+        const key = `${pin.lat.toFixed(4)},${pin.lng.toFixed(4)}`;
+        const idx = seen.get(key) ?? 0;
+        seen.set(key, idx + 1);
+        if (idx === 0) { pins.push(pin); return; }
+        const shifted = offsetPin(pin.lat, pin.lng, idx);
+        pins.push({ ...pin, lat: shifted.lat, lng: shifted.lng });
+      };
+
       for (const c of contacts) {
-        pins.push({
+        pushWithOffset({
           id: `c-${c.id}`,
           name: c.name,
           subtitle: c.company || c.address || "Cliente",
@@ -166,7 +176,7 @@ export function useMapPins(projectId?: string) {
       }
 
       for (const p of projects) {
-        pins.push({
+        pushWithOffset({
           id: `p-${p.id}`,
           name: p.title,
           subtitle: p.client || p.address || "Projeto",

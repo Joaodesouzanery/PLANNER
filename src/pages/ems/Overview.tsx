@@ -28,6 +28,7 @@ import { Link } from "react-router-dom";
 import { formatDistanceToNow, parseISO, isBefore, startOfWeek, endOfWeek, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
+import { expandRecurringTransactions } from "@/lib/geocode";
 
 const iconMap: Record<string, React.ElementType> = { target: Target, rocket: Rocket, users: Users, trending: TrendingUp };
 
@@ -88,16 +89,17 @@ const Overview = () => {
   const { data: financeData = { totalIncome: 0, totalExpense: 0, monthlyIncome: 0, monthlyExpense: 0, monthlyBalance: 0, balance: 0, monthlyData: [] as MonthlyData[] } } = useQuery({
     queryKey: ["overview-finance", cid],
     queryFn: async () => {
-      let q = supabase.from("financial_transactions").select("amount, type, date");
+      let q = supabase.from("financial_transactions").select("id, amount, type, date, is_recurring, recurrence_interval, category");
       if (cf) q = q.eq("company_id", cid);
       const { data } = await q;
       if (!data) return { totalIncome: 0, totalExpense: 0, monthlyIncome: 0, monthlyExpense: 0, monthlyBalance: 0, balance: 0, monthlyData: [] as MonthlyData[] };
+      const expanded = expandRecurringTransactions(data as any);
       let inc = 0, exp = 0;
-      data.forEach(t => { if (t.type === "income") inc += Number(t.amount); else exp += Number(t.amount); });
+      expanded.forEach(t => { if (t.type === "income") inc += Number(t.amount); else exp += Number(t.amount); });
       const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
       const monthMap: Record<number, { income: number; expense: number }> = {};
       for (let i = 0; i < 12; i++) monthMap[i] = { income: 0, expense: 0 };
-      data.forEach(t => { const d = new Date(t.date); if (d.getFullYear() === currentYear) { const m = d.getMonth(); if (t.type === "income") monthMap[m].income += Number(t.amount); else monthMap[m].expense += Number(t.amount); } });
+      expanded.forEach(t => { const d = new Date(t.date); if (d.getFullYear() === currentYear) { const m = d.getMonth(); if (t.type === "income") monthMap[m].income += Number(t.amount); else monthMap[m].expense += Number(t.amount); } });
       const monthData = monthMap[currentMonth - 1];
       return { totalIncome: inc, totalExpense: exp, monthlyIncome: monthData.income, monthlyExpense: monthData.expense, monthlyBalance: monthData.income - monthData.expense, balance: inc - exp, monthlyData: months.map((m, i) => ({ month: m, income: monthMap[i].income, expense: monthMap[i].expense })) };
     },
@@ -283,15 +285,15 @@ const Overview = () => {
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>
-                  <div className="max-h-32 space-y-1.5 overflow-y-auto">
+                  <div className="flex flex-wrap gap-2">
                     {reminders.length === 0 ? (
-                      <p className="py-3 text-center text-xs text-muted-foreground">Nenhuma frase salva.</p>
+                      <p className="py-3 text-center text-xs text-muted-foreground w-full">Nenhuma frase salva.</p>
                     ) : (
                       reminders.map((item) => (
-                        <div key={item.id} className="flex items-center gap-2 rounded-lg border border-border/40 bg-background/50 px-3 py-2">
-                          <p className="min-w-0 flex-1 truncate text-sm">{item.phrase}</p>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => deleteReminderMutation.mutate(item.id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
+                        <div key={item.id} className="flex items-center gap-2 rounded-lg border border-border/40 bg-background/50 px-3 py-2 text-sm">
+                          <p className="flex-1">{item.phrase}</p>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => deleteReminderMutation.mutate(item.id)}>
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
                       ))

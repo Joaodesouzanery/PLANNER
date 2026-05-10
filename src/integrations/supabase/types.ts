@@ -2550,9 +2550,11 @@ export type Database = {
           description: string | null
           end_date: string | null
           id: string
+          okr_id: string | null
           order_index: number | null
           parent_id: string | null
           progress: number | null
+          project_id: string | null
           start_date: string | null
           status: string | null
           title: string
@@ -2566,9 +2568,11 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           id?: string
+          okr_id?: string | null
           order_index?: number | null
           parent_id?: string | null
           progress?: number | null
+          project_id?: string | null
           start_date?: string | null
           status?: string | null
           title: string
@@ -2582,9 +2586,11 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           id?: string
+          okr_id?: string | null
           order_index?: number | null
           parent_id?: string | null
           progress?: number | null
+          project_id?: string | null
           start_date?: string | null
           status?: string | null
           title?: string
