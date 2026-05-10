@@ -443,6 +443,7 @@ const Projects = () => {
       setShowExecutionModal(true);
       return;
     }
+    const coords = await ensureCoords(projectForm.address, projectForm.latitude, projectForm.longitude);
     await (supabase as any).from("projects").update({
       title: projectForm.title, description: projectForm.description, priority: projectForm.priority,
       due_date: projectForm.due_date || null, client: projectForm.client || null,
@@ -453,8 +454,8 @@ const Projects = () => {
       invoice_alert_days: Number(projectForm.invoice_alert_days) || 7,
       invoice_notes: projectForm.invoice_notes || null,
       address: projectForm.address || null,
-      latitude: projectForm.latitude ? Number(projectForm.latitude) : null,
-      longitude: projectForm.longitude ? Number(projectForm.longitude) : null,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
     }).eq("id", editingProject.id);
     setEditingProject(null);
     setProjectForm(emptyProjectForm);
