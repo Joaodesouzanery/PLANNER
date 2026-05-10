@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { divIcon } from "leaflet";
 import { renderToStaticMarkup } from "react-dom/server";
-import { MapContainer, Marker, Popup, TileLayer, Tooltip } from "react-leaflet";
+import { MapContainer, Marker, Popup, TileLayer, Tooltip, useMapEvents } from "react-leaflet";
 import { BookOpen, BriefcaseBusiness, FolderKanban, ListTodo, MapPin as MapPinIcon } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import { cn } from "@/lib/utils";
@@ -27,6 +27,11 @@ interface LocationMapProps {
   fallbackZoom?: number;
 }
 
+interface VisiblePin extends MapPin {
+  displayLat: number;
+  displayLng: number;
+}
+
 const TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png";
 const LABELS_URL = "https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png";
 const TILE_ATTR =
@@ -40,79 +45,135 @@ const PIN_STYLE: Record<MapPinKind, { bg: string; fg: string; Icon: typeof MapPi
   default: { bg: "hsl(28 100% 55%)", fg: "white", Icon: MapPinIcon, label: "Ponto" },
 };
 
-const groupPinOffsets = (pins: MapPin[]) => {
-  const groups = new Map<string, MapPin[]>();
-  pins.forEach((pin) => {
-    const key = `${pin.lat.toFixed(5)},${pin.lng.toFixed(5)}`;
-    groups.set(key, [...(groups.get(key) || []), pin]);
-  });
+const spreadOffset = (index: number, count: number) => {
+  if (count === 2) return { x: index === 0 ? -22 : 22, y: 0 };
+  if (count === 3) {
+    const positions = [{ x: 0, y: -24 }, { x: -24, y: 18 }, { x: 24, y: 18 }];
+    return positions[index];
+  }
 
-  const offsets = new Map<string, { x: number; y: number }>();
-  groups.forEach((items) => {
-    if (items.length === 1) {
-      offsets.set(items[0].id, { x: 0, y: 0 });
-      return;
-    }
-
-    items.forEach((item, index) => {
-      const ring = Math.floor(index / 8);
-      const positionInRing = index % 8;
-      const itemsInRing = Math.min(8, items.length - ring * 8);
-      const radius = 24 + ring * 18;
-      const angle = (Math.PI * 2 * positionInRing) / itemsInRing - Math.PI / 2;
-      offsets.set(item.id, {
-        x: Math.round(Math.cos(angle) * radius),
-        y: Math.round(Math.sin(angle) * radius),
-      });
-    });
-  });
-
-  return offsets;
+  const ring = Math.floor(index / 8);
+  const positionInRing = index % 8;
+  const itemsInRing = Math.min(8, count - ring * 8);
+  const radius = 26 + ring * 20;
+  const angle = (Math.PI * 2 * positionInRing) / itemsInRing - Math.PI / 2;
+  return {
+    x: Math.round(Math.cos(angle) * radius),
+    y: Math.round(Math.sin(angle) * radius),
+  };
 };
 
-const buildPinIcon = (kind: MapPinKind = "default", alert = false, offset = { x: 0, y: 0 }) => {
+const buildPinIcon = (kind: MapPinKind = "default", alert = false) => {
   const style = PIN_STYLE[kind] || PIN_STYLE.default;
   const Icon = style.Icon;
   const html = renderToStaticMarkup(
     <div
       style={{
-        width: 120,
-        height: 120,
-        position: "relative",
-        pointerEvents: "none",
+        width: 30,
+        height: 30,
+        borderRadius: 999,
+        display: "grid",
+        placeItems: "center",
+        color: style.fg,
+        background: alert ? "hsl(0 75% 55%)" : style.bg,
+        border: "2px solid rgba(255,255,255,.92)",
+        boxShadow: alert
+          ? "0 0 0 6px rgba(239,68,68,.22), 0 10px 24px rgba(0,0,0,.35)"
+          : "0 10px 24px rgba(0,0,0,.35)",
       }}
     >
-      <div
-        style={{
-          width: 30,
-          height: 30,
-          left: 45 + offset.x,
-          top: 45 + offset.y,
-          position: "absolute",
-          borderRadius: 999,
-          display: "grid",
-          placeItems: "center",
-          color: style.fg,
-          background: alert ? "hsl(0 75% 55%)" : style.bg,
-          border: "2px solid rgba(255,255,255,.92)",
-          boxShadow: alert
-            ? "0 0 0 6px rgba(239,68,68,.22), 0 10px 24px rgba(0,0,0,.35)"
-            : "0 10px 24px rgba(0,0,0,.35)",
-          pointerEvents: "auto",
-        }}
-      >
-        <Icon size={15} strokeWidth={2.4} />
-      </div>
+      <Icon size={15} strokeWidth={2.4} />
     </div>
   );
 
   return divIcon({
     html,
     className: "ems-map-pin",
-    iconSize: [120, 120],
-    iconAnchor: [60, 60],
-    popupAnchor: [offset.x, offset.y - 18],
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+    popupAnchor: [0, -14],
   });
+};
+
+const MapMarkers = ({ pins }: { pins: MapPin[] }) => {
+  const [viewTick, setViewTick] = useState(0);
+  const map = useMapEvents({
+    moveend: () => setViewTick((tick) => tick + 1),
+    zoomend: () => setViewTick((tick) => tick + 1),
+    resize: () => setViewTick((tick) => tick + 1),
+  });
+
+  const visiblePins = useMemo<VisiblePin[]>(() => {
+    const projected = pins.map((pin) => ({
+      pin,
+      point: map.latLngToContainerPoint([pin.lat, pin.lng]),
+    }));
+    const groups: Array<{ items: typeof projected; x: number; y: number }> = [];
+    const threshold = 42;
+
+    projected.forEach((item) => {
+      const group = groups.find((candidate) => {
+        const dx = candidate.x - item.point.x;
+        const dy = candidate.y - item.point.y;
+        return Math.sqrt(dx * dx + dy * dy) <= threshold;
+      });
+
+      if (!group) {
+        groups.push({ items: [item], x: item.point.x, y: item.point.y });
+        return;
+      }
+
+      group.items.push(item);
+      group.x = group.items.reduce((sum, entry) => sum + entry.point.x, 0) / group.items.length;
+      group.y = group.items.reduce((sum, entry) => sum + entry.point.y, 0) / group.items.length;
+    });
+
+    return groups.flatMap((group) => {
+      if (group.items.length === 1) {
+        const item = group.items[0];
+        return [{ ...item.pin, displayLat: item.pin.lat, displayLng: item.pin.lng }];
+      }
+
+      return group.items.map((item, index) => {
+        const offset = spreadOffset(index, group.items.length);
+        const latLng = map.containerPointToLatLng([group.x + offset.x, group.y + offset.y]);
+        return { ...item.pin, displayLat: latLng.lat, displayLng: latLng.lng };
+      });
+    });
+  }, [map, pins, viewTick]);
+
+  return (
+    <>
+      {visiblePins.map((pin, index) => {
+        const kind = pin.kind || "default";
+        return (
+          <Marker
+            key={pin.id}
+            position={[pin.displayLat, pin.displayLng]}
+            icon={buildPinIcon(kind, pin.alert)}
+            zIndexOffset={1000 + index}
+            eventHandlers={pin.onClick ? { click: () => pin.onClick?.() } : undefined}
+          >
+            <Tooltip direction="top" offset={[0, -6]} opacity={0.95}>
+              <div className="text-xs">
+                <div className="text-[10px] uppercase tracking-wide opacity-60">{PIN_STYLE[kind]?.label || "Ponto"}</div>
+                <div className="font-medium">{pin.name}</div>
+                {pin.subtitle && <div className="text-[10px] opacity-70">{pin.subtitle}</div>}
+                {pin.alert && <div className="text-[10px] text-red-400 mt-0.5">Atividades pendentes</div>}
+              </div>
+            </Tooltip>
+            <Popup>
+              <div className="text-xs">
+                <div className="text-[10px] uppercase tracking-wide opacity-60">{PIN_STYLE[kind]?.label || "Ponto"}</div>
+                <div className="font-medium">{pin.name}</div>
+                {pin.subtitle && <div className="opacity-70">{pin.subtitle}</div>}
+              </div>
+            </Popup>
+          </Marker>
+        );
+      })}
+    </>
+  );
 };
 
 export const LocationMap = ({
@@ -135,7 +196,6 @@ export const LocationMap = ({
   }, [valid, fallbackCenter]);
 
   const zoom = valid.length ? (valid.length === 1 ? 11 : 5) : fallbackZoom;
-  const visualOffsets = useMemo(() => groupPinOffsets(valid), [valid]);
 
   return (
     <div
@@ -155,34 +215,7 @@ export const LocationMap = ({
       >
         <TileLayer url={TILE_URL} attribution={TILE_ATTR} />
         <TileLayer url={LABELS_URL} />
-        {valid.map((p) => {
-          const kind = p.kind || "default";
-          const offset = visualOffsets.get(p.id) || { x: 0, y: 0 };
-          return (
-            <Marker
-              key={p.id}
-              position={[p.lat, p.lng]}
-              icon={buildPinIcon(kind, p.alert, offset)}
-              eventHandlers={p.onClick ? { click: () => p.onClick?.() } : undefined}
-            >
-              <Tooltip direction="top" offset={[offset.x, offset.y - 6]} opacity={0.95}>
-                <div className="text-xs">
-                  <div className="text-[10px] uppercase tracking-wide opacity-60">{PIN_STYLE[kind]?.label || "Ponto"}</div>
-                  <div className="font-medium">{p.name}</div>
-                  {p.subtitle && <div className="text-[10px] opacity-70">{p.subtitle}</div>}
-                  {p.alert && <div className="text-[10px] text-red-400 mt-0.5">Atividades pendentes</div>}
-                </div>
-              </Tooltip>
-              <Popup>
-                <div className="text-xs">
-                  <div className="text-[10px] uppercase tracking-wide opacity-60">{PIN_STYLE[kind]?.label || "Ponto"}</div>
-                  <div className="font-medium">{p.name}</div>
-                  {p.subtitle && <div className="opacity-70">{p.subtitle}</div>}
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
+        <MapMarkers pins={valid} />
       </MapContainer>
 
       {!valid.length && (
