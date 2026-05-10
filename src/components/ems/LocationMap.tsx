@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, useMap, useMapEvents } from "react-leaflet";
-import { BookOpen, BriefcaseBusiness, FolderKanban, ListTodo, MapPin as MapPinIcon } from "lucide-react";
+import { AlertTriangle, BookOpen, BriefcaseBusiness, ExternalLink, FolderKanban, ListTodo, MapPin as MapPinIcon } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import { cn } from "@/lib/utils";
 
@@ -26,12 +26,8 @@ interface LocationMapProps {
 }
 
 interface VisiblePin extends MapPin {
-  baseX: number;
-  baseY: number;
   x: number;
   y: number;
-  offsetX: number;
-  offsetY: number;
 }
 
 const TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png";
@@ -39,13 +35,22 @@ const LABELS_URL = "https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{
 const TILE_ATTR =
   '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 
-const PIN_STYLE: Record<MapPinKind, { bg: string; fg: string; Icon: typeof MapPinIcon; label: string }> = {
-  project: { bg: "hsl(262 78% 58%)", fg: "white", Icon: FolderKanban, label: "Projeto" },
-  client: { bg: "hsl(158 64% 42%)", fg: "white", Icon: BriefcaseBusiness, label: "Cliente" },
-  task: { bg: "hsl(37 92% 50%)", fg: "hsl(24 10% 10%)", Icon: ListTodo, label: "Tarefa" },
-  faculdade: { bg: "hsl(190 86% 45%)", fg: "white", Icon: BookOpen, label: "Faculdade" },
-  default: { bg: "hsl(28 100% 55%)", fg: "white", Icon: MapPinIcon, label: "Ponto" },
+const PIN_STYLE: Record<MapPinKind, { bg: string; fg: string; borderRadius: string; Icon: typeof MapPinIcon; label: string }> = {
+  project: { bg: "hsl(262 78% 58%)", fg: "white", borderRadius: "10px", Icon: FolderKanban, label: "Projeto" },
+  client: { bg: "hsl(158 64% 42%)", fg: "white", borderRadius: "999px", Icon: BriefcaseBusiness, label: "Cliente" },
+  task: { bg: "hsl(37 92% 50%)", fg: "hsl(24 10% 10%)", borderRadius: "8px", Icon: ListTodo, label: "Tarefa" },
+  faculdade: { bg: "hsl(190 86% 45%)", fg: "white", borderRadius: "8px", Icon: BookOpen, label: "Faculdade" },
+  default: { bg: "hsl(28 100% 55%)", fg: "white", borderRadius: "999px", Icon: MapPinIcon, label: "Ponto" },
 };
+
+const PROJECT_COLORS = [
+  "hsl(262 78% 58%)",
+  "hsl(217 91% 60%)",
+  "hsl(190 86% 45%)",
+  "hsl(330 81% 60%)",
+  "hsl(45 93% 47%)",
+  "hsl(12 76% 56%)",
+];
 
 const KIND_ORDER: Record<MapPinKind, number> = {
   project: 0,
@@ -64,42 +69,56 @@ const sortPins = (pins: MapPin[]) =>
     return `${a.name}-${a.id}`.localeCompare(`${b.name}-${b.id}`);
   });
 
-const spreadOffset = (index: number, count: number) => {
-  if (count === 2) return { x: index === 0 ? -25 : 25, y: 0 };
-  if (count === 3) {
-    const positions = [{ x: 0, y: -28 }, { x: -28, y: 20 }, { x: 28, y: 20 }];
-    return positions[index];
-  }
+const hashString = (value: string) =>
+  value.split("").reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0, 0);
 
-  const ring = Math.floor(index / 8);
-  const positionInRing = index % 8;
-  const itemsInRing = Math.min(8, count - ring * 8);
-  const radius = 34 + ring * 24;
-  const angle = (Math.PI * 2 * positionInRing) / itemsInRing - Math.PI / 2;
+const projectColor = (id: string) => PROJECT_COLORS[Math.abs(hashString(id)) % PROJECT_COLORS.length];
+
+const compactOffset = (index: number, count: number) => {
+  if (count === 1) return { x: 0, y: 0 };
+
+  const columns = count <= 4 ? 2 : count <= 9 ? 3 : 4;
+  const gap = 34;
+  const rows = Math.ceil(count / columns);
+  const row = Math.floor(index / columns);
+  const col = index % columns;
+  const itemsInRow = row === rows - 1 ? count - row * columns : columns;
+  const rowWidth = (itemsInRow - 1) * gap;
+  const gridHeight = (rows - 1) * gap;
+
   return {
-    x: Math.round(Math.cos(angle) * radius),
-    y: Math.round(Math.sin(angle) * radius),
+    x: Math.round(col * gap - rowWidth / 2),
+    y: Math.round(row * gap - gridHeight / 2),
   };
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
-const PinGlyph = ({ kind = "default", alert = false }: { kind?: MapPinKind; alert?: boolean }) => {
+const PinGlyph = ({ id, kind = "default", alert = false }: { id: string; kind?: MapPinKind; alert?: boolean }) => {
   const style = PIN_STYLE[kind] || PIN_STYLE.default;
   const Icon = style.Icon;
+  const background = kind === "project" ? projectColor(id) : style.bg;
+  const projectInitial = kind === "project" ? id.replace(/^p-/, "").slice(0, 1).toUpperCase() : null;
 
   return (
     <div
-      className="grid h-[30px] w-[30px] place-items-center rounded-full border-2 border-white/90 shadow-[0_10px_24px_rgba(0,0,0,.35)]"
+      className="relative grid h-[30px] w-[30px] place-items-center border-2 border-white/90 shadow-[0_10px_24px_rgba(0,0,0,.35)]"
       style={{
         color: style.fg,
-        background: alert ? "hsl(0 75% 55%)" : style.bg,
+        background,
+        borderRadius: style.borderRadius,
         boxShadow: alert
-          ? "0 0 0 6px rgba(239,68,68,.22), 0 10px 24px rgba(0,0,0,.35)"
+          ? "0 0 0 5px rgba(239,68,68,.22), 0 10px 24px rgba(0,0,0,.35)"
           : "0 10px 24px rgba(0,0,0,.35)",
       }}
     >
       <Icon size={15} strokeWidth={2.4} />
+      {projectInitial && (
+        <span className="absolute -right-1 -top-1 grid h-3.5 min-w-3.5 place-items-center rounded-full border border-white/80 bg-background px-0.5 text-[8px] font-bold text-foreground">
+          {projectInitial}
+        </span>
+      )}
+      {alert && <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white bg-red-500" />}
     </div>
   );
 };
@@ -142,17 +161,13 @@ const MapPinOverlay = ({ pins }: { pins: MapPin[] }) => {
     setVisiblePins(
       groups.flatMap((group) =>
         group.items.map((item, index) => {
-          const offset = group.items.length > 1 ? spreadOffset(index, group.items.length) : { x: 0, y: 0 };
-          const x = clamp(item.point.x + offset.x, margin, Math.max(margin, size.x - margin));
-          const y = clamp(item.point.y + offset.y, margin, Math.max(margin, size.y - margin));
+          const offset = group.items.length > 1 ? compactOffset(index, group.items.length) : { x: 0, y: 0 };
+          const x = clamp(group.x + offset.x, margin, Math.max(margin, size.x - margin));
+          const y = clamp(group.y + offset.y, margin, Math.max(margin, size.y - margin));
           return {
             ...item.pin,
-            baseX: item.point.x,
-            baseY: item.point.y,
             x,
             y,
-            offsetX: x - item.point.x,
-            offsetY: y - item.point.y,
           };
         })
       )
@@ -190,18 +205,6 @@ const MapPinOverlay = ({ pins }: { pins: MapPin[] }) => {
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[700]">
-      <svg className="absolute inset-0 h-full w-full overflow-visible" aria-hidden>
-        {visiblePins.map((pin) => {
-          if (Math.abs(pin.offsetX) < 2 && Math.abs(pin.offsetY) < 2) return null;
-          return (
-            <g key={`line-${pin.id}`}>
-              <line x1={pin.baseX} y1={pin.baseY} x2={pin.x} y2={pin.y} stroke="rgba(255,255,255,.42)" strokeWidth="1" />
-              <circle cx={pin.baseX} cy={pin.baseY} r="2" fill="rgba(255,255,255,.62)" />
-            </g>
-          );
-        })}
-      </svg>
-
       {visiblePins.map((pin, index) => {
         const kind = pin.kind || "default";
         const style = PIN_STYLE[kind] || PIN_STYLE.default;
@@ -209,7 +212,7 @@ const MapPinOverlay = ({ pins }: { pins: MapPin[] }) => {
           <button
             key={pin.id}
             type="button"
-            className="pointer-events-auto absolute grid h-[34px] w-[34px] place-items-center rounded-full outline-none transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-white/80"
+            className="pointer-events-auto absolute grid h-[34px] w-[34px] place-items-center outline-none transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-white/80"
             style={{
               left: pin.x,
               top: pin.y,
@@ -223,17 +226,16 @@ const MapPinOverlay = ({ pins }: { pins: MapPin[] }) => {
             onClick={(event) => {
               event.stopPropagation();
               setActiveId((current) => (current === pin.id ? null : pin.id));
-              pin.onClick?.();
             }}
           >
-            <PinGlyph kind={kind} alert={pin.alert} />
+            <PinGlyph id={pin.id} kind={kind} alert={pin.alert} />
           </button>
         );
       })}
 
       {detailPin && (
         <div
-          className="pointer-events-auto absolute min-w-[170px] max-w-[240px] rounded-lg border border-white/10 bg-popover/95 px-3 py-2 text-xs text-popover-foreground shadow-xl backdrop-blur"
+          className="pointer-events-auto absolute w-[260px] max-w-[calc(100%-24px)] overflow-hidden rounded-md border border-white/10 bg-popover text-xs text-popover-foreground shadow-xl backdrop-blur animate-in fade-in-0 zoom-in-95"
           style={{
             left: detailPin.x,
             top: detailPin.y - 22,
@@ -242,10 +244,34 @@ const MapPinOverlay = ({ pins }: { pins: MapPin[] }) => {
           }}
           onMouseDown={(event) => event.stopPropagation()}
         >
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{PIN_STYLE[detailPin.kind || "default"]?.label || "Ponto"}</div>
-          <div className="font-medium">{detailPin.name}</div>
-          {detailPin.subtitle && <div className="mt-0.5 text-[10px] text-muted-foreground">{detailPin.subtitle}</div>}
-          {detailPin.alert && <div className="mt-1 text-[10px] text-red-400">Atividades pendentes</div>}
+          <div className="h-1.5" style={{ background: detailPin.kind === "project" ? projectColor(detailPin.id) : PIN_STYLE[detailPin.kind || "default"]?.bg }} />
+          <div className="space-y-2 p-3">
+            <div>
+              <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                {PIN_STYLE[detailPin.kind || "default"]?.label || "Ponto"}
+              </div>
+              <div className="mt-0.5 font-semibold leading-tight text-foreground">{detailPin.name}</div>
+              {detailPin.subtitle && <div className="mt-1 text-[11px] text-muted-foreground">{detailPin.subtitle}</div>}
+            </div>
+            {detailPin.alert && (
+              <div className="flex items-center gap-1.5 rounded-md bg-red-500/10 px-2 py-1.5 text-[11px] text-red-400">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                Atividades pendentes
+              </div>
+            )}
+            {detailPin.onClick && (
+              <button
+                type="button"
+                className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  detailPin.onClick?.();
+                }}
+              >
+                Abrir <ExternalLink className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
