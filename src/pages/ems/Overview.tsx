@@ -285,15 +285,15 @@ const Overview = () => {
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>
-                  <div className="max-h-32 space-y-1.5 overflow-y-auto">
+                  <div className="flex flex-wrap gap-2">
                     {reminders.length === 0 ? (
-                      <p className="py-3 text-center text-xs text-muted-foreground">Nenhuma frase salva.</p>
+                      <p className="py-3 text-center text-xs text-muted-foreground w-full">Nenhuma frase salva.</p>
                     ) : (
                       reminders.map((item) => (
-                        <div key={item.id} className="flex items-center gap-2 rounded-lg border border-border/40 bg-background/50 px-3 py-2">
-                          <p className="min-w-0 flex-1 truncate text-sm">{item.phrase}</p>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => deleteReminderMutation.mutate(item.id)}>
-                            <Trash2 className="h-3.5 w-3.5" />
+                        <div key={item.id} className="flex items-center gap-2 rounded-lg border border-border/40 bg-background/50 px-3 py-2 text-sm">
+                          <p className="flex-1">{item.phrase}</p>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => deleteReminderMutation.mutate(item.id)}>
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
                       ))
