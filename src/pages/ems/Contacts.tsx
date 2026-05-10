@@ -107,7 +107,8 @@ const Contacts = () => {
   });
   const saveContactMutation = useMutation({
     mutationFn: async () => {
-      const payload = { name: contactForm.name, email: contactForm.email || null, phone: contactForm.phone || null, company: contactForm.company || null, notes: contactForm.notes || null, project_id: contactForm.project_id || null, pipeline_stage: contactForm.pipeline_stage || "lead", company_id: selectedCompanyId !== "all" ? selectedCompanyId : null, address: contactForm.address || null, latitude: contactForm.latitude ? Number(contactForm.latitude) : null, longitude: contactForm.longitude ? Number(contactForm.longitude) : null };
+      const coords = await ensureCoords(contactForm.address, contactForm.latitude, contactForm.longitude);
+      const payload = { name: contactForm.name, email: contactForm.email || null, phone: contactForm.phone || null, company: contactForm.company || null, notes: contactForm.notes || null, project_id: contactForm.project_id || null, pipeline_stage: contactForm.pipeline_stage || "lead", company_id: selectedCompanyId !== "all" ? selectedCompanyId : null, address: contactForm.address || null, latitude: coords.latitude, longitude: coords.longitude };
       if (editingContact) { const { error } = await supabase.from("contacts").update(payload).eq("id", editingContact.id); if (error) throw error; }
       else { const { error } = await supabase.from("contacts").insert(payload); if (error) throw error; }
     },
