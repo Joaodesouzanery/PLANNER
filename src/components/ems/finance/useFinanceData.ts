@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, subMonths, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { expandRecurringTransactions } from "@/lib/geocode";
 
 export interface OKR {
   id: string; title: string; description: string | null; target_value: number;
