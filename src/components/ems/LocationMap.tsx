@@ -28,8 +28,8 @@ interface LocationMapProps {
 }
 
 interface VisiblePin extends MapPin {
-  displayLat: number;
-  displayLng: number;
+  offsetX: number;
+  offsetY: number;
 }
 
 const TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png";
@@ -63,7 +63,7 @@ const spreadOffset = (index: number, count: number) => {
   };
 };
 
-const buildPinIcon = (kind: MapPinKind = "default", alert = false) => {
+const buildPinIcon = (kind: MapPinKind = "default", alert = false, offsetX = 0, offsetY = 0) => {
   const style = PIN_STYLE[kind] || PIN_STYLE.default;
   const Icon = style.Icon;
   const html = renderToStaticMarkup(
@@ -80,6 +80,7 @@ const buildPinIcon = (kind: MapPinKind = "default", alert = false) => {
         boxShadow: alert
           ? "0 0 0 6px rgba(239,68,68,.22), 0 10px 24px rgba(0,0,0,.35)"
           : "0 10px 24px rgba(0,0,0,.35)",
+        transform: `translate(${offsetX}px, ${offsetY}px)`,
       }}
     >
       <Icon size={15} strokeWidth={2.4} />
@@ -91,7 +92,7 @@ const buildPinIcon = (kind: MapPinKind = "default", alert = false) => {
     className: "ems-map-pin",
     iconSize: [30, 30],
     iconAnchor: [15, 15],
-    popupAnchor: [0, -14],
+    popupAnchor: [offsetX, offsetY - 14],
   });
 };
 
@@ -131,13 +132,12 @@ const MapMarkers = ({ pins }: { pins: MapPin[] }) => {
     return groups.flatMap((group) => {
       if (group.items.length === 1) {
         const item = group.items[0];
-        return [{ ...item.pin, displayLat: item.pin.lat, displayLng: item.pin.lng }];
+        return [{ ...item.pin, offsetX: 0, offsetY: 0 }];
       }
 
       return group.items.map((item, index) => {
         const offset = spreadOffset(index, group.items.length);
-        const latLng = map.containerPointToLatLng([group.x + offset.x, group.y + offset.y]);
-        return { ...item.pin, displayLat: latLng.lat, displayLng: latLng.lng };
+        return { ...item.pin, offsetX: offset.x, offsetY: offset.y };
       });
     });
   }, [map, pins, viewTick]);
@@ -149,12 +149,12 @@ const MapMarkers = ({ pins }: { pins: MapPin[] }) => {
         return (
           <Marker
             key={pin.id}
-            position={[pin.displayLat, pin.displayLng]}
-            icon={buildPinIcon(kind, pin.alert)}
+            position={[pin.lat, pin.lng]}
+            icon={buildPinIcon(kind, pin.alert, pin.offsetX, pin.offsetY)}
             zIndexOffset={1000 + index}
             eventHandlers={pin.onClick ? { click: () => pin.onClick?.() } : undefined}
           >
-            <Tooltip direction="top" offset={[0, -6]} opacity={0.95}>
+            <Tooltip direction="top" offset={[pin.offsetX, pin.offsetY - 6]} opacity={0.95}>
               <div className="text-xs">
                 <div className="text-[10px] uppercase tracking-wide opacity-60">{PIN_STYLE[kind]?.label || "Ponto"}</div>
                 <div className="font-medium">{pin.name}</div>
@@ -221,7 +221,7 @@ export const LocationMap = ({
       {!valid.length && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/40 backdrop-blur-[1px]">
           <p className="rounded-md border border-border/40 bg-card/90 px-3 py-1.5 text-xs text-muted-foreground">
-            Cadastre latitude/longitude em contatos, clientes ou projetos para vÃª-los no mapa.
+            Cadastre latitude/longitude em contatos, clientes ou projetos para vê-los no mapa.
           </p>
         </div>
       )}
