@@ -17,18 +17,18 @@ import autoTable from "jspdf-autotable";
 import { toast } from "sonner";
 
 const FinanceTransactions = () => {
-  const { transactions, allCategories, saveTransactionMutation, deleteTransactionMutation } = useFinanceData();
+  const { rawTransactions, allCategories, saveTransactionMutation, deleteTransactionMutation } = useFinanceData();
   const [showModal, setShowModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [filterCategory, setFilterCategory] = useState("");
   const [filterType, setFilterType] = useState("");
   const [form, setForm] = useState({ description: "", amount: 0, type: "income" as "income" | "expense", category: "", date: format(new Date(), "yyyy-MM-dd"), is_recurring: false, recurrence_interval: "" });
 
-  const filteredTransactions = useMemo(() => transactions.filter(t => {
+  const filteredTransactions = useMemo(() => rawTransactions.filter(t => {
     if (filterCategory && t.category !== filterCategory) return false;
     if (filterType && t.type !== filterType) return false;
     return true;
-  }), [transactions, filterCategory, filterType]);
+  }), [rawTransactions, filterCategory, filterType]);
 
   const handleSave = () => {
     const payload = { ...form, recurrence_interval: form.is_recurring ? (form.recurrence_interval || "monthly") : null };

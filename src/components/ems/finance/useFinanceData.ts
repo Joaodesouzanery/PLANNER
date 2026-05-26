@@ -15,6 +15,7 @@ export interface Transaction {
   id: string; description: string; amount: number; type: "income" | "expense";
   category: string | null; date: string; created_at: string;
   is_recurring?: boolean; recurrence_interval?: string | null;
+  source_id?: string | null; is_projected?: boolean | null; projection_index?: number | null;
 }
 export interface SavedInstallment {
   id: string;
@@ -42,6 +43,14 @@ const isMissingTableError = (error: any) =>
   error?.code === "PGRST205" ||
   String(error?.message || "").toLowerCase().includes("finance_saved_installments");
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const assertUuid = (id: string | undefined, label: string) => {
+  if (!id || !UUID_RE.test(id)) {
+    throw new Error(`${label} invalido. Recarregue a pagina e tente novamente.`);
+  }
+};
+
 export const useFinanceData = () => {
   const { toast } = useToast();
   const { selectedCompanyId } = useCompany();
@@ -58,16 +67,18 @@ export const useFinanceData = () => {
     },
   });
 
-  const { data: transactions = [] } = useQuery({
+  const { data: rawTransactions = [] } = useQuery({
     queryKey: ["finance-transactions", selectedCompanyId],
     queryFn: async () => {
       let q = supabase.from("financial_transactions").select("*").order("date", { ascending: false });
       if (selectedCompanyId !== "all") q = q.eq("company_id", selectedCompanyId);
       const { data, error } = await q;
       if (error) throw error;
-      return expandRecurringTransactions((data || []) as any) as Transaction[];
+      return (data || []) as Transaction[];
     },
   });
+
+  const transactions = useMemo(() => expandRecurringTransactions(rawTransactions), [rawTransactions]);
 
   const { data: savedInstallments = [] } = useQuery({
     queryKey: ["finance-saved-installments", selectedCompanyId],
@@ -91,6 +102,7 @@ export const useFinanceData = () => {
   const saveOkrMutation = useMutation({
     mutationFn: async ({ form, editingId }: { form: any; editingId?: string }) => {
       if (editingId) {
+        assertUuid(editingId, "ID do OKR");
         const { error } = await supabase.from("okrs").update(form).eq("id", editingId);
         if (error) throw error;
       } else {
@@ -103,13 +115,15 @@ export const useFinanceData = () => {
   });
 
   const deleteOkrMutation = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("okrs").delete().eq("id", id); if (error) throw error; },
+    mutationFn: async (id: string) => { assertUuid(id, "ID do OKR"); const { error } = await supabase.from("okrs").delete().eq("id", id); if (error) throw error; },
     onSuccess: () => { invalidate(); toast({ title: "OKR removido!" }); },
+    onError: (e: any) => toast({ title: "Erro ao excluir OKR", description: e?.message, variant: "destructive" }),
   });
 
   const saveTransactionMutation = useMutation({
     mutationFn: async ({ form, editingId }: { form: any; editingId?: string }) => {
       if (editingId) {
+        assertUuid(editingId, "ID da transacao");
         const { error } = await supabase.from("financial_transactions").update(form).eq("id", editingId);
         if (error) throw error;
       } else {
@@ -122,7 +136,7 @@ export const useFinanceData = () => {
   });
 
   const deleteTransactionMutation = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from("financial_transactions").delete().eq("id", id); if (error) throw error; },
+    mutationFn: async (id: string) => { assertUuid(id, "ID da transacao"); const { error } = await supabase.from("financial_transactions").delete().eq("id", id); if (error) throw error; },
     onSuccess: () => { invalidate(); toast({ title: "Transação removida!" }); },
   });
 
@@ -144,6 +158,7 @@ export const useFinanceData = () => {
 
   const deleteInstallmentMutation = useMutation({
     mutationFn: async (id: string) => {
+      assertUuid(id, "ID do parcelamento");
       const { error } = await (supabase as any).from("finance_saved_installments").delete().eq("id", id);
       if (error) throw error;
     },
@@ -161,9 +176,9 @@ export const useFinanceData = () => {
 
   const allCategories = useMemo(() => {
     const cats = new Set<string>();
-    transactions.forEach(t => { if (t.category) cats.add(t.category); });
+    rawTransactions.forEach(t => { if (t.category) cats.add(t.category); });
     return Array.from(cats).sort();
-  }, [transactions]);
+  }, [rawTransactions]);
 
   const monthlyData = useMemo(() => {
     const months: { month: string; income: number; expense: number; balance: number }[] = [];
@@ -204,7 +219,7 @@ export const useFinanceData = () => {
   const capitalEvolution = useMemo(() => { let running = 0; return monthlyData.map(m => { running += m.balance; return { month: m.month, capital: running }; }); }, [monthlyData]);
 
   return {
-    okrs, transactions, totalIncome, totalExpense, balance, allCategories,
+    okrs, transactions, rawTransactions, totalIncome, totalExpense, balance, allCategories,
     savedInstallments,
     monthlyData, incomeByCat, expenseByCat, projectionData, capitalEvolution,
     saveOkrMutation, deleteOkrMutation, saveTransactionMutation, deleteTransactionMutation,

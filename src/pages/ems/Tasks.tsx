@@ -502,21 +502,36 @@ const Tasks = () => {
             { label: "Urgentes", value: stats.urgent, icon: AlertTriangle, color: "text-red-400", gradient: "from-red-500/10 to-red-500/5" },
             { label: "Atrasadas", value: stats.overdue, icon: Calendar, color: "text-red-400", gradient: "from-red-500/10 to-red-500/5" },
             { label: "Sem projeto", value: stats.unassigned, icon: FolderKanban, color: "text-blue-400", gradient: "from-blue-500/10 to-blue-500/5" },
-          ].map((s, i) => (
-            <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-              <div className="stat-card">
-                <div className="flex items-center gap-3">
-                  <div className={cn("p-2 rounded-lg bg-gradient-to-br", s.gradient)}>
-                    <s.icon className={cn("h-4 w-4", s.color)} />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold font-mono">{s.value}</p>
-                    <p className="text-xs text-muted-foreground">{s.label}</p>
+          ].map((s, i) => {
+            const isUrgentCard = s.label === "Urgentes";
+            const isUrgentActive = isUrgentCard && priorityFilter === "urgent";
+            return (
+              <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
+                <div
+                  className={cn("stat-card", isUrgentCard && "cursor-pointer transition-colors hover:border-red-500/40", isUrgentActive && "border-red-500/60 bg-red-500/10")}
+                  role={isUrgentCard ? "button" : undefined}
+                  tabIndex={isUrgentCard ? 0 : undefined}
+                  onClick={isUrgentCard ? () => setPriorityFilter(isUrgentActive ? "all" : "urgent") : undefined}
+                  onKeyDown={isUrgentCard ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setPriorityFilter(isUrgentActive ? "all" : "urgent");
+                    }
+                  } : undefined}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={cn("p-2 rounded-lg bg-gradient-to-br", s.gradient)}>
+                      <s.icon className={cn("h-4 w-4", s.color)} />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold font-mono">{s.value}</p>
+                      <p className="text-xs text-muted-foreground">{s.label}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="col-span-2 lg:col-span-1">
             <div className="stat-card">
               <div className="flex items-center gap-3 mb-2">
@@ -572,8 +587,8 @@ const Tasks = () => {
           </Select>
 
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="h-8 w-full sm:w-[170px] text-xs">
-              <Flag className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+            <SelectTrigger className={cn("h-8 w-full sm:w-[170px] text-xs", priorityFilter === "urgent" && "border-red-500/60 bg-red-500/10 text-red-400")}>
+              <Flag className={cn("h-3.5 w-3.5 mr-1", priorityFilter === "urgent" ? "text-red-400" : "text-muted-foreground")} />
               <SelectValue placeholder="Prioridade" />
             </SelectTrigger>
             <SelectContent>

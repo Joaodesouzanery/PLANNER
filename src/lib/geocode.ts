@@ -51,6 +51,9 @@ export interface RecurringTx {
   is_recurring?: boolean | null;
   recurrence_interval?: string | null;
   category?: string | null;
+  source_id?: string | null;
+  is_projected?: boolean | null;
+  projection_index?: number | null;
 }
 
 export function expandRecurringTransactions<T extends RecurringTx>(rows: T[]): T[] {
@@ -67,7 +70,15 @@ export function expandRecurringTransactions<T extends RecurringTx>(rows: T[]): T
     let safety = 0;
     while (cursor <= today && safety < 240) {
       const iso = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`;
-      out.push({ ...tx, id: `${tx.id}-r${safety}`, date: iso, is_recurring: false } as T);
+      out.push({
+        ...tx,
+        id: `${tx.id}-r${safety}`,
+        date: iso,
+        source_id: tx.id,
+        is_projected: true,
+        projection_index: safety,
+        is_recurring: false,
+      } as T);
       cursor.setMonth(cursor.getMonth() + 1);
       safety += 1;
     }
