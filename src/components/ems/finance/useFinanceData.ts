@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format, subMonths, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { expandRecurringTransactions } from "@/lib/geocode";
+import { expandRecurringTransactions, parseDateOnly } from "@/lib/geocode";
 
 export interface OKR {
   id: string; title: string; description: string | null; target_value: number;
@@ -37,6 +37,10 @@ export const PIE_COLORS = ["hsl(var(--primary))", "hsl(142.1, 76.2%, 36.3%)", "h
 
 export const fmtCurrency = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
 export const tooltipStyle = { backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" };
+export const formatDateBR = (date: string) => {
+  const parsed = parseDateOnly(date);
+  return parsed ? format(parsed, "dd/MM/yyyy") : "-";
+};
 
 const isMissingTableError = (error: any) =>
   error?.code === "42P01" ||
@@ -170,8 +174,17 @@ export const useFinanceData = () => {
     }),
   });
 
-  const totalIncome = useMemo(() => transactions.filter(t => t.type === "income").reduce((a, t) => a + Number(t.amount), 0), [transactions]);
-  const totalExpense = useMemo(() => transactions.filter(t => t.type === "expense").reduce((a, t) => a + Number(t.amount), 0), [transactions]);
+  const dashboardTransactions = useMemo(() => {
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    return transactions.filter((t) => {
+      const date = parseDateOnly(t.date);
+      return date ? date <= today : false;
+    });
+  }, [transactions]);
+
+  const totalIncome = useMemo(() => dashboardTransactions.filter(t => t.type === "income").reduce((a, t) => a + Number(t.amount), 0), [dashboardTransactions]);
+  const totalExpense = useMemo(() => dashboardTransactions.filter(t => t.type === "expense").reduce((a, t) => a + Number(t.amount), 0), [dashboardTransactions]);
   const balance = totalIncome - totalExpense;
 
   const allCategories = useMemo(() => {
@@ -184,25 +197,25 @@ export const useFinanceData = () => {
     const months: { month: string; income: number; expense: number; balance: number }[] = [];
     for (let i = 11; i >= 0; i--) {
       const d = subMonths(new Date(), i); const key = format(d, "yyyy-MM"); const label = format(d, "MMM/yy", { locale: ptBR });
-      const monthTx = transactions.filter(t => t.date.startsWith(key));
+      const monthTx = dashboardTransactions.filter(t => String(t.date).slice(0, 7) === key);
       const inc = monthTx.filter(t => t.type === "income").reduce((a, t) => a + Number(t.amount), 0);
       const exp = monthTx.filter(t => t.type === "expense").reduce((a, t) => a + Number(t.amount), 0);
       months.push({ month: label, income: inc, expense: exp, balance: inc - exp });
     }
     return months;
-  }, [transactions]);
+  }, [dashboardTransactions]);
 
   const incomeByCat = useMemo(() => {
     const map: Record<string, number> = {};
-    transactions.filter(t => t.type === "income").forEach(t => { const cat = t.category || "Sem categoria"; map[cat] = (map[cat] || 0) + Number(t.amount); });
+    dashboardTransactions.filter(t => t.type === "income").forEach(t => { const cat = t.category || "Sem categoria"; map[cat] = (map[cat] || 0) + Number(t.amount); });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  }, [transactions]);
+  }, [dashboardTransactions]);
 
   const expenseByCat = useMemo(() => {
     const map: Record<string, number> = {};
-    transactions.filter(t => t.type === "expense").forEach(t => { const cat = t.category || "Sem categoria"; map[cat] = (map[cat] || 0) + Number(t.amount); });
+    dashboardTransactions.filter(t => t.type === "expense").forEach(t => { const cat = t.category || "Sem categoria"; map[cat] = (map[cat] || 0) + Number(t.amount); });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  }, [transactions]);
+  }, [dashboardTransactions]);
 
   const projectionData = useMemo(() => {
     const last3 = monthlyData.slice(-3);
@@ -219,7 +232,7 @@ export const useFinanceData = () => {
   const capitalEvolution = useMemo(() => { let running = 0; return monthlyData.map(m => { running += m.balance; return { month: m.month, capital: running }; }); }, [monthlyData]);
 
   return {
-    okrs, transactions, rawTransactions, totalIncome, totalExpense, balance, allCategories,
+    okrs, transactions, rawTransactions, dashboardTransactions, totalIncome, totalExpense, balance, allCategories,
     savedInstallments,
     monthlyData, incomeByCat, expenseByCat, projectionData, capitalEvolution,
     saveOkrMutation, deleteOkrMutation, saveTransactionMutation, deleteTransactionMutation,

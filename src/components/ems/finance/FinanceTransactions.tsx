@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Edit2, Trash2, RefreshCw, Download, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { useFinanceData, fmtCurrency, type Transaction } from "./useFinanceData";
+import { useFinanceData, fmtCurrency, formatDateBR, type Transaction } from "./useFinanceData";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from "sonner";
@@ -49,7 +49,7 @@ const FinanceTransactions = () => {
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" className="rounded-xl" onClick={() => {
-            const rows = filteredTransactions.map(t => `${format(new Date(t.date),"dd/MM/yyyy")},${t.description.replace(/,/g," ")},${t.category||""},${t.type==="income"?"Entrada":"Saída"},${t.amount}`);
+            const rows = filteredTransactions.map(t => `${formatDateBR(t.date)},${t.description.replace(/,/g," ")},${t.category||""},${t.type==="income"?"Entrada":"Saída"},${t.amount}`);
             const csv = "Data,Descrição,Categoria,Tipo,Valor\n" + rows.join("\n");
             const blob = new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
             const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href=url; a.download="transacoes.csv"; a.click(); URL.revokeObjectURL(url);
@@ -58,7 +58,7 @@ const FinanceTransactions = () => {
           <Button size="sm" variant="outline" className="rounded-xl" onClick={() => {
             const doc = new jsPDF(); doc.setFontSize(16); doc.text("Transações Financeiras", 14, 20);
             doc.setFontSize(10); doc.text(`Exportado em ${format(new Date(),"dd/MM/yyyy HH:mm")}`, 14, 28);
-            autoTable(doc, { startY: 34, head: [["Data","Descrição","Categoria","Tipo","Valor"]], body: filteredTransactions.map(t => [format(new Date(t.date),"dd/MM/yyyy"), t.description, t.category||"-", t.type==="income"?"Entrada":"Saída", fmtCurrency(Number(t.amount))]), styles:{fontSize:9}, headStyles:{fillColor:[59,130,246]} });
+            autoTable(doc, { startY: 34, head: [["Data","Descrição","Categoria","Tipo","Valor"]], body: filteredTransactions.map(t => [formatDateBR(t.date), t.description, t.category||"-", t.type==="income"?"Entrada":"Saída", fmtCurrency(Number(t.amount))]), styles:{fontSize:9}, headStyles:{fillColor:[59,130,246]} });
             doc.save("transacoes.pdf"); toast.success("PDF exportado!");
           }}><FileText className="h-4 w-4 mr-1" />PDF</Button>
           <Button size="sm" onClick={() => setShowModal(true)} className="rounded-xl shadow-lg shadow-primary/20"><Plus className="h-4 w-4 mr-2" />Nova Transação</Button>
@@ -72,7 +72,7 @@ const FinanceTransactions = () => {
               <TableBody>
                 {filteredTransactions.map(t => (
                   <TableRow key={t.id} className="hover:bg-muted/30">
-                    <TableCell className="whitespace-nowrap font-mono text-xs">{format(new Date(t.date), "dd/MM/yyyy")}</TableCell>
+                    <TableCell className="whitespace-nowrap font-mono text-xs">{formatDateBR(t.date)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {t.description}

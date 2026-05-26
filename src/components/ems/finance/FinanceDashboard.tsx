@@ -6,7 +6,7 @@ import { ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Are
 import { useFinanceData, fmtCurrency, tooltipStyle, PIE_COLORS } from "./useFinanceData";
 
 const FinanceDashboard = () => {
-  const { totalIncome, totalExpense, balance, transactions, monthlyData, capitalEvolution, incomeByCat, expenseByCat } = useFinanceData();
+  const { totalIncome, totalExpense, balance, dashboardTransactions, monthlyData, capitalEvolution, incomeByCat, expenseByCat } = useFinanceData();
 
   return (
     <div className="space-y-6">
@@ -15,7 +15,7 @@ const FinanceDashboard = () => {
           { label: "Entradas", value: fmtCurrency(totalIncome), icon: ArrowUpRight, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
           { label: "Saídas", value: fmtCurrency(totalExpense), icon: ArrowDownRight, color: "text-destructive", bg: "bg-destructive/10", border: "border-destructive/20" },
           { label: "Saldo", value: fmtCurrency(balance), icon: DollarSign, color: balance >= 0 ? "text-emerald-400" : "text-destructive", bg: balance >= 0 ? "bg-emerald-500/10" : "bg-destructive/10", border: balance >= 0 ? "border-emerald-500/20" : "border-destructive/20" },
-          { label: "Transações", value: transactions.length, icon: Wallet, color: "text-primary", bg: "bg-primary/10", border: "border-primary/20" },
+          { label: "Transações", value: dashboardTransactions.length, icon: Wallet, color: "text-primary", bg: "bg-primary/10", border: "border-primary/20" },
         ].map((s, i) => (
           <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
             <Card className={cn("border transition-all duration-300 hover:scale-[1.03]", s.border)}>

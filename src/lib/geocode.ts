@@ -56,20 +56,53 @@ export interface RecurringTx {
   projection_index?: number | null;
 }
 
+export function parseDateOnly(value: string): Date | null {
+  const [year, month, day] = String(value || "").slice(0, 10).split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const date = new Date(year, month - 1, day, 12, 0, 0, 0);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+const toIsoDate = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+const lastDayOfMonth = (year: number, monthIndex: number) => new Date(year, monthIndex + 1, 0).getDate();
+
+const addRecurringInterval = (date: Date, interval: string, originalDay: number) => {
+  if (interval === "weekly" || interval === "semanal" || interval === "week") {
+    const next = new Date(date);
+    next.setDate(next.getDate() + 7);
+    return next;
+  }
+
+  const monthStep = interval === "yearly" || interval === "anual" || interval === "annual" || interval === "year" ? 12 : 1;
+  const targetMonthIndex = date.getMonth() + monthStep;
+  const targetYear = date.getFullYear() + Math.floor(targetMonthIndex / 12);
+  const normalizedMonthIndex = ((targetMonthIndex % 12) + 12) % 12;
+  const targetDay = Math.min(originalDay, lastDayOfMonth(targetYear, normalizedMonthIndex));
+  return new Date(targetYear, normalizedMonthIndex, targetDay, 12, 0, 0, 0);
+};
+
 export function expandRecurringTransactions<T extends RecurringTx>(rows: T[]): T[] {
   const out: T[] = [];
   const today = new Date();
+  today.setHours(23, 59, 59, 999);
   for (const tx of rows) {
     out.push(tx);
     if (!tx.is_recurring) continue;
     const interval = (tx.recurrence_interval || "monthly").toLowerCase();
-    if (interval !== "monthly" && interval !== "mensal" && interval !== "month") continue;
-    const start = new Date(`${String(tx.date).slice(0, 10)}T12:00:00`);
-    if (Number.isNaN(start.getTime())) continue;
-    const cursor = new Date(start.getFullYear(), start.getMonth() + 1, Math.min(start.getDate(), 28));
+    const supportedIntervals = ["weekly", "semanal", "week", "monthly", "mensal", "month", "yearly", "anual", "annual", "year"];
+    if (!supportedIntervals.includes(interval)) continue;
+
+    const start = parseDateOnly(tx.date);
+    if (!start) continue;
+
+    const originalDay = start.getDate();
+    let cursor = addRecurringInterval(start, interval, originalDay);
+    const maxOccurrences = interval === "weekly" || interval === "semanal" || interval === "week" ? 1040 : 240;
     let safety = 0;
-    while (cursor <= today && safety < 240) {
-      const iso = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`;
+    while (cursor <= today && safety < maxOccurrences) {
+      const iso = toIsoDate(cursor);
       out.push({
         ...tx,
         id: `${tx.id}-r${safety}`,
@@ -79,9 +112,9 @@ export function expandRecurringTransactions<T extends RecurringTx>(rows: T[]): T
         projection_index: safety,
         is_recurring: false,
       } as T);
-      cursor.setMonth(cursor.getMonth() + 1);
+      cursor = addRecurringInterval(cursor, interval, originalDay);
       safety += 1;
     }
   }
-  return out;
+  return out.sort((a, b) => String(b.date).localeCompare(String(a.date)));
 }
