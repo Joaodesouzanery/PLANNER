@@ -1,12 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { ArrowUpRight, ArrowDownRight, DollarSign, Wallet } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, CalendarDays, DollarSign, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { useFinanceData, fmtCurrency, tooltipStyle, PIE_COLORS } from "./useFinanceData";
 
 const FinanceDashboard = () => {
-  const { totalIncome, totalExpense, balance, dashboardTransactions, monthlyData, capitalEvolution, incomeByCat, expenseByCat } = useFinanceData();
+  const { totalIncome, totalExpense, balance, dashboardTransactions, monthlyData, capitalEvolution, incomeByCat, expenseByCat, currentMonthPlanSummary } = useFinanceData();
 
   return (
     <div className="space-y-6">
@@ -27,6 +27,31 @@ const FinanceDashboard = () => {
           </motion.div>
         ))}
       </div>
+
+      <Card className="border border-primary/20 bg-card/80">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 text-primary" />
+            Planejamento do mes vs realizado
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            {[
+              { label: "Entradas previstas", value: currentMonthPlanSummary.plannedIncome, color: "text-emerald-400" },
+              { label: "Saidas previstas", value: currentMonthPlanSummary.plannedExpense, color: "text-destructive" },
+              { label: "Saldo planejado", value: currentMonthPlanSummary.plannedBalance, color: currentMonthPlanSummary.plannedBalance >= 0 ? "text-emerald-400" : "text-destructive" },
+              { label: "Saldo realizado", value: currentMonthPlanSummary.realizedBalance, color: currentMonthPlanSummary.realizedBalance >= 0 ? "text-emerald-400" : "text-destructive" },
+              { label: "Diferenca", value: currentMonthPlanSummary.variance, color: currentMonthPlanSummary.variance >= 0 ? "text-emerald-400" : "text-destructive" },
+            ].map((item) => (
+              <div key={item.label} className="rounded-lg border border-border/50 bg-background/40 p-3">
+                <p className="text-xs text-muted-foreground">{item.label}</p>
+                <p className={cn("text-lg font-bold font-mono mt-1", item.color)}>{fmtCurrency(item.value)}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="border border-border/50 bg-card/80">

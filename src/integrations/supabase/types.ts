@@ -1651,6 +1651,123 @@ export type Database = {
           },
         ]
       }
+      finance_monthly_plans: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          id: string
+          month: number
+          notes: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+          year: number
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          month: number
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          year: number
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          month?: number
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_monthly_plans_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_plan_items: {
+        Row: {
+          amount: number
+          category: string | null
+          company_id: string | null
+          created_at: string
+          description: string
+          due_date: string
+          id: string
+          notes: string | null
+          plan_id: string
+          status: string
+          transaction_id: string | null
+          type: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          amount?: number
+          category?: string | null
+          company_id?: string | null
+          created_at?: string
+          description: string
+          due_date: string
+          id?: string
+          notes?: string | null
+          plan_id: string
+          status?: string
+          transaction_id?: string | null
+          type: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string | null
+          company_id?: string | null
+          created_at?: string
+          description?: string
+          due_date?: string
+          id?: string
+          notes?: string | null
+          plan_id?: string
+          status?: string
+          transaction_id?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_plan_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_plan_items_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "finance_monthly_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_plan_items_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "financial_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_transactions: {
         Row: {
           amount: number
