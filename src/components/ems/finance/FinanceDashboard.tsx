@@ -1,12 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { ArrowUpRight, ArrowDownRight, CalendarDays, DollarSign, Wallet } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, CalendarClock, CalendarDays, CheckCircle2, DollarSign, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
-import { useFinanceData, fmtCurrency, tooltipStyle, PIE_COLORS } from "./useFinanceData";
+import { fmtCurrency, formatDateBR, tooltipStyle, PIE_COLORS } from "./useFinanceData";
+import { useFinanceWorkspace } from "./useFinanceWorkspace";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 const FinanceDashboard = () => {
-  const { totalIncome, totalExpense, balance, dashboardTransactions, monthlyData, capitalEvolution, incomeByCat, expenseByCat, currentMonthPlanSummary } = useFinanceData();
+  const { totalIncome, totalExpense, balance, dashboardTransactions, monthlyData, capitalEvolution, incomeByCat, expenseByCat, currentMonthPlanSummary, upcomingPayables, reconcileTransactionMutation } = useFinanceWorkspace();
 
   return (
     <div className="space-y-6">
@@ -50,6 +53,44 @@ const FinanceDashboard = () => {
               </div>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border border-amber-500/20 bg-card/80">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-amber-500" />
+              Falta pagar
+            </CardTitle>
+            <Badge variant="outline" className="border-amber-500/30 text-amber-500">
+              {fmtCurrency(upcomingPayables.reduce((sum, item) => sum + item.amount, 0))} em 45 dias
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {upcomingPayables.slice(0, 8).map((item) => (
+            <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-border/50 p-3">
+              <div className="min-w-0">
+                <p className="font-medium text-sm truncate">{item.description}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs text-muted-foreground">{formatDateBR(item.dueDate)}</span>
+                  <Badge variant="outline" className={cn("text-[10px]", item.status === "overdue" && "border-destructive/40 text-destructive", item.status === "today" && "border-amber-500/40 text-amber-500", item.status === "soon" && "border-orange-500/40 text-orange-500")}>
+                    {item.status === "overdue" ? `${Math.abs(item.daysUntilDue)} dias atrasada` : item.status === "today" ? "Vence hoje" : `Faltam ${item.daysUntilDue} dias`}
+                  </Badge>
+                </div>
+              </div>
+              <div className="flex items-center justify-between sm:justify-end gap-3">
+                <span className="font-mono font-semibold text-destructive">{fmtCurrency(item.amount)}</span>
+                {item.sourceType === "transaction" && (
+                  <Button size="sm" variant="ghost" className="h-8" onClick={() => reconcileTransactionMutation.mutate(item.id)}>
+                    <CheckCircle2 className="h-4 w-4 mr-1" /> Paguei
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+          {upcomingPayables.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">Nenhum pagamento pendente nos proximos 45 dias.</p>}
         </CardContent>
       </Card>
 

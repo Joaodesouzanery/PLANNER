@@ -15,6 +15,10 @@ export interface OKR {
 export interface Transaction {
   id: string; description: string; amount: number; type: "income" | "expense";
   category: string | null; date: string; created_at: string;
+  company_id?: string | null; finance_account_id?: string | null; due_date?: string | null;
+  settled_at?: string | null; status?: "planned" | "confirmed" | "reconciled" | null;
+  card_invoice_id?: string | null; import_fingerprint?: string | null;
+  installment_group_id?: string | null; installment_number?: number | null; installment_total?: number | null;
   is_recurring?: boolean; recurrence_interval?: string | null;
   source_id?: string | null; is_projected?: boolean | null; projection_index?: number | null;
 }
@@ -31,6 +35,9 @@ export interface SavedInstallment {
   percent_of_income: number | null;
   remains_after: number | null;
   metadata: Record<string, unknown> | null;
+  entity_id?: string | null;
+  account_id?: string | null;
+  added_to_flow_at?: string | null;
   created_at: string;
 }
 export interface MonthlyPlan {
@@ -54,6 +61,8 @@ export interface PlanItem {
   due_date: string;
   status: "planned" | "confirmed" | "skipped";
   notes: string | null;
+  entity_id?: string | null;
+  account_id?: string | null;
   company_id?: string | null;
   created_at: string;
   updated_at?: string;
@@ -332,7 +341,7 @@ export const useFinanceData = () => {
   const confirmPlanItemMutation = useMutation({
     mutationFn: async (item: PlanItem) => {
       assertUuid(item.id, "ID do item planejado");
-      const { data, error: insertError } = await supabase
+      const { data, error: insertError } = await (supabase as any)
         .from("financial_transactions")
         .insert({
           description: item.description,
@@ -340,6 +349,11 @@ export const useFinanceData = () => {
           type: item.type,
           category: item.category,
           date: item.due_date,
+          due_date: item.due_date,
+          status: "confirmed",
+          finance_account_id: item.account_id ?? null,
+          source_type: "plan",
+          source_id: item.id,
           company_id: selectedCompanyId !== "all" ? selectedCompanyId : item.company_id ?? null,
         })
         .select("id")
@@ -360,7 +374,7 @@ export const useFinanceData = () => {
     today.setHours(23, 59, 59, 999);
     return transactions.filter((t) => {
       const date = parseDateOnly(t.date);
-      return date ? date <= today : false;
+      return t.status !== "planned" && (date ? date <= today : false);
     });
   }, [transactions]);
 
