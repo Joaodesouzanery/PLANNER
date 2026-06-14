@@ -14,7 +14,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   GraduationCap, Plus, Trash2, Edit2, Calendar, BookOpen,
   AlertTriangle, CheckCircle, Clock, Star, ChevronDown, ChevronUp,
-  ClipboardList, FileText, Upload, Download, Eye, X, FileUp,
+  ClipboardList, FileText, Upload, Download, Eye, X, FileUp, LayoutDashboard,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
