@@ -134,7 +134,7 @@ const FinanceFutureFlow = () => {
         <Metric label="Menor saldo em 90 dias" value={fmtCurrency(workspace.forecast90.minimumBalance)} hint={formatDateBR(workspace.forecast90.minimumBalanceDate)} icon={AlertTriangle} tone={workspace.forecast90.minimumBalance >= 0 ? "positive" : "negative"} />
         <Metric label="Falta pagar (45 dias)" value={fmtCurrency(workspace.upcomingPayables.reduce((sum, item) => sum + item.amount, 0))} hint={`${workspace.upcomingPayables.length} compromissos`} icon={CalendarClock} tone="warning" />
         <Metric label="Reserva" value={fmtCurrency(workspace.reserveBalance)} icon={ShieldCheck} tone="primary" />
-        <Metric label="Saldo esperado em 90 dias" value={fmtCurrency(workspace.forecast90.days.at(-1)?.expected || workspace.openingBalance)} icon={CircleDollarSign} tone="primary" />
+        <Metric label="Saldo esperado em 90 dias" value={fmtCurrency(workspace.forecast90.days[workspace.forecast90.days.length - 1]?.expected || workspace.openingBalance)} icon={CircleDollarSign} tone="primary" />
       </div>
 
       {workspace.forecast90.firstNegativeDate && (

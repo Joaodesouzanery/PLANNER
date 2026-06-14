@@ -14,7 +14,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   GraduationCap, Plus, Trash2, Edit2, Calendar, BookOpen,
   AlertTriangle, CheckCircle, Clock, Star, ChevronDown, ChevronUp,
-  ClipboardList, FileText, Upload, Download, Eye, X, FileUp,
+  ClipboardList, FileText, Upload, Download, Eye, X, FileUp, LayoutDashboard,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -349,13 +349,117 @@ const Faculdade = () => {
         )}
 
         {/* Tabs */}
-        <Tabs defaultValue="tarefas" className="space-y-4">
+        <Tabs defaultValue="geral" className="space-y-4">
           <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="geral" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><LayoutDashboard className="h-3.5 w-3.5" />Geral</TabsTrigger>
             <TabsTrigger value="tarefas" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><ClipboardList className="h-3.5 w-3.5" />Tarefas</TabsTrigger>
             <TabsTrigger value="provas" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><Calendar className="h-3.5 w-3.5" />Provas</TabsTrigger>
             <TabsTrigger value="disciplinas" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><BookOpen className="h-3.5 w-3.5" />Disciplinas</TabsTrigger>
             <TabsTrigger value="documentos" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><FileText className="h-3.5 w-3.5" />Docs</TabsTrigger>
           </TabsList>
+
+          {/* GERAL TAB - macro overview */}
+          <TabsContent value="geral" className="space-y-4 mt-4">
+            {(() => {
+              const today = new Date();
+              const allEvents: { type: "prova" | "tarefa"; id: string; title: string; date: string | null; discId: string | null; priority: string; status: string }[] = [];
+              provas.forEach(p => allEvents.push({ type: "prova", id: p.id, title: p.title, date: p.exam_date, discId: p.disciplina_id, priority: p.priority, status: p.status }));
+              tarefas.forEach(t => allEvents.push({ type: "tarefa", id: t.id, title: t.title, date: t.due_date, discId: t.disciplina_id, priority: t.priority, status: t.status }));
+              const openEvents = allEvents.filter(e => e.status !== "done");
+              const overdue = openEvents.filter(e => e.date && isPast(new Date(e.date + "T12:00:00")) && !isToday(new Date(e.date + "T12:00:00")));
+              const todayItems = openEvents.filter(e => e.date && isToday(new Date(e.date + "T12:00:00")));
+              const next7 = openEvents.filter(e => {
+                if (!e.date) return false;
+                const d = new Date(e.date + "T12:00:00");
+                const days = differenceInDays(d, today);
+                return days > 0 && days <= 7;
+              }).sort((a, b) => new Date(a.date!).getTime() - new Date(b.date!).getTime());
+              const next30 = openEvents.filter(e => {
+                if (!e.date) return false;
+                const d = new Date(e.date + "T12:00:00");
+                const days = differenceInDays(d, today);
+                return days > 7 && days <= 30;
+              }).sort((a, b) => new Date(a.date!).getTime() - new Date(b.date!).getTime());
+
+              const renderItem = (item: typeof allEvents[number]) => {
+                const disc = disciplinas.find(d => d.id === item.discId);
+                const c = disc ? getColor(disc.color) : COLORS[0];
+                const pCfg = priorityConfig[item.priority] || priorityConfig.medium;
+                const dInfo = item.date ? getDaysInfo(item.date, item.status) : null;
+                return (
+                  <div key={`${item.type}-${item.id}`} className="flex items-center gap-2 p-2 rounded-lg border border-border/40 bg-card/40 hover:bg-card/70 transition-colors">
+                    <div className={cn("h-2 w-2 rounded-full shrink-0", c.dot)} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate">{item.title}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {disc?.name || "—"} {item.date && `• ${format(new Date(item.date + "T12:00:00"), "dd/MM")}`}
+                      </p>
+                    </div>
+                    <Badge variant="secondary" className={cn("text-[9px] py-0 px-1.5 shrink-0", item.type === "prova" ? "bg-primary/10 text-primary" : "bg-muted")}>
+                      {item.type === "prova" ? "Prova" : "Tarefa"}
+                    </Badge>
+                    <Badge variant="outline" className={cn("text-[9px] py-0 px-1.5 shrink-0 hidden sm:inline-flex", pCfg.color)}>{pCfg.label}</Badge>
+                    {dInfo && <Badge variant={dInfo.critical ? "destructive" : "secondary"} className="text-[9px] py-0 px-1.5 font-mono shrink-0">{dInfo.label}</Badge>}
+                  </div>
+                );
+              };
+
+              const Section = ({ title, icon: Icon, items, empty, tone }: any) => (
+                <Card className="border-border/50 bg-card/60">
+                  <CardHeader className="py-2.5 px-4">
+                    <CardTitle className="text-xs font-medium flex items-center gap-2">
+                      <Icon className={cn("h-3.5 w-3.5", tone)} />
+                      {title} <span className="text-muted-foreground font-mono">({items.length})</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-3 pb-3 pt-0 space-y-1.5">
+                    {items.length === 0 ? <p className="text-[11px] text-muted-foreground py-2 text-center">{empty}</p> : items.map(renderItem)}
+                  </CardContent>
+                </Card>
+              );
+
+              return (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  <Section title="Vencidas" icon={AlertTriangle} items={overdue} empty="Nada vencido." tone="text-red-400" />
+                  <Section title="Hoje" icon={Clock} items={todayItems} empty="Sem compromissos para hoje." tone="text-amber-400" />
+                  <Section title="Próximos 7 dias" icon={Calendar} items={next7} empty="Semana tranquila." tone="text-primary" />
+                  <Section title="Próximos 30 dias" icon={Calendar} items={next30} empty="Sem compromissos no mês." tone="text-cyan-400" />
+                  <Card className="border-border/50 bg-card/60 lg:col-span-2">
+                    <CardHeader className="py-2.5 px-4">
+                      <CardTitle className="text-xs font-medium flex items-center gap-2">
+                        <BookOpen className="h-3.5 w-3.5 text-primary" />
+                        Disciplinas & Documentos <span className="text-muted-foreground font-mono">({disciplinas.length})</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-3 pb-3 pt-0">
+                      {disciplinas.length === 0 ? (
+                        <p className="text-[11px] text-muted-foreground py-2 text-center">Nenhuma disciplina cadastrada.</p>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                          {disciplinas.map(d => {
+                            const c = getColor(d.color);
+                            const dProvas = provas.filter(p => p.disciplina_id === d.id);
+                            const dTarefas = tarefas.filter(t => t.disciplina_id === d.id);
+                            const dDocs = documentos.filter(doc => doc.entity_id === d.id);
+                            return (
+                              <div key={d.id} className="p-2 rounded-lg border border-border/40 bg-card/40 flex items-center gap-2">
+                                <div className={cn("h-2.5 w-2.5 rounded-full shrink-0", c.dot)} />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-medium truncate">{d.name}</p>
+                                  <p className="text-[10px] text-muted-foreground font-mono">{dProvas.length}p · {dTarefas.length}t · {dDocs.length}d</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            })()}
+          </TabsContent>
+
 
           {/* TAREFAS TAB */}
           <TabsContent value="tarefas" className="space-y-3 mt-4">

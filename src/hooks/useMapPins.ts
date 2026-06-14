@@ -254,10 +254,10 @@ export function useMapTaskGroups(projectId?: string) {
       (data || []).forEach((row: any) => {
         if (!isOpenStatus(row.status)) return;
         if (!projectId && cf && row.company_id !== selectedCompanyId && row.projects?.company_id !== selectedCompanyId && row.contacts?.company_id !== selectedCompanyId) return;
-        const projectId = row.project_id || "sem-projeto";
+        const rowProjectId = row.project_id || "sem-projeto";
         const projectTitle = row.projects?.title || "Sem projeto";
-        if (!grouped.has(projectId)) grouped.set(projectId, { projectId, projectTitle, tasks: [] });
-        grouped.get(projectId)!.tasks.push({
+        if (!grouped.has(rowProjectId)) grouped.set(rowProjectId, { projectId: rowProjectId, projectTitle, tasks: [] });
+        grouped.get(rowProjectId)!.tasks.push({
           id: row.id,
           title: row.title,
           due_date: row.due_date,
