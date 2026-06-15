@@ -58,6 +58,8 @@ const FinanceMonthlyPlanning = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<PlanItem | null>(null);
   const [form, setForm] = useState(emptyForm(month, year));
+  const [goalKind, setGoalKind] = useState<"standard" | "savings">("standard");
+  const [savingsForm, setSavingsForm] = useState<SavingsGoalInputs>(emptySavingsGoal());
 
   const selectedPlans = useMemo(
     () => monthlyPlans.filter((plan) => plan.month === month && plan.year === year),
