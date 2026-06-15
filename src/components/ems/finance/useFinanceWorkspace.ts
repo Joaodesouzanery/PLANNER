@@ -106,12 +106,25 @@ export const useFinanceWorkspace = () => {
     queryKey: ["finance-forecast-impacts"],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from("planning_financial_impacts")
-        .select("id,company_id,title,impact_type,expected_amount,expected_date,confidence,status")
-        .not("expected_date", "is", null);
-      if (error) throw error;
-      return (data || []) as PlanningImpact[];
+        .from("project_financial_impacts")
+        .select("id,company_id,project_id,title,impact_type,amount,notes,created_at")
+        .order("created_at", { ascending: false });
+      if (error) {
+        if (error.code === "42P01" || error.code === "PGRST205") return [];
+        throw error;
+      }
+      return (data || []).map((row: any) => ({
+        id: row.id,
+        company_id: row.company_id,
+        title: row.title,
+        impact_type: row.impact_type,
+        expected_amount: Number(row.amount || 0),
+        expected_date: null,
+        confidence: "medium" as const,
+        status: "planned" as const,
+      })) as PlanningImpact[];
     },
+    retry: false,
   });
 
   useEffect(() => {
