@@ -352,36 +352,54 @@ const FinanceMonthlyPlanning = () => {
       </Tabs>
 
       <Dialog open={showModal} onOpenChange={(open) => { if (!open) { setShowModal(false); setEditingItem(null); } }}>
-        <DialogContent>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editingItem ? "Editar previsto" : "Novo previsto"}</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
-            <div><Label>Descricao</Label><Input value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Ex: Aluguel, contrato, ferramenta..." className="rounded-xl" /></div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><Label>Valor (R$)</Label><Input type="number" step="0.01" value={form.amount || ""} onChange={(event) => setForm({ ...form, amount: Number(event.target.value) })} className="rounded-xl font-mono" /></div>
+          <Tabs value={goalKind} onValueChange={(v) => setGoalKind(v as "standard" | "savings")} className="pt-2">
+            <TabsList className="grid grid-cols-2 w-full">
+              <TabsTrigger value="standard">Previsto padrao</TabsTrigger>
+              <TabsTrigger value="savings">Meta de economia</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="standard" className="space-y-4 py-4">
+              <div><Label>Descricao</Label><Input value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="Ex: Aluguel, contrato, ferramenta..." className="rounded-xl" /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label>Valor (R$)</Label><Input type="number" step="0.01" value={form.amount || ""} onChange={(event) => setForm({ ...form, amount: Number(event.target.value) })} className="rounded-xl font-mono" /></div>
+                <div>
+                  <Label>Tipo</Label>
+                  <Select value={form.type} onValueChange={(value: "income" | "expense") => setForm({ ...form, type: value })}>
+                    <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="income">Entrada</SelectItem><SelectItem value="expense">Saida</SelectItem></SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><Label>Categoria</Label><Input value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} placeholder="Ex: Marketing" className="rounded-xl" /></div>
+                <div><Label>Vencimento</Label><Input type="date" value={form.due_date} onChange={(event) => setForm({ ...form, due_date: event.target.value })} className="rounded-xl" /></div>
+              </div>
               <div>
-                <Label>Tipo</Label>
-                <Select value={form.type} onValueChange={(value: "income" | "expense") => setForm({ ...form, type: value })}>
+                <Label>Status</Label>
+                <Select value={form.status} onValueChange={(value: PlanItem["status"]) => setForm({ ...form, status: value })}>
                   <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="income">Entrada</SelectItem><SelectItem value="expense">Saida</SelectItem></SelectContent>
+                  <SelectContent><SelectItem value="planned">Planejado</SelectItem><SelectItem value="confirmed">Confirmado</SelectItem><SelectItem value="skipped">Ignorado</SelectItem></SelectContent>
                 </Select>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div><Label>Categoria</Label><Input value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} placeholder="Ex: Marketing" className="rounded-xl" /></div>
-              <div><Label>Vencimento</Label><Input type="date" value={form.due_date} onChange={(event) => setForm({ ...form, due_date: event.target.value })} className="rounded-xl" /></div>
-            </div>
-            <div>
-              <Label>Status</Label>
-              <Select value={form.status} onValueChange={(value: PlanItem["status"]) => setForm({ ...form, status: value })}>
-                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="planned">Planejado</SelectItem><SelectItem value="confirmed">Confirmado</SelectItem><SelectItem value="skipped">Ignorado</SelectItem></SelectContent>
-              </Select>
-            </div>
-            <div><Label>Observacoes</Label><Textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Detalhes, criterio ou contexto do gasto" className="rounded-xl" /></div>
-          </div>
+              <div><Label>Observacoes</Label><Textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Detalhes, criterio ou contexto do gasto" className="rounded-xl" /></div>
+            </TabsContent>
+
+            <TabsContent value="savings" className="py-4">
+              <SavingsGoalForm value={savingsForm} onChange={setSavingsForm} />
+            </TabsContent>
+          </Tabs>
           <DialogFooter>
             <Button variant="outline" className="rounded-xl" onClick={() => setShowModal(false)}>Cancelar</Button>
-            <Button className="rounded-xl shadow-lg shadow-primary/20" onClick={handleSave} disabled={!form.description.trim() || Number(form.amount) <= 0 || savePlanItemMutation.isPending}>
+            <Button
+              className="rounded-xl shadow-lg shadow-primary/20"
+              onClick={handleSave}
+              disabled={
+                savePlanItemMutation.isPending ||
+                (goalKind === "standard" ? (!form.description.trim() || Number(form.amount) <= 0) : (!savingsForm.itemName.trim() || savingsForm.targetPrice <= 0))
+              }
+            >
               {editingItem ? "Salvar" : "Criar"}
             </Button>
           </DialogFooter>
