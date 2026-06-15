@@ -109,11 +109,17 @@ const FinanceMonthlyPlanning = () => {
   const openCreateModal = () => {
     setEditingItem(null);
     setForm(emptyForm(month, year));
+    setGoalKind("standard");
+    setSavingsForm(emptySavingsGoal());
     setShowModal(true);
   };
 
   const openEditModal = (item: PlanItem) => {
     setEditingItem(item);
+    const meta = (item as any).metadata as SavingsGoalInputs | null;
+    const kind = ((item as any).goal_kind as "standard" | "savings") || "standard";
+    setGoalKind(kind);
+    setSavingsForm(meta && kind === "savings" ? meta : emptySavingsGoal());
     setForm({
       description: item.description,
       amount: Number(item.amount),
@@ -127,6 +133,24 @@ const FinanceMonthlyPlanning = () => {
   };
 
   const handleSave = () => {
+    if (goalKind === "savings") {
+      const out = computeSavingsOutputs(savingsForm);
+      const payload: any = {
+        description: savingsForm.itemName.trim() || "Meta de economia",
+        amount: out.monthlySaving,
+        type: "expense",
+        category: "Meta de economia",
+        due_date: form.due_date,
+        status: "planned",
+        notes: `Objetivo: ${savingsForm.itemName} - ${out.monthsToReach} meses para juntar ${fmtCurrency(savingsForm.targetPrice)}`,
+        goal_kind: "savings",
+        metadata: { ...savingsForm, computed: out },
+      };
+      savePlanItemMutation.mutate({ month, year, editingId: editingItem?.id, form: payload }, {
+        onSuccess: () => { setShowModal(false); setEditingItem(null); setForm(emptyForm(month, year)); setSavingsForm(emptySavingsGoal()); setGoalKind("standard"); },
+      });
+      return;
+    }
     savePlanItemMutation.mutate({
       month,
       year,
@@ -139,7 +163,9 @@ const FinanceMonthlyPlanning = () => {
         due_date: form.due_date,
         status: form.status,
         notes: form.notes.trim() || null,
-      },
+        goal_kind: "standard",
+        metadata: null,
+      } as any,
     }, {
       onSuccess: () => {
         setShowModal(false);
