@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { parseDateOnly } from "@/lib/geocode";
 import { fmtCurrency, formatDateBR, type PlanItem, useFinanceData } from "./useFinanceData";
+import { SavingsGoalForm, emptySavingsGoal, computeSavingsOutputs, type SavingsGoalInputs } from "./SavingsGoalForm";
 
 const statusConfig: Record<PlanItem["status"], { label: string; className: string }> = {
   planned: { label: "Planejado", className: "border-primary/30 bg-primary/10 text-primary" },
