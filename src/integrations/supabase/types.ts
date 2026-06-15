@@ -1914,7 +1914,9 @@ export type Database = {
           description: string
           due_date: string
           entity_id: string | null
+          goal_kind: string
           id: string
+          metadata: Json | null
           notes: string | null
           plan_id: string
           status: string
@@ -1932,7 +1934,9 @@ export type Database = {
           description: string
           due_date: string
           entity_id?: string | null
+          goal_kind?: string
           id?: string
+          metadata?: Json | null
           notes?: string | null
           plan_id: string
           status?: string
@@ -1950,7 +1954,9 @@ export type Database = {
           description?: string
           due_date?: string
           entity_id?: string | null
+          goal_kind?: string
           id?: string
+          metadata?: Json | null
           notes?: string | null
           plan_id?: string
           status?: string
