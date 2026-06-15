@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { useCompany } from "@/contexts/CompanyContext";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtCurrency } from "./useFinanceData";
@@ -12,17 +11,13 @@ interface PlannedImpact {
   project_id: string | null;
   title: string;
   impact_type: string | null;
-  expected_amount: number | null;
-  expected_date: string | null;
-  confidence: string | null;
-  status: string | null;
+  amount: number | null;
+  notes: string | null;
   projects?: { title: string | null } | null;
 }
 
 const missingTable = (error: any) =>
   error?.code === "42P01" || error?.code === "PGRST205" || String(error?.message || "").includes("Could not find the table");
-
-const confidenceWeight = (confidence?: string | null) => confidence === "high" ? 90 : confidence === "low" ? 35 : 60;
 
 const FinancePlannedImpacts = () => {
   const { selectedCompanyId } = useCompany();
@@ -30,9 +25,9 @@ const FinancePlannedImpacts = () => {
     queryKey: ["finance-planned-impacts", selectedCompanyId],
     queryFn: async () => {
       let query = (supabase as any)
-        .from("planning_financial_impacts")
-        .select("id, project_id, title, impact_type, expected_amount, expected_date, confidence, status, projects(title)")
-        .order("expected_date", { ascending: true });
+        .from("project_financial_impacts")
+        .select("id, project_id, title, impact_type, amount, notes, projects(title)")
+        .order("created_at", { ascending: false });
       if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
       const { data, error } = await query;
       if (missingTable(error)) return [] as PlannedImpact[];
@@ -43,26 +38,23 @@ const FinancePlannedImpacts = () => {
   });
 
   const totals = useMemo(() => data.reduce((acc, item) => {
-    const amount = Number(item.expected_amount || 0);
-    const signed = item.impact_type === "cost" ? -amount : amount;
+    const amount = Number(item.amount || 0);
     if (item.impact_type === "revenue") acc.revenue += amount;
     if (item.impact_type === "cost") acc.cost += amount;
     if (item.impact_type === "cash") acc.cash += amount;
     if (item.impact_type === "margin") acc.margin += amount;
-    acc.net += signed;
-    acc.weighted += signed * (confidenceWeight(item.confidence) / 100);
+    acc.net += item.impact_type === "cost" ? -amount : amount;
     return acc;
-  }, { revenue: 0, cost: 0, cash: 0, margin: 0, net: 0, weighted: 0 }), [data]);
+  }, { revenue: 0, cost: 0, cash: 0, margin: 0, net: 0 }), [data]);
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-5">
+      <div className="grid gap-3 md:grid-cols-4">
         {[
           ["Receita prevista", totals.revenue],
           ["Custos previstos", totals.cost],
           ["Caixa previsto", totals.cash],
           ["Liquido planejado", totals.net],
-          ["Ponderado", totals.weighted],
         ].map(([label, value]) => (
           <Card key={label as string}>
             <CardContent className="p-4">
@@ -84,15 +76,14 @@ const FinancePlannedImpacts = () => {
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <p className="font-semibold truncate">{item.title}</p>
-                  <p className="text-xs text-muted-foreground">{item.projects?.title || "Empresa inteira"} - {item.expected_date || "sem data"}</p>
+                  <p className="text-xs text-muted-foreground">{item.projects?.title || "Empresa inteira"}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant={item.impact_type === "cost" ? "destructive" : "secondary"}>{fmtCurrency(Number(item.expected_amount || 0))}</Badge>
-                  <Badge variant="outline">{item.confidence || "medium"}</Badge>
-                  <Badge variant="outline">{item.status || "planned"}</Badge>
+                  <Badge variant={item.impact_type === "cost" ? "destructive" : "secondary"}>{fmtCurrency(Number(item.amount || 0))}</Badge>
+                  <Badge variant="outline">{item.impact_type || "revenue"}</Badge>
                 </div>
               </div>
-              <Progress value={confidenceWeight(item.confidence)} className="h-1.5 mt-3" />
+              {item.notes && <p className="text-xs text-muted-foreground mt-2">{item.notes}</p>}
             </div>
           ))}
           {data.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">Nenhum impacto financeiro planejado ainda.</p>}
