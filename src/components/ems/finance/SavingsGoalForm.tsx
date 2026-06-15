@@ -57,7 +57,7 @@ export const SavingsGoalForm = ({ value, onChange, onComputed }: Props) => {
     return { surplus, monthlySaving, monthsToReach, reachDate, hypotheticalMonths, hypotheticalSaving: hypothetical, extraInstallments };
   }, [value]);
 
-  useState(() => { onComputed?.(out); });
+  void onComputed;
 
   return (
     <div className="space-y-4">
