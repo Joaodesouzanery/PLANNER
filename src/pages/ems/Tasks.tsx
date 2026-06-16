@@ -954,6 +954,35 @@ const Tasks = () => {
                   );
                 }
 
+                if (weeklyOnly) {
+                  return (
+                    <DragDropContext onDragEnd={(r) => {
+                      if (!r.destination) return;
+                      const arr = Array.from(filteredTasks);
+                      const [moved] = arr.splice(r.source.index, 1);
+                      arr.splice(r.destination.index, 0, moved);
+                      reorderPriorityMutation.mutate(arr.map((t, i) => ({ id: t.id, priority_order: i })));
+                    }}>
+                      <Droppable droppableId="weekly-list" type="WEEKLY">
+                        {(prov) => (
+                          <div ref={prov.innerRef} {...prov.droppableProps} className="space-y-1.5">
+                            {filteredTasks.map((task, idx) => (
+                              <Draggable key={task.id} draggableId={task.id} index={idx}>
+                                {(p, snap) => (
+                                  <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps} className={cn(snap.isDragging && "opacity-80 shadow-lg")}>
+                                    {renderTaskItem(task)}
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                            {prov.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </DragDropContext>
+                  );
+                }
+
                 return (
                   <div className="space-y-1.5">
                     <AnimatePresence>
