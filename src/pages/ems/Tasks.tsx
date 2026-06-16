@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus, Trash2, Calendar, Flag, ListTodo, CheckCircle2, Clock, AlertTriangle,
   Tag, MessageSquare, ChevronDown, ChevronRight, X, TrendingUp, Edit2, FileText, Download,
-  FolderKanban, LayoutList, FolderTree, Building2,
+  FolderKanban, LayoutList, FolderTree, Building2, GripVertical,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
@@ -337,7 +337,13 @@ const Tasks = () => {
     }
     return true;
   }).sort((a, b) => {
-    if (weeklyOnly) return (a.priority_order ?? 0) - (b.priority_order ?? 0);
+    if (a.status === "completed" && b.status !== "completed") return 1;
+    if (a.status !== "completed" && b.status === "completed") return -1;
+    if (weeklyOnly) {
+      const orderDiff = (a.priority_order ?? 0) - (b.priority_order ?? 0);
+      if (orderDiff !== 0) return orderDiff;
+      return a.created_at.localeCompare(b.created_at);
+    }
     return 0;
   });
 
@@ -683,8 +689,9 @@ const Tasks = () => {
           <CardHeader className="border-b border-border/50">
             <CardTitle className="text-lg flex items-center gap-2">
               <ListTodo className="h-5 w-5 text-primary" />
-              {filter === "all" ? "Todas as Tarefas" : filter === "pending" ? "Tarefas Pendentes" : "Tarefas Concluídas"}
+              {weeklyOnly ? "Tarefas Semanais" : filter === "all" ? "Todas as Tarefas" : filter === "pending" ? "Tarefas Pendentes" : "Tarefas Concluídas"}
               {tagFilter && <Badge variant="secondary" className="ml-2">#{tagFilter}</Badge>}
+              {weeklyOnly && <Badge variant="secondary" className="ml-2">Semanais</Badge>}
               {periodFilter !== "all" && <Badge variant="secondary" className="ml-2">{periodLabels[periodFilter]}</Badge>}
               {priorityFilter !== "all" && <Badge variant="secondary" className="ml-2">{priorityConfig[priorityFilter]?.label || priorityFilter}</Badge>}
               <Badge variant="outline" className="ml-auto font-mono text-xs">{filteredTasks.length}</Badge>
@@ -958,19 +965,35 @@ const Tasks = () => {
                   return (
                     <DragDropContext onDragEnd={(r) => {
                       if (!r.destination) return;
+                      if (r.destination.index === r.source.index) return;
                       const arr = Array.from(filteredTasks);
                       const [moved] = arr.splice(r.source.index, 1);
                       arr.splice(r.destination.index, 0, moved);
                       reorderPriorityMutation.mutate(arr.map((t, i) => ({ id: t.id, priority_order: i })));
                     }}>
                       <Droppable droppableId="weekly-list" type="WEEKLY">
-                        {(prov) => (
-                          <div ref={prov.innerRef} {...prov.droppableProps} className="space-y-1.5">
+                        {(prov, snapshot) => (
+                          <div
+                            ref={prov.innerRef}
+                            {...prov.droppableProps}
+                            className={cn(
+                              "space-y-1.5 rounded-lg transition-colors",
+                              snapshot.isDraggingOver && "bg-primary/5 ring-1 ring-primary/30"
+                            )}
+                          >
                             {filteredTasks.map((task, idx) => (
                               <Draggable key={task.id} draggableId={task.id} index={idx}>
                                 {(p, snap) => (
-                                  <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps} className={cn(snap.isDragging && "opacity-80 shadow-lg")}>
-                                    {renderTaskItem(task)}
+                                  <div
+                                    ref={p.innerRef}
+                                    {...p.draggableProps}
+                                    {...p.dragHandleProps}
+                                    className={cn("group relative", snap.isDragging && "opacity-90 shadow-lg")}
+                                  >
+                                    <GripVertical className="pointer-events-none absolute left-2 top-1/2 z-10 hidden h-4 w-4 -translate-y-1/2 text-muted-foreground/60 group-hover:block" />
+                                    <div className="pl-3">
+                                      {renderTaskItem(task)}
+                                    </div>
                                   </div>
                                 )}
                               </Draggable>
