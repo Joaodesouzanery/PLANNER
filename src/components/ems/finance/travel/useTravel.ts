@@ -62,7 +62,7 @@ export const useTravelProfile = () => {
       else q = q.is("company_id", null);
       const { data, error } = await q;
       if (error) throw error;
-      return (data?.[0] as TravelProfile) || emptyProfile;
+      return ((data?.[0] as unknown) as TravelProfile) || emptyProfile;
     },
   });
 
