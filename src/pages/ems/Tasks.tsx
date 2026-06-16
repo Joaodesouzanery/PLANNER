@@ -1024,6 +1024,16 @@ const Tasks = () => {
                 </SelectContent>
               </Select>
             </div>
+            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.is_weekly}
+                onChange={(e) => setForm({ ...form, is_weekly: e.target.checked })}
+                className="h-4 w-4 rounded border-border"
+              />
+              <Calendar className="h-4 w-4 text-primary" />
+              Tarefa semanal (aparece no filtro "Semanais")
+            </label>
             <div>
               <label className="text-sm font-medium">Tags</label>
               <div className="flex gap-2">
