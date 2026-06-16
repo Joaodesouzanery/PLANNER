@@ -2145,6 +2145,192 @@ export type Database = {
           },
         ]
       }
+      finance_travel_profile: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          debts: number
+          food: number
+          housing: number
+          id: string
+          metadata: Json
+          monthly_salary: number
+          other_income: number
+          subscriptions: number
+          transport: number
+          updated_at: string
+          user_id: string | null
+          variable_income: number
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          debts?: number
+          food?: number
+          housing?: number
+          id?: string
+          metadata?: Json
+          monthly_salary?: number
+          other_income?: number
+          subscriptions?: number
+          transport?: number
+          updated_at?: string
+          user_id?: string | null
+          variable_income?: number
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          debts?: number
+          food?: number
+          housing?: number
+          id?: string
+          metadata?: Json
+          monthly_salary?: number
+          other_income?: number
+          subscriptions?: number
+          transport?: number
+          updated_at?: string
+          user_id?: string | null
+          variable_income?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_travel_profile_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_trip_categories: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          is_per_person: boolean
+          key: string
+          label: string
+          limit_pct: number | null
+          metadata: Json
+          multiply_by_nights: boolean
+          sort_order: number
+          trip_id: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          is_per_person?: boolean
+          key: string
+          label: string
+          limit_pct?: number | null
+          metadata?: Json
+          multiply_by_nights?: boolean
+          sort_order?: number
+          trip_id: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          is_per_person?: boolean
+          key?: string
+          label?: string
+          limit_pct?: number | null
+          metadata?: Json
+          multiply_by_nights?: boolean
+          sort_order?: number
+          trip_id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_trip_categories_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "finance_trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_trips: {
+        Row: {
+          adults: number
+          children: number
+          company_id: string | null
+          created_at: string
+          destination: string | null
+          emergency_pct: number
+          end_date: string | null
+          exchange_rate: number | null
+          id: string
+          is_international: boolean
+          metadata: Json
+          name: string
+          notes: string | null
+          profile: string
+          start_date: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          adults?: number
+          children?: number
+          company_id?: string | null
+          created_at?: string
+          destination?: string | null
+          emergency_pct?: number
+          end_date?: string | null
+          exchange_rate?: number | null
+          id?: string
+          is_international?: boolean
+          metadata?: Json
+          name: string
+          notes?: string | null
+          profile?: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          adults?: number
+          children?: number
+          company_id?: string | null
+          created_at?: string
+          destination?: string | null
+          emergency_pct?: number
+          end_date?: string | null
+          exchange_rate?: number | null
+          id?: string
+          is_international?: boolean
+          metadata?: Json
+          name?: string
+          notes?: string | null
+          profile?: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_trips_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_transactions: {
         Row: {
           amount: number
@@ -3669,15 +3855,18 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          is_weekly: boolean
           order_index: number | null
           parent_task_id: string | null
           priority: string
+          priority_order: number
           project_id: string | null
           status: string
           tags: string[] | null
           title: string
           updated_at: string
           user_id: string | null
+          week_start: string | null
         }
         Insert: {
           company_id?: string | null
@@ -3687,15 +3876,18 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          is_weekly?: boolean
           order_index?: number | null
           parent_task_id?: string | null
           priority?: string
+          priority_order?: number
           project_id?: string | null
           status?: string
           tags?: string[] | null
           title: string
           updated_at?: string
           user_id?: string | null
+          week_start?: string | null
         }
         Update: {
           company_id?: string | null
@@ -3705,15 +3897,18 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          is_weekly?: boolean
           order_index?: number | null
           parent_task_id?: string | null
           priority?: string
+          priority_order?: number
           project_id?: string | null
           status?: string
           tags?: string[] | null
           title?: string
           updated_at?: string
           user_id?: string | null
+          week_start?: string | null
         }
         Relationships: [
           {
