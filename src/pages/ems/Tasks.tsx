@@ -314,6 +314,10 @@ const Tasks = () => {
   };
 
   const filteredTasks = parentTasks.filter((t) => {
+    if (weeklyOnly && !t.is_weekly) return false;
+    if (!weeklyOnly && t.is_weekly && filter !== "completed") {
+      // weekly tasks still show in other filters, no exclusion
+    }
     if (filter === "pending" && t.status === "completed") return false;
     if (filter === "completed" && t.status !== "completed") return false;
     if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
@@ -332,6 +336,9 @@ const Tasks = () => {
       if (!isWithinInterval(due, ranges[periodFilter])) return false;
     }
     return true;
+  }).sort((a, b) => {
+    if (weeklyOnly) return (a.priority_order ?? 0) - (b.priority_order ?? 0);
+    return 0;
   });
 
   const periodLabels = {
