@@ -580,6 +580,15 @@ const Tasks = () => {
             </Button>
           ))}
 
+          <Button
+            variant={weeklyOnly ? "default" : "outline"}
+            size="sm"
+            className="gap-1"
+            onClick={() => setWeeklyOnly(v => !v)}
+          >
+            <Calendar className="h-3.5 w-3.5" /> Semanais
+          </Button>
+
           <div className="hidden sm:block w-px h-6 bg-border self-center mx-1" />
 
           {/* Project filter */}
