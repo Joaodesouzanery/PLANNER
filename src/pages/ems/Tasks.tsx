@@ -44,6 +44,9 @@ interface Task {
   project_id: string | null;
   created_at: string;
   company_id: string | null;
+  is_weekly?: boolean | null;
+  week_start?: string | null;
+  priority_order?: number | null;
 }
 
 interface ProjectLite {
@@ -82,7 +85,8 @@ const Tasks = () => {
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [periodFilter, setPeriodFilter] = useState<"all" | "daily" | "weekly" | "monthly">("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
-  const [form, setForm] = useState({ title: "", description: "", priority: "medium", due_date: null as Date | null, tags: [] as string[], project_id: "none" as string });
+  const [form, setForm] = useState({ title: "", description: "", priority: "medium", due_date: null as Date | null, tags: [] as string[], project_id: "none" as string, is_weekly: false });
+  const [weeklyOnly, setWeeklyOnly] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [subtaskInput, setSubtaskInput] = useState("");
@@ -159,7 +163,7 @@ const Tasks = () => {
   const allTags = [...new Set(tasks.flatMap((t) => t.tags || []))].sort();
 
   const resetForm = () => {
-    setForm({ title: "", description: "", priority: "medium", due_date: null, tags: [], project_id: "none" });
+    setForm({ title: "", description: "", priority: "medium", due_date: null, tags: [], project_id: "none", is_weekly: false });
     setEditingTask(null);
   };
 
@@ -177,6 +181,7 @@ const Tasks = () => {
       due_date: task.due_date ? new Date(task.due_date + "T00:00:00") : null,
       tags: task.tags || [],
       project_id: task.project_id || "none",
+      is_weekly: !!task.is_weekly,
     });
     setDialogOpen(true);
   };
@@ -191,7 +196,9 @@ const Tasks = () => {
         tags: form.tags.length > 0 ? form.tags : null,
         project_id: form.project_id !== "none" ? form.project_id : null,
         company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
-      });
+        is_weekly: form.is_weekly,
+        week_start: form.is_weekly ? format(startOfWeek(new Date(), { locale: ptBR }), "yyyy-MM-dd") : null,
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -213,7 +220,8 @@ const Tasks = () => {
         due_date: form.due_date ? format(form.due_date, "yyyy-MM-dd") : null,
         tags: form.tags.length > 0 ? form.tags : null,
         project_id: form.project_id !== "none" ? form.project_id : null,
-      }).eq("id", editingTask.id);
+        is_weekly: form.is_weekly,
+      } as any).eq("id", editingTask.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -223,6 +231,15 @@ const Tasks = () => {
       resetForm();
       toast({ title: "Tarefa atualizada!" });
     },
+  });
+
+  const reorderPriorityMutation = useMutation({
+    mutationFn: async (ordered: { id: string; priority_order: number }[]) => {
+      await Promise.all(ordered.map(o =>
+        supabase.from("tasks").update({ priority_order: o.priority_order } as any).eq("id", o.id)
+      ));
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
   });
 
   const toggleMutation = useMutation({
