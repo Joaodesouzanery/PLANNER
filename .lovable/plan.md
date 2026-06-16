@@ -1,86 +1,79 @@
-## Objetivo
-Tornar o módulo Finanças totalmente coerente (mesma fonte de dados em todas as abas), corrigir erros de salvamento e adicionar uma calculadora de meta de economia avançada em "Planejamento → Novo Previsto".
+# Plano
+
+## 1) Tarefas — aba "Semanais" + Prioridade drag-and-drop
+
+**Schema (migration):**
+- `tasks`: adicionar colunas
+  - `is_weekly boolean default false`
+  - `week_start date null` (segunda-feira da semana alvo)
+  - `priority_order int default 0` (ordem manual dentro do escopo atual)
+- Manter `project_id` existente (já é nullable) → permite finalizar a tarefa e depois atribuir projeto.
+
+**UI (`src/pages/ems/Tasks.tsx`):**
+- Nova aba/filtro **Semanais** ao lado das existentes. Mostra apenas tarefas com `is_weekly = true` da semana atual (com seletor de semana anterior/próxima).
+- Botão "Nova tarefa semanal" → cria com `is_weekly=true`, `week_start=segunda da semana selecionada`, `project_id=null` opcional.
+- **Drag-and-drop** com `@dnd-kit/core` + `@dnd-kit/sortable` (já leves) para reordenar por `priority_order`. Aplica nas listas: Semanais, Hoje, Backlog, e por status do Kanban. Persistência: update batch dos `priority_order` ao soltar.
+- Em cada tarefa concluída sem projeto → aparece um seletor inline "Contabilizar em…" (combobox de projetos) que faz `update tasks set project_id = X`.
+
+**Out of scope:** mudar visual do Kanban; criar nova entidade de "semana"; cron jobs.
 
 ---
 
-## 1. Unificação dos dados (fonte única)
+## 2) Finanças → novo módulo **Viagem**
 
-Hoje cada aba lê parcialmente o estado. Vou centralizar tudo no hook `useFinanceData` + `useFinanceWorkspace`, expondo um único snapshot consumido por:
+**Schema (migration):**
+- `finance_travel_profile` (perfil financeiro reutilizável; 1 por usuário/empresa)
+  - `monthly_salary, variable_income, other_income numeric`
+  - `housing, food, transport, subscriptions, debts numeric`
+  - (saldo disponível é calculado no client)
+- `finance_trips`
+  - `name, destination text`
+  - `start_date, end_date date` (dias derivados)
+  - `adults int, children int`
+  - `profile text` (eco/standard/luxo)
+  - `is_international bool`, `exchange_rate numeric null`
+  - `emergency_pct numeric default 15`
+  - `notes text`, `status text` (planning/saved/done)
+- `finance_trip_categories`
+  - `trip_id`, `key text` (transport/lodging/food/extras/<custom>)
+  - `label text`, `amount numeric`, `is_per_person bool`, `multiply_by_nights bool`
+  - `limit_pct numeric null` (limite % opcional sobre o total da viagem ou sobre renda mensal — flag em metadata)
+  - `metadata jsonb`
 
-- Dashboard, Fluxo Futuro, OKRs, Transações, Planejamento, Projeções, Metas, Previstos
-- Sub-painéis Horizonte / Contas / Cartões / Linha do tempo (dentro de Fluxo Futuro)
+GRANTs + RLS via `user_can_access(user_id, company_id)` + triggers `set_user_id_on_insert` e `update_updated_at_column`.
 
-Regras de unificação:
-- **Transações** continuam sendo a tabela base (`financial_transactions`).
-- **Fluxo Futuro / Linha do tempo / Horizonte**: derivados da mesma lista (transações reais + parcelas salvas + recorrências expandidas + previstos não pagos).
-- **Cartões**: somatório das transações com `finance_account_id` cujo `kind = 'credit'` + `finance_card_invoices` para fechamento.
-- **Contas**: saldo = saldo inicial (`finance_accounts.opening_balance`) + transações liquidadas da conta.
-- **Previstos / Metas / OKRs**: leem `financial_transactions` para calcular progresso real.
+**UI:**
+- Nova tab "Viagem" em `Finance.tsx`. Componentes em `src/components/ems/finance/travel/`:
+  - `TravelProfileForm.tsx` — perfil financeiro com cards de resumo (Renda, Gastos, **Saldo disponível**).
+  - `TripForm.tsx` — destino, datas (calcula `nights`), viajantes, perfil, nacional/internacional (toggle revela câmbio/visto/seguro).
+  - `TripBudget.tsx` — categorias padrão + botão "+ categoria personalizada". Cada linha: valor, toggle "por pessoa", toggle "× noites", **campo % limite** opcional. Mostra alerta quando estourar.
+  - `TripDashboard.tsx` — custo total, custo/pessoa, **meta mensal** (`total ÷ meses até start_date`), `% da renda comprometida`, **semáforo de viabilidade** (verde/amarelo/vermelho), barra de progresso de poupança, reserva de emergência 15% automática.
+  - `TripScenarios.tsx` — comparativo 1 / 2 / 5 pessoas lado a lado, separando custos compartilhados (lodging, carro) de per-capita (passagens, alimentação).
+- Lista "Viagens salvas" no topo (cards) com editar/duplicar/excluir.
 
-Vou refatorar para que cada aba receba `data` via o hook e nada seja recalculado isolado.
+**Cálculos (client):**
+```
+availableBalance = (salary + variable + other) - (housing+food+transport+subs+debts)
+nights = differenceInDays(end, start)
+monthsUntil = max(1, monthsBetween(today, start))
+subtotal = Σ category amounts (com multiplicadores)
+emergency = subtotal * emergency_pct/100
+total = subtotal + emergency
+totalBRL = isInternational ? total * exchange_rate : total
+perPerson = totalBRL / (adults + children)
+monthlyGoal = totalBRL / monthsUntil
+committedPct = monthlyGoal / availableBalance
+status = committedPct<=0.3 verde | <=0.6 amarelo | >0.6 vermelho
+```
 
----
+**Limites por categoria:** se `limit_pct` definido → comparar `amount / total` (ou `/ availableBalance`, toggle) e exibir badge "Acima do limite".
 
-## 2. Filtro de período no Dashboard
-
-Adicionar `DateRangeFilter` (já existe em `src/components/ems/DateRangeFilter.tsx`) no topo do `FinanceDashboard`:
-
-- Seletor de intervalo (com presets: Este mês, Últimos 3 meses, Ano, Personalizado).
-- Botão "Limpar filtro" → volta ao default (mês atual).
-- Aplica o filtro a: entradas, saídas, saldo, gráficos e cards comparativos.
-- O mesmo filtro impacta apenas o Dashboard (não muda outras abas, para evitar confusão).
-
----
-
-## 3. Correção de erros ao salvar
-
-Vou auditar e corrigir:
-
-- `finance_entities`, `finance_accounts`, `finance_transfers`, `finance_card_invoices` — garantir que `user_id` é setado pelo trigger `set_user_id_on_insert` e que `company_id` é opcional.
-- `financial_transactions` — confirmar que `finance_account_id`, `due_date`, `status` aceitam null e que o insert do form envia os campos certos.
-- `finance_monthly_plans` / `finance_plan_items` / `finance_saved_installments` — validar RLS e GRANTs (alguns podem estar sem `service_role`).
-- `planning_goals` — garantir que o novo tipo "Meta de Economia" salva.
-
-Vou rodar o linter de segurança após a migration de ajuste.
-
----
-
-## 4. Meta de Economia avançada (Planejamento → Novo Previsto)
-
-Nova opção no modal "Novo Previsto" com cálculos:
-
-**Inputs:**
-- Nome do objetivo (ex.: "Notebook novo")
-- Preço-alvo (R$)
-- Renda mensal atual (R$) — pré-preenchida com salário detectado
-- Renda mensal hipotética (R$, opcional)
-- Custos fixos mensais (R$) — pré-preenchidos pela soma de despesas recorrentes
-- % da sobra que vai para a meta (slider 0–100)
-- Data desejada (opcional)
-
-**Outputs calculados em tempo real:**
-- Sobra mensal = renda − custos fixos
-- Economia mensal = sobra × %
-- Meses até atingir = preço / economia mensal
-- Data prevista de compra
-- Comparativo "E se eu ganhasse X?" → recalcula meses e mostra delta
-- Simulação de parcelas: "Se pago Y em N parcelas hoje e passo a ganhar Z, quantas parcelas a mais consigo cobrir por mês?"
-
-**Persistência:**
-- Salva em `planning_goals` com `category = 'savings'` e payload em coluna `metadata jsonb` (já existe) contendo todos os inputs/outputs.
-- Aparece como card especial em "Previstos" com barra de progresso baseada em transações reais marcadas com a tag da meta.
+**Out of scope:** integração com APIs de câmbio em tempo real (campo manual); booking; conversão multi-moeda além de uma taxa.
 
 ---
 
 ## Detalhes técnicos
-
-- Migration (se necessário): adicionar coluna `metadata jsonb` em `planning_goals` se ainda não existir; revisar GRANTs e policies das tabelas finance_*.
-- Refactor: `useFinanceData` passa a expor `getFilteredSnapshot({ from, to })`.
-- Componentes novos: `SavingsGoalForm.tsx` dentro de `src/components/ems/planning/`.
-- Reuso: `DateRangeFilter`, `Slider`, `Input`, `Select` do design system.
-
----
-
-## Fora do escopo
-- Mudar UI das outras abas além de adicionar o filtro no Dashboard.
-- Importação automática de extratos bancários.
+- Libs novas: `@dnd-kit/core`, `@dnd-kit/sortable` (Tarefas).
+- Migrations: 1 para tasks, 1 para travel (cumprindo CREATE→GRANT→RLS→POLICY).
+- Tudo respeita multi-tenant via `company_id` + `useCompanyQuery`.
+- Sem mudanças nas demais abas do Finance.

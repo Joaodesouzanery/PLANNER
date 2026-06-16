@@ -44,6 +44,9 @@ interface Task {
   project_id: string | null;
   created_at: string;
   company_id: string | null;
+  is_weekly?: boolean | null;
+  week_start?: string | null;
+  priority_order?: number | null;
 }
 
 interface ProjectLite {
@@ -82,7 +85,8 @@ const Tasks = () => {
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [periodFilter, setPeriodFilter] = useState<"all" | "daily" | "weekly" | "monthly">("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
-  const [form, setForm] = useState({ title: "", description: "", priority: "medium", due_date: null as Date | null, tags: [] as string[], project_id: "none" as string });
+  const [form, setForm] = useState({ title: "", description: "", priority: "medium", due_date: null as Date | null, tags: [] as string[], project_id: "none" as string, is_weekly: false });
+  const [weeklyOnly, setWeeklyOnly] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [subtaskInput, setSubtaskInput] = useState("");
@@ -159,7 +163,7 @@ const Tasks = () => {
   const allTags = [...new Set(tasks.flatMap((t) => t.tags || []))].sort();
 
   const resetForm = () => {
-    setForm({ title: "", description: "", priority: "medium", due_date: null, tags: [], project_id: "none" });
+    setForm({ title: "", description: "", priority: "medium", due_date: null, tags: [], project_id: "none", is_weekly: false });
     setEditingTask(null);
   };
 
@@ -177,6 +181,7 @@ const Tasks = () => {
       due_date: task.due_date ? new Date(task.due_date + "T00:00:00") : null,
       tags: task.tags || [],
       project_id: task.project_id || "none",
+      is_weekly: !!task.is_weekly,
     });
     setDialogOpen(true);
   };
@@ -191,7 +196,9 @@ const Tasks = () => {
         tags: form.tags.length > 0 ? form.tags : null,
         project_id: form.project_id !== "none" ? form.project_id : null,
         company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
-      });
+        is_weekly: form.is_weekly,
+        week_start: form.is_weekly ? format(startOfWeek(new Date(), { locale: ptBR }), "yyyy-MM-dd") : null,
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -213,7 +220,8 @@ const Tasks = () => {
         due_date: form.due_date ? format(form.due_date, "yyyy-MM-dd") : null,
         tags: form.tags.length > 0 ? form.tags : null,
         project_id: form.project_id !== "none" ? form.project_id : null,
-      }).eq("id", editingTask.id);
+        is_weekly: form.is_weekly,
+      } as any).eq("id", editingTask.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -223,6 +231,15 @@ const Tasks = () => {
       resetForm();
       toast({ title: "Tarefa atualizada!" });
     },
+  });
+
+  const reorderPriorityMutation = useMutation({
+    mutationFn: async (ordered: { id: string; priority_order: number }[]) => {
+      await Promise.all(ordered.map(o =>
+        supabase.from("tasks").update({ priority_order: o.priority_order } as any).eq("id", o.id)
+      ));
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
   });
 
   const toggleMutation = useMutation({
@@ -297,6 +314,10 @@ const Tasks = () => {
   };
 
   const filteredTasks = parentTasks.filter((t) => {
+    if (weeklyOnly && !t.is_weekly) return false;
+    if (!weeklyOnly && t.is_weekly && filter !== "completed") {
+      // weekly tasks still show in other filters, no exclusion
+    }
     if (filter === "pending" && t.status === "completed") return false;
     if (filter === "completed" && t.status !== "completed") return false;
     if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
@@ -315,6 +336,9 @@ const Tasks = () => {
       if (!isWithinInterval(due, ranges[periodFilter])) return false;
     }
     return true;
+  }).sort((a, b) => {
+    if (weeklyOnly) return (a.priority_order ?? 0) - (b.priority_order ?? 0);
+    return 0;
   });
 
   const periodLabels = {
@@ -555,6 +579,15 @@ const Tasks = () => {
               {f === "all" ? "Todas" : f === "pending" ? "Pendentes" : "Concluídas"}
             </Button>
           ))}
+
+          <Button
+            variant={weeklyOnly ? "default" : "outline"}
+            size="sm"
+            className="gap-1"
+            onClick={() => setWeeklyOnly(v => !v)}
+          >
+            <Calendar className="h-3.5 w-3.5" /> Semanais
+          </Button>
 
           <div className="hidden sm:block w-px h-6 bg-border self-center mx-1" />
 
@@ -921,6 +954,35 @@ const Tasks = () => {
                   );
                 }
 
+                if (weeklyOnly) {
+                  return (
+                    <DragDropContext onDragEnd={(r) => {
+                      if (!r.destination) return;
+                      const arr = Array.from(filteredTasks);
+                      const [moved] = arr.splice(r.source.index, 1);
+                      arr.splice(r.destination.index, 0, moved);
+                      reorderPriorityMutation.mutate(arr.map((t, i) => ({ id: t.id, priority_order: i })));
+                    }}>
+                      <Droppable droppableId="weekly-list" type="WEEKLY">
+                        {(prov) => (
+                          <div ref={prov.innerRef} {...prov.droppableProps} className="space-y-1.5">
+                            {filteredTasks.map((task, idx) => (
+                              <Draggable key={task.id} draggableId={task.id} index={idx}>
+                                {(p, snap) => (
+                                  <div ref={p.innerRef} {...p.draggableProps} {...p.dragHandleProps} className={cn(snap.isDragging && "opacity-80 shadow-lg")}>
+                                    {renderTaskItem(task)}
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                            {prov.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </DragDropContext>
+                  );
+                }
+
                 return (
                   <div className="space-y-1.5">
                     <AnimatePresence>
@@ -991,6 +1053,16 @@ const Tasks = () => {
                 </SelectContent>
               </Select>
             </div>
+            <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.is_weekly}
+                onChange={(e) => setForm({ ...form, is_weekly: e.target.checked })}
+                className="h-4 w-4 rounded border-border"
+              />
+              <Calendar className="h-4 w-4 text-primary" />
+              Tarefa semanal (aparece no filtro "Semanais")
+            </label>
             <div>
               <label className="text-sm font-medium">Tags</label>
               <div className="flex gap-2">
