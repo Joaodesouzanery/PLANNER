@@ -433,35 +433,28 @@ export const useFinanceData = () => {
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [dashboardTransactions]);
 
-  const projectionData = useMemo(() => {
-    const last3 = monthlyData.slice(-3);
-    const incomeMonths = last3.filter((m) => m.income > 0);
-    const expenseMonths = last3.filter((m) => m.expense > 0);
-    const histAvgInc = incomeMonths.length > 0 ? incomeMonths.reduce((a, m) => a + m.income, 0) / incomeMonths.length : 0;
-    const histAvgExp = expenseMonths.length > 0 ? expenseMonths.reduce((a, m) => a + m.expense, 0) / expenseMonths.length : 0;
-    // Baseline mensal a partir de transações recorrentes ATIVAS (independe de quando começou)
-    const recurringMonthly = (kind: "income" | "expense") =>
-      rawTransactions
-        .filter((t) => t.is_recurring && t.type === kind)
-        .reduce((sum, t) => {
-          const interval = String(t.recurrence_interval || "monthly").toLowerCase();
-          const factor = interval.startsWith("week") || interval === "semanal"
-            ? 4.345
-            : interval.startsWith("year") || interval === "anual" || interval === "annual"
-              ? 1 / 12
-              : 1; // monthly por padrão
-          return sum + Number(t.amount) * factor;
-        }, 0);
-    const recInc = recurringMonthly("income");
-    const recExp = recurringMonthly("expense");
-    // Usa o MAIOR entre média histórica e baseline recorrente, para nunca subestimar renda configurada
-    const avgInc = Math.max(histAvgInc, recInc);
-    const avgExp = Math.max(histAvgExp, recExp);
-    const projected: { month: string; income: number; expense: number; balance: number; projected: boolean }[] = [];
-    last3.forEach(m => projected.push({ ...m, projected: false }));
-    for (let i = 1; i <= 3; i++) { const d = addMonths(new Date(), i); projected.push({ month: format(d, "MMM/yy", { locale: ptBR }), income: Math.round(avgInc), expense: Math.round(avgExp), balance: Math.round(avgInc - avgExp), projected: true }); }
-    return projected;
+  const projection = useMemo(() => {
+    const futureMonthLabels: string[] = [];
+    for (let i = 1; i <= 3; i++) {
+      futureMonthLabels.push(format(addMonths(new Date(), i), "MMM/yy", { locale: ptBR }));
+    }
+    return computeProjection({
+      monthlyData,
+      recurringTransactions: rawTransactions.map((t) => ({
+        id: t.id,
+        description: t.description,
+        category: t.category ?? null,
+        amount: Number(t.amount),
+        type: t.type,
+        is_recurring: !!t.is_recurring,
+        recurrence_interval: t.recurrence_interval ?? null,
+      })),
+      futureMonthLabels,
+    });
   }, [monthlyData, rawTransactions]);
+
+  const projectionData = projection.rows;
+  const projectionBreakdown: ProjectionBreakdown = projection.breakdown;
 
   const capitalEvolution = useMemo(() => { let running = 0; return monthlyData.map(m => { running += m.balance; return { month: m.month, capital: running }; }); }, [monthlyData]);
 
