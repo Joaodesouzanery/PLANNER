@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCompany } from "@/contexts/CompanyContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format, subMonths, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { expandRecurringTransactions, parseDateOnly } from "@/lib/geocode";
+import { computeProjection, type ProjectionBreakdown } from "./projectionCalc";
 
 export interface OKR {
   id: string; title: string; description: string | null; target_value: number;
@@ -174,6 +175,26 @@ export const useFinanceData = () => {
     queryClient.invalidateQueries({ queryKey: ["finance-monthly-plans"] });
     queryClient.invalidateQueries({ queryKey: ["finance-plan-items"] });
   };
+
+  // Realtime: qualquer mudança em transações, planos mensais ou itens planejados
+  // invalida o cache para a projeção se recalcular sem reload.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`finance-live-${selectedCompanyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "financial_transactions" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["finance-transactions"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "finance_monthly_plans" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["finance-monthly-plans"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "finance_plan_items" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["finance-plan-items"] });
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient, selectedCompanyId]);
 
   const ensureMonthlyPlan = async (month: number, year: number) => {
     let query = (supabase as any)
@@ -412,35 +433,28 @@ export const useFinanceData = () => {
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [dashboardTransactions]);
 
-  const projectionData = useMemo(() => {
-    const last3 = monthlyData.slice(-3);
-    const incomeMonths = last3.filter((m) => m.income > 0);
-    const expenseMonths = last3.filter((m) => m.expense > 0);
-    const histAvgInc = incomeMonths.length > 0 ? incomeMonths.reduce((a, m) => a + m.income, 0) / incomeMonths.length : 0;
-    const histAvgExp = expenseMonths.length > 0 ? expenseMonths.reduce((a, m) => a + m.expense, 0) / expenseMonths.length : 0;
-    // Baseline mensal a partir de transações recorrentes ATIVAS (independe de quando começou)
-    const recurringMonthly = (kind: "income" | "expense") =>
-      rawTransactions
-        .filter((t) => t.is_recurring && t.type === kind)
-        .reduce((sum, t) => {
-          const interval = String(t.recurrence_interval || "monthly").toLowerCase();
-          const factor = interval.startsWith("week") || interval === "semanal"
-            ? 4.345
-            : interval.startsWith("year") || interval === "anual" || interval === "annual"
-              ? 1 / 12
-              : 1; // monthly por padrão
-          return sum + Number(t.amount) * factor;
-        }, 0);
-    const recInc = recurringMonthly("income");
-    const recExp = recurringMonthly("expense");
-    // Usa o MAIOR entre média histórica e baseline recorrente, para nunca subestimar renda configurada
-    const avgInc = Math.max(histAvgInc, recInc);
-    const avgExp = Math.max(histAvgExp, recExp);
-    const projected: { month: string; income: number; expense: number; balance: number; projected: boolean }[] = [];
-    last3.forEach(m => projected.push({ ...m, projected: false }));
-    for (let i = 1; i <= 3; i++) { const d = addMonths(new Date(), i); projected.push({ month: format(d, "MMM/yy", { locale: ptBR }), income: Math.round(avgInc), expense: Math.round(avgExp), balance: Math.round(avgInc - avgExp), projected: true }); }
-    return projected;
+  const projection = useMemo(() => {
+    const futureMonthLabels: string[] = [];
+    for (let i = 1; i <= 3; i++) {
+      futureMonthLabels.push(format(addMonths(new Date(), i), "MMM/yy", { locale: ptBR }));
+    }
+    return computeProjection({
+      monthlyData,
+      recurringTransactions: rawTransactions.map((t) => ({
+        id: t.id,
+        description: t.description,
+        category: t.category ?? null,
+        amount: Number(t.amount),
+        type: t.type,
+        is_recurring: !!t.is_recurring,
+        recurrence_interval: t.recurrence_interval ?? null,
+      })),
+      futureMonthLabels,
+    });
   }, [monthlyData, rawTransactions]);
+
+  const projectionData = projection.rows;
+  const projectionBreakdown: ProjectionBreakdown = projection.breakdown;
 
   const capitalEvolution = useMemo(() => { let running = 0; return monthlyData.map(m => { running += m.balance; return { month: m.month, capital: running }; }); }, [monthlyData]);
 
@@ -470,7 +484,7 @@ export const useFinanceData = () => {
   return {
     okrs, transactions, rawTransactions, dashboardTransactions, totalIncome, totalExpense, balance, allCategories,
     savedInstallments, monthlyPlans, planItems, currentMonthPlanSummary,
-    monthlyData, incomeByCat, expenseByCat, projectionData, capitalEvolution,
+    monthlyData, incomeByCat, expenseByCat, projectionData, projectionBreakdown, capitalEvolution,
     saveOkrMutation, deleteOkrMutation, saveTransactionMutation, deleteTransactionMutation,
     saveInstallmentMutation, deleteInstallmentMutation,
     saveMonthlyPlanMutation, savePlanItemMutation, deletePlanItemMutation, skipPlanItemMutation, confirmPlanItemMutation,
