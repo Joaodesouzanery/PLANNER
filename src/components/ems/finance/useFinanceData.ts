@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCompany } from "@/contexts/CompanyContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format, subMonths, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { expandRecurringTransactions, parseDateOnly } from "@/lib/geocode";
+import { computeProjection, type ProjectionBreakdown } from "./projectionCalc";
 
 export interface OKR {
   id: string; title: string; description: string | null; target_value: number;
@@ -174,6 +175,26 @@ export const useFinanceData = () => {
     queryClient.invalidateQueries({ queryKey: ["finance-monthly-plans"] });
     queryClient.invalidateQueries({ queryKey: ["finance-plan-items"] });
   };
+
+  // Realtime: qualquer mudança em transações, planos mensais ou itens planejados
+  // invalida o cache para a projeção se recalcular sem reload.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`finance-live-${selectedCompanyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "financial_transactions" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["finance-transactions"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "finance_monthly_plans" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["finance-monthly-plans"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "finance_plan_items" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["finance-plan-items"] });
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient, selectedCompanyId]);
 
   const ensureMonthlyPlan = async (month: number, year: number) => {
     let query = (supabase as any)
