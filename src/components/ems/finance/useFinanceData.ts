@@ -484,7 +484,7 @@ export const useFinanceData = () => {
   return {
     okrs, transactions, rawTransactions, dashboardTransactions, totalIncome, totalExpense, balance, allCategories,
     savedInstallments, monthlyPlans, planItems, currentMonthPlanSummary,
-    monthlyData, incomeByCat, expenseByCat, projectionData, capitalEvolution,
+    monthlyData, incomeByCat, expenseByCat, projectionData, projectionBreakdown, capitalEvolution,
     saveOkrMutation, deleteOkrMutation, saveTransactionMutation, deleteTransactionMutation,
     saveInstallmentMutation, deleteInstallmentMutation,
     saveMonthlyPlanMutation, savePlanItemMutation, deletePlanItemMutation, skipPlanItemMutation, confirmPlanItemMutation,
