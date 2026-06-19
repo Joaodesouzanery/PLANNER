@@ -3773,6 +3773,237 @@ export type Database = {
           },
         ]
       }
+      routine_checklist_items: {
+        Row: {
+          active: boolean
+          client_id: string | null
+          created_at: string
+          id: string
+          kind: string
+          sort_order: number
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          active?: boolean
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          active?: boolean
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_checklist_items_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "routine_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routine_checklist_logs: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          done: boolean
+          done_at: string
+          id: string
+          item_id: string | null
+          log_date: string
+          notes: string | null
+          user_id: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          done?: boolean
+          done_at?: string
+          id?: string
+          item_id?: string | null
+          log_date?: string
+          notes?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          done?: boolean
+          done_at?: string
+          id?: string
+          item_id?: string | null
+          log_date?: string
+          notes?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_checklist_logs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "routine_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_checklist_logs_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "routine_checklist_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routine_clients: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          invoice_day: number | null
+          invoice_notes: string | null
+          name: string
+          notes: string | null
+          segment_id: string | null
+          sort_order: number
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          invoice_day?: number | null
+          invoice_notes?: string | null
+          name: string
+          notes?: string | null
+          segment_id?: string | null
+          sort_order?: number
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          invoice_day?: number | null
+          invoice_notes?: string | null
+          name?: string
+          notes?: string | null
+          segment_id?: string | null
+          sort_order?: number
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_clients_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "routine_segments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routine_segments: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      routine_tasks: {
+        Row: {
+          client_id: string | null
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          priority: string
+          sort_order: number
+          status: string
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string
+          sort_order?: number
+          status?: string
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string
+          sort_order?: number
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_tasks_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "routine_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       strategic_pillars: {
         Row: {
           color: string | null
