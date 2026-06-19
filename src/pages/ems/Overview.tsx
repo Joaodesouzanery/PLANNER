@@ -23,7 +23,7 @@ import { RecentActivity } from "@/components/ems/RecentActivity";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrueNorthPanel } from "@/components/ems/TrueNorthPanel";
 import { ExecutiveDashboardContent } from "./Executive";
-import { OperationalMapPanel } from "@/components/ems/OperationalMapPanel";
+import { RotinasPanel } from "@/components/ems/rotinas/RotinasPanel";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow, parseISO, isBefore, startOfWeek, endOfWeek, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -312,7 +312,7 @@ const Overview = () => {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <OperationalMapPanel height={320} maxSidebarHeight="320px" />
+          <RotinasPanel />
         </motion.div>
 
         {/* Orbit-style KPI cards: numeral gigante + delta */}

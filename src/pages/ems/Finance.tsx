@@ -1,7 +1,7 @@
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
-import { Activity, BarChart3, Calculator, CalendarDays, DollarSign, Plane, ShoppingCart, Target, TrendingUp, Wallet } from "lucide-react";
+import { Activity, BarChart3, Calculator, CalendarDays, DollarSign, Plane, ShoppingCart, Table2, Target, TrendingUp, Wallet } from "lucide-react";
 import FinanceDashboard from "@/components/ems/finance/FinanceDashboard";
 import FinanceOKRs from "@/components/ems/finance/FinanceOKRs";
 import FinanceTransactions from "@/components/ems/finance/FinanceTransactions";
@@ -13,6 +13,7 @@ import FinanceMetas from "@/components/ems/finance/FinanceMetas";
 import FinancePlannedImpacts from "@/components/ems/finance/FinancePlannedImpacts";
 import PurchaseImpactCalculator from "@/components/ems/finance/PurchaseImpactCalculator";
 import FinanceFutureFlow from "@/components/ems/finance/FinanceFutureFlow";
+import FinanceBrenoView from "@/components/ems/finance/FinanceBrenoView";
 import FinanceTravel from "@/components/ems/finance/travel/FinanceTravel";
 
 const Finance = () => {
@@ -28,8 +29,9 @@ const Finance = () => {
         </div>
 
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 xl:grid-cols-11 bg-card/80 border border-border/50 rounded-xl p-1 h-auto">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 xl:grid-cols-12 bg-card/80 border border-border/50 rounded-xl p-1 h-auto">
             <TabsTrigger value="dashboard" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><BarChart3 className="h-4 w-4" /><span className="hidden sm:inline">Dashboard</span></TabsTrigger>
+            <TabsTrigger value="planilha" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><Table2 className="h-4 w-4" /><span className="hidden sm:inline">Planilha</span></TabsTrigger>
             <TabsTrigger value="future-flow" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><Activity className="h-4 w-4" /><span className="hidden sm:inline">Fluxo Futuro</span></TabsTrigger>
             <TabsTrigger value="okrs" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><Target className="h-4 w-4" /><span className="hidden sm:inline">OKRs</span></TabsTrigger>
             <TabsTrigger value="transactions" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><Wallet className="h-4 w-4" /><span className="hidden sm:inline">Transacoes</span></TabsTrigger>
@@ -43,6 +45,7 @@ const Finance = () => {
           </TabsList>
 
           <TabsContent value="dashboard"><FinanceDashboard /></TabsContent>
+          <TabsContent value="planilha"><FinanceBrenoView /></TabsContent>
           <TabsContent value="future-flow"><FinanceFutureFlow /></TabsContent>
           <TabsContent value="okrs"><FinanceOKRs /></TabsContent>
           <TabsContent value="transactions"><FinanceTransactions /></TabsContent>
