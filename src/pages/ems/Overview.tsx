@@ -23,7 +23,7 @@ import { RecentActivity } from "@/components/ems/RecentActivity";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrueNorthPanel } from "@/components/ems/TrueNorthPanel";
 import { ExecutiveDashboardContent } from "./Executive";
-import { RotinasPanel } from "@/components/ems/rotinas/RotinasPanel";
+// Rotinas moved to Conselho — Overview keeps only macro signals.
 import { Link } from "react-router-dom";
 import { formatDistanceToNow, parseISO, isBefore, startOfWeek, endOfWeek, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -132,7 +132,7 @@ const Overview = () => {
     queryKey: ["overview-counts", cid],
     queryFn: async () => {
       let tcQ = supabase.from("tasks").select("*", { count: "exact", head: true });
-      let pcQ = supabase.from("projects").select("*", { count: "exact", head: true });
+      let pcQ = supabase.from("projects").select("*", { count: "exact", head: true }).eq("status", "in_progress");
       let ccQ = supabase.from("contacts").select("*", { count: "exact", head: true });
       let tpQ = supabase.from("tasks").select("*", { count: "exact", head: true }).neq("status", "completed");
       let tdQ = supabase.from("tasks").select("*", { count: "exact", head: true }).eq("status", "completed");
@@ -311,9 +311,7 @@ const Overview = () => {
           </div>
         </motion.div>
 
-        <motion.div variants={itemVariants}>
-          <RotinasPanel />
-        </motion.div>
+        {/* Rotinas movidas para o Conselho */}
 
         {/* Orbit-style KPI cards: numeral gigante + delta */}
         <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">

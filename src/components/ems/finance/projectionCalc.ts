@@ -35,6 +35,7 @@ export interface ProjectionBreakdown {
   historicalAverageExpense: number;
   historicalMonthsConsideredIncome: number;
   historicalMonthsConsideredExpense: number;
+  historyWindow: number;
   recurringBaselineIncome: number;
   recurringBaselineExpense: number;
   chosenIncome: number;
@@ -42,6 +43,12 @@ export interface ProjectionBreakdown {
   incomeSourceUsed: "historical" | "recurring" | "none";
   expenseSourceUsed: "historical" | "recurring" | "none";
   recurringSources: RecurringSource[];
+  alerts: ProjectionAlert[];
+}
+
+export interface ProjectionAlert {
+  level: "info" | "warning";
+  message: string;
 }
 
 export interface ProjectionRow {
@@ -57,9 +64,9 @@ const normalizeInterval = (interval: string | null | undefined) =>
 
 export const intervalFactor = (interval: string): number => {
   const i = normalizeInterval(interval);
-  if (i.startsWith("week") || i === "semanal") return 4.345; // semanas por mês (média)
+  if (i.startsWith("week") || i === "semanal") return 4.345;
   if (i.startsWith("year") || i === "anual" || i === "annual") return 1 / 12;
-  return 1; // monthly por padrão
+  return 1;
 };
 
 export const buildRecurringSources = (
@@ -86,7 +93,9 @@ export const buildRecurringSources = (
 export interface ComputeProjectionInput {
   monthlyData: MonthlyHistoryRow[];
   recurringTransactions: ProjectionRecurringTx[];
-  futureMonthLabels: string[]; // ex: ["jul/26", "ago/26", "set/26"]
+  futureMonthLabels: string[];
+  historyWindow?: number; // 3, 6, 12. default 3
+  recurringOverride?: { income?: number; expense?: number }; // for scenarios
 }
 
 export interface ComputeProjectionResult {
@@ -97,10 +106,11 @@ export interface ComputeProjectionResult {
 export const computeProjection = (
   input: ComputeProjectionInput,
 ): ComputeProjectionResult => {
-  const { monthlyData, recurringTransactions, futureMonthLabels } = input;
-  const last3 = monthlyData.slice(-3);
-  const incomeMonths = last3.filter((m) => m.income > 0);
-  const expenseMonths = last3.filter((m) => m.expense > 0);
+  const { monthlyData, recurringTransactions, futureMonthLabels, historyWindow = 3, recurringOverride } = input;
+  const window = Math.max(1, Math.min(24, historyWindow));
+  const last = monthlyData.slice(-window);
+  const incomeMonths = last.filter((m) => m.income > 0);
+  const expenseMonths = last.filter((m) => m.expense > 0);
   const histAvgInc =
     incomeMonths.length > 0
       ? incomeMonths.reduce((a, m) => a + m.income, 0) / incomeMonths.length
@@ -111,31 +121,55 @@ export const computeProjection = (
       : 0;
 
   const sources = buildRecurringSources(recurringTransactions);
-  const recInc = sources
+  const recIncCalc = sources
     .filter((s) => s.type === "income")
     .reduce((sum, s) => sum + s.monthlyEquivalent, 0);
-  const recExp = sources
+  const recExpCalc = sources
     .filter((s) => s.type === "expense")
     .reduce((sum, s) => sum + s.monthlyEquivalent, 0);
+
+  const recInc = recurringOverride?.income ?? recIncCalc;
+  const recExp = recurringOverride?.expense ?? recExpCalc;
 
   const chosenIncome = Math.max(histAvgInc, recInc);
   const chosenExpense = Math.max(histAvgExp, recExp);
 
   const incomeSourceUsed: ProjectionBreakdown["incomeSourceUsed"] =
-    chosenIncome <= 0
-      ? "none"
-      : recInc >= histAvgInc
-      ? "recurring"
-      : "historical";
+    chosenIncome <= 0 ? "none" : recInc >= histAvgInc ? "recurring" : "historical";
   const expenseSourceUsed: ProjectionBreakdown["expenseSourceUsed"] =
-    chosenExpense <= 0
-      ? "none"
-      : recExp >= histAvgExp
-      ? "recurring"
-      : "historical";
+    chosenExpense <= 0 ? "none" : recExp >= histAvgExp ? "recurring" : "historical";
+
+  const alerts: ProjectionAlert[] = [];
+  if (incomeMonths.length < Math.min(3, window)) {
+    alerts.push({
+      level: "warning",
+      message: `Pouco histórico de entradas (${incomeMonths.length} mês${incomeMonths.length === 1 ? "" : "es"} com dado). A projeção pode ser imprecisa.`,
+    });
+  }
+  if (expenseMonths.length < Math.min(3, window)) {
+    alerts.push({
+      level: "warning",
+      message: `Pouco histórico de saídas (${expenseMonths.length} mês${expenseMonths.length === 1 ? "" : "es"} com dado).`,
+    });
+  }
+  if (incomeSourceUsed === "recurring" && histAvgInc > 0 && recInc > histAvgInc * 1.5) {
+    alerts.push({
+      level: "info",
+      message: "A baseline recorrente de entradas é bem maior que a média histórica — projeção está dominada pelas recorrências configuradas.",
+    });
+  }
+  if (expenseSourceUsed === "recurring" && histAvgExp > 0 && recExp > histAvgExp * 1.5) {
+    alerts.push({
+      level: "info",
+      message: "A baseline recorrente de saídas é bem maior que a média histórica.",
+    });
+  }
+  if (chosenIncome === 0 && chosenExpense === 0) {
+    alerts.push({ level: "warning", message: "Sem dados suficientes para projetar. Cadastre rendas/despesas recorrentes ou adicione transações." });
+  }
 
   const rows: ProjectionRow[] = [];
-  last3.forEach((m) =>
+  last.forEach((m) =>
     rows.push({
       month: m.month,
       income: m.income,
@@ -161,6 +195,7 @@ export const computeProjection = (
       historicalAverageExpense: histAvgExp,
       historicalMonthsConsideredIncome: incomeMonths.length,
       historicalMonthsConsideredExpense: expenseMonths.length,
+      historyWindow: window,
       recurringBaselineIncome: recInc,
       recurringBaselineExpense: recExp,
       chosenIncome,
@@ -168,6 +203,7 @@ export const computeProjection = (
       incomeSourceUsed,
       expenseSourceUsed,
       recurringSources: sources,
+      alerts,
     },
   };
 };

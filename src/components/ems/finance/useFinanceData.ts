@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCompany } from "@/contexts/CompanyContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -93,10 +93,11 @@ const assertUuid = (id: string | undefined, label: string) => {
   }
 };
 
-export const useFinanceData = () => {
+export const useFinanceData = (options?: { historyWindow?: number }) => {
   const { toast } = useToast();
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
+  const [historyWindow, setHistoryWindow] = useState<number>(options?.historyWindow ?? 3);
 
   const { data: okrs = [] } = useQuery({
     queryKey: ["finance-okrs", selectedCompanyId],
@@ -411,7 +412,8 @@ export const useFinanceData = () => {
 
   const monthlyData = useMemo(() => {
     const months: { month: string; income: number; expense: number; balance: number }[] = [];
-    for (let i = 11; i >= 0; i--) {
+    const totalMonths = Math.max(12, historyWindow);
+    for (let i = totalMonths - 1; i >= 0; i--) {
       const d = subMonths(new Date(), i); const key = format(d, "yyyy-MM"); const label = format(d, "MMM/yy", { locale: ptBR });
       const monthTx = dashboardTransactions.filter(t => String(t.date).slice(0, 7) === key);
       const inc = monthTx.filter(t => t.type === "income").reduce((a, t) => a + Number(t.amount), 0);
@@ -419,7 +421,7 @@ export const useFinanceData = () => {
       months.push({ month: label, income: inc, expense: exp, balance: inc - exp });
     }
     return months;
-  }, [dashboardTransactions]);
+  }, [dashboardTransactions, historyWindow]);
 
   const incomeByCat = useMemo(() => {
     const map: Record<string, number> = {};
@@ -450,8 +452,9 @@ export const useFinanceData = () => {
         recurrence_interval: t.recurrence_interval ?? null,
       })),
       futureMonthLabels,
+      historyWindow,
     });
-  }, [monthlyData, rawTransactions]);
+  }, [monthlyData, rawTransactions, historyWindow]);
 
   const projectionData = projection.rows;
   const projectionBreakdown: ProjectionBreakdown = projection.breakdown;
@@ -485,6 +488,7 @@ export const useFinanceData = () => {
     okrs, transactions, rawTransactions, dashboardTransactions, totalIncome, totalExpense, balance, allCategories,
     savedInstallments, monthlyPlans, planItems, currentMonthPlanSummary,
     monthlyData, incomeByCat, expenseByCat, projectionData, projectionBreakdown, capitalEvolution,
+    historyWindow, setHistoryWindow,
     saveOkrMutation, deleteOkrMutation, saveTransactionMutation, deleteTransactionMutation,
     saveInstallmentMutation, deleteInstallmentMutation,
     saveMonthlyPlanMutation, savePlanItemMutation, deletePlanItemMutation, skipPlanItemMutation, confirmPlanItemMutation,

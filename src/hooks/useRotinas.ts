@@ -245,6 +245,18 @@ export const useRotinas = () => {
     onError,
   });
 
+  const reorderTasks = useMutation({
+    mutationFn: async (orderedIds: string[]) => {
+      await Promise.all(
+        orderedIds.map((id, index) =>
+          db.from("routine_tasks").update({ sort_order: index }).eq("id", id),
+        ),
+      );
+    },
+    onSuccess: invalidate,
+    onError,
+  });
+
   const seedInitialStructure = useMutation({
     mutationFn: async () => {
       const blueprint: Array<{ segment: string; clients: Array<{ name: string; invoice_day?: number }> }> = [
@@ -300,6 +312,7 @@ export const useRotinas = () => {
     deleteChecklistItem,
     saveTask,
     deleteTask,
+    reorderTasks,
     seedInitialStructure,
   };
 };

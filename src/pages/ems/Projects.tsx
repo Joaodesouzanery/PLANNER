@@ -125,8 +125,8 @@ interface ProjectPlanningSignal {
 }
 
 const DEFAULT_COLUMNS: KanbanColumn[] = [
-  { id: "todo", title: "A Fazer", order_index: 0, color: "blue", isDefault: true },
-  { id: "in_progress", title: "Em Progresso", order_index: 1, color: "amber", isDefault: true },
+  { id: "todo", title: "Possível", order_index: 0, color: "blue", isDefault: true },
+  { id: "in_progress", title: "Ativo", order_index: 1, color: "amber", isDefault: true },
   { id: "done", title: "Concluído", order_index: 2, color: "emerald", isDefault: true },
 ];
 
@@ -178,7 +178,7 @@ const Projects = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { selectedCompanyId, companies } = useCompany();
-  const initialView = searchParams.get("tab") === "planning" ? "planning" : "graph";
+  const initialView = searchParams.get("tab") === "planning" ? "planning" : "kanban";
   const [view, setView] = useState<"graph" | "kanban" | "timeline" | "dashboard" | "planning">(initialView);
   const [projects, setProjects] = useState<Project[]>([]);
   const [columns, setColumns] = useState<KanbanColumn[]>(DEFAULT_COLUMNS);
@@ -711,7 +711,7 @@ const Projects = () => {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3">
           {[
             { label: "Total", value: totalProjects, icon: FolderKanban, color: "text-primary", gradient: "from-primary/10 to-primary/5" },
-            { label: "Em Progresso", value: inProgressProjects, icon: Clock, color: "text-amber-400", gradient: "from-amber-500/10 to-amber-500/5" },
+            { label: "Ativos", value: inProgressProjects, icon: Clock, color: "text-amber-400", gradient: "from-amber-500/10 to-amber-500/5" },
             { label: "Concluídos", value: doneProjects, icon: CheckCircle, color: "text-emerald-400", gradient: "from-emerald-500/10 to-emerald-500/5" },
             { label: "Atrasados", value: overdueProjects, icon: AlertTriangle, color: "text-red-400", gradient: "from-red-500/10 to-red-500/5" },
             { label: "Alertas NF", value: invoiceAlertProjects, icon: FileText, color: "text-cyan-400", gradient: "from-cyan-500/10 to-cyan-500/5" },
@@ -807,8 +807,8 @@ const Projects = () => {
         {/* View Toggle */}
         <Tabs value={view} onValueChange={(v) => setView(v as "graph" | "kanban" | "timeline" | "dashboard" | "planning")}>
           <TabsList className="w-full sm:w-auto">
-            <TabsTrigger value="graph" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><Network className="h-3.5 w-3.5 md:h-4 md:w-4" />Vinculos</TabsTrigger>
             <TabsTrigger value="kanban" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><LayoutGrid className="h-3.5 w-3.5 md:h-4 md:w-4" />Kanban</TabsTrigger>
+            <TabsTrigger value="graph" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><Network className="h-3.5 w-3.5 md:h-4 md:w-4" />Vinculos</TabsTrigger>
             <TabsTrigger value="timeline" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><GanttChart className="h-3.5 w-3.5 md:h-4 md:w-4" />Timeline</TabsTrigger>
             <TabsTrigger value="planning" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><Target className="h-3.5 w-3.5 md:h-4 md:w-4" />Plano e Metas</TabsTrigger>
             <TabsTrigger value="dashboard" className="gap-1.5 text-xs md:text-sm flex-1 sm:flex-none"><BarChart3 className="h-3.5 w-3.5 md:h-4 md:w-4" />Dashboard</TabsTrigger>
@@ -843,8 +843,8 @@ const Projects = () => {
                       <Select value={graphStatusFilter} onValueChange={setGraphStatusFilter}>
                         <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="in_progress">Em progresso</SelectItem>
-                          <SelectItem value="todo">A fazer</SelectItem>
+                          <SelectItem value="in_progress">Ativo</SelectItem>
+                          <SelectItem value="todo">Possível</SelectItem>
                           <SelectItem value="done">Concluido</SelectItem>
                           <SelectItem value="all">Todos</SelectItem>
                         </SelectContent>
@@ -1279,7 +1279,7 @@ const Projects = () => {
                           </div>
                           <div className="flex items-center gap-1 flex-wrap shrink-0">
                             <Badge variant="secondary" className={cn("text-[9px] md:text-[10px] px-1", project.status === "done" ? "bg-emerald-500/10 text-emerald-400" : project.status === "in_progress" ? "bg-amber-500/10 text-amber-400" : "bg-blue-500/10 text-blue-400")}>
-                              {project.status === "done" ? "Concluído" : project.status === "in_progress" ? "Em Progresso" : "A Fazer"}
+                              {project.status === "done" ? "Concluído" : project.status === "in_progress" ? "Ativo" : "Possível"}
                             </Badge>
                             {isOverdue && <Badge variant="destructive" className="text-[9px] md:text-[10px] px-1 py-0">Atrasado</Badge>}
                           </div>
@@ -1389,7 +1389,7 @@ const Projects = () => {
                           <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
                           <Legend wrapperStyle={{ fontSize: 11 }} />
                           <Bar dataKey="total" name="Total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                          <Bar dataKey="em_progresso" name="Em Progresso" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="em_progresso" name="Ativos" fill="#f59e0b" radius={[4, 4, 0, 0]} />
                           <Bar dataKey="concluidos" name="Concluídos" fill="#10b981" radius={[4, 4, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>

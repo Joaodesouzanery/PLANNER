@@ -18,8 +18,10 @@ import {
   Siren,
   Trash2,
   Wrench,
+  ListChecks,
 } from "lucide-react";
 import { EMSLayout } from "@/components/ems/EMSLayout";
+import { RotinasPanel } from "@/components/ems/rotinas/RotinasPanel";
 import { AttachmentManager } from "@/components/ems/AttachmentManager";
 import { BoardCategoryDocuments } from "@/components/ems/BoardCategoryDocuments";
 import { AutomationRulesPanel } from "@/components/ems/AutomationRulesPanel";
@@ -39,6 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 const CATEGORIES = [
+  { id: "rotinas", label: "Rotinas", icon: ListChecks, color: "text-primary", bg: "bg-primary/10" },
   { id: "legal", label: "Jurídico", icon: Gavel, color: "text-violet-500", bg: "bg-violet-500/10" },
   { id: "accounting", label: "Contabilidade", icon: BookOpen, color: "text-blue-500", bg: "bg-blue-500/10" },
   { id: "optimization", label: "Otimizações", icon: Wrench, color: "text-emerald-500", bg: "bg-emerald-500/10" },
@@ -99,7 +102,7 @@ const BoardCouncil = () => {
   const { selectedCompanyId } = useCompany();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeCategory, setActiveCategory] = useState("legal");
+  const [activeCategory, setActiveCategory] = useState("rotinas");
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [itemForm, setItemForm] = useState(emptyItem);
@@ -203,7 +206,7 @@ const BoardCouncil = () => {
   const boardOverview = useMemo(() => {
     const actionable = allItems.filter((item: any) => !["done", "archived"].includes(item.status));
     const byCategory = CATEGORIES
-      .filter(category => !["documents", "decisions", "automation", "monthly_review"].includes(category.id))
+      .filter(category => !["documents", "decisions", "automation", "monthly_review", "rotinas"].includes(category.id))
       .map(category => ({
         ...category,
         open: actionable.filter((item: any) => item.category === category.id).length,
@@ -392,7 +395,7 @@ const BoardCouncil = () => {
             </h1>
             <p className="text-sm text-muted-foreground">Governança, riscos, obrigações, estratégia e memória executiva.</p>
           </div>
-          {!["documents", "monthly_review", "decisions", "automation"].includes(activeCategory) && (
+          {!["documents", "monthly_review", "decisions", "automation", "rotinas"].includes(activeCategory) && (
             <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" /> Novo item</Button>
           )}
         </div>
@@ -518,7 +521,9 @@ const BoardCouncil = () => {
 
           {CATEGORIES.map((category) => (
             <TabsContent key={category.id} value={category.id} className="mt-4">
-              {category.id === "documents" ? (
+              {category.id === "rotinas" ? (
+                <RotinasPanel />
+              ) : category.id === "documents" ? (
                 <DocumentLibrary />
               ) : category.id === "decisions" ? (
                 <DecisionLogPanel />
@@ -672,7 +677,7 @@ const BoardCouncil = () => {
                 </div>
               </div>
               )}
-              {!["documents"].includes(category.id) && (
+              {!["documents", "rotinas"].includes(category.id) && (
                 <div className="mt-4">
                   <BoardCategoryDocuments category={category.id} />
                 </div>
