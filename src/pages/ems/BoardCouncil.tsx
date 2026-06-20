@@ -206,7 +206,7 @@ const BoardCouncil = () => {
   const boardOverview = useMemo(() => {
     const actionable = allItems.filter((item: any) => !["done", "archived"].includes(item.status));
     const byCategory = CATEGORIES
-      .filter(category => !["documents", "decisions", "automation", "monthly_review"].includes(category.id))
+      .filter(category => !["documents", "decisions", "automation", "monthly_review", "rotinas"].includes(category.id))
       .map(category => ({
         ...category,
         open: actionable.filter((item: any) => item.category === category.id).length,
@@ -395,7 +395,7 @@ const BoardCouncil = () => {
             </h1>
             <p className="text-sm text-muted-foreground">Governança, riscos, obrigações, estratégia e memória executiva.</p>
           </div>
-          {!["documents", "monthly_review", "decisions", "automation"].includes(activeCategory) && (
+          {!["documents", "monthly_review", "decisions", "automation", "rotinas"].includes(activeCategory) && (
             <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" /> Novo item</Button>
           )}
         </div>
@@ -521,7 +521,9 @@ const BoardCouncil = () => {
 
           {CATEGORIES.map((category) => (
             <TabsContent key={category.id} value={category.id} className="mt-4">
-              {category.id === "documents" ? (
+              {category.id === "rotinas" ? (
+                <RotinasPanel />
+              ) : category.id === "documents" ? (
                 <DocumentLibrary />
               ) : category.id === "decisions" ? (
                 <DecisionLogPanel />
@@ -675,7 +677,7 @@ const BoardCouncil = () => {
                 </div>
               </div>
               )}
-              {!["documents"].includes(category.id) && (
+              {!["documents", "rotinas"].includes(category.id) && (
                 <div className="mt-4">
                   <BoardCategoryDocuments category={category.id} />
                 </div>
