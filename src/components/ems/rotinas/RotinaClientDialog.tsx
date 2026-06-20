@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Copy, Plus, Trash2 } from "lucide-react";
+import { Copy, GripVertical, Plus, Trash2 } from "lucide-react";
+import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -123,21 +124,49 @@ export const RotinaClientDialog = ({ view, rotinas, open, onClose }: { view: Rou
               {view.tasks.length === 0 ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma tarefa para este cliente.</p>
               ) : (
-                view.tasks.map((task) => (
-                  <div key={task.id} className="flex flex-wrap items-center gap-2 rounded-lg border border-border/50 bg-card/60 p-2.5">
-                    <span className={cn("flex-1 text-sm", task.status === "done" && "text-muted-foreground line-through")}>
-                      {task.title}
-                      {task.due_date && <span className="ml-2 text-[11px] text-muted-foreground">vence {task.due_date.slice(8, 10)}/{task.due_date.slice(5, 7)}</span>}
-                    </span>
-                    <Select value={task.status} onValueChange={(v) => rotinas.saveTask.mutate({ id: task.id, status: v as RoutineTaskStatus })}>
-                      <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>{Object.entries(statusLabel).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
-                    </Select>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => rotinas.deleteTask.mutate(task.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))
+                <DragDropContext
+                  onDragEnd={(r: DropResult) => {
+                    if (!r.destination || r.destination.index === r.source.index) return;
+                    const ids = view.tasks.map((t) => t.id);
+                    const [moved] = ids.splice(r.source.index, 1);
+                    ids.splice(r.destination.index, 0, moved);
+                    rotinas.reorderTasks.mutate(ids);
+                  }}
+                >
+                  <Droppable droppableId="rotina-tasks">
+                    {(prov) => (
+                      <div ref={prov.innerRef} {...prov.droppableProps} className="space-y-2">
+                        {view.tasks.map((task, idx) => (
+                          <Draggable key={task.id} draggableId={task.id} index={idx}>
+                            {(p) => (
+                              <div
+                                ref={p.innerRef}
+                                {...p.draggableProps}
+                                className="flex flex-wrap items-center gap-2 rounded-lg border border-border/50 bg-card/60 p-2.5"
+                              >
+                                <button {...p.dragHandleProps} className="text-muted-foreground cursor-grab active:cursor-grabbing">
+                                  <GripVertical className="h-4 w-4" />
+                                </button>
+                                <span className={cn("flex-1 text-sm", task.status === "done" && "text-muted-foreground line-through")}>
+                                  {task.title}
+                                  {task.due_date && <span className="ml-2 text-[11px] text-muted-foreground">vence {task.due_date.slice(8, 10)}/{task.due_date.slice(5, 7)}</span>}
+                                </span>
+                                <Select value={task.status} onValueChange={(v) => rotinas.saveTask.mutate({ id: task.id, status: v as RoutineTaskStatus })}>
+                                  <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue /></SelectTrigger>
+                                  <SelectContent>{Object.entries(statusLabel).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
+                                </Select>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => rotinas.deleteTask.mutate(task.id)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
+                          </Draggable>
+                        ))}
+                        {prov.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </DragDropContext>
               )}
             </div>
           </TabsContent>
