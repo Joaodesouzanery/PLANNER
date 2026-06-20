@@ -1,7 +1,7 @@
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
-import { Activity, BarChart3, Calculator, CalendarDays, DollarSign, Plane, ShoppingCart, Table2, Target, TrendingUp, Wallet } from "lucide-react";
+import { Activity, BarChart3, Calculator, CalendarDays, DollarSign, GitCompare, Plane, ShoppingCart, Table2, Target, TrendingUp, Wallet } from "lucide-react";
 import FinanceDashboard from "@/components/ems/finance/FinanceDashboard";
 import FinanceOKRs from "@/components/ems/finance/FinanceOKRs";
 import FinanceTransactions from "@/components/ems/finance/FinanceTransactions";
@@ -15,6 +15,7 @@ import PurchaseImpactCalculator from "@/components/ems/finance/PurchaseImpactCal
 import FinanceFutureFlow from "@/components/ems/finance/FinanceFutureFlow";
 import FinanceBrenoView from "@/components/ems/finance/FinanceBrenoView";
 import FinanceTravel from "@/components/ems/finance/travel/FinanceTravel";
+import FinanceScenarios from "@/components/ems/finance/FinanceScenarios";
 
 const Finance = () => {
   return (
@@ -42,6 +43,7 @@ const Finance = () => {
             <TabsTrigger value="metas" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><Target className="h-4 w-4" /><span className="hidden sm:inline">Metas</span></TabsTrigger>
             <TabsTrigger value="planned" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><TrendingUp className="h-4 w-4" /><span className="hidden sm:inline">Previstos</span></TabsTrigger>
             <TabsTrigger value="travel" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><Plane className="h-4 w-4" /><span className="hidden sm:inline">Viagem</span></TabsTrigger>
+            <TabsTrigger value="scenarios" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><GitCompare className="h-4 w-4" /><span className="hidden sm:inline">Cenários</span></TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard"><FinanceDashboard /></TabsContent>
@@ -56,6 +58,7 @@ const Finance = () => {
           <TabsContent value="metas"><FinanceMetas /></TabsContent>
           <TabsContent value="planned"><FinancePlannedImpacts /></TabsContent>
           <TabsContent value="travel"><FinanceTravel /></TabsContent>
+          <TabsContent value="scenarios"><FinanceScenarios /></TabsContent>
         </Tabs>
       </motion.div>
     </EMSLayout>
