@@ -2081,6 +2081,48 @@ export type Database = {
           },
         ]
       }
+      finance_scenarios: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          description: string | null
+          history_window: number
+          id: string
+          items: Json
+          name: string
+          recurring_expense: number
+          recurring_income: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          history_window?: number
+          id?: string
+          items?: Json
+          name: string
+          recurring_expense?: number
+          recurring_income?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          history_window?: number
+          id?: string
+          items?: Json
+          name?: string
+          recurring_expense?: number
+          recurring_income?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       finance_transfers: {
         Row: {
           amount: number
