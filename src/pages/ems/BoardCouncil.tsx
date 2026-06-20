@@ -18,8 +18,10 @@ import {
   Siren,
   Trash2,
   Wrench,
+  ListChecks,
 } from "lucide-react";
 import { EMSLayout } from "@/components/ems/EMSLayout";
+import { RotinasPanel } from "@/components/ems/rotinas/RotinasPanel";
 import { AttachmentManager } from "@/components/ems/AttachmentManager";
 import { BoardCategoryDocuments } from "@/components/ems/BoardCategoryDocuments";
 import { AutomationRulesPanel } from "@/components/ems/AutomationRulesPanel";
@@ -39,6 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
 const CATEGORIES = [
+  { id: "rotinas", label: "Rotinas", icon: ListChecks, color: "text-primary", bg: "bg-primary/10" },
   { id: "legal", label: "Jurídico", icon: Gavel, color: "text-violet-500", bg: "bg-violet-500/10" },
   { id: "accounting", label: "Contabilidade", icon: BookOpen, color: "text-blue-500", bg: "bg-blue-500/10" },
   { id: "optimization", label: "Otimizações", icon: Wrench, color: "text-emerald-500", bg: "bg-emerald-500/10" },
@@ -99,7 +102,7 @@ const BoardCouncil = () => {
   const { selectedCompanyId } = useCompany();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeCategory, setActiveCategory] = useState("legal");
+  const [activeCategory, setActiveCategory] = useState("rotinas");
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [itemForm, setItemForm] = useState(emptyItem);
