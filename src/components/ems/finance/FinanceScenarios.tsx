@@ -98,7 +98,38 @@ const FinanceScenarios = () => {
       queryClient.invalidateQueries({ queryKey: ["finance-scenarios"] });
       toast({ title: "Cenário removido" });
     },
+
+  const duplicate = useMutation({
+    mutationFn: async (s: Scenario) => {
+      const payload = {
+        name: `${s.name} (cópia)`,
+        description: s.description,
+        recurring_income: s.recurring_income,
+        recurring_expense: s.recurring_expense,
+        history_window: s.history_window,
+        company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
+      };
+      const { error } = await db.from("finance_scenarios").insert(payload);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["finance-scenarios"] });
+      toast({ title: "Cenário duplicado" });
+    },
+    onError: (e: any) => toast({ title: "Erro ao duplicar", description: e?.message, variant: "destructive" }),
   });
+
+  const savePresetFromForm = () => {
+    const w = Number(form.history_window);
+    if (!w) return;
+    if (presets.some((p) => p.window === w)) {
+      toast({ title: "Preset já existe", description: `Janela de ${w} meses já salva.` });
+      return;
+    }
+    setPresets([...presets, { id: crypto.randomUUID(), label: `${w} meses`, window: w }]);
+    toast({ title: "Preset salvo" });
+  };
+
 
   const futureMonthLabels = useMemo(() => {
     const labels: string[] = [];
