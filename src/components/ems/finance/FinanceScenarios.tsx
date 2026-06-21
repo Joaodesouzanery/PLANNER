@@ -321,6 +321,9 @@ const FinanceScenarios = () => {
                 {s.description && <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{s.description}</p>}
               </div>
               <Button size="sm" variant="outline" onClick={() => startEdit(s)}>Editar</Button>
+              <Button size="sm" variant="ghost" title="Duplicar" onClick={() => duplicate.mutate(s)} disabled={duplicate.isPending}>
+                <Copy className="h-4 w-4" />
+              </Button>
               <Button size="sm" variant="ghost" className="text-destructive" onClick={() => remove.mutate(s.id)}>
                 <Trash2 className="h-4 w-4" />
               </Button>
