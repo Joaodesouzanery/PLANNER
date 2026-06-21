@@ -98,6 +98,7 @@ const FinanceScenarios = () => {
       queryClient.invalidateQueries({ queryKey: ["finance-scenarios"] });
       toast({ title: "Cenário removido" });
     },
+  });
 
   const duplicate = useMutation({
     mutationFn: async (s: Scenario) => {
