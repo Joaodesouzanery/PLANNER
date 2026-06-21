@@ -333,10 +333,13 @@ const FinanceScenarios = () => {
       </Card>
 
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
             <GitCompare className="h-4 w-4 text-primary" /> Comparar 2 cenários
           </CardTitle>
+          <Button size="sm" variant="outline" disabled={!leftRes || !rightRes} onClick={exportComparePdf} className="gap-1">
+            <Download className="h-3.5 w-3.5" /> PDF A×B
+          </Button>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
