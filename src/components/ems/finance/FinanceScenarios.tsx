@@ -46,11 +46,6 @@ const FinanceScenarios = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [leftId, setLeftId] = useState<string>("");
   const [rightId, setRightId] = useState<string>("");
-
-  const [form, setForm] = useState(emptyForm);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [leftId, setLeftId] = useState<string>("");
-  const [rightId, setRightId] = useState<string>("");
   const [presets, setPresets] = useState<Preset[]>(loadPresets);
   const chartRef = useRef<HTMLDivElement>(null);
 
