@@ -92,7 +92,10 @@ const FinanceDashboard = () => {
           <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={() => { setFrom(defaultFrom()); setTo(defaultTo()); }}>
             <RotateCcw className="h-3.5 w-3.5 mr-1" /> Limpar filtro
           </Button>
-          <Badge variant="outline" className="ml-auto text-xs">{filtered.length} transacoes no periodo</Badge>
+          <div className="ml-auto flex items-center gap-1.5">
+            <Badge variant="outline" className="text-xs">{filtered.filter(f => !f.projected).length} realizadas</Badge>
+            {filtered.some(f => f.projected) && <Badge variant="secondary" className="text-xs">{filtered.filter(f => f.projected).length} previstas</Badge>}
+          </div>
         </CardContent>
       </Card>
 
