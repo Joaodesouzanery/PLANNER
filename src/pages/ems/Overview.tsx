@@ -23,7 +23,7 @@ import { RecentActivity } from "@/components/ems/RecentActivity";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrueNorthPanel } from "@/components/ems/TrueNorthPanel";
 import { ExecutiveDashboardContent } from "./Executive";
-// Rotinas moved to Conselho — Overview keeps only macro signals.
+import { RotinasDashboardWidgets } from "@/components/ems/dashboard/RotinasDashboardWidgets";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow, parseISO, isBefore, startOfWeek, endOfWeek, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
