@@ -374,7 +374,7 @@ const FinanceScenarios = () => {
                 </div>
               </div>
 
-              <div className="h-[280px]">
+              <div className="h-[280px]" ref={chartRef}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={compareData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
