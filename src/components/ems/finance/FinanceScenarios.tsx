@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Save, Trash2, GitCompare, TrendingUp } from "lucide-react";
+import { Plus, Save, Trash2, GitCompare, TrendingUp, Copy, Download, Bookmark } from "lucide-react";
 import { addMonths, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -16,6 +16,13 @@ import { useToast } from "@/hooks/use-toast";
 import { useFinanceData, fmtCurrency, tooltipStyle } from "./useFinanceData";
 import { computeProjection } from "./projectionCalc";
 import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
+
+const PRESETS_KEY = "finance_history_window_presets";
+type Preset = { id: string; label: string; window: number };
+const loadPresets = (): Preset[] => {
+  try { return JSON.parse(localStorage.getItem(PRESETS_KEY) || "[]"); } catch { return []; }
+};
+const savePresetsLs = (p: Preset[]) => localStorage.setItem(PRESETS_KEY, JSON.stringify(p));
 
 interface Scenario {
   id: string;
