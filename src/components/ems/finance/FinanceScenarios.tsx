@@ -47,6 +47,15 @@ const FinanceScenarios = () => {
   const [leftId, setLeftId] = useState<string>("");
   const [rightId, setRightId] = useState<string>("");
 
+  const [form, setForm] = useState(emptyForm);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [leftId, setLeftId] = useState<string>("");
+  const [rightId, setRightId] = useState<string>("");
+  const [presets, setPresets] = useState<Preset[]>(loadPresets);
+  const chartRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { savePresetsLs(presets); }, [presets]);
+
   const { data: scenarios = [] } = useQuery({
     queryKey: ["finance-scenarios", selectedCompanyId],
     queryFn: async () => {
