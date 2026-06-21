@@ -311,7 +311,10 @@ const Overview = () => {
           </div>
         </motion.div>
 
-        {/* Rotinas movidas para o Conselho */}
+        <motion.div variants={itemVariants}>
+          <RotinasDashboardWidgets />
+        </motion.div>
+
 
         {/* Orbit-style KPI cards: numeral gigante + delta */}
         <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
