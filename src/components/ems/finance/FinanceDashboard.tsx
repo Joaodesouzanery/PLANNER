@@ -17,7 +17,7 @@ const defaultFrom = () => format(startOfMonth(new Date()), "yyyy-MM-dd");
 const defaultTo = () => format(endOfMonth(new Date()), "yyyy-MM-dd");
 
 const FinanceDashboard = () => {
-  const { dashboardTransactions, capitalEvolution, currentMonthPlanSummary, upcomingPayables, reconcileTransactionMutation } = useFinanceWorkspace();
+  const { dashboardTransactions, capitalEvolution, currentMonthPlanSummary, upcomingPayables, reconcileTransactionMutation, allEvents } = useFinanceWorkspace();
   const [from, setFrom] = useState(defaultFrom());
   const [to, setTo] = useState(defaultTo());
 
@@ -30,10 +30,20 @@ const FinanceDashboard = () => {
     else if (preset === "ytd") { setFrom(`${today.getFullYear()}-01-01`); setTo(todayIso()); }
   };
 
-  const filtered = useMemo(() => dashboardTransactions.filter((t) => {
-    const d = String(t.date).slice(0, 10);
-    return d >= from && d <= to;
-  }), [dashboardTransactions, from, to]);
+  // Fonte unificada: realizado (dashboardTransactions) + previsto (allEvents do workspace,
+  // que já inclui plan items, recorrências futuras e transações planejadas).
+  const periodSource = useMemo(() => {
+    const today = todayIso();
+    const realized = dashboardTransactions.map((t) => ({
+      id: t.id, date: String(t.date).slice(0, 10), type: t.type, amount: Number(t.amount), category: t.category || null, projected: false,
+    }));
+    const seenIds = new Set(realized.map((r) => r.id));
+    const future = (allEvents || []).filter((e) => (e.kind === "income" || e.kind === "expense") && e.date > today && !seenIds.has(e.sourceId || e.id))
+      .map((e) => ({ id: e.id, date: String(e.date).slice(0, 10), type: e.kind as "income" | "expense", amount: Number(e.amount), category: e.category || null, projected: true }));
+    return [...realized, ...future];
+  }, [dashboardTransactions, allEvents]);
+
+  const filtered = useMemo(() => periodSource.filter((t) => t.date >= from && t.date <= to), [periodSource, from, to]);
 
   const totalIncome = useMemo(() => filtered.filter(t => t.type === "income").reduce((a, t) => a + Number(t.amount), 0), [filtered]);
   const totalExpense = useMemo(() => filtered.filter(t => t.type === "expense").reduce((a, t) => a + Number(t.amount), 0), [filtered]);
@@ -82,7 +92,10 @@ const FinanceDashboard = () => {
           <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={() => { setFrom(defaultFrom()); setTo(defaultTo()); }}>
             <RotateCcw className="h-3.5 w-3.5 mr-1" /> Limpar filtro
           </Button>
-          <Badge variant="outline" className="ml-auto text-xs">{filtered.length} transacoes no periodo</Badge>
+          <div className="ml-auto flex items-center gap-1.5">
+            <Badge variant="outline" className="text-xs">{filtered.filter(f => !f.projected).length} realizadas</Badge>
+            {filtered.some(f => f.projected) && <Badge variant="secondary" className="text-xs">{filtered.filter(f => f.projected).length} previstas</Badge>}
+          </div>
         </CardContent>
       </Card>
 

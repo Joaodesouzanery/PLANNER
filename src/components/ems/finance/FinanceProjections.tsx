@@ -6,7 +6,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip as UiTooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { TrendingUp, Info, HelpCircle, Download, AlertTriangle } from "lucide-react";
+import { TrendingUp, Info, HelpCircle, Download, AlertTriangle, FileText } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { ResponsiveContainer, BarChart, Bar, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { useFinanceData, fmtCurrency, tooltipStyle } from "./useFinanceData";
@@ -21,6 +22,15 @@ const intervalLabel = (interval: string) => {
 const FinanceProjections = () => {
   const { projectionData, capitalEvolution, projectionBreakdown, historyWindow, setHistoryWindow } = useFinanceData();
   const [openMonth, setOpenMonth] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const toggleSelected = (m: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(m)) next.delete(m); else next.add(m);
+      return next;
+    });
+  };
 
   const b = projectionBreakdown;
   const incomeSources = b.recurringSources.filter((s) => s.type === "income");
@@ -75,6 +85,62 @@ const FinanceProjections = () => {
       });
     }
     doc.save(`projecao-${monthLabel.replace("/", "-")}.pdf`);
+  };
+
+  const exportSelectedPdf = async () => {
+    const months = projectionData.filter((p) => p.projected && selected.has(p.month));
+    if (months.length === 0) return;
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+    const doc = new jsPDF();
+    // Capa
+    doc.setFontSize(18);
+    doc.text("Projeções financeiras selecionadas", 14, 20);
+    doc.setFontSize(10);
+    doc.text(`${months.length} meses · gerado em ${new Date().toLocaleString("pt-BR")}`, 14, 28);
+    doc.text(`Janela histórica: últimos ${b.historyWindow} meses`, 14, 34);
+    autoTable(doc, {
+      startY: 42,
+      head: [["#", "Mês", "Entradas", "Saídas", "Saldo"]],
+      body: months.map((m, i) => [String(i + 1), m.month, fmtCurrency(m.income), fmtCurrency(m.expense), fmtCurrency(m.balance)]),
+    });
+
+    months.forEach((row, idx) => {
+      doc.addPage();
+      doc.setFontSize(14);
+      doc.text(`${idx + 1}. ${row.month}`, 14, 18);
+      doc.setFontSize(9);
+      doc.text(`Janela histórica: últimos ${b.historyWindow} meses`, 14, 24);
+      autoTable(doc, {
+        startY: 30,
+        head: [["Indicador", "Valor"]],
+        body: [
+          ["Entradas projetadas", fmtCurrency(row.income)],
+          ["Saídas projetadas", fmtCurrency(row.expense)],
+          ["Saldo projetado", fmtCurrency(row.balance)],
+          ["Fonte (entradas)", b.incomeSourceUsed],
+          ["Fonte (saídas)", b.expenseSourceUsed],
+          ["Média hist. entradas", `${fmtCurrency(b.historicalAverageIncome)} (${b.historicalMonthsConsideredIncome}m)`],
+          ["Média hist. saídas", `${fmtCurrency(b.historicalAverageExpense)} (${b.historicalMonthsConsideredExpense}m)`],
+          ["Baseline recorrente entradas", fmtCurrency(b.recurringBaselineIncome)],
+          ["Baseline recorrente saídas", fmtCurrency(b.recurringBaselineExpense)],
+        ],
+      });
+      if (incomeSources.length > 0) autoTable(doc, { head: [["Renda recorrente", "Intervalo", "Mensal"]], body: incomeSources.map((s) => [s.description, intervalLabel(s.interval), fmtCurrency(s.monthlyEquivalent)]) });
+      if (expenseSources.length > 0) autoTable(doc, { head: [["Despesa recorrente", "Intervalo", "Mensal"]], body: expenseSources.map((s) => [s.description, intervalLabel(s.interval), fmtCurrency(s.monthlyEquivalent)]) });
+      if (b.alerts.length > 0) autoTable(doc, { head: [["Alertas"]], body: b.alerts.map((a) => [`${a.level === "warning" ? "⚠" : "ℹ"} ${a.message}`]) });
+    });
+
+    // Rodapé com paginação
+    const total = doc.getNumberOfPages();
+    for (let i = 1; i <= total; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`Página ${i} de ${total}`, doc.internal.pageSize.getWidth() - 30, doc.internal.pageSize.getHeight() - 8);
+    }
+    doc.save(`projecoes-${months.length}-meses.pdf`);
   };
 
   return (
@@ -197,13 +263,26 @@ const FinanceProjections = () => {
           </CardContent>
         </Card>
 
+        <div className="flex items-center justify-between gap-2 -mb-1">
+          <p className="text-xs text-muted-foreground">{selected.size > 0 ? `${selected.size} mês(es) selecionado(s)` : "Marque meses para exportar em lote"}</p>
+          <div className="flex gap-1">
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" disabled={selected.size === 0} onClick={() => setSelected(new Set())}>Limpar</Button>
+            <Button variant="default" size="sm" className="h-7 text-xs gap-1" disabled={selected.size === 0} onClick={exportSelectedPdf}>
+              <FileText className="h-3 w-3" /> Exportar selecionados ({selected.size})
+            </Button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {projectionData.filter(p => p.projected).map(p => (
             <Dialog key={p.month} open={openMonth === p.month} onOpenChange={(o) => setOpenMonth(o ? p.month : null)}>
-              <Card className="border border-dashed border-primary/30 bg-card/80">
+              <Card className={cn("border border-dashed border-primary/30 bg-card/80", selected.has(p.month) && "ring-2 ring-primary/50")}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-2 gap-1">
-                    <p className="text-sm font-medium text-primary font-mono">{p.month} (projeção)</p>
+                    <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
+                      <Checkbox checked={selected.has(p.month)} onCheckedChange={() => toggleSelected(p.month)} />
+                      <p className="text-sm font-medium text-primary font-mono truncate">{p.month} (projeção)</p>
+                    </label>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={() => exportMonthPdf(p.month)} title="Exportar PDF">
                         <Download className="h-3 w-3" />

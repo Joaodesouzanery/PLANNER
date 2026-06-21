@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Save, Trash2, GitCompare, TrendingUp } from "lucide-react";
+import { Plus, Save, Trash2, GitCompare, TrendingUp, Copy, Download, Bookmark } from "lucide-react";
 import { addMonths, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -16,6 +16,13 @@ import { useToast } from "@/hooks/use-toast";
 import { useFinanceData, fmtCurrency, tooltipStyle } from "./useFinanceData";
 import { computeProjection } from "./projectionCalc";
 import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
+
+const PRESETS_KEY = "finance_history_window_presets";
+type Preset = { id: string; label: string; window: number };
+const loadPresets = (): Preset[] => {
+  try { return JSON.parse(localStorage.getItem(PRESETS_KEY) || "[]"); } catch { return []; }
+};
+const savePresetsLs = (p: Preset[]) => localStorage.setItem(PRESETS_KEY, JSON.stringify(p));
 
 interface Scenario {
   id: string;
@@ -39,6 +46,10 @@ const FinanceScenarios = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [leftId, setLeftId] = useState<string>("");
   const [rightId, setRightId] = useState<string>("");
+  const [presets, setPresets] = useState<Preset[]>(loadPresets);
+  const chartRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { savePresetsLs(presets); }, [presets]);
 
   const { data: scenarios = [] } = useQuery({
     queryKey: ["finance-scenarios", selectedCompanyId],
@@ -88,6 +99,38 @@ const FinanceScenarios = () => {
       toast({ title: "Cenário removido" });
     },
   });
+
+  const duplicate = useMutation({
+    mutationFn: async (s: Scenario) => {
+      const payload = {
+        name: `${s.name} (cópia)`,
+        description: s.description,
+        recurring_income: s.recurring_income,
+        recurring_expense: s.recurring_expense,
+        history_window: s.history_window,
+        company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
+      };
+      const { error } = await db.from("finance_scenarios").insert(payload);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["finance-scenarios"] });
+      toast({ title: "Cenário duplicado" });
+    },
+    onError: (e: any) => toast({ title: "Erro ao duplicar", description: e?.message, variant: "destructive" }),
+  });
+
+  const savePresetFromForm = () => {
+    const w = Number(form.history_window);
+    if (!w) return;
+    if (presets.some((p) => p.window === w)) {
+      toast({ title: "Preset já existe", description: `Janela de ${w} meses já salva.` });
+      return;
+    }
+    setPresets([...presets, { id: crypto.randomUUID(), label: `${w} meses`, window: w }]);
+    toast({ title: "Preset salvo" });
+  };
+
 
   const futureMonthLabels = useMemo(() => {
     const labels: string[] = [];
@@ -144,6 +187,66 @@ const FinanceScenarios = () => {
     });
   };
 
+  const exportComparePdf = async () => {
+    if (!leftRes || !rightRes || !left || !right) return;
+    const [{ default: jsPDF }, { default: autoTable }, html2canvas] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+      import("html2canvas").then((m) => m.default),
+    ]);
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFontSize(16);
+    doc.text(`Comparação de cenários: ${left.name} × ${right.name}`, 14, 16);
+    doc.setFontSize(9);
+    doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, 14, 22);
+
+    let cursorY = 28;
+    if (chartRef.current) {
+      try {
+        const canvas = await html2canvas(chartRef.current, { backgroundColor: "#0b0f17", scale: 2 });
+        const img = canvas.toDataURL("image/png");
+        const pageW = doc.internal.pageSize.getWidth() - 28;
+        const imgH = (canvas.height * pageW) / canvas.width;
+        doc.addImage(img, "PNG", 14, cursorY, pageW, Math.min(imgH, 90));
+        cursorY += Math.min(imgH, 90) + 4;
+      } catch (err) {
+        console.warn("html2canvas falhou", err);
+      }
+    }
+
+    autoTable(doc, {
+      startY: cursorY,
+      head: [["Mês", "Receita A", "Despesa A", "Saldo A", "Receita B", "Despesa B", "Saldo B", "Δ Saldo (B−A)", "Δ %"]],
+      body: compareData.map((row: any) => {
+        const lr = leftRes.rows.find((r) => r.month === row.month);
+        const rr = rightRes.rows.find((r) => r.month === row.month);
+        const a = row.leftBalance ?? 0;
+        const b = row.rightBalance ?? 0;
+        const diff = b - a;
+        const pct = a !== 0 ? ((diff / Math.abs(a)) * 100).toFixed(1) + "%" : "—";
+        return [row.month, fmtCurrency(lr?.income ?? 0), fmtCurrency(lr?.expense ?? 0), fmtCurrency(a), fmtCurrency(rr?.income ?? 0), fmtCurrency(rr?.expense ?? 0), fmtCurrency(b), fmtCurrency(diff), pct];
+      }),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [40, 40, 60] },
+    });
+
+    autoTable(doc, {
+      head: [["Cenário", "Fonte entradas", "Fonte saídas", "Entrada/mês", "Saída/mês", "Janela"]],
+      body: [
+        [left.name, leftRes.breakdown.incomeSourceUsed, leftRes.breakdown.expenseSourceUsed, fmtCurrency(leftRes.breakdown.chosenIncome), fmtCurrency(leftRes.breakdown.chosenExpense), `${left.history_window}m`],
+        [right.name, rightRes.breakdown.incomeSourceUsed, rightRes.breakdown.expenseSourceUsed, fmtCurrency(rightRes.breakdown.chosenIncome), fmtCurrency(rightRes.breakdown.chosenExpense), `${right.history_window}m`],
+      ],
+      styles: { fontSize: 9 },
+    });
+
+    const alerts = [...leftRes.breakdown.alerts.map((a) => `[A] ${a.message}`), ...rightRes.breakdown.alerts.map((a) => `[B] ${a.message}`)];
+    if (alerts.length > 0) {
+      autoTable(doc, { head: [["Alertas"]], body: alerts.map((m) => [m]), styles: { fontSize: 8 } });
+    }
+    doc.save(`comparacao-${left.name}-vs-${right.name}.pdf`);
+  };
+
+
   return (
     <div className="space-y-6">
       <Card>
@@ -160,14 +263,22 @@ const FinanceScenarios = () => {
             </div>
             <div>
               <Label className="text-xs">Janela histórica</Label>
-              <Select value={form.history_window} onValueChange={(v) => setForm({ ...form, history_window: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="3">3 meses</SelectItem>
-                  <SelectItem value="6">6 meses</SelectItem>
-                  <SelectItem value="12">12 meses</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex gap-1">
+                <Select value={form.history_window} onValueChange={(v) => setForm({ ...form, history_window: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="3">3 meses</SelectItem>
+                    <SelectItem value="6">6 meses</SelectItem>
+                    <SelectItem value="12">12 meses</SelectItem>
+                    {presets.filter((p) => ![3, 6, 12].includes(p.window)).map((p) => (
+                      <SelectItem key={p.id} value={String(p.window)}>{p.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button type="button" variant="outline" size="icon" title="Salvar preset" onClick={savePresetFromForm}>
+                  <Bookmark className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <div>
               <Label className="text-xs">Renda recorrente / mês (R$)</Label>
@@ -210,6 +321,9 @@ const FinanceScenarios = () => {
                 {s.description && <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{s.description}</p>}
               </div>
               <Button size="sm" variant="outline" onClick={() => startEdit(s)}>Editar</Button>
+              <Button size="sm" variant="ghost" title="Duplicar" onClick={() => duplicate.mutate(s)} disabled={duplicate.isPending}>
+                <Copy className="h-4 w-4" />
+              </Button>
               <Button size="sm" variant="ghost" className="text-destructive" onClick={() => remove.mutate(s.id)}>
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -219,10 +333,13 @@ const FinanceScenarios = () => {
       </Card>
 
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
             <GitCompare className="h-4 w-4 text-primary" /> Comparar 2 cenários
           </CardTitle>
+          <Button size="sm" variant="outline" disabled={!leftRes || !rightRes} onClick={exportComparePdf} className="gap-1">
+            <Download className="h-3.5 w-3.5" /> PDF A×B
+          </Button>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
@@ -257,7 +374,7 @@ const FinanceScenarios = () => {
                 </div>
               </div>
 
-              <div className="h-[280px]">
+              <div className="h-[280px]" ref={chartRef}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={compareData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />

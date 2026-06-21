@@ -28,6 +28,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { WeeklySortableList } from "@/components/ems/tasks/WeeklySortableList";
 import { AttachmentManager } from "@/components/ems/AttachmentManager";
 
 interface Task {
@@ -963,48 +964,17 @@ const Tasks = () => {
 
                 if (weeklyOnly) {
                   return (
-                    <DragDropContext onDragEnd={(r) => {
-                      if (!r.destination) return;
-                      if (r.destination.index === r.source.index) return;
-                      const arr = Array.from(filteredTasks);
-                      const [moved] = arr.splice(r.source.index, 1);
-                      arr.splice(r.destination.index, 0, moved);
-                      reorderPriorityMutation.mutate(arr.map((t, i) => ({ id: t.id, priority_order: i })));
-                    }}>
-                      <Droppable droppableId="weekly-list" type="WEEKLY">
-                        {(prov, snapshot) => (
-                          <div
-                            ref={prov.innerRef}
-                            {...prov.droppableProps}
-                            className={cn(
-                              "space-y-1.5 rounded-lg transition-colors",
-                              snapshot.isDraggingOver && "bg-primary/5 ring-1 ring-primary/30"
-                            )}
-                          >
-                            {filteredTasks.map((task, idx) => (
-                              <Draggable key={task.id} draggableId={task.id} index={idx}>
-                                {(p, snap) => (
-                                  <div
-                                    ref={p.innerRef}
-                                    {...p.draggableProps}
-                                    {...p.dragHandleProps}
-                                    className={cn("group relative", snap.isDragging && "opacity-90 shadow-lg")}
-                                  >
-                                    <GripVertical className="pointer-events-none absolute left-2 top-1/2 z-10 hidden h-4 w-4 -translate-y-1/2 text-muted-foreground/60 group-hover:block" />
-                                    <div className="pl-3">
-                                      {renderTaskItem(task)}
-                                    </div>
-                                  </div>
-                                )}
-                              </Draggable>
-                            ))}
-                            {prov.placeholder}
-                          </div>
-                        )}
-                      </Droppable>
-                    </DragDropContext>
+                    <WeeklySortableList
+                      items={filteredTasks}
+                      renderItem={(task) => renderTaskItem(task as Task)}
+                      onReorder={(ids) => {
+                        const updates = ids.map((id, i) => ({ id, priority_order: i }));
+                        reorderPriorityMutation.mutate(updates);
+                      }}
+                    />
                   );
                 }
+
 
                 return (
                   <div className="space-y-1.5">
