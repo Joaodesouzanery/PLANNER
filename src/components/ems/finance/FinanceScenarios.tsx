@@ -263,14 +263,22 @@ const FinanceScenarios = () => {
             </div>
             <div>
               <Label className="text-xs">Janela histórica</Label>
-              <Select value={form.history_window} onValueChange={(v) => setForm({ ...form, history_window: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="3">3 meses</SelectItem>
-                  <SelectItem value="6">6 meses</SelectItem>
-                  <SelectItem value="12">12 meses</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex gap-1">
+                <Select value={form.history_window} onValueChange={(v) => setForm({ ...form, history_window: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="3">3 meses</SelectItem>
+                    <SelectItem value="6">6 meses</SelectItem>
+                    <SelectItem value="12">12 meses</SelectItem>
+                    {presets.filter((p) => ![3, 6, 12].includes(p.window)).map((p) => (
+                      <SelectItem key={p.id} value={String(p.window)}>{p.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button type="button" variant="outline" size="icon" title="Salvar preset" onClick={savePresetFromForm}>
+                  <Bookmark className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <div>
               <Label className="text-xs">Renda recorrente / mês (R$)</Label>
