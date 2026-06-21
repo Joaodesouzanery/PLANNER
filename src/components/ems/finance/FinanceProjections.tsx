@@ -22,6 +22,15 @@ const intervalLabel = (interval: string) => {
 const FinanceProjections = () => {
   const { projectionData, capitalEvolution, projectionBreakdown, historyWindow, setHistoryWindow } = useFinanceData();
   const [openMonth, setOpenMonth] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const toggleSelected = (m: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(m)) next.delete(m); else next.add(m);
+      return next;
+    });
+  };
 
   const b = projectionBreakdown;
   const incomeSources = b.recurringSources.filter((s) => s.type === "income");
