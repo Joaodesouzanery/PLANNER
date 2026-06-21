@@ -187,6 +187,66 @@ const FinanceScenarios = () => {
     });
   };
 
+  const exportComparePdf = async () => {
+    if (!leftRes || !rightRes || !left || !right) return;
+    const [{ default: jsPDF }, { default: autoTable }, html2canvas] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+      import("html2canvas").then((m) => m.default),
+    ]);
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFontSize(16);
+    doc.text(`Comparação de cenários: ${left.name} × ${right.name}`, 14, 16);
+    doc.setFontSize(9);
+    doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, 14, 22);
+
+    let cursorY = 28;
+    if (chartRef.current) {
+      try {
+        const canvas = await html2canvas(chartRef.current, { backgroundColor: "#0b0f17", scale: 2 });
+        const img = canvas.toDataURL("image/png");
+        const pageW = doc.internal.pageSize.getWidth() - 28;
+        const imgH = (canvas.height * pageW) / canvas.width;
+        doc.addImage(img, "PNG", 14, cursorY, pageW, Math.min(imgH, 90));
+        cursorY += Math.min(imgH, 90) + 4;
+      } catch (err) {
+        console.warn("html2canvas falhou", err);
+      }
+    }
+
+    autoTable(doc, {
+      startY: cursorY,
+      head: [["Mês", "Receita A", "Despesa A", "Saldo A", "Receita B", "Despesa B", "Saldo B", "Δ Saldo (B−A)", "Δ %"]],
+      body: compareData.map((row: any) => {
+        const lr = leftRes.rows.find((r) => r.month === row.month);
+        const rr = rightRes.rows.find((r) => r.month === row.month);
+        const a = row.leftBalance ?? 0;
+        const b = row.rightBalance ?? 0;
+        const diff = b - a;
+        const pct = a !== 0 ? ((diff / Math.abs(a)) * 100).toFixed(1) + "%" : "—";
+        return [row.month, fmtCurrency(lr?.income ?? 0), fmtCurrency(lr?.expense ?? 0), fmtCurrency(a), fmtCurrency(rr?.income ?? 0), fmtCurrency(rr?.expense ?? 0), fmtCurrency(b), fmtCurrency(diff), pct];
+      }),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [40, 40, 60] },
+    });
+
+    autoTable(doc, {
+      head: [["Cenário", "Fonte entradas", "Fonte saídas", "Entrada/mês", "Saída/mês", "Janela"]],
+      body: [
+        [left.name, leftRes.breakdown.incomeSourceUsed, leftRes.breakdown.expenseSourceUsed, fmtCurrency(leftRes.breakdown.chosenIncome), fmtCurrency(leftRes.breakdown.chosenExpense), `${left.history_window}m`],
+        [right.name, rightRes.breakdown.incomeSourceUsed, rightRes.breakdown.expenseSourceUsed, fmtCurrency(rightRes.breakdown.chosenIncome), fmtCurrency(rightRes.breakdown.chosenExpense), `${right.history_window}m`],
+      ],
+      styles: { fontSize: 9 },
+    });
+
+    const alerts = [...leftRes.breakdown.alerts.map((a) => `[A] ${a.message}`), ...rightRes.breakdown.alerts.map((a) => `[B] ${a.message}`)];
+    if (alerts.length > 0) {
+      autoTable(doc, { head: [["Alertas"]], body: alerts.map((m) => [m]), styles: { fontSize: 8 } });
+    }
+    doc.save(`comparacao-${left.name}-vs-${right.name}.pdf`);
+  };
+
+
   return (
     <div className="space-y-6">
       <Card>
