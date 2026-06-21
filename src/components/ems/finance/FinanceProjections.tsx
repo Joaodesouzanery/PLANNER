@@ -87,6 +87,62 @@ const FinanceProjections = () => {
     doc.save(`projecao-${monthLabel.replace("/", "-")}.pdf`);
   };
 
+  const exportSelectedPdf = async () => {
+    const months = projectionData.filter((p) => p.projected && selected.has(p.month));
+    if (months.length === 0) return;
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
+    const doc = new jsPDF();
+    // Capa
+    doc.setFontSize(18);
+    doc.text("Projeções financeiras selecionadas", 14, 20);
+    doc.setFontSize(10);
+    doc.text(`${months.length} meses · gerado em ${new Date().toLocaleString("pt-BR")}`, 14, 28);
+    doc.text(`Janela histórica: últimos ${b.historyWindow} meses`, 14, 34);
+    autoTable(doc, {
+      startY: 42,
+      head: [["#", "Mês", "Entradas", "Saídas", "Saldo"]],
+      body: months.map((m, i) => [String(i + 1), m.month, fmtCurrency(m.income), fmtCurrency(m.expense), fmtCurrency(m.balance)]),
+    });
+
+    months.forEach((row, idx) => {
+      doc.addPage();
+      doc.setFontSize(14);
+      doc.text(`${idx + 1}. ${row.month}`, 14, 18);
+      doc.setFontSize(9);
+      doc.text(`Janela histórica: últimos ${b.historyWindow} meses`, 14, 24);
+      autoTable(doc, {
+        startY: 30,
+        head: [["Indicador", "Valor"]],
+        body: [
+          ["Entradas projetadas", fmtCurrency(row.income)],
+          ["Saídas projetadas", fmtCurrency(row.expense)],
+          ["Saldo projetado", fmtCurrency(row.balance)],
+          ["Fonte (entradas)", b.incomeSourceUsed],
+          ["Fonte (saídas)", b.expenseSourceUsed],
+          ["Média hist. entradas", `${fmtCurrency(b.historicalAverageIncome)} (${b.historicalMonthsConsideredIncome}m)`],
+          ["Média hist. saídas", `${fmtCurrency(b.historicalAverageExpense)} (${b.historicalMonthsConsideredExpense}m)`],
+          ["Baseline recorrente entradas", fmtCurrency(b.recurringBaselineIncome)],
+          ["Baseline recorrente saídas", fmtCurrency(b.recurringBaselineExpense)],
+        ],
+      });
+      if (incomeSources.length > 0) autoTable(doc, { head: [["Renda recorrente", "Intervalo", "Mensal"]], body: incomeSources.map((s) => [s.description, intervalLabel(s.interval), fmtCurrency(s.monthlyEquivalent)]) });
+      if (expenseSources.length > 0) autoTable(doc, { head: [["Despesa recorrente", "Intervalo", "Mensal"]], body: expenseSources.map((s) => [s.description, intervalLabel(s.interval), fmtCurrency(s.monthlyEquivalent)]) });
+      if (b.alerts.length > 0) autoTable(doc, { head: [["Alertas"]], body: b.alerts.map((a) => [`${a.level === "warning" ? "⚠" : "ℹ"} ${a.message}`]) });
+    });
+
+    // Rodapé com paginação
+    const total = doc.getNumberOfPages();
+    for (let i = 1; i <= total; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.text(`Página ${i} de ${total}`, doc.internal.pageSize.getWidth() - 30, doc.internal.pageSize.getHeight() - 8);
+    }
+    doc.save(`projecoes-${months.length}-meses.pdf`);
+  };
+
   return (
     <TooltipProvider>
       <div className="space-y-6">
