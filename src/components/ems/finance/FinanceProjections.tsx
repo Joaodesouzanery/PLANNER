@@ -263,13 +263,26 @@ const FinanceProjections = () => {
           </CardContent>
         </Card>
 
+        <div className="flex items-center justify-between gap-2 -mb-1">
+          <p className="text-xs text-muted-foreground">{selected.size > 0 ? `${selected.size} mês(es) selecionado(s)` : "Marque meses para exportar em lote"}</p>
+          <div className="flex gap-1">
+            <Button variant="outline" size="sm" className="h-7 text-xs gap-1" disabled={selected.size === 0} onClick={() => setSelected(new Set())}>Limpar</Button>
+            <Button variant="default" size="sm" className="h-7 text-xs gap-1" disabled={selected.size === 0} onClick={exportSelectedPdf}>
+              <FileText className="h-3 w-3" /> Exportar selecionados ({selected.size})
+            </Button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {projectionData.filter(p => p.projected).map(p => (
             <Dialog key={p.month} open={openMonth === p.month} onOpenChange={(o) => setOpenMonth(o ? p.month : null)}>
-              <Card className="border border-dashed border-primary/30 bg-card/80">
+              <Card className={cn("border border-dashed border-primary/30 bg-card/80", selected.has(p.month) && "ring-2 ring-primary/50")}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-2 gap-1">
-                    <p className="text-sm font-medium text-primary font-mono">{p.month} (projeção)</p>
+                    <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
+                      <Checkbox checked={selected.has(p.month)} onCheckedChange={() => toggleSelected(p.month)} />
+                      <p className="text-sm font-medium text-primary font-mono truncate">{p.month} (projeção)</p>
+                    </label>
                     <div className="flex gap-1">
                       <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={() => exportMonthPdf(p.month)} title="Exportar PDF">
                         <Download className="h-3 w-3" />
