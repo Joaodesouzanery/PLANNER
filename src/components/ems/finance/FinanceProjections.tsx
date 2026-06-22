@@ -11,13 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { ResponsiveContainer, BarChart, Bar, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { useFinanceData, fmtCurrency, tooltipStyle } from "./useFinanceData";
-
-const intervalLabel = (interval: string) => {
-  const i = interval.toLowerCase();
-  if (i.startsWith("week") || i === "semanal") return "Semanal (× 4,345)";
-  if (i.startsWith("year") || i === "anual" || i === "annual") return "Anual (÷ 12)";
-  return "Mensal (× 1)";
-};
+import { SourceList, intervalLabel } from "./ProjectionAudit";
 
 const FinanceProjections = () => {
   const { projectionData, capitalEvolution, projectionBreakdown, historyWindow, setHistoryWindow } = useFinanceData();
@@ -365,39 +359,5 @@ const FinanceProjections = () => {
     </TooltipProvider>
   );
 };
-
-interface SourceListProps {
-  title: string;
-  sources: { id: string; description: string; category: string | null; rawAmount: number; interval: string; monthlyEquivalent: number }[];
-  emptyLabel: string;
-  tone: "emerald" | "destructive";
-  compact?: boolean;
-}
-
-const SourceList = ({ title, sources, emptyLabel, tone, compact }: SourceListProps) => (
-  <div className={cn("rounded-md border border-border/50 p-3", compact ? "space-y-1" : "space-y-2")}>
-    <p className="text-xs font-medium text-muted-foreground">{title}</p>
-    {sources.length === 0 ? (
-      <p className="text-xs text-muted-foreground italic">{emptyLabel}</p>
-    ) : (
-      <ul className="space-y-1">
-        {sources.map((s) => (
-          <li key={s.id} className="flex items-center justify-between gap-2 text-xs">
-            <div className="min-w-0">
-              <p className="truncate">{s.description}</p>
-              <p className="text-[10px] text-muted-foreground">{intervalLabel(s.interval)}{s.category ? ` · ${s.category}` : ""}</p>
-            </div>
-            <div className="text-right">
-              <p className={cn("font-mono", tone === "emerald" ? "text-emerald-400" : "text-destructive")}>{fmtCurrency(s.monthlyEquivalent)}</p>
-              {s.rawAmount !== s.monthlyEquivalent && (
-                <p className="text-[10px] text-muted-foreground font-mono">orig {fmtCurrency(s.rawAmount)}</p>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
-    )}
-  </div>
-);
 
 export default FinanceProjections;

@@ -49,6 +49,26 @@ const emptyProfile: TravelProfile = {
   housing: 0, food: 0, transport: 0, subscriptions: 0, debts: 0,
 };
 
+const nonNeg = (v: unknown) => Math.max(0, Number(v) || 0);
+
+/** Sanea faixas/sinal de uma viagem antes de gravar (defesa em profundidade). */
+const sanitizeTrip = (t: Partial<Trip>): Partial<Trip> => {
+  const out: Partial<Trip> = { ...t };
+  if (out.adults != null) out.adults = Math.max(1, Math.trunc(Number(out.adults) || 1));
+  if (out.children != null) out.children = Math.max(0, Math.trunc(Number(out.children) || 0));
+  if (out.emergency_pct != null) out.emergency_pct = Math.min(100, Math.max(0, Number(out.emergency_pct) || 0));
+  if (out.exchange_rate != null) out.exchange_rate = Number(out.exchange_rate) > 0 ? Number(out.exchange_rate) : null;
+  return out;
+};
+
+/** Sanea o perfil financeiro (nunca negativo). */
+const sanitizeProfile = (p: TravelProfile): TravelProfile => ({
+  ...p,
+  monthly_salary: nonNeg(p.monthly_salary), variable_income: nonNeg(p.variable_income), other_income: nonNeg(p.other_income),
+  housing: nonNeg(p.housing), food: nonNeg(p.food), transport: nonNeg(p.transport),
+  subscriptions: nonNeg(p.subscriptions), debts: nonNeg(p.debts),
+});
+
 export const useTravelProfile = () => {
   const { selectedCompanyId } = useCompany();
   const qc = useQueryClient();
@@ -67,7 +87,8 @@ export const useTravelProfile = () => {
   });
 
   const save = useMutation({
-    mutationFn: async (p: TravelProfile) => {
+    mutationFn: async (raw: TravelProfile) => {
+      const p = sanitizeProfile(raw);
       const payload: any = { ...p, company_id: companyId };
       if (p.id) {
         const { error } = await supabase.from("finance_travel_profile" as any).update(payload).eq("id", p.id);
@@ -105,7 +126,7 @@ export const useTrips = () => {
 
   const create = useMutation({
     mutationFn: async (t: Partial<Trip>) => {
-      const { data, error } = await supabase.from("finance_trips" as any).insert({ ...t, company_id: companyId } as any).select().single();
+      const { data, error } = await supabase.from("finance_trips" as any).insert({ ...sanitizeTrip(t), company_id: companyId } as any).select().single();
       if (error) throw error;
       return data as unknown as Trip;
     },
@@ -115,7 +136,7 @@ export const useTrips = () => {
 
   const update = useMutation({
     mutationFn: async ({ id, ...rest }: Partial<Trip> & { id: string }) => {
-      const { error } = await supabase.from("finance_trips" as any).update(rest as any).eq("id", id);
+      const { error } = await supabase.from("finance_trips" as any).update(sanitizeTrip(rest) as any).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["trips"] }); },

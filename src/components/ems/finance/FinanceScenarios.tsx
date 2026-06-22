@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Save, Trash2, GitCompare, TrendingUp, Copy, Download, Bookmark } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Save, Trash2, GitCompare, TrendingUp, Copy, Download, Bookmark, ScrollText } from "lucide-react";
 import { addMonths, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -15,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useFinanceData, fmtCurrency, tooltipStyle } from "./useFinanceData";
 import { computeProjection } from "./projectionCalc";
+import { ProjectionAuditTable, ProjectionBreakdownPanel } from "./ProjectionAudit";
 import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
 
 const PRESETS_KEY = "finance_history_window_presets";
@@ -46,6 +48,7 @@ const FinanceScenarios = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [leftId, setLeftId] = useState<string>("");
   const [rightId, setRightId] = useState<string>("");
+  const [auditId, setAuditId] = useState<string>("");
   const [presets, setPresets] = useState<Preset[]>(loadPresets);
   const chartRef = useRef<HTMLDivElement>(null);
 
@@ -164,6 +167,9 @@ const FinanceScenarios = () => {
   const leftRes = projectScenario(left);
   const rightRes = projectScenario(right);
 
+  const auditScenario = scenarios.find((s) => s.id === auditId) ?? scenarios[0];
+  const auditRes = projectScenario(auditScenario);
+
   const compareData = useMemo(() => {
     if (!leftRes || !rightRes) return [];
     const map = new Map<string, any>();
@@ -248,7 +254,13 @@ const FinanceScenarios = () => {
 
 
   return (
-    <div className="space-y-6">
+    <Tabs defaultValue="scenarios" className="space-y-6">
+      <TabsList className="bg-card/80 border border-border/50 rounded-xl">
+        <TabsTrigger value="scenarios" className="rounded-lg gap-1.5 data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><GitCompare className="h-3.5 w-3.5" />Cenários</TabsTrigger>
+        <TabsTrigger value="audit" className="rounded-lg gap-1.5 data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><ScrollText className="h-3.5 w-3.5" />Auditoria</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="scenarios" className="mt-0 space-y-6">
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
@@ -424,7 +436,42 @@ const FinanceScenarios = () => {
           )}
         </CardContent>
       </Card>
-    </div>
+      </TabsContent>
+
+      <TabsContent value="audit" className="mt-0 space-y-6">
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="text-base flex items-center gap-2"><ScrollText className="h-4 w-4 text-primary" />Auditoria do cenário</CardTitle>
+              <Select value={auditScenario?.id ?? ""} onValueChange={setAuditId}>
+                <SelectTrigger className="w-[220px]"><SelectValue placeholder="Selecione um cenário" /></SelectTrigger>
+                <SelectContent>{scenarios.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {!auditRes ? (
+              <p className="py-6 text-sm text-muted-foreground text-center flex flex-col items-center gap-2">
+                <ScrollText className="h-6 w-6 text-muted-foreground/40" />
+                {scenarios.length === 0 ? "Crie um cenário na aba “Cenários” para auditar." : "Selecione um cenário para ver como cada mês foi calculado."}
+              </p>
+            ) : (
+              <div className="space-y-5">
+                <p className="text-xs text-muted-foreground">
+                  Cenário <strong className="text-foreground">{auditScenario?.name}</strong> · janela {auditScenario?.history_window}m ·
+                  override entrada {fmtCurrency(Number(auditScenario?.recurring_income) || 0)} / saída {fmtCurrency(Number(auditScenario?.recurring_expense) || 0)}.
+                </p>
+                <ProjectionAuditTable rows={auditRes.rows} breakdown={auditRes.breakdown} />
+                <div>
+                  <p className="text-sm font-medium mb-2 flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary" />Como entradas e saídas mensais foram escolhidas</p>
+                  <ProjectionBreakdownPanel breakdown={auditRes.breakdown} />
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+    </Tabs>
   );
 };
 

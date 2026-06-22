@@ -105,6 +105,11 @@ export const getUpcomingPayables = (
   const endDate = addDays(today, horizonDays);
   return events
     .filter((event) => event.kind === "expense" && !event.isScenario && event.status !== "reconciled" && event.status !== "skipped")
+    // Despesas de transacao com status "confirmed" ja sao tratadas como realizadas
+    // no Dashboard (entram no saldo). Logo nao devem aparecer em "Falta pagar".
+    // PIX/a vista do dia: marque "Ja paguei" (reconciled) ou deixe como confirmado.
+    // Faturas de cartao fechadas (sourceType "invoice", status "confirmed") seguem devidas.
+    .filter((event) => !(event.sourceType === "transaction" && event.status === "confirmed"))
     .filter((event) => event.date <= endDate)
     .map((event) => {
       const daysUntilDue = Math.round((new Date(`${event.date}T00:00:00Z`).getTime() - new Date(`${today}T00:00:00Z`).getTime()) / DAY_MS);

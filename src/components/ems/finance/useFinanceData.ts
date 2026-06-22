@@ -110,7 +110,7 @@ export const useFinanceData = (options?: { historyWindow?: number }) => {
     },
   });
 
-  const { data: rawTransactions = [] } = useQuery({
+  const { data: rawTransactions = [], dataUpdatedAt: transactionsUpdatedAt } = useQuery({
     queryKey: ["finance-transactions", selectedCompanyId],
     queryFn: async () => {
       let q = supabase.from("financial_transactions").select("*").order("date", { ascending: false });
@@ -190,6 +190,12 @@ export const useFinanceData = (options?: { historyWindow?: number }) => {
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "finance_plan_items" }, () => {
         queryClient.invalidateQueries({ queryKey: ["finance-plan-items"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "finance_transfers" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["finance-transfers"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "finance_card_invoices" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["finance-card-invoices"] });
       })
       .subscribe();
     return () => {
@@ -485,7 +491,7 @@ export const useFinanceData = (options?: { historyWindow?: number }) => {
   }, [dashboardTransactions, monthlyPlans, planItems]);
 
   return {
-    okrs, transactions, rawTransactions, dashboardTransactions, totalIncome, totalExpense, balance, allCategories,
+    okrs, transactions, rawTransactions, transactionsUpdatedAt, dashboardTransactions, totalIncome, totalExpense, balance, allCategories,
     savedInstallments, monthlyPlans, planItems, currentMonthPlanSummary,
     monthlyData, incomeByCat, expenseByCat, projectionData, projectionBreakdown, capitalEvolution,
     historyWindow, setHistoryWindow,

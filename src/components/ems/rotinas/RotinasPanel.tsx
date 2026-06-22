@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, CalendarClock, CheckSquare, ClipboardList, ListChecks, Plus, Settings2 } from "lucide-react";
+import { AlertTriangle, CalendarClock, CheckSquare, ClipboardList, LayoutGrid, ListChecks, Plus, Rows3, Settings2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useRotinas, type RoutineClientView } from "@/hooks/useRotinas";
 import { RotinaClientDialog } from "./RotinaClientDialog";
 import { RotinaConfigDialog } from "./RotinaConfigDialog";
+import { RotinasMacroView } from "./RotinasMacroView";
 
 const InvoiceBadge = ({ view }: { view: RoutineClientView }) => {
   if (!view.client.invoice_day || view.daysUntilInvoice === null) return null;
@@ -27,6 +28,7 @@ export const RotinasPanel = () => {
   const rotinas = useRotinas();
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
+  const [view, setView] = useState<"cards" | "macro">("cards");
 
   const isMissingTable = (rotinas.error as any)?.code === "42P01";
 
@@ -57,9 +59,19 @@ export const RotinasPanel = () => {
               {rotinas.clients.length} cliente{rotinas.clients.length === 1 ? "" : "s"}
             </span>
           </CardTitle>
-          <Button variant="outline" size="sm" className="h-8 gap-2" onClick={() => setConfigOpen(true)}>
-            <Settings2 className="h-3.5 w-3.5" /> Configurar
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-lg border border-border/50 p-0.5">
+              <Button variant={view === "cards" ? "secondary" : "ghost"} size="sm" className="h-7 gap-1.5 px-2 text-xs" onClick={() => setView("cards")}>
+                <LayoutGrid className="h-3.5 w-3.5" /> Cartões
+              </Button>
+              <Button variant={view === "macro" ? "secondary" : "ghost"} size="sm" className="h-7 gap-1.5 px-2 text-xs" onClick={() => setView("macro")}>
+                <Rows3 className="h-3.5 w-3.5" /> Macro
+              </Button>
+            </div>
+            <Button variant="outline" size="sm" className="h-8 gap-2" onClick={() => setConfigOpen(true)}>
+              <Settings2 className="h-3.5 w-3.5" /> Configurar
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -84,6 +96,8 @@ export const RotinasPanel = () => {
               </Button>
             </div>
           </div>
+        ) : view === "macro" ? (
+          <RotinasMacroView rotinas={rotinas} onSelectClient={setSelectedClientId} />
         ) : (
           <Accordion type="multiple" defaultValue={rotinas.segments.map((s) => s.id)} className="space-y-2">
             {rotinas.segments.map((segment) => {

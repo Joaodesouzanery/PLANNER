@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, ChangeEvent } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,62 +13,9 @@ import { Plane, Plus, Trash2, Save, MapPin, Users, CalendarDays } from "lucide-r
 import { differenceInDays, differenceInCalendarMonths } from "date-fns";
 import { useTravelProfile, useTrips, useTripCategories, seedDefaultCategories, type Trip, type TripCategory } from "./useTravel";
 import { Textarea } from "@/components/ui/textarea";
+import { CurrencyInput, NumberField } from "@/components/ui/currency-input";
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const parseNum = (s: string) => {
-  if (s == null || s === "") return 0;
-  const cleaned = String(s).replace(/\s/g, "").replace(",", ".");
-  const n = parseFloat(cleaned);
-  return Number.isFinite(n) ? n : 0;
-};
-
-/** Input numérico tolerante: aceita vírgula/ponto, não trava ao apagar. */
-const NumberInput = ({
-  value,
-  onChange,
-  step,
-  placeholder,
-  className,
-  allowDecimal = true,
-}: {
-  value: number | null | undefined;
-  onChange: (n: number) => void;
-  step?: string;
-  placeholder?: string;
-  className?: string;
-  allowDecimal?: boolean;
-}) => {
-  const [local, setLocal] = useState<string>(value == null || Number.isNaN(value) ? "" : String(value));
-  // Sincroniza se o pai mudar externamente o valor (ex.: refetch após salvar).
-  useEffect(() => {
-    const numeric = parseNum(local);
-    if ((value ?? 0) !== numeric) {
-      setLocal(value == null || value === 0 ? (local === "" || local === "0" ? local : "") : String(value));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
-
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    let v = e.target.value;
-    // Permite só dígitos, ponto, vírgula, sinal
-    v = v.replace(/[^\d.,-]/g, "");
-    if (!allowDecimal) v = v.replace(/[.,]/g, "");
-    setLocal(v);
-    onChange(parseNum(v));
-  };
-
-  return (
-    <Input
-      type="text"
-      inputMode={allowDecimal ? "decimal" : "numeric"}
-      step={step}
-      placeholder={placeholder}
-      value={local}
-      onChange={handleChange}
-      className={className}
-    />
-  );
-};
 
 const computeCategoryTotal = (c: TripCategory, travelers: number, nights: number) => {
   let t = Number(c.amount) || 0;
@@ -181,14 +128,12 @@ const FinanceTravel = () => {
 };
 
 const Field = ({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) => (
-  <div>
-    <Label className="text-xs">{label}</Label>
-    <NumberInput value={value} onChange={onChange} />
-  </div>
+  <CurrencyInput label={label} value={Number(value) || 0} onChange={onChange} min={0} />
 );
 
 const NewTripDialog = ({ open, onOpenChange, onCreate }: { open: boolean; onOpenChange: (v: boolean) => void; onCreate: (data: Partial<Trip>) => void }) => {
   const [form, setForm] = useState<Partial<Trip>>({ name: "", destination: "", adults: 1, children: 0, profile: "standard", is_international: false, emergency_pct: 15, status: "planning" });
+  const exchangeInvalid = !!form.is_international && (!form.exchange_rate || form.exchange_rate <= 0);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent aria-describedby={undefined}>
@@ -201,8 +146,8 @@ const NewTripDialog = ({ open, onOpenChange, onCreate }: { open: boolean; onOpen
             <div><Label>Fim</Label><Input type="date" value={form.end_date || ""} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><Label>Adultos</Label><NumberInput value={form.adults || 1} onChange={(v) => setForm({ ...form, adults: Math.max(1, Math.round(v)) })} allowDecimal={false} /></div>
-            <div><Label>Crianças</Label><NumberInput value={form.children || 0} onChange={(v) => setForm({ ...form, children: Math.max(0, Math.round(v)) })} allowDecimal={false} /></div>
+            <NumberField label="Adultos" value={form.adults ?? 1} onChange={(v) => setForm({ ...form, adults: v ?? 1 })} integer min={1} />
+            <NumberField label="Crianças" value={form.children ?? 0} onChange={(v) => setForm({ ...form, children: v ?? 0 })} integer min={0} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -218,9 +163,9 @@ const NewTripDialog = ({ open, onOpenChange, onCreate }: { open: boolean; onOpen
             </div>
             <div className="flex items-end gap-2"><Switch checked={!!form.is_international} onCheckedChange={(v) => setForm({ ...form, is_international: v })} /><Label>Internacional</Label></div>
           </div>
-          {form.is_international && <div><Label>Câmbio (R$)</Label><NumberInput value={form.exchange_rate || 0} onChange={(v) => setForm({ ...form, exchange_rate: v })} step="0.01" /></div>}
+          {form.is_international && <NumberField label="Câmbio (R$ por moeda)" value={form.exchange_rate ?? null} onChange={(v) => setForm({ ...form, exchange_rate: v })} min={0.01} decimals={2} nullable placeholder="ex: 5,25" helperText="Maior que zero" />}
         </div>
-        <DialogFooter><Button onClick={() => onCreate(form)} disabled={!form.name}>Criar</Button></DialogFooter>
+        <DialogFooter><Button onClick={() => onCreate(form)} disabled={!form.name || exchangeInvalid}>Criar</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   );
@@ -271,10 +216,10 @@ const TripDetail = ({ trip, categories, availableBalance, onUpdate, onCatUpsert,
                 return (
                   <div key={c.id} className="grid grid-cols-12 gap-2 items-center p-2 rounded-lg border border-border/40 bg-card/40">
                     <Input className="col-span-3" value={c.label} onChange={(e) => onCatUpsert({ ...c, label: e.target.value })} />
-                    <div className="col-span-2"><NumberInput value={Number(c.amount)} onChange={(v) => onCatUpsert({ ...c, amount: v })} /></div>
+                    <CurrencyInput className="col-span-2" value={Number(c.amount) || 0} onChange={(v) => onCatUpsert({ ...c, amount: v })} min={0} />
                     <label className="col-span-2 flex items-center gap-1 text-xs"><Switch checked={c.is_per_person} onCheckedChange={(v) => onCatUpsert({ ...c, is_per_person: v })} />Por pessoa</label>
                     <label className="col-span-2 flex items-center gap-1 text-xs"><Switch checked={c.multiply_by_nights} onCheckedChange={(v) => onCatUpsert({ ...c, multiply_by_nights: v })} />× noites</label>
-                    <div className="col-span-1"><NumberInput value={c.limit_pct ?? 0} onChange={(v) => onCatUpsert({ ...c, limit_pct: v === 0 ? null : v })} placeholder="% lim" /></div>
+                    <NumberField className="col-span-1" placeholder="% lim" suffix="%" value={c.limit_pct ?? null} onChange={(v) => onCatUpsert({ ...c, limit_pct: v })} integer min={0} max={100} nullable />
                     <div className="col-span-1 text-right text-xs font-medium">{brl(catTotal)}{overLimit && <Badge variant="destructive" className="ml-1 text-[10px]">⚠</Badge>}</div>
                     <Button size="icon" variant="ghost" className="col-span-1" onClick={() => onCatRemove(c.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                   </div>
@@ -283,7 +228,7 @@ const TripDetail = ({ trip, categories, availableBalance, onUpdate, onCatUpsert,
             </div>
             <div className="flex gap-2 items-end pt-2 border-t border-border/40">
               <Input placeholder="Nova categoria (ex: Passeios)" value={newCat.label} onChange={(e) => setNewCat({ ...newCat, label: e.target.value })} />
-              <div className="w-32"><NumberInput value={newCat.amount} onChange={(v) => setNewCat({ ...newCat, amount: v })} placeholder="Valor" /></div>
+              <CurrencyInput className="w-32" placeholder="Valor" value={Number(newCat.amount) || 0} onChange={(v) => setNewCat({ ...newCat, amount: v })} min={0} />
               <Button onClick={() => { if (newCat.label) { onCatUpsert({ key: "custom", label: newCat.label, amount: newCat.amount, sort_order: categories.length }); setNewCat({ label: "", amount: 0 }); } }}><Plus className="h-4 w-4" /></Button>
             </div>
           </TabsContent>
@@ -330,13 +275,13 @@ const TripDetail = ({ trip, categories, availableBalance, onUpdate, onCatUpsert,
 
           <TabsContent value="settings" className="space-y-3 mt-4">
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Adultos</Label><NumberInput value={trip.adults} onChange={(v) => onUpdate({ adults: Math.max(1, Math.round(v)) })} allowDecimal={false} /></div>
-              <div><Label>Crianças</Label><NumberInput value={trip.children} onChange={(v) => onUpdate({ children: Math.max(0, Math.round(v)) })} allowDecimal={false} /></div>
+              <NumberField label="Adultos" value={trip.adults} onChange={(v) => onUpdate({ adults: v ?? 1 })} integer min={1} />
+              <NumberField label="Crianças" value={trip.children} onChange={(v) => onUpdate({ children: v ?? 0 })} integer min={0} />
               <div><Label>Início</Label><Input type="date" value={trip.start_date || ""} onChange={(e) => onUpdate({ start_date: e.target.value })} /></div>
               <div><Label>Fim</Label><Input type="date" value={trip.end_date || ""} onChange={(e) => onUpdate({ end_date: e.target.value })} /></div>
-              <div><Label>Reserva emergência (%)</Label><NumberInput value={Number(trip.emergency_pct || 0)} onChange={(v) => onUpdate({ emergency_pct: v })} /></div>
+              <NumberField label="Reserva emergência (%)" value={Number(trip.emergency_pct || 0)} onChange={(v) => onUpdate({ emergency_pct: v ?? 0 })} integer min={0} max={100} suffix="%" />
               <div className="flex items-end gap-2"><Switch checked={trip.is_international} onCheckedChange={(v) => onUpdate({ is_international: v })} /><Label>Internacional</Label></div>
-              {trip.is_international && <div className="col-span-2"><Label>Câmbio (R$)</Label><NumberInput value={Number(trip.exchange_rate || 0)} onChange={(v) => onUpdate({ exchange_rate: v })} step="0.01" /></div>}
+              {trip.is_international && <NumberField className="col-span-2" label="Câmbio (R$ por moeda)" value={trip.exchange_rate ?? null} onChange={(v) => onUpdate({ exchange_rate: v })} min={0.01} decimals={2} nullable helperText="Maior que zero" />}
             </div>
             <div><Label>Notas</Label><Textarea value={trip.notes || ""} onChange={(e) => onUpdate({ notes: e.target.value })} /></div>
           </TabsContent>
