@@ -51,7 +51,9 @@ const FinanceDashboard = () => {
 
   const setPreset = (preset: string) => {
     const today = new Date();
-    if (preset === "this-month") { setFrom(format(startOfMonth(today), "yyyy-MM-dd")); setTo(format(endOfMonth(today), "yyyy-MM-dd")); }
+    if (preset === "prev-month") { goMonth(-1); }
+    else if (preset === "next-month") { goMonth(1); }
+    else if (preset === "this-month") { setFrom(format(startOfMonth(today), "yyyy-MM-dd")); setTo(format(endOfMonth(today), "yyyy-MM-dd")); }
     else if (preset === "3m") { setFrom(format(startOfMonth(subMonths(today, 2)), "yyyy-MM-dd")); setTo(format(endOfMonth(today), "yyyy-MM-dd")); }
     else if (preset === "6m") { setFrom(format(startOfMonth(subMonths(today, 5)), "yyyy-MM-dd")); setTo(format(endOfMonth(today), "yyyy-MM-dd")); }
     else if (preset === "12m") { setFrom(format(startOfMonth(subMonths(today, 11)), "yyyy-MM-dd")); setTo(format(endOfMonth(today), "yyyy-MM-dd")); }
@@ -65,8 +67,12 @@ const FinanceDashboard = () => {
     const realized = dashboardTransactions.map((t) => ({
       id: t.id, date: String(t.date).slice(0, 10), type: t.type, amount: Number(t.amount), category: t.category || null, projected: false,
     }));
+    // Dedup pelo ID EXATO do evento (nao por sourceId): assim as ocorrencias
+    // futuras de uma recorrencia (id "${tx.id}-future-N") contam em cada mes,
+    // enquanto uma transacao realizada que reapareceria como evento (mesmo id)
+    // segue suprimida.
     const seenIds = new Set(realized.map((r) => r.id));
-    const future = (allEvents || []).filter((e) => (e.kind === "income" || e.kind === "expense") && e.date > today && !seenIds.has(e.sourceId || e.id))
+    const future = (allEvents || []).filter((e) => (e.kind === "income" || e.kind === "expense") && e.date > today && !seenIds.has(e.id))
       .map((e) => ({ id: e.id, date: String(e.date).slice(0, 10), type: e.kind as "income" | "expense", amount: Number(e.amount), category: e.category || null, projected: true }));
     return [...realized, ...future];
   }, [dashboardTransactions, allEvents]);
@@ -186,7 +192,9 @@ const FinanceDashboard = () => {
             <Select onValueChange={setPreset}>
               <SelectTrigger className="w-[170px] h-9 text-xs"><SelectValue placeholder="Atalhos" /></SelectTrigger>
               <SelectContent>
+                <SelectItem value="prev-month">Mes anterior</SelectItem>
                 <SelectItem value="this-month">Este mes</SelectItem>
+                <SelectItem value="next-month">Proximo mes</SelectItem>
                 <SelectItem value="3m">Ultimos 3 meses</SelectItem>
                 <SelectItem value="6m">Ultimos 6 meses</SelectItem>
                 <SelectItem value="12m">Ultimos 12 meses</SelectItem>

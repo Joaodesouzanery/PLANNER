@@ -28,7 +28,10 @@ const FinanceAverages = () => {
 
   const setPreset = (preset: string) => {
     const today = new Date();
-    if (preset === "3m") { setFrom(format(startOfMonth(subMonths(today, 2)), "yyyy-MM-dd")); setTo(format(endOfMonth(today), "yyyy-MM-dd")); }
+    if (preset === "prev-month") { goMonth(-1); }
+    else if (preset === "this-month") { setFrom(format(startOfMonth(today), "yyyy-MM-dd")); setTo(format(endOfMonth(today), "yyyy-MM-dd")); }
+    else if (preset === "next-month") { goMonth(1); }
+    else if (preset === "3m") { setFrom(format(startOfMonth(subMonths(today, 2)), "yyyy-MM-dd")); setTo(format(endOfMonth(today), "yyyy-MM-dd")); }
     else if (preset === "6m") { setFrom(format(startOfMonth(subMonths(today, 5)), "yyyy-MM-dd")); setTo(format(endOfMonth(today), "yyyy-MM-dd")); }
     else if (preset === "12m") { setFrom(format(startOfMonth(subMonths(today, 11)), "yyyy-MM-dd")); setTo(format(endOfMonth(today), "yyyy-MM-dd")); }
     else if (preset === "ytd") { setFrom(`${today.getFullYear()}-01-01`); setTo(format(endOfMonth(today), "yyyy-MM-dd")); }
@@ -148,6 +151,9 @@ const FinanceAverages = () => {
           <Select onValueChange={setPreset}>
             <SelectTrigger className="w-[170px] h-9 text-xs"><SelectValue placeholder="Atalhos" /></SelectTrigger>
             <SelectContent>
+              <SelectItem value="prev-month">Mês anterior</SelectItem>
+              <SelectItem value="this-month">Este mês</SelectItem>
+              <SelectItem value="next-month">Próximo mês</SelectItem>
               <SelectItem value="3m">Últimos 3 meses</SelectItem>
               <SelectItem value="6m">Últimos 6 meses</SelectItem>
               <SelectItem value="12m">Últimos 12 meses</SelectItem>

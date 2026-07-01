@@ -9,9 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit2, Trash2, RefreshCw, Download, FileText, CheckCircle2, CalendarClock, CalendarPlus, RotateCcw } from "lucide-react";
+import { Plus, Edit2, Trash2, RefreshCw, Download, FileText, CheckCircle2, CalendarClock, CalendarPlus, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { fmtCurrency, formatDateBR, type Transaction } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
@@ -45,13 +45,22 @@ const FinanceTransactions = () => {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [filterCategory, setFilterCategory] = useState("");
   const [filterType, setFilterType] = useState("");
-  const [from, setFrom] = useState(WIDE_FROM);
-  const [to, setTo] = useState(WIDE_TO);
+  const [from, setFrom] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
+  const [to, setTo] = useState(format(endOfMonth(new Date()), "yyyy-MM-dd"));
   const [form, setForm] = useState(emptyForm());
+
+  const goMonth = (delta: number) => {
+    const target = addMonths(new Date(`${from}T00:00:00`), delta);
+    setFrom(format(startOfMonth(target), "yyyy-MM-dd"));
+    setTo(format(endOfMonth(target), "yyyy-MM-dd"));
+  };
+  const periodLabel = (() => { try { return format(new Date(`${from}T00:00:00`), "MMM yyyy", { locale: ptBR }); } catch { return ""; } })();
 
   const setPreset = (preset: string) => {
     const today = new Date();
     if (preset === "all") { setFrom(WIDE_FROM); setTo(WIDE_TO); }
+    else if (preset === "prev-month") { goMonth(-1); }
+    else if (preset === "next-month") { goMonth(1); }
     else if (preset === "this-month") { setFrom(format(startOfMonth(today), "yyyy-MM-dd")); setTo(format(endOfMonth(today), "yyyy-MM-dd")); }
     else if (preset === "3m") { setFrom(format(startOfMonth(subMonths(today, 2)), "yyyy-MM-dd")); setTo(format(endOfMonth(today), "yyyy-MM-dd")); }
     else if (preset === "6m") { setFrom(format(startOfMonth(subMonths(today, 5)), "yyyy-MM-dd")); setTo(format(endOfMonth(today), "yyyy-MM-dd")); }
@@ -171,21 +180,28 @@ const FinanceTransactions = () => {
             <Select value={filterCategory || "all"} onValueChange={v => setFilterCategory(v === "all" ? "" : v)}><SelectTrigger className="w-[150px] h-9 rounded-xl bg-card/50 border-border/50 text-xs"><SelectValue placeholder="Categoria" /></SelectTrigger><SelectContent><SelectItem value="all">Todas categorias</SelectItem>{allCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
             <div className="hidden sm:flex items-center gap-2 ml-auto">
               <span className="text-xs text-muted-foreground">Período:</span>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => goMonth(-1)} title="Mês anterior"><ChevronLeft className="h-4 w-4" /></Button>
+                <span className="min-w-[70px] text-center text-xs font-medium capitalize">{periodLabel}</span>
+                <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => goMonth(1)} title="Mês seguinte"><ChevronRight className="h-4 w-4" /></Button>
+              </div>
               <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-36 h-9 text-xs" />
               <span className="text-muted-foreground text-xs">até</span>
               <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-36 h-9 text-xs" />
               <Select onValueChange={setPreset}>
                 <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue placeholder="Atalhos" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tudo</SelectItem>
+                  <SelectItem value="prev-month">Mês anterior</SelectItem>
                   <SelectItem value="this-month">Este mês</SelectItem>
+                  <SelectItem value="next-month">Próximo mês</SelectItem>
                   <SelectItem value="3m">Últimos 3 meses</SelectItem>
                   <SelectItem value="6m">Últimos 6 meses</SelectItem>
                   <SelectItem value="12m">Últimos 12 meses</SelectItem>
                   <SelectItem value="ytd">Ano atual</SelectItem>
+                  <SelectItem value="all">Tudo</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={() => setPreset("all")}><RotateCcw className="h-3.5 w-3.5 mr-1" />Limpar</Button>
+              <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={() => setPreset("this-month")}><RotateCcw className="h-3.5 w-3.5 mr-1" />Este mês</Button>
             </div>
           </CardContent>
         </Card>

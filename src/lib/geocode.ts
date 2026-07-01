@@ -83,10 +83,12 @@ const addRecurringInterval = (date: Date, interval: string, originalDay: number)
   return new Date(targetYear, normalizedMonthIndex, targetDay, 12, 0, 0, 0);
 };
 
-export function expandRecurringTransactions<T extends RecurringTx>(rows: T[]): T[] {
+// `horizon` define ate quando projetar as recorrencias (default: hoje, ou seja,
+// so o passado). Passe uma data futura (ex.: 31/12 do ano) para projetar adiante.
+export function expandRecurringTransactions<T extends RecurringTx>(rows: T[], horizon?: Date): T[] {
   const out: T[] = [];
-  const today = new Date();
-  today.setHours(23, 59, 59, 999);
+  const limit = horizon ? new Date(horizon) : new Date();
+  limit.setHours(23, 59, 59, 999);
   for (const tx of rows) {
     out.push(tx);
     if (!tx.is_recurring) continue;
@@ -101,7 +103,7 @@ export function expandRecurringTransactions<T extends RecurringTx>(rows: T[]): T
     let cursor = addRecurringInterval(start, interval, originalDay);
     const maxOccurrences = interval === "weekly" || interval === "semanal" || interval === "week" ? 1040 : 240;
     let safety = 0;
-    while (cursor <= today && safety < maxOccurrences) {
+    while (cursor <= limit && safety < maxOccurrences) {
       const iso = toIsoDate(cursor);
       out.push({
         ...tx,
