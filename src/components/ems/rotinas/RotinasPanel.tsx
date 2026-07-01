@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, CalendarClock, CheckSquare, ClipboardList, ClipboardPaste, LayoutGrid, ListChecks, Plus, Rows3, Settings2 } from "lucide-react";
+import { AlertTriangle, CalendarClock, CheckSquare, ChevronDown, ClipboardList, ClipboardPaste, LayoutGrid, ListChecks, Plus, Rows3, Settings2, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { RotinaClientDialog } from "./RotinaClientDialog";
 import { RotinaConfigDialog } from "./RotinaConfigDialog";
 import { RotinasMacroView } from "./RotinasMacroView";
 import { RotinaPasteDialog } from "./RotinaPasteDialog";
+import { RotinaChecklistInline } from "./RotinaChecklistInline";
 
 const InvoiceBadge = ({ view }: { view: RoutineClientView }) => {
   if (!view.client.invoice_day || view.daysUntilInvoice === null) return null;
@@ -31,6 +32,12 @@ export const RotinasPanel = () => {
   const [configOpen, setConfigOpen] = useState(false);
   const [pasteOpen, setPasteOpen] = useState(false);
   const [view, setView] = useState<"cards" | "macro">("cards");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpanded = (id: string) => setExpanded((prev) => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
 
   const isMissingTable = (rotinas.error as any)?.code === "42P01";
 
@@ -70,6 +77,9 @@ export const RotinasPanel = () => {
                 <Rows3 className="h-3.5 w-3.5" /> Macro
               </Button>
             </div>
+            <Button variant="outline" size="sm" className="h-8 gap-2" onClick={() => rotinas.ensureGeneralSection.mutate()} disabled={rotinas.ensureGeneralSection.isPending} title="Cria/abre a seção Geral (rotinas não vinculadas a empresa)">
+              <Sparkles className="h-3.5 w-3.5" /> Geral
+            </Button>
             <Button variant="outline" size="sm" className="h-8 gap-2" onClick={() => setPasteOpen(true)}>
               <ClipboardPaste className="h-3.5 w-3.5" /> Colar Texto
             </Button>
@@ -108,7 +118,7 @@ export const RotinasPanel = () => {
             {rotinas.segments.map((segment) => {
               const clients = rotinas.clients.filter((c) => c.segment_id === segment.id);
               return (
-                <AccordionItem key={segment.id} value={segment.id} className="rounded-xl border border-border/50 bg-muted/10 px-3">
+                <AccordionItem key={segment.id} value={segment.id} className="rounded-xl border border-border bg-muted/30 px-3">
                   <AccordionTrigger className="py-3 hover:no-underline">
                     <span className="flex items-center gap-2 text-sm font-semibold">
                       <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: segment.color ?? "#6366f1" }} />
@@ -124,17 +134,22 @@ export const RotinasPanel = () => {
                         {clients.map((client) => {
                           const view = rotinas.clientViews.get(client.id);
                           if (!view) return null;
+                          const isOpen = expanded.has(client.id);
                           return (
-                            <button
+                            <div
                               key={client.id}
-                              onClick={() => setSelectedClientId(client.id)}
-                              className="rounded-xl border border-border/50 bg-card/70 p-3 text-left transition-colors hover:border-primary/40"
+                              className="rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary/40"
                             >
                               <div className="flex items-start justify-between gap-2">
-                                <p className="truncate text-sm font-semibold">{client.name}</p>
-                                <InvoiceBadge view={view} />
+                                <button onClick={() => setSelectedClientId(client.id)} className="truncate text-left text-sm font-semibold hover:text-primary transition-colors">{client.name}</button>
+                                <div className="flex items-center gap-1">
+                                  <InvoiceBadge view={view} />
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" onClick={() => toggleExpanded(client.id)} title={isOpen ? "Recolher" : "Ver rotinas"}>
+                                    <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+                                  </Button>
+                                </div>
                               </div>
-                              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+                              <button onClick={() => toggleExpanded(client.id)} className="mt-2 flex w-full flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
                                 <span className="flex items-center gap-1">
                                   <ListChecks className="h-3 w-3" />
                                   Conf. {view.conferenciaProgress.done}/{view.conferenciaProgress.total}
@@ -148,8 +163,13 @@ export const RotinasPanel = () => {
                                     {view.openTasks.length} pendência{view.openTasks.length === 1 ? "" : "s"}
                                   </Badge>
                                 )}
-                              </div>
-                            </button>
+                              </button>
+                              {isOpen && (
+                                <div className="mt-2 border-t border-border/60 pt-2">
+                                  <RotinaChecklistInline view={view} rotinas={rotinas} />
+                                </div>
+                              )}
+                            </div>
                           );
                         })}
                       </div>

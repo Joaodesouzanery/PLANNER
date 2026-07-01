@@ -95,6 +95,15 @@ export function useBoardHealth() {
     )),
   });
 
+  // Rotinas sao user-scoped (sem company_id) — nao aplicar companyFilter.
+  const { data: routineTasks = [] } = useQuery({
+    queryKey: ["health-routine-tasks"],
+    staleTime: 1000 * 60 * 2,
+    queryFn: () => safeSelect(() =>
+      (supabase as any).from("routine_tasks").select("due_date,status").neq("status", "done"),
+    ),
+  });
+
   const isLoading = l1 || l2 || l3 || l4 || l5;
 
   const result = useMemo(() => {
@@ -137,8 +146,10 @@ export function useBoardHealth() {
     const daysSinceReview = lastReview ? Math.floor((Date.now() - new Date(`${lastReview}T12:00:00`).getTime()) / DAY) : 999;
     const lastBackup = (backups as any[])[0]?.backup_date;
     const daysSinceBackup = lastBackup ? Math.floor((Date.now() - new Date(`${lastBackup}T12:00:00`).getTime()) / DAY) : 999;
+    const routineOverdue = (routineTasks as any[]).filter((t) => t.due_date && t.due_date < today).length;
     let governance = 100;
     governance -= Math.min(25, criticalGov * 5);
+    governance -= Math.min(15, routineOverdue * 3);
     if (daysSinceReview > 35) governance -= 20;
     if (daysSinceBackup > 30) governance -= 40;
     else if (daysSinceBackup > 7) governance -= 20;
@@ -149,14 +160,14 @@ export function useBoardHealth() {
     const dimensions: HealthDimension[] = [
       { key: "financial", label: "Financeiro", score: financial, status: statusFor(financial), reason: `Caixa 30d ${net30 >= 0 ? "+" : ""}${net30.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })}` },
       { key: "risk", label: "Risco", score: risk, status: statusFor(risk), reason: `${openRisks.length} riscos abertos · ${criticalUnreviewed} críticos s/ revisão` },
-      { key: "governance", label: "Governança", score: governance, status: statusFor(governance), reason: `${criticalGov} pendências · backup há ${daysSinceBackup > 900 ? "—" : `${daysSinceBackup}d`}` },
+      { key: "governance", label: "Governança", score: governance, status: statusFor(governance), reason: `${criticalGov} pendências${routineOverdue ? ` · ${routineOverdue} rotinas atrasadas` : ""} · backup há ${daysSinceBackup > 900 ? "—" : `${daysSinceBackup}d`}` },
       { key: "compliance", label: "Compliance", score: compliance, status: statusFor(compliance), reason: `${overdueObl} obrigações atrasadas · ${expiredDocs} docs vencidos` },
     ];
 
-    const inputs = { net30, net90, openRisks: openRisks.length, criticalUnreviewed, overdueObl, upcomingObl, expiredDocs, criticalGov, daysSinceReview, daysSinceBackup };
+    const inputs = { net30, net90, openRisks: openRisks.length, criticalUnreviewed, overdueObl, upcomingObl, expiredDocs, criticalGov, routineOverdue, daysSinceReview, daysSinceBackup };
 
     return { overall, status: statusFor(overall), dimensions, inputs };
-  }, [transactions, risks, occurrences, docs, govItems, reviews, backups]);
+  }, [transactions, risks, occurrences, docs, govItems, reviews, backups, routineTasks]);
 
   // Persiste 1 snapshot/dia (upsert manual para tratar company_id null).
   useEffect(() => {

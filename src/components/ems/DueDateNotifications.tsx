@@ -1,17 +1,19 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, AlertTriangle, Clock, Target, ListTodo, FolderKanban } from "lucide-react";
+import { Bell, AlertTriangle, Clock, Target, ListTodo, ListChecks, FolderKanban } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow, differenceInDays, parseISO, isBefore } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 import { useCompanyQuery } from "@/hooks/useCompanyQuery";
 
 interface NotificationItem {
   id: string;
   title: string;
-  type: "project" | "task" | "milestone";
+  type: "project" | "task" | "milestone" | "routine";
   dueDate: string;
   daysUntilDue: number;
   isOverdue: boolean;
@@ -60,6 +62,23 @@ export const DueDateNotifications = () => {
     extraKeys: ["notifications"],
   });
 
+  // Rotinas sao user-scoped (sem company_id) — query direta.
+  const { data: routineTasks = [] } = useQuery({
+    queryKey: ["notifications", "routine-tasks"],
+    staleTime: 300000,
+    refetchInterval: 300000,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("routine_tasks")
+        .select("id, title, due_date, status, priority")
+        .not("due_date", "is", null)
+        .neq("status", "done")
+        .order("due_date");
+      if (error) return [];
+      return data || [];
+    },
+  });
+
   const notifications = useMemo(() => {
     const today = new Date();
     const items: NotificationItem[] = [];
@@ -88,9 +107,17 @@ export const DueDateNotifications = () => {
         items.push({ id: m.id, title: m.title, type: "milestone", dueDate: m.due_date, daysUntilDue: days, isOverdue: overdue });
     });
 
+    (routineTasks as any[]).forEach((t) => {
+      if (!t.due_date) return;
+      const days = differenceInDays(parseISO(t.due_date), today);
+      const overdue = isBefore(parseISO(t.due_date), today);
+      if (overdue || days <= 5)
+        items.push({ id: t.id, title: t.title, type: "routine", dueDate: t.due_date, daysUntilDue: days, isOverdue: overdue, priority: t.priority });
+    });
+
     items.sort((a, b) => a.daysUntilDue - b.daysUntilDue);
     return items;
-  }, [projects, tasks, milestones]);
+  }, [projects, tasks, milestones, routineTasks]);
 
   const getTimeText = (n: NotificationItem) => {
     if (n.isOverdue) return `Atrasado há ${formatDistanceToNow(parseISO(n.dueDate), { locale: ptBR })}`;
@@ -102,10 +129,11 @@ export const DueDateNotifications = () => {
   const getTypeIcon = (type: string) => {
     if (type === "project") return <FolderKanban className="h-4 w-4" />;
     if (type === "task") return <ListTodo className="h-4 w-4" />;
+    if (type === "routine") return <ListChecks className="h-4 w-4" />;
     return <Target className="h-4 w-4" />;
   };
 
-  const getTypeLabel = (type: string) => type === "project" ? "Projeto" : type === "task" ? "Tarefa" : "Marco";
+  const getTypeLabel = (type: string) => type === "project" ? "Projeto" : type === "task" ? "Tarefa" : type === "routine" ? "Rotina" : "Marco";
 
   const overdueCount = notifications.filter(n => n.isOverdue).length;
   const urgentCount = notifications.filter(n => !n.isOverdue && n.daysUntilDue <= 2).length;

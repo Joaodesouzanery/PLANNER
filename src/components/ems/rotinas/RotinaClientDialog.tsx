@@ -241,7 +241,12 @@ export const RotinaClientDialog = ({ view, rotinas, open, onClose }: { view: Rou
                 {view.items.map((item) => (
                   <div key={item.id} className="flex items-center gap-2 rounded-lg border border-border/50 p-2 text-sm">
                     <Badge variant="secondary" className="h-5 text-[10px]">{item.kind === "conferencia" ? "Conf." : "Tarefa"}</Badge>
-                    <span className="flex-1">{item.title}</span>
+                    <Input
+                      key={`${item.id}-${item.title}`}
+                      defaultValue={item.title}
+                      onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== item.title) rotinas.saveChecklistItem.mutate({ id: item.id, title: v }); }}
+                      className="h-8 flex-1"
+                    />
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => rotinas.deleteChecklistItem.mutate(item.id)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>

@@ -14,6 +14,7 @@ import {
   Flag,
   FolderKanban,
   Inbox,
+  ListChecks,
   ListTodo,
   Save,
   ShieldCheck,
@@ -206,6 +207,27 @@ const DailyReport = () => {
     },
   });
 
+  // Rotinas sao user-scoped (sem company_id) — query direta.
+  const { data: routineTasks = [] } = useQuery({
+    queryKey: ["daily-routine-tasks"],
+    staleTime: 1000 * 60,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("routine_tasks").select("id,title,due_date,status,completed_at,client_id");
+      if (error) return [];
+      return data || [];
+    },
+  });
+
+  const { data: routineClients = [] } = useQuery({
+    queryKey: ["daily-routine-clients"],
+    staleTime: 1000 * 60,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("routine_clients").select("id,name,invoice_day,status");
+      if (error) return [];
+      return data || [];
+    },
+  });
+
   const { data: inboxPending = [] } = useQuery({
     queryKey: ["daily-inbox", selectedCompanyId, clientId],
     staleTime: 1000 * 30,
@@ -323,6 +345,9 @@ const DailyReport = () => {
     const due = Math.ceil((new Date(`${doc.expires_at}T12:00:00`).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
     return due >= 0 && due <= Number(doc.alert_days || 30);
   });
+  const routineOpen = (routineTasks as any[]).filter((t) => !isDone(t.status)).length;
+  const routineOverdue = (routineTasks as any[]).filter((t) => t.due_date && t.due_date < selectedDate && !isDone(t.status)).length;
+  const routineDoneToday = (routineTasks as any[]).filter((t) => isDone(t.status) && String(t.completed_at || "").slice(0, 10) === selectedDate).length;
 
   const client360 = useMemo(() => {
     const clientList = clientId === "all" ? availableClients : availableClients.filter((company) => company.id === clientId);
@@ -368,6 +393,14 @@ const DailyReport = () => {
     ...exams.map((item: any) => ({ date: item.exam_date, type: "Prova", title: item.title, tone: "red" })),
     ...governance.map((item: any) => ({ date: item.due_date, type: item.category, title: item.title, tone: "rose" })),
     ...documentAlerts.map((item: any) => ({ date: item.expires_at, type: "Documento", title: item.file_name, tone: "amber" })),
+    ...(routineTasks as any[]).filter((t) => t.due_date && !isDone(t.status)).map((t) => ({ date: t.due_date, type: "Rotina", title: t.title, tone: "cyan" })),
+    ...(routineClients as any[]).filter((c) => c.invoice_day && c.status !== "inactive").map((c) => {
+      const base = new Date(`${selectedDate}T12:00:00`);
+      const y = base.getFullYear();
+      const m = base.getMonth();
+      const day = Math.min(Number(c.invoice_day), new Date(y, m + 1, 0).getDate());
+      return { date: `${y}-${String(m + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`, type: "Nota fiscal", title: `NF ${c.name}`, tone: "purple" };
+    }),
   ]
     .filter((item) => item.date && item.date <= dateWindow.monthEnd)
     .sort((a, b) => String(a.date).localeCompare(String(b.date)))
@@ -380,6 +413,7 @@ const DailyReport = () => {
     { label: "Projetos", icon: FolderKanban, value: `${projectFilteredProjects.length} projetos`, sub: `${delayedProjects.length} atrasados · ${invoices.length} próximas NFs`, tone: delayedProjects.length ? "red" : "purple" },
     { label: "Faculdade", icon: BookOpen, value: `${faculdadeTasks.length} tarefas`, sub: `${exams.length} provas próximas`, tone: "cyan" },
     { label: "Conselho", icon: ShieldCheck, value: `${criticalGovernance.length} alertas`, sub: "Jurídico, contábil, crises e stack", tone: criticalGovernance.length ? "red" : "emerald" },
+    { label: "Rotinas", icon: ListChecks, value: `${routineOpen} abertas`, sub: `${routineOverdue} atrasadas · ${routineDoneToday} feitas hoje`, tone: routineOverdue ? "red" : "emerald" },
     { label: "Inbox", icon: Inbox, value: `${inboxPending.length} pendentes`, sub: "Capturas sem triagem", tone: inboxPending.length ? "amber" : "emerald" },
     { label: "Capacidade", icon: Activity, value: latestCapacity ? `Energia ${latestCapacity.energy}` : "Sem check-in", sub: latestCapacity ? `Carga ${latestCapacity.workload} · Foco ${latestCapacity.focus}` : "Pulso humano pendente", tone: capacityRisk ? "red" : "blue" },
     { label: "IA", icon: Bot, value: "Briefing", sub: "Síntese assistida, sem ações automáticas", tone: "purple" },

@@ -260,6 +260,46 @@ export const useRotinas = () => {
     onError,
   });
 
+  /** Reordena segmentos (ordem = importância definida pelo usuário via drag). */
+  const reorderSegments = useMutation({
+    mutationFn: async (orderedIds: string[]) => {
+      await Promise.all(orderedIds.map((id, index) => db.from("routine_segments").update({ sort_order: index }).eq("id", id)));
+    },
+    onSuccess: invalidate,
+    onError,
+  });
+
+  /** Reordena clientes/empresas dentro de um segmento (ordem = importância). */
+  const reorderClients = useMutation({
+    mutationFn: async (orderedIds: string[]) => {
+      await Promise.all(orderedIds.map((id, index) => db.from("routine_clients").update({ sort_order: index }).eq("id", id)));
+    },
+    onSuccess: invalidate,
+    onError,
+  });
+
+  /** Garante a seção "Geral" (segmento fixo no topo) para rotinas não vinculadas a empresa. */
+  const ensureGeneralSection = useMutation({
+    mutationFn: async () => {
+      const { data: segs, error: sErr } = await db.from("routine_segments").select("id,name");
+      if (sErr) throw sErr;
+      let segId = (segs ?? []).find((s: any) => String(s.name).toLowerCase() === "geral")?.id;
+      if (!segId) {
+        const { data: newSeg, error } = await db.from("routine_segments").insert({ name: "Geral", color: "#f59e0b", sort_order: -1 }).select().single();
+        if (error) throw error;
+        segId = newSeg.id;
+      }
+      const { data: clients, error: cErr } = await db.from("routine_clients").select("id,segment_id");
+      if (cErr) throw cErr;
+      if (!(clients ?? []).some((c: any) => c.segment_id === segId)) {
+        const { error } = await db.from("routine_clients").insert({ segment_id: segId, name: "Pessoal", sort_order: 0 });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => { invalidate(); toast({ title: "Seção Geral pronta", description: "Adicione rotinas gerais na empresa 'Pessoal'." }); },
+    onError,
+  });
+
   const seedInitialStructure = useMutation({
     mutationFn: async () => {
       const blueprint: Array<{ segment: string; clients: Array<{ name: string; invoice_day?: number }> }> = [
@@ -362,6 +402,9 @@ export const useRotinas = () => {
     saveTask,
     deleteTask,
     reorderTasks,
+    reorderSegments,
+    reorderClients,
+    ensureGeneralSection,
     seedInitialStructure,
     pasteTasks,
   };

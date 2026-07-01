@@ -130,6 +130,25 @@ const CalendarPage = () => {
     },
   });
 
+  // Rotinas sao user-scoped (sem company_id) — query direta.
+  const { data: routineTasks = [] } = useQuery({
+    queryKey: ["calendar-routine-tasks"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("routine_tasks").select("id, title, due_date, status").not("due_date", "is", null).neq("status", "done");
+      if (error) return [];
+      return (data || []) as { id: string; title: string; due_date: string; status: string }[];
+    },
+  });
+
+  const { data: routineClients = [] } = useQuery({
+    queryKey: ["calendar-routine-clients"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("routine_clients").select("id, name, invoice_day, status").not("invoice_day", "is", null);
+      if (error) return [];
+      return (data || []) as { id: string; name: string; invoice_day: number; status: string }[];
+    },
+  });
+
   const moveEventMutation = useMutation({
     mutationFn: async ({ eventId, newDate }: { eventId: string; newDate: string }) => {
       const { error } = await supabase.from("calendar_events").update({ start_date: newDate }).eq("id", eventId);
@@ -153,8 +172,8 @@ const CalendarPage = () => {
   });
 
   const dateItemsMap = useMemo(() => {
-    const map = new Map<string, { tasks: Task[]; milestones: Milestone[]; events: CalendarEvent[]; hours: number; projects: ProjectDeadline[]; invoices: ProjectDeadline[]; financial: FinancialTransaction[]; commercial: CommercialAction[] }>();
-    const getOrCreate = (key: string) => { if (!map.has(key)) map.set(key, { tasks: [], milestones: [], events: [], hours: 0, projects: [], invoices: [], financial: [], commercial: [] }); return map.get(key)!; };
+    const map = new Map<string, { tasks: Task[]; milestones: Milestone[]; events: CalendarEvent[]; hours: number; projects: ProjectDeadline[]; invoices: ProjectDeadline[]; financial: FinancialTransaction[]; commercial: CommercialAction[]; routines: { id: string; title: string }[]; nf: { name: string }[] }>();
+    const getOrCreate = (key: string) => { if (!map.has(key)) map.set(key, { tasks: [], milestones: [], events: [], hours: 0, projects: [], invoices: [], financial: [], commercial: [], routines: [], nf: [] }); return map.get(key)!; };
     tasks.forEach((t) => { if (t.due_date) getOrCreate(t.due_date).tasks.push(t); });
     milestones.forEach((m) => { if (m.due_date) getOrCreate(m.due_date).milestones.push(m); });
     events.forEach((e) => { const dateKey = e.start_date.slice(0, 10); getOrCreate(dateKey).events.push(e); });
@@ -165,12 +184,22 @@ const CalendarPage = () => {
     });
     financial.forEach((f) => getOrCreate(f.date).financial.push(f));
     commercialActions.forEach((a) => { if (a.next_action_date) getOrCreate(a.next_action_date).commercial.push(a); });
+    (routineTasks as any[]).forEach((t) => { if (t.due_date) getOrCreate(String(t.due_date).slice(0, 10)).routines.push({ id: t.id, title: t.title }); });
+    // Dia da NF (marcador mensal) para o mês visível.
+    const y = currentDate.getFullYear();
+    const mo = currentDate.getMonth();
+    const lastDay = new Date(y, mo + 1, 0).getDate();
+    (routineClients as any[]).forEach((c) => {
+      if (!c.invoice_day || c.status === "inactive") return;
+      const day = Math.min(Number(c.invoice_day), lastDay);
+      getOrCreate(`${y}-${String(mo + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`).nf.push({ name: c.name });
+    });
     return map;
-  }, [tasks, milestones, events, timeEntries, projects, financial, commercialActions]);
+  }, [tasks, milestones, events, timeEntries, projects, financial, commercialActions, routineTasks, routineClients, currentDate]);
 
   const getItemsForDate = (date: Date) => {
     const key = format(date, "yyyy-MM-dd");
-    return dateItemsMap.get(key) || { tasks: [], milestones: [], events: [], hours: 0, projects: [], invoices: [], financial: [], commercial: [] };
+    return dateItemsMap.get(key) || { tasks: [], milestones: [], events: [], hours: 0, projects: [], invoices: [], financial: [], commercial: [], routines: [], nf: [] };
   };
 
   // Navigation
@@ -201,7 +230,7 @@ const CalendarPage = () => {
   const hours = Array.from({ length: 13 }, (_, i) => i + 8); // 8-20
 
   const handleDayClick = (date: Date) => { setSelectedDate(date); setShowDayModal(true); };
-  const selectedDayItems = selectedDate ? getItemsForDate(selectedDate) : { tasks: [], milestones: [], events: [], hours: 0, projects: [], invoices: [], financial: [], commercial: [] };
+  const selectedDayItems = selectedDate ? getItemsForDate(selectedDate) : { tasks: [], milestones: [], events: [], hours: 0, projects: [], invoices: [], financial: [], commercial: [], routines: [], nf: [] };
 
   // Drag & drop handlers
   const handleDragStart = (eventId: string) => setDraggedEvent(eventId);
@@ -253,6 +282,8 @@ const CalendarPage = () => {
             {items.invoices.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-sm shadow-cyan-500/50" />}
             {items.financial.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50" />}
             {items.commercial.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-pink-500 shadow-sm shadow-pink-500/50" />}
+            {items.routines.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-sm shadow-indigo-500/50" />}
+            {items.nf.length > 0 && <div className="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-sm shadow-rose-500/50" />}
             {items.events.slice(0, 2).map((ev) => (
               <div
                 key={ev.id}
@@ -458,6 +489,8 @@ const CalendarPage = () => {
                   { label: "Projetos", color: "bg-purple-500" },
                   { label: "Notas Fiscais", color: "bg-cyan-500" },
                   { label: "Comercial", color: "bg-pink-500" },
+                  { label: "Rotinas", color: "bg-indigo-500" },
+                  { label: "NF Rotina", color: "bg-rose-500" },
                   { label: "Timesheet", color: "bg-primary" },
                 ].map(l => (
                   <div key={l.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -519,6 +552,32 @@ const CalendarPage = () => {
                         )}>
                           {task.status === "completed" ? "Concluída" : task.priority === "urgent" ? "Urgente" : task.priority === "high" ? "Alta" : task.priority === "medium" ? "Média" : "Baixa"}
                         </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {selectedDayItems.routines.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Rotinas</h4>
+                  <div className="space-y-2">
+                    {selectedDayItems.routines.map((r) => (
+                      <div key={r.id} className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border border-border/50">
+                        <div className="w-1.5 h-8 rounded-full bg-indigo-500" />
+                        <p className="flex-1 min-w-0 font-medium text-sm">{r.title}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {selectedDayItems.nf.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-2">Notas fiscais (Rotinas)</h4>
+                  <div className="space-y-2">
+                    {selectedDayItems.nf.map((n, i) => (
+                      <div key={`${n.name}-${i}`} className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border border-border/50">
+                        <div className="w-1.5 h-8 rounded-full bg-rose-500" />
+                        <p className="flex-1 min-w-0 font-medium text-sm">NF · {n.name}</p>
                       </div>
                     ))}
                   </div>

@@ -3,7 +3,10 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { formatDateBR } from "@/components/ems/finance/useFinanceData";
+import { RotinaChecklistInline } from "./RotinaChecklistInline";
 import type { useRotinas, RoutineClientView, RoutineTask } from "@/hooks/useRotinas";
+
+type Rotinas = ReturnType<typeof useRotinas>;
 
 const statusLabel: Record<RoutineTask["status"], { label: string; tone: string }> = {
   pending: { label: "Pendente", tone: "text-muted-foreground border-border/60" },
@@ -22,11 +25,11 @@ const priorityTone: Record<string, string> = {
 
 const pct = (p: { done: number; total: number }) => (p.total === 0 ? 0 : Math.round((p.done / p.total) * 100));
 
-const ClientBlock = ({ view, onSelect }: { view: RoutineClientView; onSelect: () => void }) => {
+const ClientBlock = ({ view, rotinas, onSelect }: { view: RoutineClientView; rotinas: Rotinas; onSelect: () => void }) => {
   const conf = view.conferenciaProgress;
   const tar = view.tarefaProgress;
   return (
-    <div className="rounded-xl border border-border/50 bg-card/60 p-3 space-y-2">
+    <div className="rounded-xl border border-border bg-card p-3 space-y-2">
       <div className="flex items-start justify-between gap-2">
         <button onClick={onSelect} className="text-left text-sm font-semibold hover:text-primary transition-colors truncate">
           {view.client.name}
@@ -48,6 +51,9 @@ const ClientBlock = ({ view, onSelect }: { view: RoutineClientView; onSelect: ()
           <Progress value={pct(tar)} className="h-1.5" />
         </div>
       </div>
+
+      {/* Itens de rotina checáveis direto (sem abrir modal) */}
+      <RotinaChecklistInline view={view} rotinas={rotinas} />
 
       <div className="space-y-1">
         {view.openTasks.length === 0 ? (
@@ -82,7 +88,7 @@ export const RotinasMacroView = ({ rotinas, onSelectClient }: { rotinas: ReturnT
         const views = clients.map((c) => rotinas.clientViews.get(c.id)).filter(Boolean) as RoutineClientView[];
         const totalOpen = views.reduce((s, v) => s + v.openTasks.length, 0);
         return (
-          <div key={segment.id} className="rounded-xl border border-border/50 bg-muted/10 p-3">
+          <div key={segment.id} className="rounded-xl border border-border bg-muted/30 p-3">
             <div className="mb-3 flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: segment.color ?? "#6366f1" }} />
               <span className="text-sm font-semibold">{segment.name}</span>
@@ -94,7 +100,7 @@ export const RotinasMacroView = ({ rotinas, onSelectClient }: { rotinas: ReturnT
             ) : (
               <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                 {views.map((view) => (
-                  <ClientBlock key={view.client.id} view={view} onSelect={() => onSelectClient(view.client.id)} />
+                  <ClientBlock key={view.client.id} view={view} rotinas={rotinas} onSelect={() => onSelectClient(view.client.id)} />
                 ))}
               </div>
             )}
