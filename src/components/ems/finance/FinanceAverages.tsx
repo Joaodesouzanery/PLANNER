@@ -3,14 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarRange, RotateCcw, TrendingDown, TrendingUp, CalendarDays } from "lucide-react";
+import { CalendarRange, ChevronLeft, ChevronRight, FileDown, RotateCcw, TrendingDown, TrendingUp, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { differenceInCalendarDays, differenceInCalendarMonths, format, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { differenceInCalendarDays, differenceInCalendarMonths, format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { DateRangeFilter } from "@/components/ems/DateRangeFilter";
 import { fmtCurrency, tooltipStyle } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
+import { exportTablePdf } from "@/lib/exportPdf";
+import { toast } from "sonner";
 
 const fmtFrom = () => format(startOfMonth(subMonths(new Date(), 5)), "yyyy-MM-dd");
 const fmtTo = () => format(endOfMonth(new Date()), "yyyy-MM-dd");
@@ -91,6 +93,39 @@ const FinanceAverages = () => {
     };
   }, [month, dashboardTransactions, monthlyPlans, planItems]);
 
+  const goMonth = (delta: number) => {
+    const target = addMonths(new Date(`${from}T00:00:00`), delta);
+    setFrom(format(startOfMonth(target), "yyyy-MM-dd"));
+    setTo(format(endOfMonth(target), "yyyy-MM-dd"));
+  };
+  const periodLabel = (() => { try { return format(new Date(`${from}T00:00:00`), "MMM yyyy", { locale: ptBR }); } catch { return ""; } })();
+
+  const exportAverages = async () => {
+    const money = (v: number) => fmtCurrency(Number(v));
+    try {
+      await exportTablePdf({
+        title: "Médias de gastos",
+        subtitle: `${from} a ${to} · ${totals.months} mês(es) / ~${totals.weeks.toFixed(1)} semanas`,
+        filename: `medias-${from}_a_${to}.pdf`,
+        sections: [
+          { heading: "Médias no período", head: [["Indicador", "Valor"]], body: [
+            ["Saídas / semana", money(totals.expPerWeek)], ["Saídas / mês", money(totals.expPerMonth)],
+            ["Entradas / semana", money(totals.incPerWeek)], ["Entradas / mês", money(totals.incPerMonth)],
+          ] },
+          { heading: "Gastos por mês", head: [["Mês", "Entradas", "Saídas", "Saldo"]], body: byMonth.length ? byMonth.map((m) => [m.label, money(m.income), money(m.expense), money(m.balance)]) : [["—", "—", "—", "—"]] },
+          { heading: `Mês específico (${monthLabel(month)})`, head: [["Indicador", "Valor"]], body: [
+            ["Entradas", money(monthDetail.income)], ["Saídas", money(monthDetail.expense)], ["Saldo", money(monthDetail.balance)], ["Lançamentos", String(monthDetail.count)],
+            ["Saídas previstas", money(monthDetail.plannedExpense)], ["Entradas previstas", money(monthDetail.plannedIncome)], ["Saldo planejado", money(monthDetail.plannedBalance)], ["Diferença (real − plano)", money(monthDetail.variance)],
+          ] },
+          { heading: "Saídas por categoria (mês)", head: [["Categoria", "Valor"]], body: monthDetail.byCat.length ? monthDetail.byCat.map((c) => [c.name, money(c.value)]) : [["—", "—"]] },
+        ],
+      });
+      toast.success("Médias exportadas!");
+    } catch (err: any) {
+      toast.error("Falha ao exportar", { description: err?.message });
+    }
+  };
+
   const avgCards = [
     { label: "Saídas / semana", value: totals.expPerWeek, icon: TrendingDown, color: "text-destructive" },
     { label: "Saídas / mês", value: totals.expPerMonth, icon: TrendingDown, color: "text-destructive" },
@@ -104,6 +139,11 @@ const FinanceAverages = () => {
         <CardContent className="p-3 flex flex-wrap items-center gap-3">
           <CalendarRange className="h-4 w-4 text-primary" />
           <span className="text-xs font-medium text-muted-foreground">Período:</span>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => goMonth(-1)} title="Mês anterior"><ChevronLeft className="h-4 w-4" /></Button>
+            <span className="min-w-[70px] text-center text-xs font-medium capitalize">{periodLabel}</span>
+            <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => goMonth(1)} title="Mês seguinte"><ChevronRight className="h-4 w-4" /></Button>
+          </div>
           <DateRangeFilter dateFrom={from} dateTo={to} onDateFromChange={setFrom} onDateToChange={setTo} />
           <Select onValueChange={setPreset}>
             <SelectTrigger className="w-[170px] h-9 text-xs"><SelectValue placeholder="Atalhos" /></SelectTrigger>
@@ -116,6 +156,9 @@ const FinanceAverages = () => {
           </Select>
           <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={() => { setFrom(fmtFrom()); setTo(fmtTo()); }}>
             <RotateCcw className="h-3.5 w-3.5 mr-1" /> 6 meses
+          </Button>
+          <Button variant="outline" size="sm" className="h-9 text-xs" onClick={exportAverages}>
+            <FileDown className="h-3.5 w-3.5 mr-1" /> Exportar
           </Button>
           <Badge variant="outline" className="ml-auto text-xs">
             {totals.months} {totals.months === 1 ? "mês" : "meses"} · ~{totals.weeks.toFixed(1)} semanas

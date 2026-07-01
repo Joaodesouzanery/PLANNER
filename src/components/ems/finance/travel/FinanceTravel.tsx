@@ -9,11 +9,13 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plane, Plus, Trash2, Save, MapPin, Users, CalendarDays } from "lucide-react";
+import { Plane, Plus, Trash2, Save, MapPin, Users, CalendarDays, FileDown } from "lucide-react";
 import { differenceInDays, differenceInCalendarMonths } from "date-fns";
 import { useTravelProfile, useTrips, useTripCategories, seedDefaultCategories, type Trip, type TripCategory } from "./useTravel";
 import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput, NumberField } from "@/components/ui/currency-input";
+import { exportTablePdf } from "@/lib/exportPdf";
+import { toast } from "sonner";
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -195,9 +197,33 @@ const TripDetail = ({ trip, categories, availableBalance, onUpdate, onCatUpsert,
 
   const [newCat, setNewCat] = useState<{ label: string; amount: number }>({ label: "", amount: 0 });
 
+  const exportTrip = async () => {
+    try {
+      await exportTablePdf({
+        title: `Viagem — ${trip.name}`,
+        subtitle: `${trip.destination || "—"} · ${travelers} viajante(s) · ${nights} noite(s) · gerado em ${new Date().toLocaleString("pt-BR")}`,
+        filename: `viagem-${trip.name.replace(/\s+/g, "-").toLowerCase()}.pdf`,
+        sections: [
+          { heading: "Resumo", head: [["Indicador", "Valor"]], body: [
+            ["Subtotal", brl(subtotal)], [`Reserva (${trip.emergency_pct}%)`, brl(emergency)], ["Total", brl(totalBRL)],
+            ["Por pessoa", brl(perPerson)], [`Meta mensal (${monthsUntil} mês/es)`, brl(monthlyGoal)],
+            ["% do saldo disponível", `${(committedPct * 100).toFixed(1)}%`],
+          ] },
+          { heading: "Categorias", head: [["Categoria", "Valor base", "Por pessoa", "× noites", "Total"]], body: categories.length ? categories.map((c) => [c.label, brl(Number(c.amount) || 0), c.is_per_person ? "Sim" : "—", c.multiply_by_nights ? "Sim" : "—", brl(computeCategoryTotal(c, travelers, nights))]) : [["—", "—", "—", "—", "—"]] },
+        ],
+      });
+      toast.success("Viagem exportada!");
+    } catch (err: any) {
+      toast.error("Falha ao exportar", { description: err?.message });
+    }
+  };
+
   return (
     <Card>
-      <CardHeader><CardTitle className="flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" />{trip.name} — {nights} {nights === 1 ? "noite" : "noites"} · {travelers} {travelers === 1 ? "viajante" : "viajantes"}</CardTitle></CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <CardTitle className="flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" />{trip.name} — {nights} {nights === 1 ? "noite" : "noites"} · {travelers} {travelers === 1 ? "viajante" : "viajantes"}</CardTitle>
+        <Button variant="outline" size="sm" onClick={exportTrip} className="shrink-0"><FileDown className="h-4 w-4 mr-2" />Exportar</Button>
+      </CardHeader>
       <CardContent>
         <Tabs defaultValue="budget">
           <TabsList>

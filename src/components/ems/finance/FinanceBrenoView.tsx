@@ -1,13 +1,16 @@
 import { useMemo } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { AlertTriangle, CircleDollarSign, TrendingDown, Wallet } from "lucide-react";
+import { AlertTriangle, CircleDollarSign, FileDown, TrendingDown, Wallet } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { fmtCurrency, formatDateBR } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
+import { exportTablePdf } from "@/lib/exportPdf";
+import { toast } from "sonner";
 
 const dateLabel = (date: string) => format(new Date(`${date}T12:00:00`), "dd MMM", { locale: ptBR });
 const monthLabel = (month: string) => format(new Date(`${month}-01T12:00:00`), "MMM/yy", { locale: ptBR });
@@ -35,13 +38,39 @@ const FinanceBrenoView = () => {
 
   const expectedEnd = workspace.forecast90.days[workspace.forecast90.days.length - 1]?.expected ?? workspace.openingBalance;
 
+  const exportPlanilha = async () => {
+    const money = (v: number) => fmtCurrency(Number(v));
+    try {
+      await exportTablePdf({
+        title: "Planilha do saldo",
+        subtitle: `gerado em ${new Date().toLocaleString("pt-BR")}`,
+        filename: "planilha-saldo.pdf",
+        sections: [
+          { heading: "Indicadores", head: [["Indicador", "Valor"]], body: [
+            ["Saldo disponível hoje", money(workspace.openingBalance)],
+            ["Saldo esperado em 90 dias", money(expectedEnd)],
+            ["Menor saldo em 90 dias", `${money(workspace.forecast90.minimumBalance)} (${formatDateBR(workspace.forecast90.minimumBalanceDate)})`],
+            ["Reserva", money(workspace.reserveBalance)],
+          ] },
+          { heading: "Resumo mês a mês", head: [["Mês", "Entradas", "Saídas", "Saldo final"]], body: workspace.monthlyForecast.length ? workspace.monthlyForecast.map((m: any) => [monthLabel(m.month), money(m.income), money(m.expense), money(m.balance)]) : [["—", "—", "—", "—"]] },
+        ],
+      });
+      toast.success("Planilha exportada!");
+    } catch (err: any) {
+      toast.error("Falha ao exportar", { description: err?.message });
+    }
+  };
+
   return (
     <div className="space-y-5">
-      <div className="rounded-xl border border-border/50 bg-muted/10 p-4">
-        <h2 className="text-lg font-semibold">Planilha do saldo</h2>
-        <p className="text-sm text-muted-foreground">
-          Controle simples e olhando para o futuro: decida pela ótica do saldo — para onde seu dinheiro vai e quanto sobra mês a mês.
-        </p>
+      <div className="flex items-start justify-between gap-3 rounded-xl border border-border/50 bg-muted/10 p-4">
+        <div>
+          <h2 className="text-lg font-semibold">Planilha do saldo</h2>
+          <p className="text-sm text-muted-foreground">
+            Controle simples e olhando para o futuro: decida pela ótica do saldo — para onde seu dinheiro vai e quanto sobra mês a mês.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={exportPlanilha} className="shrink-0"><FileDown className="h-4 w-4 mr-2" />Exportar</Button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

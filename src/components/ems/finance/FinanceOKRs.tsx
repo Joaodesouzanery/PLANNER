@@ -6,12 +6,31 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Edit2, Trash2, Target } from "lucide-react";
+import { Plus, Edit2, Trash2, Target, FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFinanceData, type OKR } from "./useFinanceData";
+import { exportTablePdf } from "@/lib/exportPdf";
+import { toast } from "sonner";
 
 const FinanceOKRs = () => {
   const { okrs, saveOkrMutation, deleteOkrMutation } = useFinanceData();
+
+  const exportOkrs = async () => {
+    try {
+      await exportTablePdf({
+        title: "OKRs financeiros",
+        subtitle: `${okrs.length} OKR(s) · gerado em ${new Date().toLocaleString("pt-BR")}`,
+        filename: "okrs.pdf",
+        sections: [{
+          head: [["OKR", "Descrição", "Atual", "Meta", "Unid.", "Período", "Progresso"]],
+          body: okrs.length ? okrs.map((o) => [o.title, o.description || "-", o.current_value, o.target_value, o.unit, o.period === "quarterly" ? "Trimestral" : "Anual", `${Math.round((o.current_value / (o.target_value || 1)) * 100)}%`]) : [["—", "—", "—", "—", "—", "—", "—"]],
+        }],
+      });
+      toast.success("OKRs exportados!");
+    } catch (err: any) {
+      toast.error("Falha ao exportar", { description: err?.message });
+    }
+  };
   const [showModal, setShowModal] = useState(false);
   const [editingOkr, setEditingOkr] = useState<OKR | null>(null);
   const [form, setForm] = useState({ title: "", description: "", target_value: 100, current_value: 0, unit: "%", period: "quarterly" });
@@ -24,7 +43,10 @@ const FinanceOKRs = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end"><Button onClick={() => setShowModal(true)} className="rounded-xl shadow-lg shadow-primary/20"><Plus className="h-4 w-4 mr-2" />Novo OKR</Button></div>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={exportOkrs} className="rounded-xl"><FileDown className="h-4 w-4 mr-2" />Exportar</Button>
+        <Button onClick={() => setShowModal(true)} className="rounded-xl shadow-lg shadow-primary/20"><Plus className="h-4 w-4 mr-2" />Novo OKR</Button>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {okrs.map(okr => {
           const progress = (okr.current_value / okr.target_value) * 100;

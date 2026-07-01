@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, CalendarClock, CheckSquare, ClipboardList, LayoutGrid, ListChecks, Plus, Rows3, Settings2 } from "lucide-react";
+import { AlertTriangle, CalendarClock, CheckSquare, ClipboardList, ClipboardPaste, LayoutGrid, ListChecks, Plus, Rows3, Settings2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { useRotinas, type RoutineClientView } from "@/hooks/useRotinas";
 import { RotinaClientDialog } from "./RotinaClientDialog";
 import { RotinaConfigDialog } from "./RotinaConfigDialog";
 import { RotinasMacroView } from "./RotinasMacroView";
+import { RotinaPasteDialog } from "./RotinaPasteDialog";
 
 const InvoiceBadge = ({ view }: { view: RoutineClientView }) => {
   if (!view.client.invoice_day || view.daysUntilInvoice === null) return null;
@@ -28,6 +29,7 @@ export const RotinasPanel = () => {
   const rotinas = useRotinas();
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
+  const [pasteOpen, setPasteOpen] = useState(false);
   const [view, setView] = useState<"cards" | "macro">("cards");
 
   const isMissingTable = (rotinas.error as any)?.code === "42P01";
@@ -68,6 +70,9 @@ export const RotinasPanel = () => {
                 <Rows3 className="h-3.5 w-3.5" /> Macro
               </Button>
             </div>
+            <Button variant="outline" size="sm" className="h-8 gap-2" onClick={() => setPasteOpen(true)}>
+              <ClipboardPaste className="h-3.5 w-3.5" /> Colar Texto
+            </Button>
             <Button variant="outline" size="sm" className="h-8 gap-2" onClick={() => setConfigOpen(true)}>
               <Settings2 className="h-3.5 w-3.5" /> Configurar
             </Button>
@@ -166,6 +171,7 @@ export const RotinasPanel = () => {
         />
       )}
       <RotinaConfigDialog rotinas={rotinas} open={configOpen} onClose={() => setConfigOpen(false)} />
+      <RotinaPasteDialog rotinas={rotinas} open={pasteOpen} onClose={() => setPasteOpen(false)} />
     </Card>
   );
 };

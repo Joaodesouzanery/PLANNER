@@ -3,12 +3,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
-import { Target, Trash2, CheckCircle, ExternalLink, Calendar, ArrowRight } from "lucide-react";
+import { Target, Trash2, CheckCircle, ExternalLink, Calendar, ArrowRight, FileDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePlanningData } from "@/hooks/usePlanningData";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { exportTablePdf } from "@/lib/exportPdf";
+import { toast } from "sonner";
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   pending: { label: "Pendente", color: "text-muted-foreground bg-muted/50 border-border/50" },
@@ -50,6 +52,23 @@ const FinanceMetas = () => {
     pending: financialGoals.filter(g => g.status === "pending").length,
   };
 
+  const exportMetas = async () => {
+    try {
+      await exportTablePdf({
+        title: "Metas financeiras",
+        subtitle: `gerado em ${new Date().toLocaleString("pt-BR")}`,
+        filename: "metas-financeiras.pdf",
+        sections: [
+          { heading: "Resumo", head: [["Indicador", "Qtd."]], body: [["Total", stats.total], ["Pendentes", stats.pending], ["Em andamento", stats.inProgress], ["Concluídas", stats.completed]] },
+          { heading: "Metas", head: [["Meta", "Status", "Prazo", "Descrição"]], body: financialGoals.length ? financialGoals.map((g) => [g.title, statusConfig[g.status]?.label || g.status, g.end_date ? format(new Date(g.end_date), "dd/MM/yyyy") : "-", g.description || "-"]) : [["—", "—", "—", "—"]] },
+        ],
+      });
+      toast.success("Metas exportadas!");
+    } catch (err: any) {
+      toast.error("Falha ao exportar", { description: err?.message });
+    }
+  };
+
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Stats */}
@@ -76,7 +95,10 @@ const FinanceMetas = () => {
             {f === "all" ? "Todas" : statusConfig[f]?.label}
           </Button>
         ))}
-        <Button variant="ghost" size="sm" onClick={() => navigate("/ems/planning")} className="text-xs h-7 ml-auto text-muted-foreground hover:text-foreground gap-1">
+        <Button variant="outline" size="sm" onClick={exportMetas} className="text-xs h-7 ml-auto gap-1">
+          <FileDown className="h-3 w-3" /> Exportar
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => navigate("/ems/planning")} className="text-xs h-7 text-muted-foreground hover:text-foreground gap-1">
           Ver em Planejamento <ArrowRight className="h-3 w-3" />
         </Button>
       </div>

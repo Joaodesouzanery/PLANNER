@@ -2,9 +2,13 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { FileDown } from "lucide-react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { supabase } from "@/integrations/supabase/client";
 import { fmtCurrency } from "./useFinanceData";
+import { exportTablePdf } from "@/lib/exportPdf";
+import { toast } from "sonner";
 
 interface PlannedImpact {
   id: string;
@@ -47,8 +51,29 @@ const FinancePlannedImpacts = () => {
     return acc;
   }, { revenue: 0, cost: 0, cash: 0, margin: 0, net: 0 }), [data]);
 
+  const exportImpacts = async () => {
+    const money = (v: number) => fmtCurrency(Number(v));
+    try {
+      await exportTablePdf({
+        title: "Impactos financeiros previstos",
+        subtitle: `gerado em ${new Date().toLocaleString("pt-BR")}`,
+        filename: "impactos-previstos.pdf",
+        sections: [
+          { heading: "Totais", head: [["Indicador", "Valor"]], body: [["Receita prevista", money(totals.revenue)], ["Custos previstos", money(totals.cost)], ["Caixa previsto", money(totals.cash)], ["Líquido planejado", money(totals.net)]] },
+          { heading: "Impactos por projeto", head: [["Título", "Projeto", "Tipo", "Valor"]], body: data.length ? data.map((i) => [i.title, i.projects?.title || "Empresa inteira", i.impact_type || "revenue", money(Number(i.amount || 0))]) : [["—", "—", "—", "—"]] },
+        ],
+      });
+      toast.success("Previstos exportados!");
+    } catch (err: any) {
+      toast.error("Falha ao exportar", { description: err?.message });
+    }
+  };
+
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={exportImpacts}><FileDown className="h-4 w-4 mr-2" />Exportar</Button>
+      </div>
       <div className="grid gap-3 md:grid-cols-4">
         {[
           ["Receita prevista", totals.revenue],

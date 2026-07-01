@@ -52,6 +52,9 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
     --border: 24 6% 20%;
     --input: 24 8% 16%;
     --ring: 28 100% 55%;

@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   AlertTriangle, ArrowDownRight, ArrowRightLeft, ArrowUpRight, Building2, CalendarClock,
-  CheckCircle2, CircleDollarSign, CreditCard, FileUp, Landmark, Plus, ShieldCheck, Wallet,
+  CheckCircle2, CircleDollarSign, CreditCard, FileDown, FileUp, Landmark, Plus, ShieldCheck, Wallet,
 } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { fmtCurrency, formatDateBR } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
+import { exportTablePdf } from "@/lib/exportPdf";
+import { toast } from "sonner";
 import type { FinanceAccount, FinanceCardInvoice, ForecastEvent } from "./financeTypes";
 
 const dateLabel = (date: string) => format(new Date(`${date}T12:00:00`), "dd MMM", { locale: ptBR });
@@ -55,6 +57,31 @@ const FinanceFutureFlow = () => {
       personalTransfers: workspace.filteredEvents.filter((event) => event.sourceType === "transfer").reduce((sum, event) => sum + (event.kind === "transfer_out" ? event.amount : 0), 0),
     };
   }, [workspace.filteredEvents, workspace.forecast90.endDate]);
+
+  const exportFutureFlow = async () => {
+    const money = (v: number) => fmtCurrency(Number(v));
+    try {
+      await exportTablePdf({
+        title: "Fluxo futuro (90 dias)",
+        subtitle: `${workspace.selectedEntity?.name ?? workspace.scope} · gerado em ${new Date().toLocaleString("pt-BR")}`,
+        filename: "fluxo-futuro.pdf",
+        sections: [
+          { heading: "Indicadores", head: [["Indicador", "Valor"]], body: [
+            ["Saldo disponível", money(workspace.openingBalance)],
+            ["Menor saldo em 90 dias", `${money(workspace.forecast90.minimumBalance)} (${formatDateBR(workspace.forecast90.minimumBalanceDate)})`],
+            ["Falta pagar (45 dias)", money(workspace.upcomingPayables.reduce((s, i) => s + i.amount, 0))],
+            ["Reserva", money(workspace.reserveBalance)],
+            ["Saldo esperado em 90 dias", money(workspace.forecast90.days[workspace.forecast90.days.length - 1]?.expected || workspace.openingBalance)],
+          ] },
+          { heading: "Resumo mês a mês", head: [["Mês", "Entradas", "Saídas", "Saldo final"]], body: workspace.monthlyForecast.length ? workspace.monthlyForecast.map((m: any) => [m.month, money(m.income), money(m.expense), money(m.balance)]) : [["—", "—", "—", "—"]] },
+          { heading: `Linha do tempo (${timelineEvents.length})`, head: [["Data", "Descrição", "Categoria", "Tipo", "Valor"]], body: timelineEvents.length ? timelineEvents.map((e) => [formatDateBR(e.date), e.description, e.category || "-", e.kind, money(Number(e.amount))]) : [["—", "—", "—", "—", "—"]] },
+        ],
+      });
+      toast.success("Fluxo futuro exportado!");
+    } catch (err: any) {
+      toast.error("Falha ao exportar", { description: err?.message });
+    }
+  };
 
   const openTransaction = (kind: "income" | "expense", accountId = "") => {
     setTransactionKind(kind);
@@ -125,6 +152,7 @@ const FinanceFutureFlow = () => {
           <Button size="sm" variant="outline" onClick={() => setDialog("transfer")}><ArrowRightLeft className="h-4 w-4 mr-1" />Transferir</Button>
           <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()}><FileUp className="h-4 w-4 mr-1" />Importar CSV</Button>
           <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(event) => handleCsv(event.target.files?.[0])} />
+          <Button size="sm" variant="outline" onClick={exportFutureFlow}><FileDown className="h-4 w-4 mr-1" />Exportar</Button>
           <Button size="sm" onClick={() => { setAccountForm({ ...accountForm, entity_id: workspace.selectedEntity?.id || workspace.entities[0]?.id || "" }); setDialog("account"); }}><Plus className="h-4 w-4 mr-1" />Conta</Button>
         </div>
       </div>

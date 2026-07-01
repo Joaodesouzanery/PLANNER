@@ -72,6 +72,9 @@ export interface RoutineClientView {
 const db = supabase as any;
 const todayStr = () => format(new Date(), "yyyy-MM-dd");
 
+/** Valor sentinela do seletor "lista geral (Pessoal)" no diálogo de colar texto. */
+export const GENERAL_TARGET = "__general__";
+
 /** Dias ate a proxima ocorrencia do dia da NF (ex.: dia 1 de cada mes). */
 export const daysUntilInvoice = (invoiceDay: number | null): number | null => {
   if (!invoiceDay) return null;
@@ -296,6 +299,52 @@ export const useRotinas = () => {
     onError,
   });
 
+  /** Quebra um texto colado em varias tarefas e adiciona a um cliente (ou a lista geral "Pessoal"). */
+  const pasteTasks = useMutation({
+    mutationFn: async ({ target, text }: { target: string; text: string }) => {
+      const lines = text
+        .split(/\r?\n/)
+        .map((line) => line.replace(/^\s*[-*•]\s*/, "").trim())
+        .filter(Boolean);
+      if (!lines.length) throw new Error("Nenhuma tarefa encontrada no texto.");
+
+      let clientId = target;
+      if (target === GENERAL_TARGET) {
+        const { data: clients, error: cErr } = await db.from("routine_clients").select("id,name");
+        if (cErr) throw cErr;
+        const general = (clients ?? []).find((c: any) => String(c.name).toLowerCase() === "pessoal");
+        if (general) {
+          clientId = general.id;
+        } else {
+          const { data: segs, error: sErr } = await db.from("routine_segments").select("id,name");
+          if (sErr) throw sErr;
+          let segId = (segs ?? []).find((s: any) => String(s.name).toLowerCase() === "geral")?.id;
+          if (!segId) {
+            const { data: newSeg, error: nsErr } = await db.from("routine_segments").insert({ name: "Geral", sort_order: (segs?.length ?? 0) }).select().single();
+            if (nsErr) throw nsErr;
+            segId = newSeg.id;
+          }
+          const { data: newClient, error: ncErr } = await db.from("routine_clients").insert({ segment_id: segId, name: "Pessoal", sort_order: 0 }).select().single();
+          if (ncErr) throw ncErr;
+          clientId = newClient.id;
+        }
+      }
+
+      const { data: existing, error: exErr } = await db.from("routine_tasks").select("id").eq("client_id", clientId);
+      if (exErr) throw exErr;
+      const base = existing?.length ?? 0;
+      const rows = lines.map((title, index) => ({ client_id: clientId, title, status: "pending", priority: "medium", sort_order: base + index }));
+      const { error } = await db.from("routine_tasks").insert(rows);
+      if (error) throw error;
+      return lines.length;
+    },
+    onSuccess: (count) => {
+      invalidate();
+      toast({ title: `${count} tarefa(s) adicionada(s)`, description: "Disponíveis na aba Tarefas do cliente." });
+    },
+    onError,
+  });
+
   return {
     isLoading: query.isLoading,
     error: query.error,
@@ -314,5 +363,6 @@ export const useRotinas = () => {
     deleteTask,
     reorderTasks,
     seedInitialStructure,
+    pasteTasks,
   };
 };

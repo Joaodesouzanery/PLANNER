@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { format, isBefore, isWithinInterval, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowDownRight, ArrowUpRight, CalendarDays, CheckCircle2, Edit2, LayoutGrid, ListFilter, Plus, SkipForward, Trash2 } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, CalendarDays, CheckCircle2, Edit2, FileDown, LayoutGrid, ListFilter, Plus, SkipForward, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 import { parseDateOnly } from "@/lib/geocode";
 import { fmtCurrency, formatDateBR, type PlanItem, useFinanceData } from "./useFinanceData";
 import { SavingsGoalForm, emptySavingsGoal, computeSavingsOutputs, type SavingsGoalInputs } from "./SavingsGoalForm";
+import { exportTablePdf } from "@/lib/exportPdf";
+import { toast } from "sonner";
 
 const statusConfig: Record<PlanItem["status"], { label: string; className: string }> = {
   planned: { label: "Planejado", className: "border-primary/30 bg-primary/10 text-primary" },
@@ -105,6 +107,28 @@ const FinanceMonthlyPlanning = () => {
     monthItems.forEach((item) => { if (item.category) cats.add(item.category); });
     return Array.from(cats).sort();
   }, [allCategories, monthItems]);
+
+  const exportPlanning = async () => {
+    const money = (v: number) => fmtCurrency(Number(v));
+    const monthName = monthOptions.find((o) => o.value === month)?.label ?? String(month);
+    try {
+      await exportTablePdf({
+        title: "Planejamento mensal",
+        subtitle: `${monthName}/${year} · gerado em ${new Date().toLocaleString("pt-BR")}`,
+        filename: `planejamento-${year}-${String(month).padStart(2, "0")}.pdf`,
+        sections: [
+          { heading: "Resumo do mês", head: [["Indicador", "Valor"]], body: [
+            ["Entradas previstas", money(summary.plannedIncome)], ["Saídas previstas", money(summary.plannedExpense)],
+            ["Saldo planejado", money(summary.plannedBalance)], ["Realizado", money(summary.realizedBalance)], ["Diferença", money(summary.variance)],
+          ] },
+          { heading: `Itens planejados (${filteredItems.length})`, head: [["Vencimento", "Descrição", "Categoria", "Tipo", "Status", "Previsto"]], body: filteredItems.length ? filteredItems.map((it) => [formatDateBR(it.due_date), it.description, it.category || "-", it.type === "income" ? "Entrada" : "Saída", statusConfig[it.status].label, money(Number(it.amount))]) : [["—", "—", "—", "—", "—", "—"]] },
+        ],
+      });
+      toast.success("Planejamento exportado!");
+    } catch (err: any) {
+      toast.error("Falha ao exportar", { description: err?.message });
+    }
+  };
 
   const openCreateModal = () => {
     setEditingItem(null);
@@ -223,6 +247,9 @@ const FinanceMonthlyPlanning = () => {
           <Input type="number" value={year} onChange={(event) => setYear(Number(event.target.value))} className="w-[100px] rounded-xl bg-card/50 border-border/50 font-mono" />
           <Button size="sm" onClick={openCreateModal} className="rounded-xl shadow-lg shadow-primary/20">
             <Plus className="h-4 w-4 mr-2" />Novo previsto
+          </Button>
+          <Button size="sm" variant="outline" onClick={exportPlanning} className="rounded-xl">
+            <FileDown className="h-4 w-4 mr-2" />Exportar
           </Button>
         </div>
 
