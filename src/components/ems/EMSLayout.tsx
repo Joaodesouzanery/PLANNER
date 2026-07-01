@@ -4,6 +4,7 @@ import { GlobalSearch } from "./GlobalSearch";
 import { QuickCaptureInbox } from "./QuickCaptureInbox";
 import { motion } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ConfirmProvider } from "@/hooks/useConfirm";
 
 interface EMSLayoutProps {
   children: ReactNode;
@@ -34,6 +35,7 @@ export const EMSLayout = ({ children }: EMSLayoutProps) => {
   }, [isMobile]);
 
   return (
+    <ConfirmProvider>
     <div className="min-h-screen bg-background">
       <AppSidebar
         mobileOpen={mobileMenuOpen}
@@ -70,5 +72,6 @@ export const EMSLayout = ({ children }: EMSLayoutProps) => {
         </motion.main>
       )}
     </div>
+    </ConfirmProvider>
   );
 };

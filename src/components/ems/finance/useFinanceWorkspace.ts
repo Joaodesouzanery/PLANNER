@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { buildForecastSeries, getUpcomingPayables, parseFinanceCsv, summarizeForecastByMonth } from "./financeForecast";
 import type { FinanceAccount, FinanceCardInvoice, FinanceEntity, FinanceTransfer, ForecastEvent } from "./financeTypes";
-import { useFinanceData, type PlanItem, type Transaction } from "./useFinanceData";
+import { useFinanceData, assertUuid, type PlanItem, type Transaction } from "./useFinanceData";
 
 const SCOPE_KEY = "ems-finance-scope";
 const todayIso = () => format(new Date(), "yyyy-MM-dd");
@@ -279,6 +279,7 @@ export const useFinanceWorkspace = () => {
     mutationFn: async (form: Partial<FinanceAccount> & { id?: string }) => {
       const payload = { ...form, company_id: entities.find((entity) => entity.id === form.entity_id)?.company_id || null };
       const { id, ...values } = payload;
+      if (id) assertUuid(id, "ID da conta");
       const result = id ? await (supabase as any).from("finance_accounts").update(values).eq("id", id) : await (supabase as any).from("finance_accounts").insert(values);
       if (result.error) throw result.error;
     },
@@ -328,6 +329,7 @@ export const useFinanceWorkspace = () => {
 
   const reconcileTransactionMutation = useMutation({
     mutationFn: async (id: string) => {
+      assertUuid(id, "ID da transacao");
       const { error } = await (supabase as any).from("financial_transactions").update({ status: "reconciled", settled_at: new Date().toISOString() }).eq("id", id);
       if (error) throw error;
     },
@@ -343,13 +345,21 @@ export const useFinanceWorkspace = () => {
       const { data: existing, error: findError } = await (supabase as any).from("financial_transactions").select("import_fingerprint").in("import_fingerprint", fingerprints);
       if (findError) throw findError;
       const existingSet = new Set((existing || []).map((item: any) => item.import_fingerprint));
-      const pending = rows.filter((row) => !existingSet.has(row.import_fingerprint));
-      if (!pending.length) return 0;
-      const { error } = await (supabase as any).from("financial_transactions").insert(pending.map((row) => ({ ...row, finance_account_id: accountId, company_id: account?.company_id || null, due_date: row.date, status: "confirmed", source_type: "csv" })));
-      if (error) throw error;
-      return pending.length;
+      // Dedup tambem DENTRO do proprio CSV (duas linhas identicas no arquivo).
+      const seen = new Set<string>();
+      const pending = rows.filter((row) => {
+        if (existingSet.has(row.import_fingerprint) || seen.has(row.import_fingerprint)) return false;
+        seen.add(row.import_fingerprint);
+        return true;
+      });
+      const skipped = rows.length - pending.length;
+      if (pending.length) {
+        const { error } = await (supabase as any).from("financial_transactions").insert(pending.map((row) => ({ ...row, finance_account_id: accountId, company_id: account?.company_id || null, due_date: row.date, status: "confirmed", source_type: "csv" })));
+        if (error) throw error;
+      }
+      return { inserted: pending.length, skipped };
     },
-    onSuccess: (count) => { invalidate(); toast({ title: `${count} linhas processadas` }); },
+    onSuccess: ({ inserted, skipped }) => { invalidate(); toast({ title: `${inserted} importada(s)`, description: skipped ? `${skipped} duplicada(s) ignorada(s)` : undefined }); },
     onError: (error: any) => toast({ title: "Erro ao importar CSV", description: error.message, variant: "destructive" }),
   });
 

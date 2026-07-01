@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useFinanceData, fmtCurrency, tooltipStyle } from "./useFinanceData";
 import { computeProjection } from "./projectionCalc";
 import { ProjectionAuditTable, ProjectionBreakdownPanel } from "./ProjectionAudit";
+import { useConfirm } from "@/hooks/useConfirm";
 import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
 
 const PRESETS_KEY = "finance_history_window_presets";
@@ -41,6 +42,7 @@ const db = supabase as any;
 
 const FinanceScenarios = () => {
   const { toast } = useToast();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const { selectedCompanyId } = useCompany();
   const { monthlyData, rawTransactions } = useFinanceData();
@@ -336,7 +338,7 @@ const FinanceScenarios = () => {
               <Button size="sm" variant="ghost" title="Duplicar" onClick={() => duplicate.mutate(s)} disabled={duplicate.isPending}>
                 <Copy className="h-4 w-4" />
               </Button>
-              <Button size="sm" variant="ghost" className="text-destructive" onClick={() => remove.mutate(s.id)}>
+              <Button size="sm" variant="ghost" className="text-destructive" onClick={async () => { if (await confirm({ title: `Excluir cenário "${s.name}"?`, destructive: true, confirmText: "Excluir" })) remove.mutate(s.id); }}>
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>

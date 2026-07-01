@@ -15,6 +15,7 @@ import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { fmtCurrency, formatDateBR, type Transaction } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
+import { useConfirm } from "@/hooks/useConfirm";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toast } from "sonner";
@@ -39,6 +40,7 @@ const emptyForm = () => ({
 
 const FinanceTransactions = () => {
   const { rawTransactions, allCategories, saveTransactionMutation, deleteTransactionMutation, reconcileTransactionMutation, selectedAccounts, accounts } = useFinanceWorkspace();
+  const confirm = useConfirm();
   const [showModal, setShowModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [filterCategory, setFilterCategory] = useState("");
@@ -142,7 +144,7 @@ const FinanceTransactions = () => {
         <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-400 hover:bg-emerald-500/10" title="Marcar como pago/recebido" onClick={() => reconcileTransactionMutation.mutate(t.id)}><CheckCircle2 className="h-4 w-4" /></Button>
       )}
       <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary" onClick={() => openEdit(t)}><Edit2 className="h-4 w-4" /></Button>
-      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={() => deleteTransactionMutation.mutate(t.id)}><Trash2 className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={async () => { if (await confirm({ title: "Excluir transação?", description: `"${t.description}" · ${fmtCurrency(Number(t.amount))}`, destructive: true, confirmText: "Excluir" })) deleteTransactionMutation.mutate(t.id); }}><Trash2 className="h-4 w-4" /></Button>
     </div>
   );
 

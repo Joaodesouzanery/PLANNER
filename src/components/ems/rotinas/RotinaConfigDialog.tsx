@@ -8,11 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useConfirm } from "@/hooks/useConfirm";
 import type { useRotinas } from "@/hooks/useRotinas";
 
 type Rotinas = ReturnType<typeof useRotinas>;
 
 export const RotinaConfigDialog = ({ rotinas, open, onClose }: { rotinas: Rotinas; open: boolean; onClose: () => void }) => {
+  const confirm = useConfirm();
   const [segmentName, setSegmentName] = useState("");
   const [client, setClient] = useState({ name: "", segment_id: "", invoice_day: "" });
 
@@ -88,7 +90,7 @@ export const RotinaConfigDialog = ({ rotinas, open, onClose }: { rotinas: Rotina
                               <input type="color" defaultValue={segment.color ?? "#6366f1"} onChange={(e) => rotinas.saveSegment.mutate({ id: segment.id, color: e.target.value })} className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent p-0" title="Cor" />
                               <Input key={`${segment.id}-${segment.name}`} defaultValue={segment.name} onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== segment.name) rotinas.saveSegment.mutate({ id: segment.id, name: v }); }} className="h-8 flex-1" />
                               <Badge variant="secondary" className="h-5 text-[10px]">{count} empresa{count === 1 ? "" : "s"}</Badge>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" title="Excluir segmento (e suas empresas)" onClick={() => rotinas.deleteSegment.mutate(segment.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" title="Excluir segmento (e suas empresas)" onClick={async () => { if (await confirm({ title: `Excluir "${segment.name}"?`, description: "Remove o segmento e TODAS as empresas, rotinas e tarefas dele. Não dá para desfazer.", destructive: true, confirmText: "Excluir" })) rotinas.deleteSegment.mutate(segment.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                             </div>
                           )}
                         </Draggable>
@@ -148,7 +150,7 @@ export const RotinaConfigDialog = ({ rotinas, open, onClose }: { rotinas: Rotina
                                     <span className="text-[10px] text-muted-foreground">NF</span>
                                     <Input key={`${c.id}-${c.invoice_day}`} type="number" min={1} max={31} defaultValue={c.invoice_day ?? ""} onBlur={(e) => { const raw = e.target.value; const v = raw === "" ? null : Number(raw); if (v !== c.invoice_day) rotinas.saveClient.mutate({ id: c.id, invoice_day: v }); }} className="h-8 w-[64px]" placeholder="—" />
                                   </div>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" title="Excluir empresa" onClick={() => rotinas.deleteClient.mutate(c.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" title="Excluir empresa" onClick={async () => { if (await confirm({ title: `Excluir "${c.name}"?`, description: "Remove a empresa e todas as suas rotinas e tarefas.", destructive: true, confirmText: "Excluir" })) rotinas.deleteClient.mutate(c.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                                 </div>
                               )}
                             </Draggable>

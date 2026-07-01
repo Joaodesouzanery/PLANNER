@@ -55,8 +55,8 @@
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
 
-    --border: 24 6% 27%;
-    --input: 24 8% 20%;
+    --border: 24 6% 38%;
+    --input: 24 8% 26%;
     --ring: 28 100% 55%;
 
     --radius: 0.625rem;
@@ -66,7 +66,7 @@
     --sidebar-foreground: 30 6% 65%;
     --sidebar-active: 28 100% 55%;
     --sidebar-hover: 24 8% 12%;
-    --sidebar-border: 24 6% 22%;
+    --sidebar-border: 24 6% 32%;
 
     /* Chart colors */
     --chart-1: 28 100% 55%;
@@ -165,15 +165,15 @@
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 24 6% 27%;
-    --input: 24 8% 20%;
+    --border: 24 6% 38%;
+    --input: 24 8% 26%;
     --ring: 28 100% 55%;
 
     --sidebar: 24 8% 8%;
     --sidebar-foreground: 30 6% 65%;
     --sidebar-active: 28 100% 55%;
     --sidebar-hover: 24 8% 12%;
-    --sidebar-border: 24 6% 22%;
+    --sidebar-border: 24 6% 32%;
 
     --chart-1: 28 100% 55%;
     --chart-2: 160 60% 45%;

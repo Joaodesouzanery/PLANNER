@@ -87,7 +87,7 @@ const isMissingTableError = (error: any) =>
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const assertUuid = (id: string | undefined, label: string) => {
+export const assertUuid = (id: string | undefined, label: string) => {
   if (!id || !UUID_RE.test(id)) {
     throw new Error(`${label} invalido. Recarregue a pagina e tente novamente.`);
   }

@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useToast } from "@/hooks/use-toast";
+import { useConfirm } from "@/hooks/useConfirm";
 import { cn } from "@/lib/utils";
 import { FREQUENCY_OPTIONS, MONTH_LABELS, OBLIGATION_CATEGORIES, dateLabel, today } from "./boardShared";
 
@@ -61,6 +62,7 @@ const emptyObl = {
 export const ObligationsCalendarPanel = () => {
   const { selectedCompanyId } = useCompany();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const [year, setYear] = useState(new Date().getFullYear());
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -172,6 +174,11 @@ export const ObligationsCalendarPanel = () => {
         const { data, error } = await table.insert(payload).select("id").single();
         if (error) throw error;
         oblId = data?.id;
+      }
+      // Ao editar, remove ocorrencias FUTURAS antigas (ex.: mudou mensal->trimestral)
+      // para nao deixar duplicatas; o historico (passado) permanece.
+      if (editing?.id && oblId) {
+        await (supabase as any).from("board_obligation_occurrences").delete().eq("obligation_id", oblId).gte("due_date", todayStr);
       }
       // Materializa ocorrencias (idempotente via unique index obligation_id+due_date).
       if (oblId && occurrencesToSeed.length) {
@@ -320,7 +327,7 @@ export const ObligationsCalendarPanel = () => {
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openEdit(o)}>Editar</Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteObl.mutate(o.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={async () => { if (await confirm({ title: `Excluir "${o.title}"?`, description: "Remove a obrigação e suas ocorrências.", destructive: true, confirmText: "Excluir" })) deleteObl.mutate(o.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
               </div>
             </div>
           ))}

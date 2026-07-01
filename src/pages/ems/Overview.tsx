@@ -69,7 +69,9 @@ const Overview = () => {
   const { data: monthlyFocus = null } = useQuery({
     queryKey: ["overview-focus", cid],
     queryFn: async () => {
-      const { data } = await supabase.from("monthly_focus").select("*").eq("month", currentMonth).eq("year", currentYear).maybeSingle();
+      let q = supabase.from("monthly_focus").select("*").eq("month", currentMonth).eq("year", currentYear);
+      q = cf ? q.eq("company_id", cid) : q.is("company_id", null);
+      const { data } = await q.maybeSingle();
       if (data) setFocusForm({ title: data.title, description: data.description || "" });
       return data as MonthlyFocus | null;
     },
@@ -216,7 +218,7 @@ const Overview = () => {
       if (monthlyFocus) {
         await supabase.from("monthly_focus").update({ title: focusForm.title, description: focusForm.description }).eq("id", monthlyFocus.id);
       } else {
-        await supabase.from("monthly_focus").insert({ title: focusForm.title, description: focusForm.description, month: currentMonth, year: currentYear });
+        await supabase.from("monthly_focus").insert({ title: focusForm.title, description: focusForm.description, month: currentMonth, year: currentYear, company_id: cf ? cid : null });
       }
     },
     onSuccess: () => { setEditingFocus(false); queryClient.invalidateQueries({ queryKey: ["overview-focus"] }); toast({ title: "Foco do mês salvo!" }); },
@@ -224,7 +226,7 @@ const Overview = () => {
 
   const addPillarMutation = useMutation({
     mutationFn: async () => {
-      await supabase.from("strategic_pillars").insert({ title: "Novo Pilar", description: "Descrição do pilar estratégico", icon: "target", color: "primary", order_index: pillars.length });
+      await supabase.from("strategic_pillars").insert({ title: "Novo Pilar", description: "Descrição do pilar estratégico", icon: "target", color: "primary", order_index: pillars.length, company_id: cf ? cid : null });
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["overview-pillars"] }); toast({ title: "Pilar adicionado!" }); },
   });
