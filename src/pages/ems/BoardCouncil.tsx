@@ -17,6 +17,7 @@ import { DecisionsTimelinePanel } from "@/components/ems/conselho/DecisionsTimel
 import { MeetingsPanel } from "@/components/ems/conselho/MeetingsPanel";
 import { BoardDomainPanel } from "@/components/ems/conselho/BoardDomainPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useBoardRealtime } from "@/hooks/useBoardRealtime";
 
 const TABS = [
   { id: "cockpit", label: "Visão 360", icon: LayoutDashboard },
@@ -44,6 +45,7 @@ const BoardCouncil = () => {
   const raw = searchParams.get("tab") || "cockpit";
   const tab = VALID.has(raw) ? raw : (LEGACY_MAP[raw] || "cockpit");
   const setTab = (value: string) => setSearchParams({ tab: value }, { replace: true });
+  useBoardRealtime();
 
   return (
     <EMSLayout>

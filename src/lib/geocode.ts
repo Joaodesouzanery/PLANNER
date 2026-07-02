@@ -109,6 +109,7 @@ export function expandRecurringTransactions<T extends RecurringTx>(rows: T[], ho
         ...tx,
         id: `${tx.id}-r${safety}`,
         date: iso,
+        due_date: iso,
         source_id: tx.id,
         is_projected: true,
         projection_index: safety,

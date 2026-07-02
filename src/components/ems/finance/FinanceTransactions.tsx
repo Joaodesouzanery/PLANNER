@@ -13,7 +13,7 @@ import { Plus, Edit2, Trash2, RefreshCw, Download, FileText, CheckCircle2, Calen
 import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { fmtCurrency, formatDateBR, type Transaction } from "./useFinanceData";
+import { fmtCurrency, formatDateBR, effectiveDate, type Transaction } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
 import { useConfirm } from "@/hooks/useConfirm";
 import jsPDF from "jspdf";
@@ -75,7 +75,7 @@ const FinanceTransactions = () => {
   }), [rawTransactions, filterCategory, filterType]);
 
   const filteredTransactions = useMemo(() => baseFiltered.filter(t => {
-    const d = String(t.date).slice(0, 10);
+    const d = effectiveDate(t);
     return d >= from && d <= to;
   }), [baseFiltered, from, to]);
 

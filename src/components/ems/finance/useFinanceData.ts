@@ -77,6 +77,8 @@ export const formatDateBR = (date: string) => {
   const parsed = parseDateOnly(date);
   return parsed ? format(parsed, "dd/MM/yyyy") : "-";
 };
+/** Data efetiva de um lançamento (vencimento quando houver), p/ agrupar por mês de forma consistente entre as abas. */
+export const effectiveDate = (t: { date: string; due_date?: string | null }) => String(t.due_date || t.date).slice(0, 10);
 
 const isMissingTableError = (error: any) =>
   error?.code === "42P01" ||
@@ -196,6 +198,21 @@ export const useFinanceData = (options?: { historyWindow?: number }) => {
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "finance_card_invoices" }, () => {
         queryClient.invalidateQueries({ queryKey: ["finance-card-invoices"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "finance_accounts" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["finance-accounts"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "finance_entities" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["finance-entities"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "finance_saved_installments" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["finance-saved-installments"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "project_financial_impacts" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["finance-forecast-impacts"] });
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "finance_scenarios" }, () => {
+        queryClient.invalidateQueries({ queryKey: ["finance-scenarios"] });
       })
       .subscribe();
     return () => {
@@ -421,7 +438,7 @@ export const useFinanceData = (options?: { historyWindow?: number }) => {
     const totalMonths = Math.max(12, historyWindow);
     for (let i = totalMonths - 1; i >= 0; i--) {
       const d = subMonths(new Date(), i); const key = format(d, "yyyy-MM"); const label = format(d, "MMM/yy", { locale: ptBR });
-      const monthTx = dashboardTransactions.filter(t => String(t.date).slice(0, 7) === key);
+      const monthTx = dashboardTransactions.filter(t => effectiveDate(t).slice(0, 7) === key);
       const inc = monthTx.filter(t => t.type === "income").reduce((a, t) => a + Number(t.amount), 0);
       const exp = monthTx.filter(t => t.type === "expense").reduce((a, t) => a + Number(t.amount), 0);
       months.push({ month: label, income: inc, expense: exp, balance: inc - exp });
@@ -476,7 +493,7 @@ export const useFinanceData = (options?: { historyWindow?: number }) => {
     const plannedIncome = items.filter((item) => item.type === "income" && item.status !== "skipped").reduce((sum, item) => sum + Number(item.amount), 0);
     const plannedExpense = items.filter((item) => item.type === "expense" && item.status !== "skipped").reduce((sum, item) => sum + Number(item.amount), 0);
     const monthKey = format(now, "yyyy-MM");
-    const realized = dashboardTransactions.filter((t) => String(t.date).slice(0, 7) === monthKey);
+    const realized = dashboardTransactions.filter((t) => effectiveDate(t).slice(0, 7) === monthKey);
     const realizedIncome = realized.filter((t) => t.type === "income").reduce((sum, t) => sum + Number(t.amount), 0);
     const realizedExpense = realized.filter((t) => t.type === "expense").reduce((sum, t) => sum + Number(t.amount), 0);
     return {

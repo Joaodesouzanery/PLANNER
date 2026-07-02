@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/hooks/useConfirm";
 import { GOV_CATEGORIES, PRIORITY_OPTIONS, STATUS_OPTIONS, dateLabel, today } from "./boardShared";
 
 const emptyItem = {
@@ -27,6 +28,7 @@ const emptyMetric = { name: "", value: "", unit: "", notes: "", metric_date: tod
 export const BoardDomainPanel = ({ category: initialCategory }: { category: string }) => {
   const { selectedCompanyId } = useCompany();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const [category, setCategory] = useState(initialCategory);
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
@@ -190,7 +192,7 @@ export const BoardDomainPanel = ({ category: initialCategory }: { category: stri
                     <h3 className="font-semibold text-sm truncate">{item.title}</h3>
                     {item.description && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.description}</p>}
                   </div>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteItem.mutate(item.id)}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={async () => { if (await confirm({ title: `Excluir "${item.title}"?`, destructive: true, confirmText: "Excluir" })) deleteItem.mutate(item.id); }}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>

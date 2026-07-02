@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
-import { fmtCurrency, formatDateBR, tooltipStyle, PIE_COLORS } from "./useFinanceData";
+import { fmtCurrency, formatDateBR, effectiveDate, tooltipStyle, PIE_COLORS } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
 import { Badge } from "@/components/ui/badge";
 import { DateRangeFilter } from "@/components/ems/DateRangeFilter";
@@ -23,7 +23,7 @@ const defaultFrom = () => format(startOfMonth(new Date()), "yyyy-MM-dd");
 const defaultTo = () => format(endOfMonth(new Date()), "yyyy-MM-dd");
 
 const FinanceDashboard = () => {
-  const { dashboardTransactions, capitalEvolution, currentMonthPlanSummary, upcomingPayables, reconcileTransactionMutation, allEvents, transactionsUpdatedAt, projectionData } = useFinanceWorkspace();
+  const { dashboardTransactions, capitalEvolution, monthlyPlans, planItems, upcomingPayables, reconcileTransactionMutation, allEvents, transactionsUpdatedAt, projectionData } = useFinanceWorkspace();
   const queryClient = useQueryClient();
   const [from, setFrom] = useState(defaultFrom());
   const [to, setTo] = useState(defaultTo());
@@ -65,7 +65,7 @@ const FinanceDashboard = () => {
   const periodSource = useMemo(() => {
     const today = todayIso();
     const realized = dashboardTransactions.map((t) => ({
-      id: t.id, date: String(t.date).slice(0, 10), type: t.type, amount: Number(t.amount), category: t.category || null, projected: false,
+      id: t.id, date: effectiveDate(t), type: t.type, amount: Number(t.amount), category: t.category || null, projected: false,
     }));
     // Dedup pelo ID EXATO do evento (nao por sourceId): assim as ocorrencias
     // futuras de uma recorrencia (id "${tx.id}-future-N") contam em cada mes,
@@ -106,6 +106,27 @@ const FinanceDashboard = () => {
     return Object.values(months).sort((a, b) => a.month.localeCompare(b.month)).map(m => ({ ...m, balance: m.income - m.expense }));
   }, [filtered]);
 
+  // Planejado × realizado do MÊS do período selecionado (não fixo em "hoje").
+  const periodPlanSummary = useMemo(() => {
+    const d = new Date(`${from}T00:00:00`);
+    const month = d.getMonth() + 1;
+    const year = d.getFullYear();
+    const monthKey = `${year}-${String(month).padStart(2, "0")}`;
+    const planIds = monthlyPlans.filter((p) => p.month === month && p.year === year).map((p) => p.id);
+    const items = planItems.filter((i) => planIds.includes(i.plan_id) && i.status !== "skipped");
+    const plannedIncome = items.filter((i) => i.type === "income").reduce((s, i) => s + Number(i.amount), 0);
+    const plannedExpense = items.filter((i) => i.type === "expense").reduce((s, i) => s + Number(i.amount), 0);
+    const realized = dashboardTransactions.filter((t) => effectiveDate(t).slice(0, 7) === monthKey);
+    const realizedIncome = realized.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
+    const realizedExpense = realized.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
+    return {
+      plannedIncome, plannedExpense, plannedBalance: plannedIncome - plannedExpense,
+      realizedBalance: realizedIncome - realizedExpense,
+      variance: (realizedIncome - realizedExpense) - (plannedIncome - plannedExpense),
+      label: format(d, "MMM yyyy", { locale: ptBR }),
+    };
+  }, [from, monthlyPlans, planItems, dashboardTransactions]);
+
   const goMonth = (delta: number) => {
     const target = addMonths(new Date(`${from}T00:00:00`), delta);
     setFrom(format(startOfMonth(target), "yyyy-MM-dd"));
@@ -134,12 +155,12 @@ const FinanceDashboard = () => {
         { heading: "Resumo do período", head: [["Indicador", "Valor"]], body: [
           ["Entradas", money(totalIncome)], ["Saídas", money(totalExpense)], ["Saldo", money(balance)], ["Lançamentos", String(filtered.length)],
         ] },
-        { heading: "Planejado × realizado (mês corrente)", head: [["Indicador", "Valor"]], body: [
-          ["Entradas previstas", money(currentMonthPlanSummary.plannedIncome)],
-          ["Saídas previstas", money(currentMonthPlanSummary.plannedExpense)],
-          ["Saldo planejado", money(currentMonthPlanSummary.plannedBalance)],
-          ["Saldo realizado", money(currentMonthPlanSummary.realizedBalance)],
-          ["Diferença", money(currentMonthPlanSummary.variance)],
+        { heading: `Planejado × realizado (${periodPlanSummary.label})`, head: [["Indicador", "Valor"]], body: [
+          ["Entradas previstas", money(periodPlanSummary.plannedIncome)],
+          ["Saídas previstas", money(periodPlanSummary.plannedExpense)],
+          ["Saldo planejado", money(periodPlanSummary.plannedBalance)],
+          ["Saldo realizado", money(periodPlanSummary.realizedBalance)],
+          ["Diferença", money(periodPlanSummary.variance)],
         ] },
         { heading: "Entradas por categoria", head: [["Categoria", "Valor"]], body: incomeByCat.length ? incomeByCat.map((c) => [c.name, money(c.value)]) : [["—", "—"]] },
         { heading: "Saídas por categoria", head: [["Categoria", "Valor"]], body: expenseByCat.length ? expenseByCat.map((c) => [c.name, money(c.value)]) : [["—", "—"]] },
@@ -233,17 +254,17 @@ const FinanceDashboard = () => {
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <CalendarDays className="h-4 w-4 text-primary" />
-              Planejamento do mes vs realizado (mes corrente)
+              Planejamento vs realizado — <span className="capitalize">{periodPlanSummary.label}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
               {[
-                { label: "Entradas previstas", value: currentMonthPlanSummary.plannedIncome, color: "text-emerald-400" },
-                { label: "Saidas previstas", value: currentMonthPlanSummary.plannedExpense, color: "text-destructive" },
-                { label: "Saldo planejado", value: currentMonthPlanSummary.plannedBalance, color: currentMonthPlanSummary.plannedBalance >= 0 ? "text-emerald-400" : "text-destructive" },
-                { label: "Saldo realizado", value: currentMonthPlanSummary.realizedBalance, color: currentMonthPlanSummary.realizedBalance >= 0 ? "text-emerald-400" : "text-destructive" },
-                { label: "Diferenca", value: currentMonthPlanSummary.variance, color: currentMonthPlanSummary.variance >= 0 ? "text-emerald-400" : "text-destructive" },
+                { label: "Entradas previstas", value: periodPlanSummary.plannedIncome, color: "text-emerald-400" },
+                { label: "Saidas previstas", value: periodPlanSummary.plannedExpense, color: "text-destructive" },
+                { label: "Saldo planejado", value: periodPlanSummary.plannedBalance, color: periodPlanSummary.plannedBalance >= 0 ? "text-emerald-400" : "text-destructive" },
+                { label: "Saldo realizado", value: periodPlanSummary.realizedBalance, color: periodPlanSummary.realizedBalance >= 0 ? "text-emerald-400" : "text-destructive" },
+                { label: "Diferenca", value: periodPlanSummary.variance, color: periodPlanSummary.variance >= 0 ? "text-emerald-400" : "text-destructive" },
               ].map((item) => (
                 <div key={item.label} className="rounded-lg border border-border/50 bg-background/40 p-3">
                   <p className="text-xs text-muted-foreground">{item.label}</p>

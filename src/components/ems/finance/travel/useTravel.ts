@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -149,6 +150,16 @@ export const useTrips = () => {
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["trips"] }); toast({ title: "Viagem removida" }); },
   });
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`travel-live-${selectedCompanyId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "finance_trips" }, () => qc.invalidateQueries({ queryKey: ["trips"] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "finance_trip_categories" }, () => qc.invalidateQueries({ queryKey: ["trip-categories"] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "finance_travel_profile" }, () => qc.invalidateQueries({ queryKey: ["travel-profile"] }))
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [qc, selectedCompanyId]);
 
   return { trips: trips.data || [], isLoading: trips.isLoading, create, update, remove };
 };

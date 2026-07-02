@@ -393,7 +393,7 @@ export const useFinanceWorkspace = () => {
       const { error: updateError } = await (supabase as any).from("finance_saved_installments").update({ entity_id: account.entity_id, account_id: accountId, added_to_flow_at: new Date().toISOString() }).eq("id", installment.id);
       if (updateError) throw updateError;
     },
-    onSuccess: () => { invalidate(); toast({ title: "Parcelamento adicionado ao fluxo" }); },
+    onSuccess: () => { invalidate(); queryClient.invalidateQueries({ queryKey: ["finance-saved-installments"] }); toast({ title: "Parcelamento adicionado ao fluxo" }); },
     onError: (error: any) => toast({ title: "Erro ao adicionar parcelamento", description: error.message, variant: "destructive" }),
   });
 

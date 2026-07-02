@@ -41,6 +41,11 @@ export const BoardHealthScoreBar = () => {
             <div>
               <p className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
                 <Activity className="h-3.5 w-3.5" /> Saúde do negócio
+                {!isLoading && (
+                  <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-medium normal-case text-emerald-500">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />ao vivo
+                  </span>
+                )}
               </p>
               <p className="text-lg font-bold flex items-center gap-2">
                 <span className={cn("h-2.5 w-2.5 rounded-full", STATUS_DOT[status])} />

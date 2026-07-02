@@ -148,7 +148,10 @@ export const useRotinas = () => {
     return map;
   }, [data, day]);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["rotinas"] });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["rotinas"] });
+    queryClient.invalidateQueries({ queryKey: ["health-routine-tasks"] }); // rotina feita atualiza a Governança na hora
+  };
   const onError = (error: any) => toast({ variant: "destructive", title: "Erro", description: error?.message ?? "Falha ao salvar." });
 
   const toggleChecklist = useMutation({

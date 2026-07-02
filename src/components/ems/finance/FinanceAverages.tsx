@@ -9,7 +9,7 @@ import { differenceInCalendarDays, differenceInCalendarMonths, format, startOfMo
 import { ptBR } from "date-fns/locale";
 import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { DateRangeFilter } from "@/components/ems/DateRangeFilter";
-import { fmtCurrency, tooltipStyle } from "./useFinanceData";
+import { fmtCurrency, effectiveDate, tooltipStyle } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
 import { exportTablePdf } from "@/lib/exportPdf";
 import { toast } from "sonner";
@@ -22,7 +22,7 @@ const monthLabel = (key: string) => {
 };
 
 const FinanceAverages = () => {
-  const { dashboardTransactions, monthlyPlans, planItems } = useFinanceWorkspace();
+  const { dashboardTransactions, allEvents, monthlyPlans, planItems } = useFinanceWorkspace();
   const [from, setFrom] = useState(fmtFrom());
   const [to, setTo] = useState(fmtTo());
 
@@ -38,7 +38,7 @@ const FinanceAverages = () => {
   };
 
   const filtered = useMemo(() => dashboardTransactions.filter((t) => {
-    const d = String(t.date).slice(0, 10);
+    const d = effectiveDate(t);
     return d >= from && d <= to;
   }), [dashboardTransactions, from, to]);
 
@@ -60,7 +60,7 @@ const FinanceAverages = () => {
   const byMonth = useMemo(() => {
     const map = new Map<string, { month: string; income: number; expense: number }>();
     filtered.forEach((t) => {
-      const key = String(t.date).slice(0, 7);
+      const key = effectiveDate(t).slice(0, 7);
       const cur = map.get(key) || { month: key, income: 0, expense: 0 };
       if (t.type === "income") cur.income += Number(t.amount); else cur.expense += Number(t.amount);
       map.set(key, cur);
@@ -70,31 +70,37 @@ const FinanceAverages = () => {
 
   // ---- Mes especifico ----
   const availableMonths = useMemo(() => {
-    const set = new Set(dashboardTransactions.map(t => String(t.date).slice(0, 7)));
+    const set = new Set(dashboardTransactions.map(t => effectiveDate(t).slice(0, 7)));
+    (allEvents || []).forEach((e) => { if (e.kind === "income" || e.kind === "expense") set.add(String(e.date).slice(0, 7)); });
     return Array.from(set).sort((a, b) => b.localeCompare(a));
-  }, [dashboardTransactions]);
+  }, [dashboardTransactions, allEvents]);
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const month = selectedMonth || availableMonths[0] || format(new Date(), "yyyy-MM");
 
   const monthDetail = useMemo(() => {
     const [y, m] = month.split("-").map(Number);
-    const tx = dashboardTransactions.filter(t => String(t.date).slice(0, 7) === month);
-    const income = tx.filter(t => t.type === "income").reduce((a, t) => a + Number(t.amount), 0);
-    const expense = tx.filter(t => t.type === "expense").reduce((a, t) => a + Number(t.amount), 0);
+    const todayStr = format(new Date(), "yyyy-MM-dd");
+    // Realizado (por vencimento) + previsto do mês (recorrências/planejados ainda-não-vencidos).
+    const realized = dashboardTransactions.filter(t => effectiveDate(t).slice(0, 7) === month);
+    const seen = new Set(dashboardTransactions.map(t => t.id));
+    const future = (allEvents || []).filter(e => (e.kind === "income" || e.kind === "expense") && String(e.date).slice(0, 7) === month && e.date > todayStr && !seen.has(e.id));
+    const income = realized.filter(t => t.type === "income").reduce((a, t) => a + Number(t.amount), 0) + future.filter(e => e.kind === "income").reduce((a, e) => a + Number(e.amount), 0);
+    const expense = realized.filter(t => t.type === "expense").reduce((a, t) => a + Number(t.amount), 0) + future.filter(e => e.kind === "expense").reduce((a, e) => a + Number(e.amount), 0);
     const planIds = monthlyPlans.filter((p) => p.month === m && p.year === y).map((p) => p.id);
     const items = planItems.filter((item) => planIds.includes(item.plan_id) && item.status !== "skipped");
     const plannedIncome = items.filter((i) => i.type === "income").reduce((s, i) => s + Number(i.amount), 0);
     const plannedExpense = items.filter((i) => i.type === "expense").reduce((s, i) => s + Number(i.amount), 0);
     const catMap: Record<string, number> = {};
-    tx.filter(t => t.type === "expense").forEach(t => { const c = t.category || "Sem categoria"; catMap[c] = (catMap[c] || 0) + Number(t.amount); });
+    realized.filter(t => t.type === "expense").forEach(t => { const c = t.category || "Sem categoria"; catMap[c] = (catMap[c] || 0) + Number(t.amount); });
+    future.filter(e => e.kind === "expense").forEach(e => { const c = e.category || "Sem categoria"; catMap[c] = (catMap[c] || 0) + Number(e.amount); });
     const byCat = Object.entries(catMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
     return {
-      count: tx.length, income, expense, balance: income - expense,
+      count: realized.length + future.length, income, expense, balance: income - expense,
       plannedIncome, plannedExpense, plannedBalance: plannedIncome - plannedExpense,
       variance: (income - expense) - (plannedIncome - plannedExpense),
       byCat,
     };
-  }, [month, dashboardTransactions, monthlyPlans, planItems]);
+  }, [month, dashboardTransactions, allEvents, monthlyPlans, planItems]);
 
   const goMonth = (delta: number) => {
     const target = addMonths(new Date(`${from}T00:00:00`), delta);

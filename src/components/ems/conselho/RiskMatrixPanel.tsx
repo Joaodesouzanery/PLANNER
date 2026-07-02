@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/hooks/useConfirm";
 import { RISK_CATEGORIES, dateLabel, riskBand } from "./boardShared";
 
 const RISK_STATUS = [
@@ -35,6 +36,7 @@ const emptyRisk = {
 export const RiskMatrixPanel = () => {
   const { selectedCompanyId } = useCompany();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
@@ -209,7 +211,7 @@ export const RiskMatrixPanel = () => {
                       <p className="text-sm font-semibold truncate">{r.title}</p>
                       {r.description && <p className="text-xs text-muted-foreground line-clamp-2">{r.description}</p>}
                     </div>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteRisk.mutate(r.id)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={async () => { if (await confirm({ title: `Excluir risco "${r.title}"?`, destructive: true, confirmText: "Excluir" })) deleteRisk.mutate(r.id); }}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>

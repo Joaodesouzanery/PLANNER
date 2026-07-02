@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/hooks/useConfirm";
 import { CRITICALITY_OPTIONS, dateLabel, today } from "./boardShared";
 
 const money = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -28,6 +29,7 @@ const emptyTool = {
 export const StackBackupPanel = () => {
   const { selectedCompanyId } = useCompany();
   const { toast } = useToast();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const [backupForm, setBackupForm] = useState(emptyBackup);
   const [toolDialogOpen, setToolDialogOpen] = useState(false);
@@ -231,7 +233,7 @@ export const StackBackupPanel = () => {
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openEditTool(t)}>Editar</Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteTool.mutate(t.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={async () => { if (await confirm({ title: `Excluir "${t.name}"?`, description: "Remove a ferramenta do stack.", destructive: true, confirmText: "Excluir" })) deleteTool.mutate(t.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
                     </div>
                   </div>
                 </div>
