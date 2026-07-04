@@ -20,7 +20,7 @@ export interface Transaction {
   settled_at?: string | null; status?: "planned" | "confirmed" | "reconciled" | null;
   card_invoice_id?: string | null; import_fingerprint?: string | null;
   installment_group_id?: string | null; installment_number?: number | null; installment_total?: number | null;
-  is_recurring?: boolean; recurrence_interval?: string | null;
+  is_recurring?: boolean; recurrence_interval?: string | null; recurrence_end_date?: string | null;
   source_id?: string | null; is_projected?: boolean | null; projection_index?: number | null;
 }
 export interface SavedInstallment {
@@ -460,8 +460,10 @@ export const useFinanceData = (options?: { historyWindow?: number }) => {
 
   const projection = useMemo(() => {
     const futureMonthLabels: string[] = [];
+    const futureMonthKeys: string[] = [];
     for (let i = 1; i <= 3; i++) {
       futureMonthLabels.push(format(addMonths(new Date(), i), "MMM/yy", { locale: ptBR }));
+      futureMonthKeys.push(format(addMonths(new Date(), i), "yyyy-MM"));
     }
     return computeProjection({
       monthlyData,
@@ -473,8 +475,10 @@ export const useFinanceData = (options?: { historyWindow?: number }) => {
         type: t.type,
         is_recurring: !!t.is_recurring,
         recurrence_interval: t.recurrence_interval ?? null,
+        recurrence_end_date: t.recurrence_end_date ?? null,
       })),
       futureMonthLabels,
+      futureMonthKeys,
       historyWindow,
     });
   }, [monthlyData, rawTransactions, historyWindow]);

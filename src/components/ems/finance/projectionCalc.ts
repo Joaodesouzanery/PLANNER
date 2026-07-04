@@ -10,6 +10,7 @@ export interface ProjectionRecurringTx {
   type: "income" | "expense";
   is_recurring?: boolean | null;
   recurrence_interval?: string | null;
+  recurrence_end_date?: string | null;
 }
 
 export interface MonthlyHistoryRow {
@@ -28,6 +29,7 @@ export interface RecurringSource {
   interval: string;
   factor: number;
   monthlyEquivalent: number;
+  endDate: string | null; // contrato com prazo; null = indefinido
 }
 
 export interface ProjectionBreakdown {
@@ -87,6 +89,7 @@ export const buildRecurringSources = (
         interval,
         factor,
         monthlyEquivalent: rawAmount * factor,
+        endDate: t.recurrence_end_date ?? null,
       };
     });
 
@@ -94,6 +97,7 @@ export interface ComputeProjectionInput {
   monthlyData: MonthlyHistoryRow[];
   recurringTransactions: ProjectionRecurringTx[];
   futureMonthLabels: string[];
+  futureMonthKeys?: string[]; // "yyyy-MM" alinhado 1:1 com futureMonthLabels; habilita corte de contratos por mes
   historyWindow?: number; // 3, 6, 12. default 3
   recurringOverride?: { income?: number; expense?: number }; // for scenarios
 }
@@ -106,7 +110,7 @@ export interface ComputeProjectionResult {
 export const computeProjection = (
   input: ComputeProjectionInput,
 ): ComputeProjectionResult => {
-  const { monthlyData, recurringTransactions, futureMonthLabels, historyWindow = 3, recurringOverride } = input;
+  const { monthlyData, recurringTransactions, futureMonthLabels, futureMonthKeys, historyWindow = 3, recurringOverride } = input;
   const window = Math.max(1, Math.min(24, historyWindow));
   const last = monthlyData.slice(-window);
   const incomeMonths = last.filter((m) => m.income > 0);
@@ -178,15 +182,27 @@ export const computeProjection = (
       projected: false,
     }),
   );
-  futureMonthLabels.forEach((label) =>
+  // Baseline recorrente ATIVA no mes (contratos com prazo saem do calculo apos o termino).
+  // Sem monthKey ("yyyy-MM"), nao ha corte por mes -> soma todas as fontes (comportamento antigo).
+  const activeRecurring = (monthKey: string | null, kind: "income" | "expense") =>
+    sources
+      .filter((s) => s.type === kind && (!s.endDate || !monthKey || s.endDate.slice(0, 7) >= monthKey))
+      .reduce((sum, s) => sum + s.monthlyEquivalent, 0);
+
+  futureMonthLabels.forEach((label, i) => {
+    const monthKey = futureMonthKeys?.[i] ?? null;
+    const monthRecInc = recurringOverride?.income ?? activeRecurring(monthKey, "income");
+    const monthRecExp = recurringOverride?.expense ?? activeRecurring(monthKey, "expense");
+    const monthIncome = Math.max(histAvgInc, monthRecInc);
+    const monthExpense = Math.max(histAvgExp, monthRecExp);
     rows.push({
       month: label,
-      income: Math.round(chosenIncome),
-      expense: Math.round(chosenExpense),
-      balance: Math.round(chosenIncome - chosenExpense),
+      income: Math.round(monthIncome),
+      expense: Math.round(monthExpense),
+      balance: Math.round(monthIncome - monthExpense),
       projected: true,
-    }),
-  );
+    });
+  });
 
   return {
     rows,

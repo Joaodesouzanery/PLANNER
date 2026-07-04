@@ -2391,6 +2391,7 @@ export type Database = {
           installment_total: number | null
           is_recurring: boolean | null
           project_id: string | null
+          recurrence_end_date: string | null
           recurrence_interval: string | null
           settled_at: string | null
           source_id: string | null
@@ -2416,6 +2417,7 @@ export type Database = {
           installment_total?: number | null
           is_recurring?: boolean | null
           project_id?: string | null
+          recurrence_end_date?: string | null
           recurrence_interval?: string | null
           settled_at?: string | null
           source_id?: string | null
@@ -2441,6 +2443,7 @@ export type Database = {
           installment_total?: number | null
           is_recurring?: boolean | null
           project_id?: string | null
+          recurrence_end_date?: string | null
           recurrence_interval?: string | null
           settled_at?: string | null
           source_id?: string | null

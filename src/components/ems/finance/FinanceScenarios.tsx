@@ -143,6 +143,12 @@ const FinanceScenarios = () => {
     return labels;
   }, []);
 
+  const futureMonthKeys = useMemo(() => {
+    const keys: string[] = [];
+    for (let i = 1; i <= 6; i++) keys.push(format(addMonths(new Date(), i), "yyyy-MM"));
+    return keys;
+  }, []);
+
   const recurringTx = useMemo(() => rawTransactions.map((t) => ({
     id: t.id,
     description: t.description,
@@ -151,6 +157,7 @@ const FinanceScenarios = () => {
     type: t.type,
     is_recurring: !!t.is_recurring,
     recurrence_interval: t.recurrence_interval ?? null,
+    recurrence_end_date: t.recurrence_end_date ?? null,
   })), [rawTransactions]);
 
   const projectScenario = (s: Scenario | undefined) => {
@@ -159,6 +166,7 @@ const FinanceScenarios = () => {
       monthlyData,
       recurringTransactions: recurringTx,
       futureMonthLabels,
+      futureMonthKeys,
       historyWindow: s.history_window,
       recurringOverride: { income: Number(s.recurring_income) || 0, expense: Number(s.recurring_expense) || 0 },
     });

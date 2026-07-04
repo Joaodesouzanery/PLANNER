@@ -29,10 +29,13 @@ const recurringFutureEvents = (transaction: Transaction, entityId: string | null
   const advance = (date: Date) => interval === "weekly" ? addDays(date, 7) : interval === "yearly" ? addMonths(date, 12) : addMonths(date, 1);
   let cursor = advance(new Date(`${transaction.due_date || transaction.date}T12:00:00`));
   const horizon = addMonths(new Date(), 12);
+  // Contrato com prazo: para a projeção no fim do contrato (senão projeta os 12 meses cheios).
+  const end = transaction.recurrence_end_date ? new Date(`${transaction.recurrence_end_date}T12:00:00`) : null;
+  const stop = end && end < horizon ? end : horizon;
   while (cursor < new Date()) cursor = advance(cursor);
   const events: ForecastEvent[] = [];
   let index = 0;
-  while (cursor <= horizon && index < 60) {
+  while (cursor <= stop && index < 60) {
     events.push({
       id: `${transaction.id}-future-${index}`,
       date: format(cursor, "yyyy-MM-dd"),
@@ -269,6 +272,38 @@ export const useFinanceWorkspace = () => {
   const forecast90 = useMemo(() => buildForecastSeries({ events: filteredEvents, openingBalance, days: 90 }), [filteredEvents, openingBalance]);
   const forecast365 = useMemo(() => buildForecastSeries({ events: filteredEvents, openingBalance, days: 365 }), [filteredEvents, openingBalance]);
   const monthlyForecast = useMemo(() => summarizeForecastByMonth(forecast365).slice(0, 12), [forecast365]);
+
+  // Contratos = recorrencias COM termino (recurrence_end_date). Escopo por conta selecionada.
+  const contracts = useMemo(() => {
+    const curKey = format(new Date(), "yyyy-MM");
+    const monthDiff = (from: string, to: string) => {
+      const [fy, fm] = from.split("-").map(Number);
+      const [ty, tm] = to.split("-").map(Number);
+      return (ty - fy) * 12 + (tm - fm);
+    };
+    return finance.transactions
+      .filter((t) => t.is_recurring && t.recurrence_end_date && (!t.finance_account_id || selectedAccountIds.has(t.finance_account_id)))
+      .map((t) => {
+        const startDate = t.due_date || t.date;
+        const endDate = t.recurrence_end_date as string;
+        const totalMonths = Math.max(1, monthDiff(startDate.slice(0, 7), endDate.slice(0, 7)) + 1);
+        const monthsLeft = Math.max(0, monthDiff(curKey, endDate.slice(0, 7)) + 1);
+        return {
+          id: t.id,
+          description: t.description,
+          amount: Number(t.amount),
+          type: t.type as "income" | "expense",
+          interval: t.recurrence_interval || "monthly",
+          startDate,
+          endDate,
+          totalMonths,
+          monthsLeft,
+          monthsElapsed: Math.min(totalMonths, Math.max(0, totalMonths - monthsLeft)),
+          active: monthsLeft > 0,
+        };
+      })
+      .sort((a, b) => a.endDate.localeCompare(b.endDate));
+  }, [finance.transactions, selectedAccountIds]);
   const upcomingPayables = useMemo(() => getUpcomingPayables(filteredEvents, todayIso(), 45), [filteredEvents]);
 
   const invalidate = () => {
@@ -403,7 +438,7 @@ export const useFinanceWorkspace = () => {
   return {
     ...finance,
     scope, setScope, entities, accounts, selectedEntity, selectedAccounts, cardAccounts, accountBalances,
-    transfers, invoices, allEvents, filteredEvents, openingBalance, forecast90, monthlyForecast,
+    transfers, invoices, allEvents, filteredEvents, openingBalance, forecast90, monthlyForecast, contracts,
     upcomingPayables, reserveBalance, entitiesLoading, entitiesError,
     saveAccountMutation, saveTransferMutation, saveInvoiceMutation, payInvoiceMutation,
     reconcileTransactionMutation, importCsvMutation, addInstallmentToFlowMutation,

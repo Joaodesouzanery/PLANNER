@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { format } from "date-fns";
+import { addMonths, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   AlertTriangle, ArrowDownRight, ArrowRightLeft, ArrowUpRight, Building2, CalendarClock,
@@ -58,6 +58,31 @@ const FinanceFutureFlow = () => {
     };
   }, [workspace.filteredEvents, workspace.forecast90.endDate]);
 
+  // Renda fixa (recorrencia indefinida) x Contratos (recorrencia com termino) x Avulsas, 12 meses.
+  const contractSeries = useMemo(() => {
+    const contractIds = new Set(workspace.contracts.map((c) => c.id));
+    const fixedIds = new Set(
+      (workspace.transactions as any[]).filter((t) => t.is_recurring && !t.recurrence_end_date).map((t) => t.id),
+    );
+    const now = new Date();
+    const months = Array.from({ length: 12 }, (_, i) => {
+      const d = addMonths(now, i);
+      return { key: format(d, "yyyy-MM"), label: format(d, "MMM/yy", { locale: ptBR }), fixa: 0, contratos: 0, avulsas: 0 };
+    });
+    const byKey = new Map(months.map((m) => [m.key, m]));
+    workspace.filteredEvents
+      .filter((event) => event.kind === "income")
+      .forEach((event) => {
+        const bucket = byKey.get(event.date.slice(0, 7));
+        if (!bucket) return;
+        const sid = event.sourceId || "";
+        if (contractIds.has(sid)) bucket.contratos += event.amount;
+        else if (fixedIds.has(sid)) bucket.fixa += event.amount;
+        else bucket.avulsas += event.amount;
+      });
+    return months;
+  }, [workspace.contracts, workspace.transactions, workspace.filteredEvents]);
+
   const exportFutureFlow = async () => {
     const money = (v: number) => fmtCurrency(Number(v));
     try {
@@ -74,6 +99,7 @@ const FinanceFutureFlow = () => {
             ["Saldo esperado em 90 dias", money(workspace.forecast90.days[workspace.forecast90.days.length - 1]?.expected || workspace.openingBalance)],
           ] },
           { heading: "Resumo mês a mês", head: [["Mês", "Entradas", "Saídas", "Saldo final"]], body: workspace.monthlyForecast.length ? workspace.monthlyForecast.map((m: any) => [m.month, money(m.income), money(m.expense), money(m.balance)]) : [["—", "—", "—", "—"]] },
+          { heading: "Contratos", head: [["Contrato", "Tipo", "Valor/mês", "Meses restantes", "Termina em"]], body: workspace.contracts.length ? workspace.contracts.map((c) => [c.description, c.type === "income" ? "Entrada" : "Saída", money(c.amount), c.active ? String(c.monthsLeft) : "Encerrado", formatDateBR(c.endDate)]) : [["—", "—", "—", "—", "—"]] },
           { heading: `Linha do tempo (${timelineEvents.length})`, head: [["Data", "Descrição", "Categoria", "Tipo", "Valor"]], body: timelineEvents.length ? timelineEvents.map((e) => [formatDateBR(e.date), e.description, e.category || "-", e.kind, money(Number(e.amount))]) : [["—", "—", "—", "—", "—"]] },
         ],
       });
@@ -181,8 +207,9 @@ const FinanceFutureFlow = () => {
       )}
 
       <Tabs defaultValue="horizon" className="space-y-4">
-        <TabsList className="grid grid-cols-4 w-full max-w-2xl">
+        <TabsList className="grid grid-cols-5 w-full max-w-3xl">
           <TabsTrigger value="horizon">Horizonte</TabsTrigger>
+          <TabsTrigger value="contracts">Contratos</TabsTrigger>
           <TabsTrigger value="accounts">Contas</TabsTrigger>
           <TabsTrigger value="cards">Cartoes</TabsTrigger>
           <TabsTrigger value="timeline">Linha do tempo</TabsTrigger>
@@ -236,6 +263,59 @@ const FinanceFutureFlow = () => {
               {workspace.savedInstallments.filter((item) => !item.added_to_flow_at).map((item) => <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border p-3"><div><p className="font-medium text-sm">{item.item_name}</p><p className="text-xs text-muted-foreground">{item.installments}x de {fmtCurrency(Number(item.monthly_payment))}</p></div><Button size="sm" variant="outline" disabled={!workspace.selectedAccounts.length} onClick={() => workspace.addInstallmentToFlowMutation.mutate({ installmentId: item.id, accountId: workspace.selectedAccounts[0].id })}>Adicionar ao fluxo</Button></div>)}
             </CardContent></Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="contracts" className="space-y-4">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Renda fixa x Contratos (12 meses)</CardTitle></CardHeader>
+            <CardContent>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={contractSeries}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="label" fontSize={10} stroke="hsl(var(--muted-foreground))" />
+                    <YAxis fontSize={10} tickFormatter={(value) => `${Math.round(value / 1000)}k`} stroke="hsl(var(--muted-foreground))" />
+                    <Tooltip formatter={(value: number) => fmtCurrency(value)} />
+                    <Legend />
+                    <Area type="monotone" dataKey="fixa" name="Renda fixa" stackId="1" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.25} />
+                    <Area type="monotone" dataKey="contratos" name="Contratos" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.3} />
+                    <Area type="monotone" dataKey="avulsas" name="Avulsas" stackId="1" stroke="#94a3b8" fill="#94a3b8" fillOpacity={0.15} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">Fixa = recorrência sem prazo · Contratos = recorrência com término · Avulsas = entradas pontuais/planejadas.</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle className="text-base">Contratos ativos</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              {workspace.contracts.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-6">Nenhum contrato com prazo. Cadastre uma entrada recorrente e marque "Contrato com prazo" na aba Transações.</p>
+              )}
+              {workspace.contracts.map((contract) => {
+                const progress = contract.totalMonths ? Math.round((contract.monthsElapsed / contract.totalMonths) * 100) : 0;
+                return (
+                  <div key={contract.id} className="rounded-xl border border-border/50 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Badge variant="outline" className={cn(contract.type === "income" ? "text-emerald-500 border-emerald-500/30" : "text-destructive border-destructive/30")}>{contract.type === "income" ? "Entrada" : "Saida"}</Badge>
+                        <p className="font-medium truncate">{contract.description}</p>
+                      </div>
+                      <p className="font-mono font-semibold shrink-0">{fmtCurrency(contract.amount)}<span className="text-xs text-muted-foreground">/mes</span></p>
+                    </div>
+                    <div className="mt-2 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div className={cn("h-full", contract.active ? "bg-primary" : "bg-muted-foreground")} style={{ width: `${progress}%` }} />
+                    </div>
+                    <div className="flex items-center justify-between mt-1.5 text-[11px] text-muted-foreground">
+                      <span>{contract.active ? `${contract.monthsLeft} ${contract.monthsLeft === 1 ? "mes restante" : "meses restantes"}` : "Encerrado"} · {contract.totalMonths} meses no total</span>
+                      <span>Termina em {formatDateBR(contract.endDate)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="accounts" className="space-y-4">

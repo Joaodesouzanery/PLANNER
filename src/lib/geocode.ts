@@ -50,6 +50,7 @@ export interface RecurringTx {
   date: string;
   is_recurring?: boolean | null;
   recurrence_interval?: string | null;
+  recurrence_end_date?: string | null;
   category?: string | null;
   source_id?: string | null;
   is_projected?: boolean | null;
@@ -102,8 +103,11 @@ export function expandRecurringTransactions<T extends RecurringTx>(rows: T[], ho
     const originalDay = start.getDate();
     let cursor = addRecurringInterval(start, interval, originalDay);
     const maxOccurrences = interval === "weekly" || interval === "semanal" || interval === "week" ? 1040 : 240;
+    // Contrato com prazo: nao expandir alem da data de termino.
+    const endDate = tx.recurrence_end_date ? parseDateOnly(tx.recurrence_end_date) : null;
+    const cap = endDate && endDate < limit ? endDate : limit;
     let safety = 0;
-    while (cursor <= limit && safety < maxOccurrences) {
+    while (cursor <= cap && safety < maxOccurrences) {
       const iso = toIsoDate(cursor);
       out.push({
         ...tx,

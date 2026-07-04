@@ -23,6 +23,12 @@ import { toast } from "sonner";
 const WIDE_FROM = "2000-01-01";
 const WIDE_TO = "2100-12-31";
 const todayIso = () => format(new Date(), "yyyy-MM-dd");
+// Nº de ocorrências mensais de um contrato entre início e término (inclusivo).
+const monthsBetween = (start: string, end: string) => {
+  const a = new Date(`${start}T12:00:00`);
+  const b = new Date(`${end}T12:00:00`);
+  return (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth()) + 1;
+};
 
 const isPaid = (t: Transaction) => t.status === "reconciled" || !!t.settled_at;
 
@@ -35,7 +41,7 @@ const StatusBadge = ({ t }: { t: Transaction }) => {
 const emptyForm = () => ({
   description: "", amount: 0, type: "expense" as "income" | "expense", category: "",
   date: todayIso(), due_date: todayIso(), status: "confirmed", finance_account_id: "",
-  is_recurring: false, recurrence_interval: "", paid: false,
+  is_recurring: false, recurrence_interval: "", recurrence_end_date: "", paid: false,
 });
 
 const FinanceTransactions = () => {
@@ -112,7 +118,7 @@ const FinanceTransactions = () => {
       description: t.description, amount: t.amount, type: t.type, category: t.category || "",
       date: t.date, due_date: t.due_date || t.date, status: t.status || "confirmed",
       finance_account_id: t.finance_account_id || "", is_recurring: t.is_recurring || false,
-      recurrence_interval: t.recurrence_interval || "", paid: isPaid(t),
+      recurrence_interval: t.recurrence_interval || "", recurrence_end_date: t.recurrence_end_date || "", paid: isPaid(t),
     });
     setShowModal(true);
   };
@@ -126,6 +132,7 @@ const FinanceTransactions = () => {
       finance_account_id: form.finance_account_id || null,
       settled_at: status === "reconciled" ? (editingTransaction?.settled_at || new Date().toISOString()) : null,
       recurrence_interval: form.is_recurring ? (form.recurrence_interval || "monthly") : null,
+      recurrence_end_date: form.is_recurring ? (form.recurrence_end_date || null) : null,
     };
     saveTransactionMutation.mutate({ form: payload, editingId: editingTransaction?.id }, {
       onSuccess: () => { setShowModal(false); setEditingTransaction(null); setForm(emptyForm()); },
@@ -316,7 +323,38 @@ const FinanceTransactions = () => {
               <Switch checked={form.is_recurring} onCheckedChange={v => setForm({ ...form, is_recurring: v })} />
             </div>
             {form.is_recurring && (
-              <div><Label>Frequência</Label><select value={form.recurrence_interval || "monthly"} onChange={e => setForm({ ...form, recurrence_interval: e.target.value })} className="w-full h-10 rounded-xl border border-input bg-background px-3 py-2 text-sm"><option value="weekly">Semanal</option><option value="monthly">Mensal</option><option value="yearly">Anual</option></select></div>
+              <div className="space-y-3">
+                <div><Label>Frequência</Label><select value={form.recurrence_interval || "monthly"} onChange={e => setForm({ ...form, recurrence_interval: e.target.value })} className="w-full h-10 rounded-xl border border-input bg-background px-3 py-2 text-sm"><option value="weekly">Semanal</option><option value="monthly">Mensal</option><option value="yearly">Anual</option></select></div>
+                <div className="flex items-center justify-between p-3 rounded-xl bg-primary/5 border border-primary/20">
+                  <div className="flex items-center gap-2">
+                    <CalendarClock className="h-4 w-4 text-primary" />
+                    <div>
+                      <Label className="cursor-pointer">Contrato com prazo</Label>
+                      <p className="text-[11px] text-muted-foreground">Projeta só até o fim do contrato (senão, indefinido).</p>
+                    </div>
+                  </div>
+                  <Switch checked={!!form.recurrence_end_date} onCheckedChange={v => {
+                    const start = form.due_date || form.date;
+                    setForm({ ...form, recurrence_end_date: v ? format(addMonths(new Date(`${start}T12:00:00`), 11), "yyyy-MM-dd") : "" });
+                  }} />
+                </div>
+                {form.recurrence_end_date && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Duração (meses)</Label>
+                      <Input type="number" min={1} value={monthsBetween(form.due_date || form.date, form.recurrence_end_date)} onChange={e => {
+                        const n = Math.max(1, Number(e.target.value) || 1);
+                        const start = form.due_date || form.date;
+                        setForm({ ...form, recurrence_end_date: format(addMonths(new Date(`${start}T12:00:00`), n - 1), "yyyy-MM-dd") });
+                      }} className="rounded-xl" />
+                    </div>
+                    <div>
+                      <Label>Termina em</Label>
+                      <Input type="date" value={form.recurrence_end_date} onChange={e => setForm({ ...form, recurrence_end_date: e.target.value })} className="rounded-xl" />
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
           <DialogFooter><Button variant="outline" className="rounded-xl" onClick={() => setShowModal(false)}>Cancelar</Button><Button className="rounded-xl shadow-lg shadow-primary/20" onClick={handleSave}>{editingTransaction ? "Salvar" : "Criar"}</Button></DialogFooter>
