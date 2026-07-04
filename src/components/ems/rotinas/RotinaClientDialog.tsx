@@ -64,7 +64,7 @@ const ItemConfigRow = ({ item, rotinas, child }: { item: RoutineChecklistItem; r
   </div>
 );
 
-export const RotinaClientDialog = ({ view, rotinas, open, onClose }: { view: RoutineClientView; rotinas: Rotinas; open: boolean; onClose: () => void }) => {
+export const RotinaClientDialog = ({ view, rotinas, open, onClose, defaultTab = "dia" }: { view: RoutineClientView; rotinas: Rotinas; open: boolean; onClose: () => void; defaultTab?: string }) => {
   const { client } = view;
   const [newTask, setNewTask] = useState({ title: "", priority: "medium", due_date: "", parent_task_id: "" });
   const [newItem, setNewItem] = useState<{ kind: "conferencia" | "tarefa"; title: string; frequency: string; day_of_month: string; weekday: string; parent_item_id: string }>({ kind: "conferencia", title: "", frequency: "daily", day_of_month: "", weekday: "1", parent_item_id: "" });
@@ -113,7 +113,7 @@ export const RotinaClientDialog = ({ view, rotinas, open, onClose }: { view: Rou
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="dia" className="space-y-4">
+        <Tabs defaultValue={defaultTab} className="space-y-4">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="dia">Dia</TabsTrigger>
             <TabsTrigger value="tarefas">Tarefas</TabsTrigger>
