@@ -62,7 +62,7 @@ const ClientBlock = ({ view, rotinas, onSelect }: { view: RoutineClientView; rot
           view.openTasks.map((task) => {
             const overdue = task.due_date && task.due_date < new Date().toISOString().slice(0, 10);
             return (
-              <div key={task.id} className="flex items-center gap-2 rounded-md border border-border/40 bg-background/40 px-2 py-1">
+              <div key={task.id} className={cn("flex items-center gap-2 rounded-md border border-border/40 bg-background/40 px-2 py-1", task.parent_task_id && "ml-4 border-dashed bg-background/20")}>
                 <span className="flex-1 truncate text-xs">{task.title}</span>
                 {task.priority && <Badge variant="outline" className={cn("h-4 text-[9px]", priorityTone[String(task.priority).toLowerCase()] ?? "text-muted-foreground border-border/60")}>{task.priority}</Badge>}
                 <Badge variant="outline" className={cn("h-4 text-[9px]", statusLabel[task.status]?.tone)}>{statusLabel[task.status]?.label ?? task.status}</Badge>

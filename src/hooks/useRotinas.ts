@@ -6,6 +6,7 @@ import { toast } from "@/hooks/use-toast";
 
 export type ChecklistKind = "conferencia" | "tarefa";
 export type RoutineTaskStatus = "pending" | "in_progress" | "done";
+export type RoutineFrequency = "daily" | "weekly" | "monthly";
 
 export interface RoutineSegment {
   id: string;
@@ -33,6 +34,10 @@ export interface RoutineChecklistItem {
   title: string;
   sort_order: number;
   active: boolean;
+  frequency: RoutineFrequency;
+  day_of_month: number | null;
+  weekday: number | null;
+  parent_item_id: string | null;
 }
 
 export interface RoutineChecklistLog {
@@ -53,6 +58,7 @@ export interface RoutineTask {
   due_date: string | null;
   completed_at: string | null;
   sort_order: number;
+  parent_task_id: string | null;
 }
 
 export interface RoutineClientView {
@@ -67,6 +73,16 @@ export interface RoutineClientView {
   openTasks: RoutineTask[];
   doneTodayTasks: RoutineTask[];
   daysUntilInvoice: number | null;
+  // Aninhamento (um nível): filhos por pai + itens/tarefas de topo
+  itemChildren: Map<string, RoutineChecklistItem[]>;
+  taskChildren: Map<string, RoutineTask[]>;
+  rootOpenTasks: RoutineTask[];
+  // Agregados por período (para a visão Consolidada)
+  todayProgress: { done: number; total: number };
+  monthProgress: { done: number; total: number };
+  monthlyItems: RoutineChecklistItem[];
+  overdueTasks: RoutineTask[];
+  nextDue: { label: string; days: number } | null;
 }
 
 const db = supabase as any;
@@ -89,6 +105,63 @@ export const daysUntilInvoice = (invoiceDay: number | null): number | null => {
   return Math.round((next.getTime() - today.getTime()) / 86_400_000);
 };
 
+/** daysUntilDay é o mesmo cálculo da NF, reaproveitado para itens mensais. */
+const daysUntilDay = daysUntilInvoice;
+
+/** Início do mês corrente (yyyy-MM-dd). */
+const monthStartStr = () => {
+  const n = new Date();
+  return format(new Date(n.getFullYear(), n.getMonth(), 1), "yyyy-MM-dd");
+};
+
+/** Limites da semana corrente (segunda→domingo) em yyyy-MM-dd. */
+const weekBounds = () => {
+  const n = new Date();
+  const dow = (n.getDay() + 6) % 7; // 0 = segunda
+  const mon = new Date(n.getFullYear(), n.getMonth(), n.getDate() - dow);
+  const sun = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 6);
+  return { start: format(mon, "yyyy-MM-dd"), end: format(sun, "yyyy-MM-dd") };
+};
+
+/** Um item está "feito no seu período"? diário=hoje, semanal=nesta semana, mensal=neste mês. */
+const isItemDone = (item: RoutineChecklistItem, logDates: string[] | undefined, day: string, week: { start: string; end: string }) => {
+  if (!logDates || logDates.length === 0) return false;
+  if (item.frequency === "weekly") return logDates.some((d) => d >= week.start && d <= week.end);
+  if (item.frequency === "monthly") return true; // logs já vêm filtrados ao mês corrente
+  return logDates.includes(day); // daily
+};
+
+/** Um item é "cobrado hoje"? diário sempre; semanal no seu weekday; mensal no seu dia. */
+const isDueToday = (item: RoutineChecklistItem) => {
+  const n = new Date();
+  if (item.frequency === "weekly") return item.weekday == null || n.getDay() === item.weekday;
+  if (item.frequency === "monthly") return item.day_of_month != null && n.getDate() === item.day_of_month;
+  return true; // daily
+};
+
+/** Próximo vencimento do cliente: menor entre NF, itens mensais e tarefas com data (só futuros). */
+const computeNextDue = (
+  client: RoutineClient,
+  monthlyItems: RoutineChecklistItem[],
+  openTasks: RoutineTask[],
+  day: string,
+): { label: string; days: number } | null => {
+  const cands: { label: string; days: number }[] = [];
+  const nf = daysUntilInvoice(client.invoice_day);
+  if (nf !== null) cands.push({ label: `NF dia ${client.invoice_day}`, days: nf });
+  for (const it of monthlyItems) {
+    const d = daysUntilDay(it.day_of_month);
+    if (d !== null) cands.push({ label: `dia ${it.day_of_month}`, days: d });
+  }
+  for (const t of openTasks) {
+    if (!t.due_date) continue;
+    const days = Math.round((new Date(`${t.due_date}T12:00:00`).getTime() - new Date(`${day}T12:00:00`).getTime()) / 86_400_000);
+    if (days >= 0) cands.push({ label: t.title.length > 18 ? `${t.title.slice(0, 17)}…` : t.title, days });
+  }
+  if (cands.length === 0) return null;
+  return cands.sort((a, b) => a.days - b.days)[0];
+};
+
 export const useRotinas = () => {
   const queryClient = useQueryClient();
   const day = todayStr();
@@ -100,7 +173,7 @@ export const useRotinas = () => {
         db.from("routine_segments").select("*").order("sort_order", { ascending: true }),
         db.from("routine_clients").select("*").order("sort_order", { ascending: true }),
         db.from("routine_checklist_items").select("*").eq("active", true).order("sort_order", { ascending: true }),
-        db.from("routine_checklist_logs").select("*").eq("log_date", day),
+        db.from("routine_checklist_logs").select("*").gte("log_date", monthStartStr()),
         db.from("routine_tasks").select("*").order("sort_order", { ascending: true }),
       ]);
       for (const res of [segments, clients, items, logs, tasks]) {
@@ -122,13 +195,47 @@ export const useRotinas = () => {
   const clientViews = useMemo(() => {
     const map = new Map<string, RoutineClientView>();
     if (!data) return map;
-    const doneByClient = new Set(data.logs.map((log) => log.item_id));
+    const week = weekBounds();
+    // item_id -> datas de log do mês corrente
+    const logDatesByItem = new Map<string, string[]>();
+    for (const log of data.logs) {
+      const arr = logDatesByItem.get(log.item_id);
+      if (arr) arr.push(log.log_date);
+      else logDatesByItem.set(log.item_id, [log.log_date]);
+    }
     for (const client of data.clients) {
       const items = data.items.filter((item) => item.client_id === client.id);
       const conferencias = items.filter((item) => item.kind === "conferencia");
       const tarefas = items.filter((item) => item.kind === "tarefa");
-      const doneItemIds = new Set(items.filter((item) => doneByClient.has(item.id)).map((item) => item.id));
+      const doneItemIds = new Set(
+        items.filter((item) => isItemDone(item, logDatesByItem.get(item.id), day, week)).map((item) => item.id),
+      );
+
+      // Aninhamento de itens (um nível): parent_item_id -> filhos
+      const itemChildren = new Map<string, RoutineChecklistItem[]>();
+      for (const item of items) {
+        if (!item.parent_item_id) continue;
+        const arr = itemChildren.get(item.parent_item_id);
+        if (arr) arr.push(item);
+        else itemChildren.set(item.parent_item_id, [item]);
+      }
+
+      const todayItems = items.filter(isDueToday);
+      const monthlyItems = items.filter((i) => i.frequency === "monthly");
+
       const tasks = data.tasks.filter((task) => task.client_id === client.id);
+      const taskChildren = new Map<string, RoutineTask[]>();
+      for (const t of tasks) {
+        if (!t.parent_task_id) continue;
+        const arr = taskChildren.get(t.parent_task_id);
+        if (arr) arr.push(t);
+        else taskChildren.set(t.parent_task_id, [t]);
+      }
+      const openTasks = tasks
+        .filter((task) => task.status !== "done")
+        .sort((a, b) => (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999"));
+      const overdueTasks = openTasks.filter((t) => t.due_date && t.due_date < day);
+
       map.set(client.id, {
         client,
         items,
@@ -138,11 +245,17 @@ export const useRotinas = () => {
         conferenciaProgress: { done: conferencias.filter((i) => doneItemIds.has(i.id)).length, total: conferencias.length },
         tarefaProgress: { done: tarefas.filter((i) => doneItemIds.has(i.id)).length, total: tarefas.length },
         tasks,
-        openTasks: tasks
-          .filter((task) => task.status !== "done")
-          .sort((a, b) => (a.due_date ?? "9999").localeCompare(b.due_date ?? "9999")),
+        openTasks,
         doneTodayTasks: tasks.filter((task) => task.status === "done" && (task.completed_at ?? "").slice(0, 10) === day),
         daysUntilInvoice: daysUntilInvoice(client.invoice_day),
+        itemChildren,
+        taskChildren,
+        rootOpenTasks: openTasks.filter((t) => !t.parent_task_id),
+        todayProgress: { done: todayItems.filter((i) => doneItemIds.has(i.id)).length, total: todayItems.length },
+        monthProgress: { done: monthlyItems.filter((i) => doneItemIds.has(i.id)).length, total: monthlyItems.length },
+        monthlyItems,
+        overdueTasks,
+        nextDue: computeNextDue(client, monthlyItems, openTasks, day),
       });
     }
     return map;
@@ -160,7 +273,17 @@ export const useRotinas = () => {
         const { error } = await db.from("routine_checklist_logs").insert({ client_id: item.client_id, item_id: item.id, log_date: day });
         if (error && error.code !== "23505") throw error; // ignora duplicidade
       } else {
-        const { error } = await db.from("routine_checklist_logs").delete().eq("item_id", item.id).eq("log_date", day);
+        // Desmarcar limpa o período do item: diário=hoje, semanal=semana, mensal=mês.
+        let q = db.from("routine_checklist_logs").delete().eq("item_id", item.id);
+        if (item.frequency === "weekly") {
+          const w = weekBounds();
+          q = q.gte("log_date", w.start).lte("log_date", w.end);
+        } else if (item.frequency === "monthly") {
+          q = q.gte("log_date", monthStartStr());
+        } else {
+          q = q.eq("log_date", day);
+        }
+        const { error } = await q;
         if (error) throw error;
       }
     },

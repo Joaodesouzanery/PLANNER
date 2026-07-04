@@ -1,43 +1,21 @@
 import { useState } from "react";
-import { AlertTriangle, CalendarClock, CheckSquare, ChevronDown, ClipboardList, ClipboardPaste, LayoutGrid, ListChecks, Plus, Rows3, Settings2, Sparkles } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { AlertTriangle, ClipboardList, ClipboardPaste, LayoutList, Rows3, Settings2, Sparkles, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { cn } from "@/lib/utils";
-import { useRotinas, type RoutineClientView } from "@/hooks/useRotinas";
+import { useRotinas } from "@/hooks/useRotinas";
 import { RotinaClientDialog } from "./RotinaClientDialog";
 import { RotinaConfigDialog } from "./RotinaConfigDialog";
 import { RotinasMacroView } from "./RotinasMacroView";
+import { RotinasConsolidatedView } from "./RotinasConsolidatedView";
 import { RotinaPasteDialog } from "./RotinaPasteDialog";
-import { RotinaChecklistInline } from "./RotinaChecklistInline";
-
-const InvoiceBadge = ({ view }: { view: RoutineClientView }) => {
-  if (!view.client.invoice_day || view.daysUntilInvoice === null) return null;
-  const days = view.daysUntilInvoice;
-  const tone = days <= 3 ? "text-red-400 border-red-400/40" : days <= 7 ? "text-amber-400 border-amber-400/40" : "text-muted-foreground";
-  const quando = days === 0 ? "hoje" : days === 1 ? "amanhã" : `${days} dias`;
-  return (
-    <Badge variant="outline" className={cn("h-5 gap-1 text-[10px]", tone)}>
-      <CalendarClock className="h-3 w-3" />
-      NF dia {view.client.invoice_day} · {quando}
-    </Badge>
-  );
-};
 
 export const RotinasPanel = () => {
   const rotinas = useRotinas();
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
   const [pasteOpen, setPasteOpen] = useState(false);
-  const [view, setView] = useState<"cards" | "macro">("cards");
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const toggleExpanded = (id: string) => setExpanded((prev) => {
-    const next = new Set(prev);
-    next.has(id) ? next.delete(id) : next.add(id);
-    return next;
-  });
+  const [view, setView] = useState<"consolidado" | "macro">("consolidado");
 
   const isMissingTable = (rotinas.error as any)?.code === "42P01";
 
@@ -70,8 +48,8 @@ export const RotinasPanel = () => {
           </CardTitle>
           <div className="flex items-center gap-2">
             <div className="flex rounded-lg border border-border/50 p-0.5">
-              <Button variant={view === "cards" ? "secondary" : "ghost"} size="sm" className="h-7 gap-1.5 px-2 text-xs" onClick={() => setView("cards")}>
-                <LayoutGrid className="h-3.5 w-3.5" /> Cartões
+              <Button variant={view === "consolidado" ? "secondary" : "ghost"} size="sm" className="h-7 gap-1.5 px-2 text-xs" onClick={() => setView("consolidado")}>
+                <LayoutList className="h-3.5 w-3.5" /> Consolidado
               </Button>
               <Button variant={view === "macro" ? "secondary" : "ghost"} size="sm" className="h-7 gap-1.5 px-2 text-xs" onClick={() => setView("macro")}>
                 <Rows3 className="h-3.5 w-3.5" /> Macro
@@ -114,71 +92,7 @@ export const RotinasPanel = () => {
         ) : view === "macro" ? (
           <RotinasMacroView rotinas={rotinas} onSelectClient={setSelectedClientId} />
         ) : (
-          <Accordion type="multiple" defaultValue={rotinas.segments.map((s) => s.id)} className="space-y-2">
-            {rotinas.segments.map((segment) => {
-              const clients = rotinas.clients.filter((c) => c.segment_id === segment.id);
-              return (
-                <AccordionItem key={segment.id} value={segment.id} className="rounded-xl border border-border bg-muted/30 px-3">
-                  <AccordionTrigger className="py-3 hover:no-underline">
-                    <span className="flex items-center gap-2 text-sm font-semibold">
-                      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: segment.color ?? "#6366f1" }} />
-                      {segment.name}
-                      <Badge variant="secondary" className="h-5 text-[10px]">{clients.length}</Badge>
-                    </span>
-                  </AccordionTrigger>
-                  <AccordionContent className="pb-3">
-                    {clients.length === 0 ? (
-                      <p className="py-3 text-center text-xs text-muted-foreground">Nenhum cliente neste segmento.</p>
-                    ) : (
-                      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                        {clients.map((client) => {
-                          const view = rotinas.clientViews.get(client.id);
-                          if (!view) return null;
-                          const isOpen = expanded.has(client.id);
-                          return (
-                            <div
-                              key={client.id}
-                              className="rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary/40"
-                            >
-                              <div className="flex items-start justify-between gap-2">
-                                <button onClick={() => setSelectedClientId(client.id)} className="truncate text-left text-sm font-semibold hover:text-primary transition-colors">{client.name}</button>
-                                <div className="flex items-center gap-1">
-                                  <InvoiceBadge view={view} />
-                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" onClick={() => toggleExpanded(client.id)} title={isOpen ? "Recolher" : "Ver rotinas"}>
-                                    <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
-                                  </Button>
-                                </div>
-                              </div>
-                              <button onClick={() => toggleExpanded(client.id)} className="mt-2 flex w-full flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
-                                <span className="flex items-center gap-1">
-                                  <ListChecks className="h-3 w-3" />
-                                  Conf. {view.conferenciaProgress.done}/{view.conferenciaProgress.total}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <CheckSquare className="h-3 w-3" />
-                                  Tarefas {view.tarefaProgress.done}/{view.tarefaProgress.total}
-                                </span>
-                                {view.openTasks.length > 0 && (
-                                  <Badge variant="outline" className="h-4 text-[9px] text-amber-400 border-amber-400/40">
-                                    {view.openTasks.length} pendência{view.openTasks.length === 1 ? "" : "s"}
-                                  </Badge>
-                                )}
-                              </button>
-                              {isOpen && (
-                                <div className="mt-2 border-t border-border/60 pt-2">
-                                  <RotinaChecklistInline view={view} rotinas={rotinas} />
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </AccordionContent>
-                </AccordionItem>
-              );
-            })}
-          </Accordion>
+          <RotinasConsolidatedView rotinas={rotinas} onSelectClient={setSelectedClientId} />
         )}
       </CardContent>
 
