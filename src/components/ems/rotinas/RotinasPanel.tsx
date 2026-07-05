@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertTriangle, ClipboardList, ClipboardPaste, Settings2, Sparkles, Plus } from "lucide-react";
+import { AlertTriangle, CalendarDays, ClipboardList, ClipboardPaste, Rows3, Settings2, Sparkles, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -7,6 +7,7 @@ import { useRotinas } from "@/hooks/useRotinas";
 import { RotinaClientDialog } from "./RotinaClientDialog";
 import { RotinaConfigDialog } from "./RotinaConfigDialog";
 import { RotinasMacroView } from "./RotinasMacroView";
+import { RotinasCalendarView } from "./RotinasCalendarView";
 import { RotinaPasteDialog } from "./RotinaPasteDialog";
 
 export const RotinasPanel = () => {
@@ -14,6 +15,7 @@ export const RotinasPanel = () => {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
   const [pasteOpen, setPasteOpen] = useState(false);
+  const [view, setView] = useState<"macro" | "calendario">("macro");
 
   const isMissingTable = (rotinas.error as any)?.code === "42P01";
 
@@ -45,6 +47,14 @@ export const RotinasPanel = () => {
             </span>
           </CardTitle>
           <div className="flex items-center gap-2">
+            <div className="flex rounded-lg border border-border/50 p-0.5">
+              <Button variant={view === "macro" ? "secondary" : "ghost"} size="sm" className="h-7 gap-1.5 px-2 text-xs" onClick={() => setView("macro")}>
+                <Rows3 className="h-3.5 w-3.5" /> Macro
+              </Button>
+              <Button variant={view === "calendario" ? "secondary" : "ghost"} size="sm" className="h-7 gap-1.5 px-2 text-xs" onClick={() => setView("calendario")}>
+                <CalendarDays className="h-3.5 w-3.5" /> Calendário
+              </Button>
+            </div>
             <Button variant="outline" size="sm" className="h-8 gap-2" onClick={() => rotinas.ensureGeneralSection.mutate()} disabled={rotinas.ensureGeneralSection.isPending} title="Cria/abre a seção Geral (rotinas não vinculadas a empresa)">
               <Sparkles className="h-3.5 w-3.5" /> Geral
             </Button>
@@ -79,6 +89,8 @@ export const RotinasPanel = () => {
               </Button>
             </div>
           </div>
+        ) : view === "calendario" ? (
+          <RotinasCalendarView rotinas={rotinas} onSelectClient={setSelectedClientId} />
         ) : (
           <RotinasMacroView rotinas={rotinas} onSelectClient={setSelectedClientId} />
         )}
