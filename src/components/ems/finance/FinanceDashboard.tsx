@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
-import { fmtCurrency, formatDateBR, effectiveDate, tooltipStyle, PIE_COLORS } from "./useFinanceData";
+import { fmtCurrency, formatDateBR, effectiveDate, tooltipStyle, PIE_COLORS, buildPeriodSource } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
 import { Badge } from "@/components/ui/badge";
 import { DateRangeFilter } from "@/components/ems/DateRangeFilter";
@@ -60,56 +60,28 @@ const FinanceDashboard = () => {
     else if (preset === "ytd") { setFrom(`${today.getFullYear()}-01-01`); setTo(todayIso()); }
   };
 
-  // Fonte unificada do período: cada linha carrega `real` (recebido/pago = reconciled/settled),
-  // `projected` (não é linha realizada), `synthetic` (ocorrência de recorrência, sem linha no banco)
-  // e dados p/ marcar recebido. Previsto = tudo; Real = só o marcado.
-  const isSynthetic = (id: string) => id.includes("-future-") || /-r\d+$/.test(id);
-  const periodSource = useMemo(() => {
-    const realized = dashboardTransactions.map((t) => ({
-      id: t.id, date: effectiveDate(t), type: t.type, amount: Number(t.amount), category: t.category || null,
-      description: t.description, sourceId: t.source_id || t.id, accountId: t.finance_account_id || null,
-      sourceType: "transaction" as string, real: t.status === "reconciled" || !!t.settled_at,
-      synthetic: isSynthetic(String(t.id)), projected: false,
-    }));
-    // Dedup pelo ID EXATO do evento: ocorrências futuras de recorrência (id "${tx.id}-future-N")
-    // contam em cada mês; transações realizadas que reapareceriam (mesmo id) seguem suprimidas.
-    const seenIds = new Set(realized.map((r) => r.id));
-    const scheduled = (allEvents || [])
-      .filter((e) => (e.kind === "income" || e.kind === "expense") && !e.isScenario && !seenIds.has(e.id))
-      .map((e) => ({
-        id: e.id, date: String(e.date).slice(0, 10), type: e.kind as "income" | "expense", amount: Number(e.amount),
-        category: e.category || null, description: e.description, sourceId: e.sourceId || null, accountId: e.accountId || null,
-        sourceType: e.sourceType as string, real: e.status === "reconciled", synthetic: isSynthetic(String(e.id)), projected: true,
-      }));
-    // Dedup por (origem, data, tipo): evita contar 2x quando uma ocorrência recorrente é
-    // materializada (a projeção segue gerando a mesma). Preferimos a linha real/não-sintética.
-    const merged = new Map<string, (typeof realized)[number]>();
-    const standalone: (typeof realized)[number][] = [];
-    const score = (r: { real: boolean; synthetic: boolean }) => (r.real ? 2 : 0) + (r.synthetic ? 0 : 1);
-    for (const row of [...realized, ...scheduled]) {
-      if (!row.sourceId) { standalone.push(row); continue; }
-      const key = `${row.sourceId}|${row.date}|${row.type}`;
-      const existing = merged.get(key);
-      if (!existing || score(row) > score(existing)) merged.set(key, row);
-    }
-    return [...standalone, ...merged.values()];
-  }, [dashboardTransactions, allEvents]);
+  // Universo unificado (realizado + previsto), fonte única compartilhada com a aba Médias.
+  const periodSource = useMemo(() => buildPeriodSource(dashboardTransactions, allEvents), [dashboardTransactions, allEvents]);
 
   const filtered = useMemo(() => periodSource.filter((t) => t.date >= from && t.date <= to), [periodSource, from, to]);
 
-  // Previsto = tudo no período; Real = só o recebido/pago (marcado).
-  const totalIncome = useMemo(() => filtered.filter(t => t.type === "income").reduce((a, t) => a + Number(t.amount), 0), [filtered]);
-  const totalExpense = useMemo(() => filtered.filter(t => t.type === "expense").reduce((a, t) => a + Number(t.amount), 0), [filtered]);
-  const balance = totalIncome - totalExpense;
-  const realIncome = useMemo(() => filtered.filter(t => t.type === "income" && t.real).reduce((a, t) => a + Number(t.amount), 0), [filtered]);
-  const realExpense = useMemo(() => filtered.filter(t => t.type === "expense" && t.real).reduce((a, t) => a + Number(t.amount), 0), [filtered]);
-  // Saldo inicial = acumulado recebido/pago ANTES do mês (o que sobrou dos meses anteriores).
+  // Previsto = tudo no período; Real = realizado (já aconteceu).
+  const previstoIncome = useMemo(() => filtered.filter(t => t.type === "income").reduce((a, t) => a + t.amount, 0), [filtered]);
+  const previstoExpense = useMemo(() => filtered.filter(t => t.type === "expense").reduce((a, t) => a + t.amount, 0), [filtered]);
+  const realIncome = useMemo(() => filtered.filter(t => t.type === "income" && t.real).reduce((a, t) => a + t.amount, 0), [filtered]);
+  const realExpense = useMemo(() => filtered.filter(t => t.type === "expense" && t.real).reduce((a, t) => a + t.amount, 0), [filtered]);
+  // Saldo inicial = acumulado REALIZADO antes do mês (o que sobrou dos meses anteriores).
   const saldoInicial = useMemo(
-    () => periodSource.filter(t => t.real && t.date < from).reduce((a, t) => a + (t.type === "income" ? Number(t.amount) : -Number(t.amount)), 0),
+    () => periodSource.filter(t => t.real && t.date < from).reduce((a, t) => a + (t.type === "income" ? t.amount : -t.amount), 0),
     [periodSource, from],
   );
   const saldoRealHoje = saldoInicial + realIncome - realExpense;
-  const saldoPrevistoFimMes = saldoInicial + totalIncome - totalExpense;
+  const disponivelPrevisto = saldoInicial + previstoIncome;              // inicial + entradas previstas (sem tirar saídas)
+  const saldoProjetadoFim = saldoInicial + previstoIncome - previstoExpense;
+  // Aliases mantidos p/ export/gráficos que já usavam estes nomes (= previsto do período).
+  const totalIncome = previstoIncome;
+  const totalExpense = previstoExpense;
+  const balance = previstoIncome - previstoExpense;
 
   // Previstos do mês ainda não marcados como recebidos/pagos (só transações/recorrências, marcáveis).
   const pendingReceber = useMemo(() => filtered.filter(t => !t.real && t.type === "income" && t.sourceType === "transaction").sort((a, b) => a.date.localeCompare(b.date)), [filtered]);
@@ -276,7 +248,7 @@ const FinanceDashboard = () => {
             { label: "Saldo inicial", primary: "mês anterior", value: fmtCurrency(saldoInicial), sub: null, icon: Wallet, iconColor: "text-primary", iconBg: "bg-primary/10", border: "border-primary/20", valueColor: saldoInicial >= 0 ? "" : "text-destructive" },
             { label: "Entradas", primary: "reais", value: fmtCurrency(realIncome), sub: `Prevista ${fmtCurrency(totalIncome)}`, icon: ArrowUpRight, iconColor: "text-emerald-400", iconBg: "bg-emerald-500/10", border: "border-emerald-500/20", valueColor: "" },
             { label: "Saídas", primary: "reais", value: fmtCurrency(realExpense), sub: `Prevista ${fmtCurrency(totalExpense)}`, icon: ArrowDownRight, iconColor: "text-destructive", iconBg: "bg-destructive/10", border: "border-destructive/20", valueColor: "" },
-            { label: "Saldo", primary: "real hoje", value: fmtCurrency(saldoRealHoje), sub: `Previsto fim do mês ${fmtCurrency(saldoPrevistoFimMes)}`, icon: DollarSign, iconColor: saldoRealHoje >= 0 ? "text-emerald-400" : "text-destructive", iconBg: saldoRealHoje >= 0 ? "bg-emerald-500/10" : "bg-destructive/10", border: saldoRealHoje >= 0 ? "border-emerald-500/20" : "border-destructive/20", valueColor: saldoRealHoje >= 0 ? "" : "text-destructive" },
+            { label: "Saldo", primary: "real hoje", value: fmtCurrency(saldoRealHoje), sub: `Disponível previsto ${fmtCurrency(disponivelPrevisto)}`, icon: DollarSign, iconColor: saldoRealHoje >= 0 ? "text-emerald-400" : "text-destructive", iconBg: saldoRealHoje >= 0 ? "bg-emerald-500/10" : "bg-destructive/10", border: saldoRealHoje >= 0 ? "border-emerald-500/20" : "border-destructive/20", valueColor: saldoRealHoje >= 0 ? "" : "text-destructive" },
           ].map((s, i) => (
             <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
               <Card className={cn("border transition-all duration-300 hover:scale-[1.02]", s.border)}>
@@ -292,6 +264,38 @@ const FinanceDashboard = () => {
             </motion.div>
           ))}
         </div>
+
+        {/* Resumo do mês — a conta aberta, pra todo número se somar */}
+        <Card className="border border-border/50 bg-card/60">
+          <CardContent className="p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-sm">
+                <span className="text-muted-foreground">Saldo inicial</span>
+                <span className={cn("font-semibold", saldoInicial >= 0 ? "text-emerald-400" : "text-destructive")}>{saldoInicial >= 0 ? "+" : "−"}{fmtCurrency(Math.abs(saldoInicial))}</span>
+                <span className="text-muted-foreground">+ Entradas previstas</span>
+                <span className="font-semibold text-emerald-400">{fmtCurrency(previstoIncome)}</span>
+                <span className="text-[10px] text-muted-foreground">(reais {fmtCurrency(realIncome)})</span>
+                <span className="text-muted-foreground">− Saídas previstas</span>
+                <span className="font-semibold text-destructive">{fmtCurrency(previstoExpense)}</span>
+                <span className="text-[10px] text-muted-foreground">(reais {fmtCurrency(realExpense)})</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-1.5">
+                  <p className="text-[10px] text-muted-foreground">Disponível (inicial + entradas)</p>
+                  <p className="font-mono font-bold text-emerald-400">{fmtCurrency(disponivelPrevisto)}</p>
+                </div>
+                <div className="rounded-lg border border-border/50 px-3 py-1.5">
+                  <p className="text-[10px] text-muted-foreground">Saldo projetado (fim do mês)</p>
+                  <p className={cn("font-mono font-bold", saldoProjetadoFim >= 0 ? "" : "text-destructive")}>{fmtCurrency(saldoProjetadoFim)}</p>
+                </div>
+                <div className="rounded-lg border border-border/50 px-3 py-1.5">
+                  <p className="text-[10px] text-muted-foreground">Saldo real (hoje)</p>
+                  <p className={cn("font-mono font-bold", saldoRealHoje >= 0 ? "" : "text-destructive")}>{fmtCurrency(saldoRealHoje)}</p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card className="border border-primary/20 bg-card/80">
           <CardHeader className="pb-2">

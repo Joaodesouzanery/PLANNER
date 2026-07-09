@@ -80,6 +80,57 @@ export const formatDateBR = (date: string) => {
 /** Data efetiva de um lançamento (vencimento quando houver), p/ agrupar por mês de forma consistente entre as abas. */
 export const effectiveDate = (t: { date: string; due_date?: string | null }) => String(t.due_date || t.date).slice(0, 10);
 
+/** "Realizado" = já aconteceu: não é planejado E a data efetiva já chegou. Fonte única da verdade. */
+export const isRealized = (
+  t: { status?: string | null; date: string; due_date?: string | null },
+  today: string = new Date().toISOString().slice(0, 10),
+) => t.status !== "planned" && effectiveDate(t) <= today;
+
+const isSyntheticId = (id: string) => id.includes("-future-") || /-r\d+$/.test(id);
+
+export interface PeriodRow {
+  id: string; date: string; type: "income" | "expense"; amount: number;
+  category: string | null; description: string; sourceId: string | null;
+  accountId: string | null; sourceType: string;
+  real: boolean; projected: boolean; synthetic: boolean;
+}
+
+/**
+ * Universo unificado do fluxo: realizado (dashboardTransactions) + previsto (allEvents),
+ * cada linha com `real` (realizado ou marcado), `projected` (previsto), `synthetic` (ocorrência
+ * de recorrência sem linha no banco). Dedup por (origem,data,tipo) preferindo real/não-sintético
+ * (evita contar 2x quando uma recorrência é materializada). Exclui cenários. Usado por Dashboard e Médias.
+ */
+export const buildPeriodSource = (dashboardTransactions: any[], allEvents: any[]): PeriodRow[] => {
+  const realized: PeriodRow[] = dashboardTransactions
+    .filter((t) => t.type === "income" || t.type === "expense")
+    .map((t) => ({
+      id: String(t.id), date: effectiveDate(t), type: t.type, amount: Number(t.amount),
+      category: t.category || null, description: t.description, sourceId: t.source_id || String(t.id),
+      accountId: t.finance_account_id || null, sourceType: "transaction",
+      real: true, projected: false, synthetic: isSyntheticId(String(t.id)),
+    }));
+  const seenIds = new Set(realized.map((r) => r.id));
+  const scheduled: PeriodRow[] = (allEvents || [])
+    .filter((e) => (e.kind === "income" || e.kind === "expense") && !e.isScenario && !seenIds.has(e.id))
+    .map((e) => ({
+      id: String(e.id), date: String(e.date).slice(0, 10), type: e.kind, amount: Number(e.amount),
+      category: e.category || null, description: e.description, sourceId: e.sourceId || null,
+      accountId: e.accountId || null, sourceType: e.sourceType,
+      real: e.status === "reconciled", projected: true, synthetic: isSyntheticId(String(e.id)),
+    }));
+  const score = (r: PeriodRow) => (r.real ? 2 : 0) + (r.synthetic ? 0 : 1);
+  const merged = new Map<string, PeriodRow>();
+  const standalone: PeriodRow[] = [];
+  for (const row of [...realized, ...scheduled]) {
+    if (!row.sourceId) { standalone.push(row); continue; }
+    const key = `${row.sourceId}|${row.date}|${row.type}`;
+    const existing = merged.get(key);
+    if (!existing || score(row) > score(existing)) merged.set(key, row);
+  }
+  return [...standalone, ...merged.values()];
+};
+
 const isMissingTableError = (error: any) =>
   error?.code === "42P01" ||
   error?.code === "PGRST205" ||
@@ -415,12 +466,19 @@ export const useFinanceData = (options?: { historyWindow?: number }) => {
   });
 
   const dashboardTransactions = useMemo(() => {
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-    return transactions.filter((t) => {
-      const date = parseDateOnly(t.date);
-      return t.status !== "planned" && (date ? date <= today : false);
-    });
+    // Realizado = já aconteceu (membership por effectiveDate, casando com o agrupamento das abas).
+    const today = format(new Date(), "yyyy-MM-dd");
+    const realized = transactions.filter((t) => isRealized(t, today));
+    // Dedup por (origem,data,tipo): o real materializado vence a ocorrência sintética (-rN) da mesma
+    // recorrência (senão o mês contaria 2x depois de "Recebi/Paguei").
+    const merged = new Map<string, Transaction>();
+    for (const t of realized) {
+      const key = `${t.source_id || t.id}|${effectiveDate(t)}|${t.type}`;
+      const existing = merged.get(key);
+      const better = !existing || (!t.is_projected && existing.is_projected);
+      if (better) merged.set(key, t);
+    }
+    return Array.from(merged.values());
   }, [transactions]);
 
   const totalIncome = useMemo(() => dashboardTransactions.filter(t => t.type === "income").reduce((a, t) => a + Number(t.amount), 0), [dashboardTransactions]);
@@ -486,7 +544,17 @@ export const useFinanceData = (options?: { historyWindow?: number }) => {
   const projectionData = projection.rows;
   const projectionBreakdown: ProjectionBreakdown = projection.breakdown;
 
-  const capitalEvolution = useMemo(() => { let running = 0; return monthlyData.map(m => { running += m.balance; return { month: m.month, capital: running }; }); }, [monthlyData]);
+  const capitalEvolution = useMemo(() => {
+    // Semeia com o realizado acumulado ANTES da janela, p/ a curva refletir o capital real.
+    const totalMonths = Math.max(12, historyWindow);
+    const windowStart = `${format(subMonths(new Date(), totalMonths - 1), "yyyy-MM")}-01`;
+    const seed = dashboardTransactions.reduce(
+      (acc, t) => (effectiveDate(t) < windowStart ? acc + (t.type === "income" ? Number(t.amount) : -Number(t.amount)) : acc),
+      0,
+    );
+    let running = seed;
+    return monthlyData.map(m => { running += m.balance; return { month: m.month, capital: running }; });
+  }, [monthlyData, dashboardTransactions, historyWindow]);
 
   const currentMonthPlanSummary = useMemo(() => {
     const now = new Date();

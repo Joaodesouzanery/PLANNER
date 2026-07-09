@@ -9,7 +9,7 @@ import { differenceInCalendarDays, differenceInCalendarMonths, format, startOfMo
 import { ptBR } from "date-fns/locale";
 import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { DateRangeFilter } from "@/components/ems/DateRangeFilter";
-import { fmtCurrency, effectiveDate, tooltipStyle } from "./useFinanceData";
+import { fmtCurrency, effectiveDate, tooltipStyle, buildPeriodSource } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
 import { exportTablePdf } from "@/lib/exportPdf";
 import { toast } from "sonner";
@@ -77,30 +77,30 @@ const FinanceAverages = () => {
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const month = selectedMonth || availableMonths[0] || format(new Date(), "yyyy-MM");
 
+  // Mesma fonte unificada do Dashboard (realizado + previsto, dedup, sem cenários).
+  const periodSource = useMemo(() => buildPeriodSource(dashboardTransactions, allEvents), [dashboardTransactions, allEvents]);
+
   const monthDetail = useMemo(() => {
     const [y, m] = month.split("-").map(Number);
-    const todayStr = format(new Date(), "yyyy-MM-dd");
-    // Realizado (por vencimento) + previsto do mês (recorrências/planejados ainda-não-vencidos).
-    const realized = dashboardTransactions.filter(t => effectiveDate(t).slice(0, 7) === month);
-    const seen = new Set(dashboardTransactions.map(t => t.id));
-    const future = (allEvents || []).filter(e => (e.kind === "income" || e.kind === "expense") && String(e.date).slice(0, 7) === month && e.date > todayStr && !seen.has(e.id));
-    const income = realized.filter(t => t.type === "income").reduce((a, t) => a + Number(t.amount), 0) + future.filter(e => e.kind === "income").reduce((a, e) => a + Number(e.amount), 0);
-    const expense = realized.filter(t => t.type === "expense").reduce((a, t) => a + Number(t.amount), 0) + future.filter(e => e.kind === "expense").reduce((a, e) => a + Number(e.amount), 0);
+    const rows = periodSource.filter(t => t.date.slice(0, 7) === month);
+    const income = rows.filter(t => t.type === "income").reduce((a, t) => a + t.amount, 0);
+    const expense = rows.filter(t => t.type === "expense").reduce((a, t) => a + t.amount, 0);
+    const realIncome = rows.filter(t => t.type === "income" && t.real).reduce((a, t) => a + t.amount, 0);
+    const realExpense = rows.filter(t => t.type === "expense" && t.real).reduce((a, t) => a + t.amount, 0);
     const planIds = monthlyPlans.filter((p) => p.month === m && p.year === y).map((p) => p.id);
     const items = planItems.filter((item) => planIds.includes(item.plan_id) && item.status !== "skipped");
     const plannedIncome = items.filter((i) => i.type === "income").reduce((s, i) => s + Number(i.amount), 0);
     const plannedExpense = items.filter((i) => i.type === "expense").reduce((s, i) => s + Number(i.amount), 0);
     const catMap: Record<string, number> = {};
-    realized.filter(t => t.type === "expense").forEach(t => { const c = t.category || "Sem categoria"; catMap[c] = (catMap[c] || 0) + Number(t.amount); });
-    future.filter(e => e.kind === "expense").forEach(e => { const c = e.category || "Sem categoria"; catMap[c] = (catMap[c] || 0) + Number(e.amount); });
+    rows.filter(t => t.type === "expense").forEach(t => { const c = t.category || "Sem categoria"; catMap[c] = (catMap[c] || 0) + t.amount; });
     const byCat = Object.entries(catMap).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
     return {
-      count: realized.length + future.length, income, expense, balance: income - expense,
+      count: rows.length, income, expense, balance: income - expense, realIncome, realExpense,
       plannedIncome, plannedExpense, plannedBalance: plannedIncome - plannedExpense,
       variance: (income - expense) - (plannedIncome - plannedExpense),
       byCat,
     };
-  }, [month, dashboardTransactions, allEvents, monthlyPlans, planItems]);
+  }, [month, periodSource, monthlyPlans, planItems]);
 
   const goMonth = (delta: number) => {
     const target = addMonths(new Date(`${from}T00:00:00`), delta);
