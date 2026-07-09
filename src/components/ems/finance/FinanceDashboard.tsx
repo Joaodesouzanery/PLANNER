@@ -65,14 +65,14 @@ const FinanceDashboard = () => {
 
   const filtered = useMemo(() => periodSource.filter((t) => t.date >= from && t.date <= to), [periodSource, from, to]);
 
-  // Previsto = tudo no período; Real = realizado (já aconteceu).
+  // Previsto = tudo no período; Real = pago/recebido (o dinheiro moveu).
   const previstoIncome = useMemo(() => filtered.filter(t => t.type === "income").reduce((a, t) => a + t.amount, 0), [filtered]);
   const previstoExpense = useMemo(() => filtered.filter(t => t.type === "expense").reduce((a, t) => a + t.amount, 0), [filtered]);
-  const realIncome = useMemo(() => filtered.filter(t => t.type === "income" && t.real).reduce((a, t) => a + t.amount, 0), [filtered]);
-  const realExpense = useMemo(() => filtered.filter(t => t.type === "expense" && t.real).reduce((a, t) => a + t.amount, 0), [filtered]);
-  // Saldo inicial = acumulado REALIZADO antes do mês (o que sobrou dos meses anteriores).
+  const realIncome = useMemo(() => filtered.filter(t => t.type === "income" && t.paid).reduce((a, t) => a + t.amount, 0), [filtered]);
+  const realExpense = useMemo(() => filtered.filter(t => t.type === "expense" && t.paid).reduce((a, t) => a + t.amount, 0), [filtered]);
+  // Saldo inicial = acumulado do que JÁ ACONTECEU antes do mês (o que sobrou; conta Lançado + Recebido).
   const saldoInicial = useMemo(
-    () => periodSource.filter(t => t.real && t.date < from).reduce((a, t) => a + (t.type === "income" ? t.amount : -t.amount), 0),
+    () => periodSource.filter(t => t.realized && t.date < from).reduce((a, t) => a + (t.type === "income" ? t.amount : -t.amount), 0),
     [periodSource, from],
   );
   const saldoRealHoje = saldoInicial + realIncome - realExpense;
@@ -82,10 +82,12 @@ const FinanceDashboard = () => {
   const totalIncome = previstoIncome;
   const totalExpense = previstoExpense;
   const balance = previstoIncome - previstoExpense;
+  const pctRecebido = previstoIncome > 0 ? Math.round((realIncome / previstoIncome) * 100) : 0;
+  const pctPago = previstoExpense > 0 ? Math.round((realExpense / previstoExpense) * 100) : 0;
 
-  // Previstos do mês ainda não marcados como recebidos/pagos (só transações/recorrências, marcáveis).
-  const pendingReceber = useMemo(() => filtered.filter(t => !t.real && t.type === "income" && t.sourceType === "transaction").sort((a, b) => a.date.localeCompare(b.date)), [filtered]);
-  const pendingPagar = useMemo(() => filtered.filter(t => !t.real && t.type === "expense" && t.sourceType === "transaction").sort((a, b) => a.date.localeCompare(b.date)), [filtered]);
+  // Previstos do mês ainda não recebidos/pagos (só transações/recorrências, marcáveis num clique).
+  const pendingReceber = useMemo(() => filtered.filter(t => !t.paid && t.type === "income" && t.sourceType === "transaction").sort((a, b) => a.date.localeCompare(b.date)), [filtered]);
+  const pendingPagar = useMemo(() => filtered.filter(t => !t.paid && t.type === "expense" && t.sourceType === "transaction").sort((a, b) => a.date.localeCompare(b.date)), [filtered]);
   const markReceived = (row: typeof filtered[number]) => {
     if (row.synthetic || !row.id) {
       materializeReceived.mutate({ sourceId: row.sourceId, date: row.date, amount: row.amount, kind: row.type, description: row.description, category: row.category, accountId: row.accountId });
@@ -178,7 +180,7 @@ const FinanceDashboard = () => {
         { heading: "Mês a mês (período)", head: [["Mês", "Entradas", "Saídas", "Saldo"]], body: monthlyData.length ? monthlyData.map((m) => [m.month, money(m.income), money(m.expense), money(m.balance)]) : [["—", "—", "—", "—"]] },
         { heading: "Falta pagar (45 dias)", head: [["Vencimento", "Descrição", "Valor"]], body: upcomingPayables.length ? upcomingPayables.map((p) => [formatDateBR(p.dueDate), p.description, money(p.amount)]) : [["—", "—", "—"]] },
         { heading: "Projeção (3 meses)", head: [["Mês", "Entradas", "Saídas", "Saldo", "Tipo"]], body: projectionData.map((p) => [p.month, money(p.income), money(p.expense), money(p.balance), p.projected ? "Projetado" : "Realizado"]) },
-        { heading: `Transações do período (${filtered.length})`, head: [["Data", "Tipo", "Categoria", "Situação", "Valor"]], body: [...filtered].sort((a, b) => String(b.date).localeCompare(String(a.date))).map((t) => [formatDateBR(t.date), t.type === "income" ? "Entrada" : "Saída", t.category || "-", t.real ? "Real" : "Prevista", money(t.amount)]) },
+        { heading: `Transações do período (${filtered.length})`, head: [["Data", "Tipo", "Categoria", "Situação", "Valor"]], body: [...filtered].sort((a, b) => String(b.date).localeCompare(String(a.date))).map((t) => [formatDateBR(t.date), t.type === "income" ? "Entrada" : "Saída", t.category || "-", t.paid ? "Real" : "Prevista", money(t.amount)]) },
       ];
 
       await exportTablePdf({
@@ -237,8 +239,8 @@ const FinanceDashboard = () => {
               <RotateCcw className="h-3.5 w-3.5 mr-1" /> Limpar filtro
             </Button>
             <div className="ml-auto flex items-center gap-1.5">
-              <Badge variant="outline" className="text-xs">{filtered.filter(f => f.real).length} reais</Badge>
-              {filtered.some(f => !f.real) && <Badge variant="secondary" className="text-xs">{filtered.filter(f => !f.real).length} previstas</Badge>}
+              <Badge variant="outline" className="text-xs">{filtered.filter(f => f.paid).length} reais</Badge>
+              {filtered.some(f => !f.paid) && <Badge variant="secondary" className="text-xs">{filtered.filter(f => !f.paid).length} previstas</Badge>}
             </div>
           </CardContent>
         </Card>
@@ -246,8 +248,8 @@ const FinanceDashboard = () => {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: "Saldo inicial", primary: "mês anterior", value: fmtCurrency(saldoInicial), sub: null, icon: Wallet, iconColor: "text-primary", iconBg: "bg-primary/10", border: "border-primary/20", valueColor: saldoInicial >= 0 ? "" : "text-destructive" },
-            { label: "Entradas", primary: "reais", value: fmtCurrency(realIncome), sub: `Prevista ${fmtCurrency(totalIncome)}`, icon: ArrowUpRight, iconColor: "text-emerald-400", iconBg: "bg-emerald-500/10", border: "border-emerald-500/20", valueColor: "" },
-            { label: "Saídas", primary: "reais", value: fmtCurrency(realExpense), sub: `Prevista ${fmtCurrency(totalExpense)}`, icon: ArrowDownRight, iconColor: "text-destructive", iconBg: "bg-destructive/10", border: "border-destructive/20", valueColor: "" },
+            { label: "Entradas", primary: "reais", value: fmtCurrency(realIncome), sub: `${pctRecebido}% recebido · Prevista ${fmtCurrency(totalIncome)}`, icon: ArrowUpRight, iconColor: "text-emerald-400", iconBg: "bg-emerald-500/10", border: "border-emerald-500/20", valueColor: "" },
+            { label: "Saídas", primary: "reais", value: fmtCurrency(realExpense), sub: `${pctPago}% pago · Prevista ${fmtCurrency(totalExpense)}`, icon: ArrowDownRight, iconColor: "text-destructive", iconBg: "bg-destructive/10", border: "border-destructive/20", valueColor: "" },
             { label: "Saldo", primary: "real hoje", value: fmtCurrency(saldoRealHoje), sub: `Disponível previsto ${fmtCurrency(disponivelPrevisto)}`, icon: DollarSign, iconColor: saldoRealHoje >= 0 ? "text-emerald-400" : "text-destructive", iconBg: saldoRealHoje >= 0 ? "bg-emerald-500/10" : "bg-destructive/10", border: saldoRealHoje >= 0 ? "border-emerald-500/20" : "border-destructive/20", valueColor: saldoRealHoje >= 0 ? "" : "text-destructive" },
           ].map((s, i) => (
             <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
@@ -292,6 +294,17 @@ const FinanceDashboard = () => {
                   <p className="text-[10px] text-muted-foreground">Saldo real (hoje)</p>
                   <p className={cn("font-mono font-bold", saldoRealHoje >= 0 ? "" : "text-destructive")}>{fmtCurrency(saldoRealHoje)}</p>
                 </div>
+              </div>
+            </div>
+            {/* Progresso: quanto do previsto já virou real */}
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <div>
+                <div className="mb-1 flex items-center justify-between text-[11px]"><span className="text-muted-foreground">Recebido do previsto</span><span className="font-medium text-emerald-400">{pctRecebido}%</span></div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-emerald-400" style={{ width: `${Math.min(100, pctRecebido)}%` }} /></div>
+              </div>
+              <div>
+                <div className="mb-1 flex items-center justify-between text-[11px]"><span className="text-muted-foreground">Pago do previsto</span><span className="font-medium text-destructive">{pctPago}%</span></div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-destructive" style={{ width: `${Math.min(100, pctPago)}%` }} /></div>
               </div>
             </div>
           </CardContent>

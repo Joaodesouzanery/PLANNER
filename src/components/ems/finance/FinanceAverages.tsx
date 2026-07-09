@@ -85,8 +85,8 @@ const FinanceAverages = () => {
     const rows = periodSource.filter(t => t.date.slice(0, 7) === month);
     const income = rows.filter(t => t.type === "income").reduce((a, t) => a + t.amount, 0);
     const expense = rows.filter(t => t.type === "expense").reduce((a, t) => a + t.amount, 0);
-    const realIncome = rows.filter(t => t.type === "income" && t.real).reduce((a, t) => a + t.amount, 0);
-    const realExpense = rows.filter(t => t.type === "expense" && t.real).reduce((a, t) => a + t.amount, 0);
+    const realIncome = rows.filter(t => t.type === "income" && t.paid).reduce((a, t) => a + t.amount, 0);
+    const realExpense = rows.filter(t => t.type === "expense" && t.paid).reduce((a, t) => a + t.amount, 0);
     const planIds = monthlyPlans.filter((p) => p.month === m && p.year === y).map((p) => p.id);
     const items = planItems.filter((item) => planIds.includes(item.plan_id) && item.status !== "skipped");
     const plannedIncome = items.filter((i) => i.type === "income").reduce((s, i) => s + Number(i.amount), 0);

@@ -92,14 +92,18 @@ export interface PeriodRow {
   id: string; date: string; type: "income" | "expense"; amount: number;
   category: string | null; description: string; sourceId: string | null;
   accountId: string | null; sourceType: string;
-  real: boolean; projected: boolean; synthetic: boolean;
+  paid: boolean;       // Recebido/Pago (o dinheiro moveu) = REAL
+  realized: boolean;   // já aconteceu (não-planejado & data passou) = base do saldo inicial (carry)
+  projected: boolean;  // não é linha realizada (previsto)
+  synthetic: boolean;  // ocorrência de recorrência (sem linha no banco)
 }
 
 /**
- * Universo unificado do fluxo: realizado (dashboardTransactions) + previsto (allEvents),
- * cada linha com `real` (realizado ou marcado), `projected` (previsto), `synthetic` (ocorrência
- * de recorrência sem linha no banco). Dedup por (origem,data,tipo) preferindo real/não-sintético
- * (evita contar 2x quando uma recorrência é materializada). Exclui cenários. Usado por Dashboard e Médias.
+ * Universo unificado do fluxo: realizado (dashboardTransactions) + previsto (allEvents).
+ * `paid` = Recebido/Pago (dinheiro moveu → conta como REAL). `realized` = já aconteceu
+ * (base do saldo inicial / carry). `projected` = previsto. Dedup por (origem,data,tipo)
+ * preferindo pago > realizado > não-sintético (evita contar 2x recorrência materializada).
+ * Exclui cenários. Usado por Dashboard e Médias.
  */
 export const buildPeriodSource = (dashboardTransactions: any[], allEvents: any[]): PeriodRow[] => {
   const realized: PeriodRow[] = dashboardTransactions
@@ -108,7 +112,7 @@ export const buildPeriodSource = (dashboardTransactions: any[], allEvents: any[]
       id: String(t.id), date: effectiveDate(t), type: t.type, amount: Number(t.amount),
       category: t.category || null, description: t.description, sourceId: t.source_id || String(t.id),
       accountId: t.finance_account_id || null, sourceType: "transaction",
-      real: true, projected: false, synthetic: isSyntheticId(String(t.id)),
+      paid: t.status === "reconciled" || !!t.settled_at, realized: true, projected: false, synthetic: isSyntheticId(String(t.id)),
     }));
   const seenIds = new Set(realized.map((r) => r.id));
   const scheduled: PeriodRow[] = (allEvents || [])
@@ -117,9 +121,9 @@ export const buildPeriodSource = (dashboardTransactions: any[], allEvents: any[]
       id: String(e.id), date: String(e.date).slice(0, 10), type: e.kind, amount: Number(e.amount),
       category: e.category || null, description: e.description, sourceId: e.sourceId || null,
       accountId: e.accountId || null, sourceType: e.sourceType,
-      real: e.status === "reconciled", projected: true, synthetic: isSyntheticId(String(e.id)),
+      paid: e.status === "reconciled", realized: false, projected: true, synthetic: isSyntheticId(String(e.id)),
     }));
-  const score = (r: PeriodRow) => (r.real ? 2 : 0) + (r.synthetic ? 0 : 1);
+  const score = (r: PeriodRow) => (r.paid ? 4 : 0) + (r.realized ? 2 : 0) + (r.synthetic ? 0 : 1);
   const merged = new Map<string, PeriodRow>();
   const standalone: PeriodRow[] = [];
   for (const row of [...realized, ...scheduled]) {

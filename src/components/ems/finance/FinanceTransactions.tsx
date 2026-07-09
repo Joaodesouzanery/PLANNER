@@ -51,6 +51,7 @@ const FinanceTransactions = () => {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [filterCategory, setFilterCategory] = useState("");
   const [filterType, setFilterType] = useState("");
+  const [filterSituacao, setFilterSituacao] = useState<"all" | "real" | "previsto">("all");
   const [from, setFrom] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
   const [to, setTo] = useState(format(endOfMonth(new Date()), "yyyy-MM-dd"));
   const [form, setForm] = useState(emptyForm());
@@ -80,10 +81,21 @@ const FinanceTransactions = () => {
     return true;
   }), [rawTransactions, filterCategory, filterType]);
 
-  const filteredTransactions = useMemo(() => baseFiltered.filter(t => {
+  const periodRows = useMemo(() => baseFiltered.filter(t => {
     const d = effectiveDate(t);
     return d >= from && d <= to;
   }), [baseFiltered, from, to]);
+
+  const filteredTransactions = useMemo(() => periodRows.filter(t =>
+    filterSituacao === "all" ? true : filterSituacao === "real" ? isPaid(t) : !isPaid(t)
+  ), [periodRows, filterSituacao]);
+
+  // Resumo do período: real (Recebido/Pago) x previsto (A receber/A pagar).
+  const periodSummary = useMemo(() => {
+    const sum = (type: "income" | "expense", paid: boolean) =>
+      periodRows.filter(t => t.type === type && isPaid(t) === paid).reduce((s, t) => s + Number(t.amount), 0);
+    return { recebido: sum("income", true), aReceber: sum("income", false), pago: sum("expense", true), aPagar: sum("expense", false) };
+  }, [periodRows]);
 
   // Agrupamento mes a mes (usa vencimento quando houver), inclui meses futuros (planned).
   const monthGroups = useMemo(() => {
@@ -185,6 +197,7 @@ const FinanceTransactions = () => {
           <CardContent className="p-3 flex flex-wrap items-center gap-2">
             <Select value={filterType || "all"} onValueChange={v => setFilterType(v === "all" ? "" : v)}><SelectTrigger className="w-[130px] h-9 rounded-xl bg-card/50 border-border/50 text-xs"><SelectValue placeholder="Tipo" /></SelectTrigger><SelectContent><SelectItem value="all">Todos os tipos</SelectItem><SelectItem value="income">Entradas</SelectItem><SelectItem value="expense">Saídas</SelectItem></SelectContent></Select>
             <Select value={filterCategory || "all"} onValueChange={v => setFilterCategory(v === "all" ? "" : v)}><SelectTrigger className="w-[150px] h-9 rounded-xl bg-card/50 border-border/50 text-xs"><SelectValue placeholder="Categoria" /></SelectTrigger><SelectContent><SelectItem value="all">Todas categorias</SelectItem>{allCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
+            <Select value={filterSituacao} onValueChange={v => setFilterSituacao(v as "all" | "real" | "previsto")}><SelectTrigger className="w-[140px] h-9 rounded-xl bg-card/50 border-border/50 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todas situações</SelectItem><SelectItem value="real">Real (recebido/pago)</SelectItem><SelectItem value="previsto">Previsto (a receber/pagar)</SelectItem></SelectContent></Select>
             <div className="hidden sm:flex items-center gap-2 ml-auto">
               <span className="text-xs text-muted-foreground">Período:</span>
               <div className="flex items-center gap-1">
@@ -214,7 +227,22 @@ const FinanceTransactions = () => {
         </Card>
 
         {/* ---- LISTA ---- */}
-        <TabsContent value="lista" className="mt-0">
+        <TabsContent value="lista" className="mt-0 space-y-3">
+          {/* Resumo do período: real x previsto */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+            {[
+              { label: "Recebido", hint: "entrou de verdade", value: periodSummary.recebido, color: "text-emerald-400", border: "border-emerald-500/25", filter: "real" as const },
+              { label: "A receber", hint: "previsto", value: periodSummary.aReceber, color: "text-emerald-400/70", border: "border-emerald-500/15 border-dashed", filter: "previsto" as const },
+              { label: "Pago", hint: "saiu de verdade", value: periodSummary.pago, color: "text-destructive", border: "border-destructive/25", filter: "real" as const },
+              { label: "A pagar", hint: "previsto", value: periodSummary.aPagar, color: "text-destructive/70", border: "border-destructive/15 border-dashed", filter: "previsto" as const },
+            ].map((s) => (
+              <button key={s.label} onClick={() => setFilterSituacao(s.filter)} className={cn("rounded-xl border bg-card/60 p-3 text-left transition-colors hover:bg-muted/40", s.border)}>
+                <p className="text-[11px] text-muted-foreground">{s.label} <span className="opacity-60">· {s.hint}</span></p>
+                <p className={cn("mt-0.5 font-mono text-base font-bold", s.color)}>{fmtCurrency(s.value)}</p>
+              </button>
+            ))}
+          </div>
+
           <Card className="border border-border/50 bg-card/80">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
