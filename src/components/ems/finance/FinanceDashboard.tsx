@@ -23,7 +23,7 @@ const defaultFrom = () => format(startOfMonth(new Date()), "yyyy-MM-dd");
 const defaultTo = () => format(endOfMonth(new Date()), "yyyy-MM-dd");
 
 const FinanceDashboard = () => {
-  const { dashboardTransactions, capitalEvolution, monthlyPlans, planItems, upcomingPayables, reconcileTransactionMutation, allEvents, transactionsUpdatedAt, projectionData } = useFinanceWorkspace();
+  const { dashboardTransactions, capitalEvolution, monthlyPlans, planItems, upcomingPayables, reconcileTransactionMutation, materializeReceived, allEvents, transactionsUpdatedAt, projectionData } = useFinanceWorkspace();
   const queryClient = useQueryClient();
   const [from, setFrom] = useState(defaultFrom());
   const [to, setTo] = useState(defaultTo());
@@ -60,28 +60,67 @@ const FinanceDashboard = () => {
     else if (preset === "ytd") { setFrom(`${today.getFullYear()}-01-01`); setTo(todayIso()); }
   };
 
-  // Fonte unificada: realizado (dashboardTransactions) + previsto (allEvents do workspace,
-  // que já inclui plan items, recorrências futuras e transações planejadas).
+  // Fonte unificada do período: cada linha carrega `real` (recebido/pago = reconciled/settled),
+  // `projected` (não é linha realizada), `synthetic` (ocorrência de recorrência, sem linha no banco)
+  // e dados p/ marcar recebido. Previsto = tudo; Real = só o marcado.
+  const isSynthetic = (id: string) => id.includes("-future-") || /-r\d+$/.test(id);
   const periodSource = useMemo(() => {
-    const today = todayIso();
     const realized = dashboardTransactions.map((t) => ({
-      id: t.id, date: effectiveDate(t), type: t.type, amount: Number(t.amount), category: t.category || null, projected: false,
+      id: t.id, date: effectiveDate(t), type: t.type, amount: Number(t.amount), category: t.category || null,
+      description: t.description, sourceId: t.source_id || t.id, accountId: t.finance_account_id || null,
+      sourceType: "transaction" as string, real: t.status === "reconciled" || !!t.settled_at,
+      synthetic: isSynthetic(String(t.id)), projected: false,
     }));
-    // Dedup pelo ID EXATO do evento (nao por sourceId): assim as ocorrencias
-    // futuras de uma recorrencia (id "${tx.id}-future-N") contam em cada mes,
-    // enquanto uma transacao realizada que reapareceria como evento (mesmo id)
-    // segue suprimida.
+    // Dedup pelo ID EXATO do evento: ocorrências futuras de recorrência (id "${tx.id}-future-N")
+    // contam em cada mês; transações realizadas que reapareceriam (mesmo id) seguem suprimidas.
     const seenIds = new Set(realized.map((r) => r.id));
-    const future = (allEvents || []).filter((e) => (e.kind === "income" || e.kind === "expense") && e.date > today && !seenIds.has(e.id))
-      .map((e) => ({ id: e.id, date: String(e.date).slice(0, 10), type: e.kind as "income" | "expense", amount: Number(e.amount), category: e.category || null, projected: true }));
-    return [...realized, ...future];
+    const scheduled = (allEvents || [])
+      .filter((e) => (e.kind === "income" || e.kind === "expense") && !e.isScenario && !seenIds.has(e.id))
+      .map((e) => ({
+        id: e.id, date: String(e.date).slice(0, 10), type: e.kind as "income" | "expense", amount: Number(e.amount),
+        category: e.category || null, description: e.description, sourceId: e.sourceId || null, accountId: e.accountId || null,
+        sourceType: e.sourceType as string, real: e.status === "reconciled", synthetic: isSynthetic(String(e.id)), projected: true,
+      }));
+    // Dedup por (origem, data, tipo): evita contar 2x quando uma ocorrência recorrente é
+    // materializada (a projeção segue gerando a mesma). Preferimos a linha real/não-sintética.
+    const merged = new Map<string, (typeof realized)[number]>();
+    const standalone: (typeof realized)[number][] = [];
+    const score = (r: { real: boolean; synthetic: boolean }) => (r.real ? 2 : 0) + (r.synthetic ? 0 : 1);
+    for (const row of [...realized, ...scheduled]) {
+      if (!row.sourceId) { standalone.push(row); continue; }
+      const key = `${row.sourceId}|${row.date}|${row.type}`;
+      const existing = merged.get(key);
+      if (!existing || score(row) > score(existing)) merged.set(key, row);
+    }
+    return [...standalone, ...merged.values()];
   }, [dashboardTransactions, allEvents]);
 
   const filtered = useMemo(() => periodSource.filter((t) => t.date >= from && t.date <= to), [periodSource, from, to]);
 
+  // Previsto = tudo no período; Real = só o recebido/pago (marcado).
   const totalIncome = useMemo(() => filtered.filter(t => t.type === "income").reduce((a, t) => a + Number(t.amount), 0), [filtered]);
   const totalExpense = useMemo(() => filtered.filter(t => t.type === "expense").reduce((a, t) => a + Number(t.amount), 0), [filtered]);
   const balance = totalIncome - totalExpense;
+  const realIncome = useMemo(() => filtered.filter(t => t.type === "income" && t.real).reduce((a, t) => a + Number(t.amount), 0), [filtered]);
+  const realExpense = useMemo(() => filtered.filter(t => t.type === "expense" && t.real).reduce((a, t) => a + Number(t.amount), 0), [filtered]);
+  // Saldo inicial = acumulado recebido/pago ANTES do mês (o que sobrou dos meses anteriores).
+  const saldoInicial = useMemo(
+    () => periodSource.filter(t => t.real && t.date < from).reduce((a, t) => a + (t.type === "income" ? Number(t.amount) : -Number(t.amount)), 0),
+    [periodSource, from],
+  );
+  const saldoRealHoje = saldoInicial + realIncome - realExpense;
+  const saldoPrevistoFimMes = saldoInicial + totalIncome - totalExpense;
+
+  // Previstos do mês ainda não marcados como recebidos/pagos (só transações/recorrências, marcáveis).
+  const pendingReceber = useMemo(() => filtered.filter(t => !t.real && t.type === "income" && t.sourceType === "transaction").sort((a, b) => a.date.localeCompare(b.date)), [filtered]);
+  const pendingPagar = useMemo(() => filtered.filter(t => !t.real && t.type === "expense" && t.sourceType === "transaction").sort((a, b) => a.date.localeCompare(b.date)), [filtered]);
+  const markReceived = (row: typeof filtered[number]) => {
+    if (row.synthetic || !row.id) {
+      materializeReceived.mutate({ sourceId: row.sourceId, date: row.date, amount: row.amount, kind: row.type, description: row.description, category: row.category, accountId: row.accountId });
+    } else {
+      reconcileTransactionMutation.mutate(row.id);
+    }
+  };
 
   const incomeByCat = useMemo(() => {
     const map: Record<string, number> = {};
@@ -167,7 +206,7 @@ const FinanceDashboard = () => {
         { heading: "Mês a mês (período)", head: [["Mês", "Entradas", "Saídas", "Saldo"]], body: monthlyData.length ? monthlyData.map((m) => [m.month, money(m.income), money(m.expense), money(m.balance)]) : [["—", "—", "—", "—"]] },
         { heading: "Falta pagar (45 dias)", head: [["Vencimento", "Descrição", "Valor"]], body: upcomingPayables.length ? upcomingPayables.map((p) => [formatDateBR(p.dueDate), p.description, money(p.amount)]) : [["—", "—", "—"]] },
         { heading: "Projeção (3 meses)", head: [["Mês", "Entradas", "Saídas", "Saldo", "Tipo"]], body: projectionData.map((p) => [p.month, money(p.income), money(p.expense), money(p.balance), p.projected ? "Projetado" : "Realizado"]) },
-        { heading: `Transações do período (${filtered.length})`, head: [["Data", "Tipo", "Categoria", "Situação", "Valor"]], body: [...filtered].sort((a, b) => String(b.date).localeCompare(String(a.date))).map((t) => [formatDateBR(t.date), t.type === "income" ? "Entrada" : "Saída", t.category || "-", t.projected ? "Prevista" : "Realizada", money(t.amount)]) },
+        { heading: `Transações do período (${filtered.length})`, head: [["Data", "Tipo", "Categoria", "Situação", "Valor"]], body: [...filtered].sort((a, b) => String(b.date).localeCompare(String(a.date))).map((t) => [formatDateBR(t.date), t.type === "income" ? "Entrada" : "Saída", t.category || "-", t.real ? "Real" : "Prevista", money(t.amount)]) },
       ];
 
       await exportTablePdf({
@@ -226,24 +265,28 @@ const FinanceDashboard = () => {
               <RotateCcw className="h-3.5 w-3.5 mr-1" /> Limpar filtro
             </Button>
             <div className="ml-auto flex items-center gap-1.5">
-              <Badge variant="outline" className="text-xs">{filtered.filter(f => !f.projected).length} realizadas</Badge>
-              {filtered.some(f => f.projected) && <Badge variant="secondary" className="text-xs">{filtered.filter(f => f.projected).length} previstas</Badge>}
+              <Badge variant="outline" className="text-xs">{filtered.filter(f => f.real).length} reais</Badge>
+              {filtered.some(f => !f.real) && <Badge variant="secondary" className="text-xs">{filtered.filter(f => !f.real).length} previstas</Badge>}
             </div>
           </CardContent>
         </Card>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Entradas", value: fmtCurrency(totalIncome), icon: ArrowUpRight, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" },
-            { label: "Saídas", value: fmtCurrency(totalExpense), icon: ArrowDownRight, color: "text-destructive", bg: "bg-destructive/10", border: "border-destructive/20" },
-            { label: "Saldo", value: fmtCurrency(balance), icon: DollarSign, color: balance >= 0 ? "text-emerald-400" : "text-destructive", bg: balance >= 0 ? "bg-emerald-500/10" : "bg-destructive/10", border: balance >= 0 ? "border-emerald-500/20" : "border-destructive/20" },
-            { label: "Lançamentos", value: filtered.length, icon: Wallet, color: "text-primary", bg: "bg-primary/10", border: "border-primary/20" },
+            { label: "Saldo inicial", primary: "mês anterior", value: fmtCurrency(saldoInicial), sub: null, icon: Wallet, iconColor: "text-primary", iconBg: "bg-primary/10", border: "border-primary/20", valueColor: saldoInicial >= 0 ? "" : "text-destructive" },
+            { label: "Entradas", primary: "reais", value: fmtCurrency(realIncome), sub: `Prevista ${fmtCurrency(totalIncome)}`, icon: ArrowUpRight, iconColor: "text-emerald-400", iconBg: "bg-emerald-500/10", border: "border-emerald-500/20", valueColor: "" },
+            { label: "Saídas", primary: "reais", value: fmtCurrency(realExpense), sub: `Prevista ${fmtCurrency(totalExpense)}`, icon: ArrowDownRight, iconColor: "text-destructive", iconBg: "bg-destructive/10", border: "border-destructive/20", valueColor: "" },
+            { label: "Saldo", primary: "real hoje", value: fmtCurrency(saldoRealHoje), sub: `Previsto fim do mês ${fmtCurrency(saldoPrevistoFimMes)}`, icon: DollarSign, iconColor: saldoRealHoje >= 0 ? "text-emerald-400" : "text-destructive", iconBg: saldoRealHoje >= 0 ? "bg-emerald-500/10" : "bg-destructive/10", border: saldoRealHoje >= 0 ? "border-emerald-500/20" : "border-destructive/20", valueColor: saldoRealHoje >= 0 ? "" : "text-destructive" },
           ].map((s, i) => (
             <motion.div key={s.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-              <Card className={cn("border transition-all duration-300 hover:scale-[1.03]", s.border)}>
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className={cn("p-2 rounded-lg", s.bg)}><s.icon className={cn("h-5 w-5", s.color)} /></div>
-                  <div><p className="text-lg sm:text-xl font-bold font-mono">{s.value}</p><p className="text-[10px] sm:text-xs text-muted-foreground">{s.label}</p></div>
+              <Card className={cn("border transition-all duration-300 hover:scale-[1.02]", s.border)}>
+                <CardContent className="p-4 flex items-start gap-3">
+                  <div className={cn("p-2 rounded-lg shrink-0", s.iconBg)}><s.icon className={cn("h-5 w-5", s.iconColor)} /></div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] sm:text-xs text-muted-foreground">{s.label} <span className="opacity-70">· {s.primary}</span></p>
+                    <p className={cn("text-lg sm:text-xl font-bold font-mono leading-tight", s.valueColor)}>{s.value}</p>
+                    {s.sub && <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{s.sub}</p>}
+                  </div>
                 </CardContent>
               </Card>
             </motion.div>
@@ -254,7 +297,7 @@ const FinanceDashboard = () => {
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <CalendarDays className="h-4 w-4 text-primary" />
-              Planejamento vs realizado — <span className="capitalize">{periodPlanSummary.label}</span>
+              Plano do mês (manual) — <span className="capitalize">{periodPlanSummary.label}</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -277,39 +320,54 @@ const FinanceDashboard = () => {
 
         <Card className="border border-amber-500/20 bg-card/80">
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <CalendarClock className="h-4 w-4 text-amber-500" />
-                Falta pagar
+                A receber / a pagar — previstos do mês
               </CardTitle>
-              <Badge variant="outline" className="border-amber-500/30 text-amber-500">
-                {fmtCurrency(upcomingPayables.reduce((sum, item) => sum + item.amount, 0))} em 45 dias
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">{fmtCurrency(pendingReceber.reduce((s, i) => s + i.amount, 0))} a receber</Badge>
+                <Badge variant="outline" className="border-destructive/30 text-destructive">{fmtCurrency(pendingPagar.reduce((s, i) => s + i.amount, 0))} a pagar</Badge>
+              </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-2">
-            {upcomingPayables.slice(0, 8).map((item) => (
-              <div key={item.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-border/50 p-3">
-                <div className="min-w-0">
-                  <p className="font-medium text-sm truncate">{item.description}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-muted-foreground">{formatDateBR(item.dueDate)}</span>
-                    <Badge variant="outline" className={cn("text-[10px]", item.status === "overdue" && "border-destructive/40 text-destructive", item.status === "today" && "border-amber-500/40 text-amber-500", item.status === "soon" && "border-orange-500/40 text-orange-500")}>
-                      {item.status === "overdue" ? `${Math.abs(item.daysUntilDue)} dias atrasada` : item.status === "today" ? "Vence hoje" : `Faltam ${item.daysUntilDue} dias`}
-                    </Badge>
+          <CardContent>
+            {pendingReceber.length + pendingPagar.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-6">Tudo do mês já foi recebido/pago. 🎉</p>
+            ) : (
+              <div className="grid gap-4 lg:grid-cols-2">
+                {[
+                  { title: "A receber", verb: "Recebi", rows: pendingReceber, amountColor: "text-emerald-400" },
+                  { title: "A pagar", verb: "Paguei", rows: pendingPagar, amountColor: "text-destructive" },
+                ].map((sec) => (
+                  <div key={sec.title} className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{sec.title} <span className="opacity-60">({sec.rows.length})</span></p>
+                    {sec.rows.length === 0 ? (
+                      <p className="text-xs text-muted-foreground py-2">Nada pendente.</p>
+                    ) : (
+                      sec.rows.slice(0, 8).map((row) => {
+                        const overdue = row.date < todayIso();
+                        return (
+                          <div key={row.id} className="flex items-center justify-between gap-2 rounded-lg border border-border/50 p-2.5">
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm truncate">{row.description}</p>
+                              <span className={cn("text-xs", overdue ? "text-destructive" : "text-muted-foreground")}>{formatDateBR(row.date)}{overdue ? " · vencido" : ""}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className={cn("font-mono font-semibold text-sm", sec.amountColor)}>{fmtCurrency(row.amount)}</span>
+                              <Button size="sm" variant="ghost" className="h-8" onClick={() => markReceived(row)} disabled={materializeReceived.isPending || reconcileTransactionMutation.isPending}>
+                                <CheckCircle2 className="h-4 w-4 mr-1" /> {sec.verb}
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                    {sec.rows.length > 8 && <p className="text-[11px] text-muted-foreground text-center">+{sec.rows.length - 8} mais</p>}
                   </div>
-                </div>
-                <div className="flex items-center justify-between sm:justify-end gap-3">
-                  <span className="font-mono font-semibold text-destructive">{fmtCurrency(item.amount)}</span>
-                  {item.sourceType === "transaction" && (
-                    <Button size="sm" variant="ghost" className="h-8" onClick={() => reconcileTransactionMutation.mutate(item.id)}>
-                      <CheckCircle2 className="h-4 w-4 mr-1" /> Paguei
-                    </Button>
-                  )}
-                </div>
+                ))}
               </div>
-            ))}
-            {upcomingPayables.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">Nenhum pagamento pendente nos proximos 45 dias.</p>}
+            )}
           </CardContent>
         </Card>
 

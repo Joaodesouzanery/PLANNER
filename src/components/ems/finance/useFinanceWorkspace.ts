@@ -432,6 +432,44 @@ export const useFinanceWorkspace = () => {
     onError: (error: any) => toast({ title: "Erro ao adicionar parcelamento", description: error.message, variant: "destructive" }),
   });
 
+  // Marca um previsto como recebido/pago. Para ocorrencias projetadas (recorrencias, sem linha
+  // no banco) MATERIALIZA uma transacao "reconciled". Dedup por source_id + data.
+  const materializeReceived = useMutation({
+    mutationFn: async (ev: { sourceId?: string | null; date: string; amount: number; kind: "income" | "expense"; description: string; category?: string | null; accountId?: string | null; companyId?: string | null }) => {
+      const src = ev.sourceId || null;
+      if (src) {
+        const { data: existing } = await (supabase as any)
+          .from("financial_transactions").select("id, status").eq("source_id", src).eq("date", ev.date).limit(1);
+        const row = existing?.[0];
+        if (row) {
+          if (row.status !== "reconciled") {
+            const { error } = await (supabase as any).from("financial_transactions").update({ status: "reconciled", settled_at: new Date().toISOString() }).eq("id", row.id);
+            if (error) throw error;
+          }
+          return;
+        }
+      }
+      const account = ev.accountId ? accounts.find((a) => a.id === ev.accountId) : null;
+      const { error } = await (supabase as any).from("financial_transactions").insert({
+        description: ev.description,
+        amount: ev.amount,
+        type: ev.kind,
+        category: ev.category || null,
+        date: ev.date,
+        due_date: ev.date,
+        status: "reconciled",
+        settled_at: new Date().toISOString(),
+        finance_account_id: ev.accountId || null,
+        company_id: ev.companyId ?? account?.company_id ?? (selectedCompanyId !== "all" ? selectedCompanyId : null),
+        source_type: "materialized",
+        source_id: src,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidate(); toast({ title: "Marcado como recebido/pago" }); },
+    onError: (error: any) => toast({ title: "Erro ao marcar", description: error.message, variant: "destructive" }),
+  });
+
   const cardAccounts = selectedAccounts.filter((account) => account.account_type === "credit_card");
   const reserveBalance = selectedAccounts.filter((account) => account.account_type === "savings" || account.account_type === "investment").reduce((sum, account) => sum + Number(account.opening_balance), 0);
 
@@ -441,6 +479,6 @@ export const useFinanceWorkspace = () => {
     transfers, invoices, allEvents, filteredEvents, openingBalance, forecast90, monthlyForecast, contracts,
     upcomingPayables, reserveBalance, entitiesLoading, entitiesError,
     saveAccountMutation, saveTransferMutation, saveInvoiceMutation, payInvoiceMutation,
-    reconcileTransactionMutation, importCsvMutation, addInstallmentToFlowMutation,
+    reconcileTransactionMutation, importCsvMutation, addInstallmentToFlowMutation, materializeReceived,
   };
 };
