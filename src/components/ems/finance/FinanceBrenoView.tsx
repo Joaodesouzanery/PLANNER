@@ -37,6 +37,7 @@ const FinanceBrenoView = () => {
   }
 
   const saldoHoje = workspace.canonical.saldoRealHoje; // fonte única (não recalcula)
+  const menor90 = workspace.canonical.menorSaldo(90); // {date, saldo} — mesma fonte de Fluxo/Viagem/CFO
   const expectedEnd = workspace.forecast90.days[workspace.forecast90.days.length - 1]?.expected ?? saldoHoje;
 
   const exportPlanilha = async () => {
@@ -50,7 +51,7 @@ const FinanceBrenoView = () => {
           { heading: "Indicadores", head: [["Indicador", "Valor"]], body: [
             ["Saldo disponível hoje", money(saldoHoje)],
             ["Saldo esperado em 90 dias", money(expectedEnd)],
-            ["Menor saldo em 90 dias", `${money(workspace.forecast90.minimumBalance)} (${formatDateBR(workspace.forecast90.minimumBalanceDate)})`],
+            ["Menor saldo em 90 dias", `${money(menor90.saldo)} (${formatDateBR(menor90.date)})`],
             ["Reserva", money(workspace.reserveBalance)],
           ] },
           { heading: "Resumo mês a mês", head: [["Mês", "Entradas", "Saídas", "Saldo final"]], body: workspace.monthlyForecast.length ? workspace.monthlyForecast.map((m: any) => [monthLabel(m.month), money(m.income), money(m.expense), money(m.balance)]) : [["—", "—", "—", "—"]] },
@@ -77,7 +78,7 @@ const FinanceBrenoView = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Metric label="Saldo disponível hoje" value={fmtCurrency(saldoHoje)} icon={Wallet} tone={saldoHoje >= 0 ? "positive" : "negative"} />
         <Metric label="Saldo esperado em 90 dias" value={fmtCurrency(expectedEnd)} icon={CircleDollarSign} tone={expectedEnd >= 0 ? "positive" : "negative"} />
-        <Metric label="Menor saldo em 90 dias" value={fmtCurrency(workspace.forecast90.minimumBalance)} hint={formatDateBR(workspace.forecast90.minimumBalanceDate)} icon={TrendingDown} tone={workspace.forecast90.minimumBalance >= 0 ? "positive" : "negative"} />
+        <Metric label="Menor saldo em 90 dias" value={fmtCurrency(menor90.saldo)} hint={formatDateBR(menor90.date)} icon={TrendingDown} tone={menor90.saldo >= 0 ? "positive" : "negative"} />
         <Metric label="Reserva" value={fmtCurrency(workspace.reserveBalance)} icon={Wallet} tone="primary" />
       </div>
 

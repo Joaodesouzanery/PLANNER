@@ -59,10 +59,11 @@ describe("financeCanonical — saldos", () => {
 });
 
 describe("financeCanonical — menor saldo (curva diária)", () => {
-  it("olha o vale da curva, não o líquido do período", () => {
+  it("piso = 4.995,81 − saídas não-pagas (Macbook hoje + Seguro + Cerrado) = 3.913,81 em 13/07", () => {
     const ms = menorSaldo(rows, 90, TODAY);
-    // a partir de 4.995,81, as saídas previstas (Macbook/Seguro/Cerrado) puxam o piso pra baixo
-    assert.ok(ms.saldo < 4995.81);
-    assert.ok(ms.saldo > 0);
+    // Macbook (800, vence hoje) bate no dia 0; Seguro 12/07 e Cerrado 13/07 seguem.
+    // O CONAB (recebível vencido, 1.500) NÃO entra no piso — recebível vencido é incerto.
+    assert.equal(Number(ms.saldo.toFixed(2)), 3913.81);
+    assert.equal(ms.date, "2026-07-13");
   });
 });

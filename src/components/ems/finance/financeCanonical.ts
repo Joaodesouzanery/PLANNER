@@ -62,12 +62,16 @@ export const saldoRealHoje = (rows: PeriodRow[], today: string = todayStr()): nu
   return abertura + recebido - pago;
 };
 
-/** Curva de saldo diária: saldoRealHoje + Σ previsto (hoje < vencimento ≤ dia). */
+/**
+ * Curva de saldo diária a partir do saldo real de hoje.
+ * - Saídas não-pagas: vencidas + de hoje batem imediatamente (dia 0); as futuras, na data.
+ * - Entradas não-pagas: só as futuras entram — recebível já vencido é incerto e não infla o piso.
+ */
 export const curvaDiaria = (rows: PeriodRow[], days: number, today: string = todayStr()) => {
   const base = saldoRealHoje(rows, today);
   const pend = rows
-    .filter((r) => !r.paid && r.date > today)
-    .map((r) => ({ date: r.date, delta: r.type === "income" ? r.amount : -r.amount }))
+    .filter((r) => !r.paid && (r.type === "expense" || r.date > today))
+    .map((r) => ({ date: r.date < today ? today : r.date, delta: r.type === "income" ? r.amount : -r.amount }))
     .sort((a, b) => a.date.localeCompare(b.date));
   const out: { date: string; saldo: number }[] = [];
   const start = new Date(`${today}T12:00:00`);
