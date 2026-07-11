@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { exportTablePdf, captureChart } from "@/lib/exportPdf";
 import { toast } from "sonner";
 import FinanceAverages from "./FinanceAverages";
+import { FinanceCfoPanel } from "./FinanceCfoPanel";
 
 const todayIso = () => format(new Date(), "yyyy-MM-dd");
 const defaultFrom = () => format(startOfMonth(new Date()), "yyyy-MM-dd");
@@ -216,6 +217,7 @@ const FinanceDashboard = () => {
       </div>
 
       <TabsContent value="overview" className="mt-0 space-y-6">
+        <FinanceCfoPanel />
         <Card className="border border-border/50 bg-card/80">
           <CardContent className="p-3 flex flex-wrap items-center gap-3">
             <DollarSign className="h-4 w-4 text-primary" />
