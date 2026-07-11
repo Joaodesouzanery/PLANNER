@@ -9,8 +9,17 @@ export interface CfoSettings {
 }
 export const DEFAULT_CFO: CfoSettings = { tax_rate: 6, reserve_months: 6, cdi_monthly_liquid: 0.9 };
 
-/** Renda/despesa mensal esperada (max média histórica × baseline recorrente) — vinda de `computeProjection`. */
-export interface ExpectedMonthly { income: number; expense: number; }
+/**
+ * Renda/despesa mensal esperada. `expense` = total (fixo+variável+anual). Os baldes são opcionais:
+ * quando presentes, o burn (runway/reserva) usa só fixo+variável — imposto/anuais somem sem receita.
+ */
+export interface ExpectedMonthly {
+  income: number;
+  expense: number;
+  fixo?: number;
+  variavel?: number;
+  anual?: number;
+}
 
 const isImpostoRow = (r: PeriodRow) => /imposto|tribut|\bdas\b|simples/i.test(`${r.category || ""} ${r.description || ""}`);
 
@@ -47,8 +56,10 @@ export const computeCfo = (rows: PeriodRow[], s: CfoSettings, reservaAtual: numb
   const receitaLiquida = faturamentoMensal - impostoMensal;
   const sobraMensal = receitaLiquida - despesaMensal;
   const taxaPoupanca = receitaLiquida > 0 ? sobraMensal / receitaLiquida : 0;
-  // Burn = despesa esperada; o imposto já é descontado no saldo líquido (reserva-alvo = meses × despesa).
-  const burnMensal = despesaMensal;
+  // Burn = custo de vida sem renda = fixo + variável (imposto e anuais amortizados somem sem receita).
+  // Sem os baldes, cai no comportamento antigo (burn = despesa total). Reserva-alvo = meses × burn.
+  const hasBuckets = expected.fixo != null || expected.variavel != null;
+  const burnMensal = hasBuckets ? Math.max(0, (expected.fixo || 0) + (expected.variavel || 0)) : despesaMensal;
 
   // Imposto a recolher = Σ receita recebida × alíquota − Σ imposto já pago.
   const receitaRecebida = rows.reduce((a, r) => (r.type === "income" && r.paid && r.date <= today ? a + r.amount : a), 0);

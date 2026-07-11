@@ -9,6 +9,7 @@ import { buildForecastSeries, getUpcomingPayables, parseFinanceCsv, summarizeFor
 import type { FinanceAccount, FinanceCardInvoice, FinanceEntity, FinanceTransfer, ForecastEvent } from "./financeTypes";
 import { useFinanceData, assertUuid, buildPeriodSource, type PlanItem, type Transaction } from "./useFinanceData";
 import { canonicalTotals, curvaDiaria, menorSaldo, saldoAbertura, saldoRealHoje } from "./financeCanonical";
+import { useFinanceSettings } from "./useFinanceSettings";
 
 const SCOPE_KEY = "ems-finance-scope";
 const todayIso = () => format(new Date(), "yyyy-MM-dd");
@@ -61,6 +62,7 @@ export const useFinanceWorkspace = () => {
   const queryClient = useQueryClient();
   const { selectedCompanyId, companies } = useCompany();
   const finance = useFinanceData();
+  const { settings: financeSettings } = useFinanceSettings();
   const [scope, setScope] = useState(() => localStorage.getItem(SCOPE_KEY) || "personal");
 
   const { data: entities = [], isLoading: entitiesLoading, error: entitiesError } = useQuery({
@@ -283,18 +285,28 @@ export const useFinanceWorkspace = () => {
   }), [canonicalRows, saldoRealHojeVal]);
 
   // Renda/despesa mensal ESPERADA — fonte única das métricas derivadas (CFO, Viagem, Patrimônio).
-  // Reusa exatamente o que a aba Projeções mostra: max(média histórica, baseline recorrente).
-  const expectedMonthly = useMemo(() => ({
-    income: finance.projectionBreakdown?.chosenIncome ?? 0,
-    expense: finance.projectionBreakdown?.chosenExpense ?? 0,
-  }), [finance.projectionBreakdown]);
+  // Despesa em 3 baldes editáveis (Ajustes do CFO); null = usa a sugestão da projeção.
+  //   fixo    = recorrentes certos (sugestão: baseline recorrente de SAÍDA)
+  //   variavel= gasto do dia-a-dia (sugestão: histórico − recorrente)
+  //   anual   = IPVA/seguros/DAS anual ÷ 12 (sugestão: 0)
+  const expectedMonthly = useMemo(() => {
+    const recExp = finance.projectionBreakdown?.recurringBaselineExpense ?? 0;
+    const chosenExp = finance.projectionBreakdown?.chosenExpense ?? 0;
+    const s = financeSettings;
+    const fixo = s.expected_expense_fixo ?? recExp;
+    const variavel = s.expected_expense_variavel ?? Math.max(0, chosenExp - recExp);
+    const anual = s.expected_expense_anual ?? 0;
+    const estimado = s.expected_expense_fixo == null && s.expected_expense_variavel == null && s.expected_expense_anual == null;
+    return {
+      income: finance.projectionBreakdown?.chosenIncome ?? 0,
+      expense: fixo + variavel + anual,
+      fixo, variavel, anual, estimado,
+    };
+  }, [finance.projectionBreakdown, financeSettings]);
 
-  // Gasto variável estimado (esperado − recorrente): entra nas linhas Esperado/Conservador do forecast
+  // Gasto variável estimado (balde "variável") entra nas linhas Esperado/Conservador do forecast
   // p/ a projeção não crescer rápido demais ignorando o dia-a-dia (converge com a aba Projeções).
-  const variableMonthlyExpense = useMemo(
-    () => Math.max(0, (finance.projectionBreakdown?.chosenExpense ?? 0) - (finance.projectionBreakdown?.recurringBaselineExpense ?? 0)),
-    [finance.projectionBreakdown],
-  );
+  const variableMonthlyExpense = expectedMonthly.variavel;
 
   // Forecast semeado pelo saldo real canônico (não pelo openingBalance inflado). Mata o duplo-5.500.
   const forecast90 = useMemo(() => buildForecastSeries({ events: filteredEvents, openingBalance: saldoRealHojeVal, days: 90, variableMonthlyExpense }), [filteredEvents, saldoRealHojeVal, variableMonthlyExpense]);

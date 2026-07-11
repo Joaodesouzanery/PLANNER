@@ -11,6 +11,10 @@ export interface FinanceSettings {
   reserve_months: number;
   cdi_monthly_liquid: number;
   opening_bank_balance: number | null;
+  // Despesa esperada em 3 baldes (null = usar sugestão da projeção).
+  expected_expense_fixo: number | null;
+  expected_expense_variavel: number | null;
+  expected_expense_anual: number | null;
 }
 
 const FALLBACK: FinanceSettings = {
@@ -19,6 +23,9 @@ const FALLBACK: FinanceSettings = {
   reserve_months: DEFAULT_CFO.reserve_months,
   cdi_monthly_liquid: DEFAULT_CFO.cdi_monthly_liquid,
   opening_bank_balance: null,
+  expected_expense_fixo: null,
+  expected_expense_variavel: null,
+  expected_expense_anual: null,
 };
 
 /** Config CFO. Se a tabela finance_settings ainda não existir (migration não aplicada), usa defaults. */

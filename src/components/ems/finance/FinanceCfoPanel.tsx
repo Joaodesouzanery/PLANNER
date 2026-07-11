@@ -29,7 +29,7 @@ export const FinanceCfoPanel = () => {
   const { canonical, reserveBalance, expectedMonthly } = useFinanceWorkspace();
   const { settings, missing, save } = useFinanceSettings();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<{ tax_rate: string; reserve_months: string; cdi_monthly_liquid: string }>({ tax_rate: "", reserve_months: "", cdi_monthly_liquid: "" });
+  const [form, setForm] = useState<{ tax_rate: string; reserve_months: string; cdi_monthly_liquid: string; fixo: string; variavel: string; anual: string }>({ tax_rate: "", reserve_months: "", cdi_monthly_liquid: "", fixo: "", variavel: "", anual: "" });
 
   const m = useMemo(
     () => computeCfo(canonical.rows, settings, reserveBalance, todayIso(), expectedMonthly),
@@ -38,13 +38,21 @@ export const FinanceCfoPanel = () => {
   const mesesReserva = mesesParaReserva(m);
 
   const openSettings = () => {
-    setForm({ tax_rate: String(settings.tax_rate), reserve_months: String(settings.reserve_months), cdi_monthly_liquid: String(settings.cdi_monthly_liquid) });
+    setForm({
+      tax_rate: String(settings.tax_rate), reserve_months: String(settings.reserve_months), cdi_monthly_liquid: String(settings.cdi_monthly_liquid),
+      fixo: settings.expected_expense_fixo != null ? String(settings.expected_expense_fixo) : "",
+      variavel: settings.expected_expense_variavel != null ? String(settings.expected_expense_variavel) : "",
+      anual: settings.expected_expense_anual != null ? String(settings.expected_expense_anual) : "",
+    });
     setOpen(true);
   };
   const saveSettings = () => save.mutate({
     tax_rate: Number(form.tax_rate) || 0,
     reserve_months: Number(form.reserve_months) || 6,
     cdi_monthly_liquid: Number(form.cdi_monthly_liquid) || 0,
+    expected_expense_fixo: form.fixo === "" ? null : Number(form.fixo),
+    expected_expense_variavel: form.variavel === "" ? null : Number(form.variavel),
+    expected_expense_anual: form.anual === "" ? null : Number(form.anual),
   }, { onSuccess: () => setOpen(false) });
 
   const runwayTone = m.runwayMeses < 3 ? "text-destructive" : m.runwayMeses < 6 ? "text-amber-400" : "text-emerald-400";
@@ -56,6 +64,7 @@ export const FinanceCfoPanel = () => {
         <div className="flex items-center justify-between gap-2">
           <p className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck className="h-4 w-4 text-primary" />Painel CFO</p>
           <div className="flex items-center gap-2">
+            {expectedMonthly.estimado && !missing && <Badge variant="outline" className="text-[10px] text-muted-foreground border-border/50" title="A despesa esperada está usando a sugestão da projeção. Defina os 3 baldes em Ajustes.">despesa estimada</Badge>}
             {missing && <Badge variant="outline" className="text-[10px] text-amber-400 border-amber-400/40">defaults · aplique a migration p/ salvar</Badge>}
             <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-xs" onClick={openSettings}><Settings2 className="h-3.5 w-3.5" /> Ajustes</Button>
           </div>
@@ -93,7 +102,17 @@ export const FinanceCfoPanel = () => {
             <div><Label className="text-xs">Alíquota de imposto (%)</Label><Input type="number" step="0.1" value={form.tax_rate} onChange={(e) => setForm({ ...form, tax_rate: e.target.value })} placeholder="6" /></div>
             <div><Label className="text-xs">Reserva de emergência (meses de custo)</Label><Input type="number" min={1} value={form.reserve_months} onChange={(e) => setForm({ ...form, reserve_months: e.target.value })} placeholder="6" /></div>
             <div><Label className="text-xs">CDI líquido ao mês (%)</Label><Input type="number" step="0.1" value={form.cdi_monthly_liquid} onChange={(e) => setForm({ ...form, cdi_monthly_liquid: e.target.value })} placeholder="0.9" /></div>
-            {missing && <p className="text-[11px] text-amber-400">A tabela finance_settings ainda não existe. Aplique a migration <code>20260712120000_finance_settings.sql</code> na Lovable para salvar (por enquanto usa defaults).</p>}
+
+            <div className="rounded-lg border border-border/50 p-2.5 space-y-2">
+              <p className="text-xs font-medium">Despesa esperada / mês <span className="text-[10px] text-muted-foreground">(vazio = usa a sugestão da projeção)</span></p>
+              <div className="grid grid-cols-3 gap-2">
+                <div><Label className="text-[11px] text-muted-foreground">Fixo comprometido</Label><Input type="number" value={form.fixo} onChange={(e) => setForm({ ...form, fixo: e.target.value })} placeholder={`~${Math.round(expectedMonthly.fixo)}`} /></div>
+                <div><Label className="text-[11px] text-muted-foreground">Variável (dia-a-dia)</Label><Input type="number" value={form.variavel} onChange={(e) => setForm({ ...form, variavel: e.target.value })} placeholder={`~${Math.round(expectedMonthly.variavel)}`} /></div>
+                <div><Label className="text-[11px] text-muted-foreground">Anual ÷ 12</Label><Input type="number" value={form.anual} onChange={(e) => setForm({ ...form, anual: e.target.value })} placeholder="IPVA, seguros…" /></div>
+              </div>
+              <p className="text-[10px] text-muted-foreground">Runway e reserva usam fixo + variável (imposto/anuais somem sem receita). Sobra usa o total.</p>
+            </div>
+            {missing && <p className="text-[11px] text-amber-400">A tabela finance_settings ainda não existe. Aplique as migrations de finance_settings na Lovable para salvar (por enquanto usa defaults).</p>}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
