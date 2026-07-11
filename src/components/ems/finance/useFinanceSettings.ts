@@ -15,6 +15,9 @@ export interface FinanceSettings {
   expected_expense_fixo: number | null;
   expected_expense_variavel: number | null;
   expected_expense_anual: number | null;
+  // Vigia do teto do Simples (RBT12) — limite configurável (null = não vigia).
+  rbt12_limit: number | null;
+  rbt12_alert_pct: number | null;
 }
 
 const FALLBACK: FinanceSettings = {
@@ -26,6 +29,8 @@ const FALLBACK: FinanceSettings = {
   expected_expense_fixo: null,
   expected_expense_variavel: null,
   expected_expense_anual: null,
+  rbt12_limit: null,
+  rbt12_alert_pct: 80,
 };
 
 /** Config CFO. Se a tabela finance_settings ainda não existir (migration não aplicada), usa defaults. */

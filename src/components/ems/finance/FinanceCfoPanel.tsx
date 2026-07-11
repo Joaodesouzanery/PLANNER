@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { format } from "date-fns";
-import { AlertTriangle, Coins, Gauge, PiggyBank, Receipt, Settings2, ShieldCheck, TrendingUp } from "lucide-react";
+import { addMonths, format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { AlertTriangle, Coins, Gauge, Landmark, PiggyBank, Receipt, Settings2, ShieldCheck, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import { fmtCurrency } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
 import { useFinanceSettings } from "./useFinanceSettings";
 import { computeCfo, mesesParaReserva } from "./financeCfo";
+import { rbt12Status } from "./financeRbt12";
 
 const todayIso = () => format(new Date(), "yyyy-MM-dd");
 const pctFmt = (v: number) => `${Math.round(v * 100)}%`;
@@ -26,16 +28,21 @@ const CfoStat = ({ icon: Icon, label, value, hint, tone }: { icon: typeof Coins;
 );
 
 export const FinanceCfoPanel = () => {
-  const { canonical, reserveBalance, expectedMonthly } = useFinanceWorkspace();
+  const { canonical, reserveBalance, expectedMonthly, monthlyData } = useFinanceWorkspace();
   const { settings, missing, save } = useFinanceSettings();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<{ tax_rate: string; reserve_months: string; cdi_monthly_liquid: string; fixo: string; variavel: string; anual: string }>({ tax_rate: "", reserve_months: "", cdi_monthly_liquid: "", fixo: "", variavel: "", anual: "" });
+  const [form, setForm] = useState<{ tax_rate: string; reserve_months: string; cdi_monthly_liquid: string; fixo: string; variavel: string; anual: string; rbt12_limit: string; rbt12_alert_pct: string }>({ tax_rate: "", reserve_months: "", cdi_monthly_liquid: "", fixo: "", variavel: "", anual: "", rbt12_limit: "", rbt12_alert_pct: "" });
 
   const m = useMemo(
     () => computeCfo(canonical.rows, settings, reserveBalance, todayIso(), expectedMonthly),
     [canonical.rows, settings, reserveBalance, expectedMonthly],
   );
   const mesesReserva = mesesParaReserva(m);
+  const rbt = useMemo(
+    () => rbt12Status(monthlyData ?? [], settings.rbt12_limit, settings.rbt12_alert_pct ?? 80, m.faturamentoMensal),
+    [monthlyData, settings.rbt12_limit, settings.rbt12_alert_pct, m.faturamentoMensal],
+  );
+  const rbtCruzaEm = rbt?.mesesAteCruzar != null ? format(addMonths(new Date(), rbt.mesesAteCruzar), "MMM/yy", { locale: ptBR }) : null;
 
   const openSettings = () => {
     setForm({
@@ -43,6 +50,8 @@ export const FinanceCfoPanel = () => {
       fixo: settings.expected_expense_fixo != null ? String(settings.expected_expense_fixo) : "",
       variavel: settings.expected_expense_variavel != null ? String(settings.expected_expense_variavel) : "",
       anual: settings.expected_expense_anual != null ? String(settings.expected_expense_anual) : "",
+      rbt12_limit: settings.rbt12_limit != null ? String(settings.rbt12_limit) : "",
+      rbt12_alert_pct: settings.rbt12_alert_pct != null ? String(settings.rbt12_alert_pct) : "80",
     });
     setOpen(true);
   };
@@ -53,6 +62,8 @@ export const FinanceCfoPanel = () => {
     expected_expense_fixo: form.fixo === "" ? null : Number(form.fixo),
     expected_expense_variavel: form.variavel === "" ? null : Number(form.variavel),
     expected_expense_anual: form.anual === "" ? null : Number(form.anual),
+    rbt12_limit: form.rbt12_limit === "" ? null : Number(form.rbt12_limit),
+    rbt12_alert_pct: form.rbt12_alert_pct === "" ? 80 : Number(form.rbt12_alert_pct),
   }, { onSuccess: () => setOpen(false) });
 
   const runwayTone = m.runwayMeses < 3 ? "text-destructive" : m.runwayMeses < 6 ? "text-amber-400" : "text-emerald-400";
@@ -93,6 +104,20 @@ export const FinanceCfoPanel = () => {
             <p className="text-[10px] text-muted-foreground mt-0.5">{mesesReserva === 0 ? "alvo atingido" : mesesReserva ? `~${mesesReserva} meses` : "sem sobra p/ poupar"}</p>
           </div>
         </div>
+
+        {rbt && (
+          <div className={cn("rounded-xl border p-3", rbt.alert ? "border-amber-500/30 bg-amber-500/5" : "border-border/50 bg-background/40")}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><Landmark className="h-3.5 w-3.5" />Teto do Simples (RBT12 · últimos 12 meses)</p>
+              <p className="font-mono text-sm"><span className={cn("font-bold", rbt.alert ? "text-amber-500" : "")}>{fmtCurrency(rbt.rbt12)}</span> <span className="text-muted-foreground">/ {fmtCurrency(rbt.limite)} · {Math.round(rbt.pct * 100)}%</span></p>
+            </div>
+            <Progress value={Math.min(100, rbt.pct * 100)} className="h-1.5 mt-1.5" />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Folga {fmtCurrency(rbt.headroom)}
+              {rbtCruzaEm ? <> · no ritmo atual você cruza o limite em <strong className="text-amber-500">{rbtCruzaEm}</strong>.</> : rbt.rbt12 > rbt.limite ? <> · <strong className="text-destructive">acima do limite</strong>.</> : <> · no ritmo atual não cruza nos próximos 5 anos.</>}
+            </p>
+          </div>
+        )}
       </CardContent>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -111,6 +136,14 @@ export const FinanceCfoPanel = () => {
                 <div><Label className="text-[11px] text-muted-foreground">Anual ÷ 12</Label><Input type="number" value={form.anual} onChange={(e) => setForm({ ...form, anual: e.target.value })} placeholder="IPVA, seguros…" /></div>
               </div>
               <p className="text-[10px] text-muted-foreground">Runway e reserva usam fixo + variável (imposto/anuais somem sem receita). Sobra usa o total.</p>
+            </div>
+
+            <div className="rounded-lg border border-border/50 p-2.5 space-y-2">
+              <p className="text-xs font-medium">Teto do Simples (RBT12) <span className="text-[10px] text-muted-foreground">confirme o limite com seu contador — não cravamos as faixas</span></p>
+              <div className="grid grid-cols-2 gap-2">
+                <div><Label className="text-[11px] text-muted-foreground">Limite anual (R$)</Label><Input type="number" value={form.rbt12_limit} onChange={(e) => setForm({ ...form, rbt12_limit: e.target.value })} placeholder="ex.: 4800000" /></div>
+                <div><Label className="text-[11px] text-muted-foreground">Alertar a partir de (%)</Label><Input type="number" value={form.rbt12_alert_pct} onChange={(e) => setForm({ ...form, rbt12_alert_pct: e.target.value })} placeholder="80" /></div>
+              </div>
             </div>
             {missing && <p className="text-[11px] text-amber-400">A tabela finance_settings ainda não existe. Aplique as migrations de finance_settings na Lovable para salvar (por enquanto usa defaults).</p>}
           </div>

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { format } from "date-fns";
+import { addMonths, format } from "date-fns";
 import { fmtCurrency } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
 import { useFinanceSettings } from "./useFinanceSettings";
@@ -8,6 +8,7 @@ import { useCategoryBudgets } from "./useCategoryBudgets";
 import { computeCfo } from "./financeCfo";
 import { buildClientRevenue, clientConcentration } from "./financeClients";
 import { buildBudgetLines } from "./financeBudget";
+import { rbt12Status } from "./financeRbt12";
 import { buildAlerts } from "./financeAlerts";
 
 const todayIso = () => format(new Date(), "yyyy-MM-dd");
@@ -37,14 +38,18 @@ export const useFinanceAlerts = () => {
     const { clients } = buildClientRevenue(workspace.rawTransactions as any[], clientes);
     const conc = clientConcentration(clients);
 
+    const rbt = rbt12Status(workspace.monthlyData ?? [], settings.rbt12_limit, settings.rbt12_alert_pct ?? 80, cfo.faturamentoMensal);
+    const rbtCruzaEm = rbt?.mesesAteCruzar != null ? format(addMonths(new Date(), rbt.mesesAteCruzar), "MMM/yy") : null;
+
     const alerts = buildAlerts({
       cfo,
       curva90,
       reservaAlvo: cfo.reservaAlvo,
       budgetEstouros,
       concentracaoTop1: clients.length ? conc.top1Share : null,
+      rbt12: rbt?.alert ? { pct: rbt.pct, cruzaEm: rbtCruzaEm } : null,
       brl: fmtCurrency,
     });
     return { alerts, cfo };
-  }, [workspace.canonical, workspace.rawTransactions, workspace.reserveBalance, workspace.expectedMonthly, settings, budgets, clientes, curKey]);
+  }, [workspace.canonical, workspace.rawTransactions, workspace.reserveBalance, workspace.expectedMonthly, workspace.monthlyData, settings, budgets, clientes, curKey]);
 };
