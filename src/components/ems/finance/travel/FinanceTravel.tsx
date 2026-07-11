@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,12 +9,19 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plane, Plus, Trash2, Save, MapPin, Users, CalendarDays, FileDown } from "lucide-react";
-import { differenceInDays, differenceInCalendarMonths } from "date-fns";
+import { Plane, Plus, Trash2, Save, MapPin, Users, CalendarDays, FileDown, TrendingDown, CheckCircle2, RotateCcw } from "lucide-react";
+import { differenceInDays, differenceInCalendarMonths, format } from "date-fns";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useCompany } from "@/contexts/CompanyContext";
 import { useTravelProfile, useTrips, useTripCategories, seedDefaultCategories, type Trip, type TripCategory } from "./useTravel";
+import { useFinanceWorkspace } from "../useFinanceWorkspace";
+import { useFinanceSettings } from "../useFinanceSettings";
+import { computeCfo } from "../financeCfo";
 import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput, NumberField } from "@/components/ui/currency-input";
 import { exportTablePdf } from "@/lib/exportPdf";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -36,9 +43,34 @@ const FinanceTravel = () => {
   // Reset apenas quando o id muda (após o primeiro insert) ou quando trocamos de empresa.
   useEffect(() => { setProfileForm(profile); }, [profile.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const totalIncome = Number(profileForm.monthly_salary || 0) + Number(profileForm.variable_income || 0) + Number(profileForm.other_income || 0);
-  const totalOutgoing = Number(profileForm.housing || 0) + Number(profileForm.food || 0) + Number(profileForm.transport || 0) + Number(profileForm.subscriptions || 0) + Number(profileForm.debts || 0);
-  const availableBalance = totalIncome - totalOutgoing;
+  // ── Dados REAIS (fonte única canônica + CFO): base do veredito, não o perfil manual zerado. ──
+  const workspace = useFinanceWorkspace();
+  const { settings } = useFinanceSettings();
+  const { selectedCompanyId } = useCompany();
+  const qc = useQueryClient();
+  const cfo = useMemo(() => computeCfo(workspace.canonical.rows, settings, workspace.reserveBalance, format(new Date(), "yyyy-MM-dd")), [workspace.canonical.rows, settings, workspace.reserveBalance]);
+  const menor90 = useMemo(() => workspace.canonical.menorSaldo(90).saldo, [workspace.canonical]);
+  const realAvailable = cfo.sobraMensal; // sobra mensal real (líquida de imposto − despesas)
+  const tripsInFlow = new Set((workspace.rawTransactions as any[]).filter((t) => t.source_type === "travel").map((t) => t.source_id));
+
+  const addToFlow = useMutation({
+    mutationFn: async ({ trip, rows }: { trip: Trip; rows: { description: string; amount: number }[] }) => {
+      const date = trip.start_date || format(new Date(), "yyyy-MM-dd");
+      await (supabase as any).from("financial_transactions").delete().eq("source_id", trip.id).eq("source_type", "travel");
+      const payload = rows.filter((r) => r.amount > 0).map((r) => ({
+        description: r.description, amount: r.amount, type: "expense", category: "Viagem",
+        date, due_date: date, status: "planned", source_type: "travel", source_id: trip.id,
+        company_id: selectedCompanyId !== "all" ? selectedCompanyId : null,
+      }));
+      if (payload.length) { const { error } = await (supabase as any).from("financial_transactions").insert(payload); if (error) throw error; }
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["finance-transactions"] }); toast.success("Viagem adicionada ao fluxo — já entra na projeção."); },
+    onError: (e: any) => toast.error("Erro ao adicionar ao fluxo", { description: e?.message }),
+  });
+  const removeFromFlow = useMutation({
+    mutationFn: async (tripId: string) => { const { error } = await (supabase as any).from("financial_transactions").delete().eq("source_id", tripId).eq("source_type", "travel"); if (error) throw error; },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["finance-transactions"] }); toast.success("Viagem removida do fluxo"); },
+  });
 
   const selectedTrip = trips.find(t => t.id === selectedTripId) || null;
   const [newOpen, setNewOpen] = useState(false);
@@ -50,10 +82,11 @@ const FinanceTravel = () => {
           <CardTitle className="flex items-center gap-2"><Plane className="h-5 w-5 text-primary" /> Perfil Financeiro</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <Card className="bg-success/10 border-success/30"><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Renda Total</p><p className="text-xl font-bold text-success">{brl(totalIncome)}</p></CardContent></Card>
-            <Card className="bg-destructive/10 border-destructive/30"><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Saídas Recorrentes</p><p className="text-xl font-bold text-destructive">{brl(totalOutgoing)}</p></CardContent></Card>
-            <Card className="bg-primary/10 border-primary/30"><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Saldo Disponível / mês</p><p className="text-xl font-bold text-primary">{brl(availableBalance)}</p></CardContent></Card>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Card className="bg-success/10 border-success/30"><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Renda líq. real / mês</p><p className="text-xl font-bold text-success">{brl(cfo.receitaLiquida)}</p><p className="text-[10px] text-muted-foreground">média 3m, − imposto</p></CardContent></Card>
+            <Card className="bg-destructive/10 border-destructive/30"><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Despesas reais / mês</p><p className="text-xl font-bold text-destructive">{brl(cfo.despesaMensal)}</p><p className="text-[10px] text-muted-foreground">média 3m</p></CardContent></Card>
+            <Card className="bg-primary/10 border-primary/30"><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Sobra real / mês</p><p className={cn("text-xl font-bold", realAvailable >= 0 ? "text-primary" : "text-destructive")}>{brl(realAvailable)}</p><p className="text-[10px] text-muted-foreground">base do veredito</p></CardContent></Card>
+            <Card className="border-border/50"><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Menor saldo 90d</p><p className={cn("text-xl font-bold", menor90 >= 0 ? "text-foreground" : "text-destructive")}>{brl(menor90)}</p><p className="text-[10px] text-muted-foreground">piso do caixa</p></CardContent></Card>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -108,7 +141,13 @@ const FinanceTravel = () => {
         <TripDetail
           trip={selectedTrip}
           categories={categories}
-          availableBalance={availableBalance}
+          availableBalance={realAvailable}
+          menor90={menor90}
+          reservaAlvo={cfo.reservaAlvo}
+          inFlow={tripsInFlow.has(selectedTrip.id)}
+          onAddToFlow={(rows) => addToFlow.mutate({ trip: selectedTrip, rows })}
+          onRemoveFromFlow={() => removeFromFlow.mutate(selectedTrip.id)}
+          busy={addToFlow.isPending || removeFromFlow.isPending}
           onUpdate={(patch) => update.mutate({ id: selectedTrip.id, ...patch })}
           onCatUpsert={(c) => upsertCat.mutate({ ...c, trip_id: selectedTrip.id })}
           onCatRemove={(id) => removeCat.mutate(id)}
@@ -173,8 +212,10 @@ const NewTripDialog = ({ open, onOpenChange, onCreate }: { open: boolean; onOpen
   );
 };
 
-const TripDetail = ({ trip, categories, availableBalance, onUpdate, onCatUpsert, onCatRemove }: {
+const TripDetail = ({ trip, categories, availableBalance, menor90, reservaAlvo, inFlow, onAddToFlow, onRemoveFromFlow, busy, onUpdate, onCatUpsert, onCatRemove }: {
   trip: Trip; categories: TripCategory[]; availableBalance: number;
+  menor90: number; reservaAlvo: number; inFlow: boolean; busy: boolean;
+  onAddToFlow: (rows: { description: string; amount: number }[]) => void; onRemoveFromFlow: () => void;
   onUpdate: (p: Partial<Trip>) => void;
   onCatUpsert: (c: Partial<TripCategory>) => void;
   onCatRemove: (id: string) => void;
@@ -194,6 +235,21 @@ const TripDetail = ({ trip, categories, availableBalance, onUpdate, onCatUpsert,
   const trafficLight = committedPct <= 0.3 ? { color: "text-success", bg: "bg-success", label: "Viável", desc: "A meta cabe confortavelmente no seu saldo disponível." }
     : committedPct <= 0.6 ? { color: "text-warning", bg: "bg-warning", label: "Atenção", desc: "Possível, mas exige disciplina mensal." }
     : { color: "text-destructive", bg: "bg-destructive", label: "Replanejar", desc: "Reveja prazo, destino ou número de viajantes." };
+
+  // ── Impacto REAL no fluxo: o gasto rebaixa o menor saldo em 90 dias; comparar com a reserva-alvo. ──
+  const toBRL = (v: number) => (trip.is_international && trip.exchange_rate ? v * Number(trip.exchange_rate) : v);
+  const flowRows = [
+    ...categories.map((c) => ({ description: `Viagem ${trip.name}: ${c.label}`, amount: toBRL(computeCategoryTotal(c, travelers, nights)) })),
+    ...(emergency > 0 ? [{ description: `Viagem ${trip.name}: reserva`, amount: toBRL(emergency) }] : []),
+  ];
+  // menor90 já reflete a viagem quando ela está no fluxo → não subtrair de novo.
+  const menorSemViagem = inFlow ? menor90 + totalBRL : menor90;
+  const menorPos = inFlow ? menor90 : menor90 - totalBRL;
+  const impacto = menorPos >= reservaAlvo
+    ? { color: "text-success", bg: "border-success/30 bg-success/10", label: "Cabe com folga", desc: "O piso do caixa fica acima da sua reserva-alvo." }
+    : menorPos >= 0
+      ? { color: "text-warning", bg: "border-warning/30 bg-warning/10", label: "Cabe, mas come o colchão", desc: "O piso fica positivo, porém abaixo da reserva-alvo." }
+      : { color: "text-destructive", bg: "border-destructive/30 bg-destructive/10", label: "Não cabe — replanejar", desc: "O caixa fica negativo no período. Reveja prazo/valores." };
 
   const [newCat, setNewCat] = useState<{ label: string; amount: number }>({ label: "", amount: 0 });
 
@@ -224,7 +280,29 @@ const TripDetail = ({ trip, categories, availableBalance, onUpdate, onCatUpsert,
         <CardTitle className="flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" />{trip.name} — {nights} {nights === 1 ? "noite" : "noites"} · {travelers} {travelers === 1 ? "viajante" : "viajantes"}</CardTitle>
         <Button variant="outline" size="sm" onClick={exportTrip} className="shrink-0"><FileDown className="h-4 w-4 mr-2" />Exportar</Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {/* Impacto REAL no fluxo */}
+        <div className={cn("rounded-xl border p-3", impacto.bg)}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className={cn("flex items-center gap-2 text-sm font-semibold", impacto.color)}><TrendingDown className="h-4 w-4" />{impacto.label}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{impacto.desc}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-4 font-mono text-xs">
+              <div><p className="text-[10px] text-muted-foreground">Total viagem</p><p className="font-bold">{brl(totalBRL)}</p></div>
+              <div><p className="text-[10px] text-muted-foreground">Menor saldo 90d</p><p className="font-bold">{brl(menorSemViagem)}</p></div>
+              <div><p className="text-[10px] text-muted-foreground">Pós-viagem</p><p className={cn("font-bold", impacto.color)}>{brl(menorPos)}</p></div>
+              <div><p className="text-[10px] text-muted-foreground">Reserva-alvo</p><p className="font-bold">{brl(reservaAlvo)}</p></div>
+              {inFlow ? (
+                <Button size="sm" variant="outline" disabled={busy} onClick={onRemoveFromFlow}><RotateCcw className="h-3.5 w-3.5 mr-1" />Tirar do fluxo</Button>
+              ) : (
+                <Button size="sm" disabled={busy || flowRows.length === 0} onClick={() => onAddToFlow(flowRows)}><CheckCircle2 className="h-3.5 w-3.5 mr-1" />Adicionar ao fluxo</Button>
+              )}
+            </div>
+          </div>
+          {inFlow && <p className="mt-2 text-[11px] text-emerald-400">✓ No fluxo — já aparece em Transações, Dashboard e no menor saldo. Custo de oportunidade: ~{brl(monthlyGoal)}/mês deixam de ir pra reserva/investimento.</p>}
+        </div>
+
         <Tabs defaultValue="budget">
           <TabsList>
             <TabsTrigger value="budget">Orçamento</TabsTrigger>
