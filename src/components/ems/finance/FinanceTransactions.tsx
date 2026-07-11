@@ -31,11 +31,14 @@ const monthsBetween = (start: string, end: string) => {
 };
 
 const isPaid = (t: Transaction) => t.status === "reconciled" || !!t.settled_at;
+const effDate = (t: Transaction) => t.due_date || t.date;
+const isAtrasado = (t: Transaction) => !isPaid(t) && effDate(t) < todayIso();
 
+// 4 estados: Recebido/Pago (real) · Atrasado (previsto vencido) · Previsto (planned/confirmed futuro).
 const StatusBadge = ({ t }: { t: Transaction }) => {
   if (isPaid(t)) return <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">{t.type === "income" ? "Recebido" : "Pago"}</Badge>;
-  if (t.status === "planned") return <Badge variant="secondary" className="bg-amber-500/10 text-amber-500 border border-amber-500/30">A {t.type === "income" ? "receber" : "pagar"}</Badge>;
-  return <Badge variant="outline" className="border-border/50 text-muted-foreground">Lançado</Badge>;
+  if (isAtrasado(t)) return <Badge variant="secondary" className="bg-destructive/10 text-destructive border border-destructive/30">Atrasado</Badge>;
+  return <Badge variant="secondary" className="bg-amber-500/10 text-amber-500 border border-amber-500/30">Previsto</Badge>;
 };
 
 const emptyForm = () => ({
@@ -156,7 +159,7 @@ const FinanceTransactions = () => {
   };
 
   const exportCsv = () => {
-    const rows = filteredTransactions.map(t => `${formatDateBR(t.date)},${t.description.replace(/,/g, " ")},${t.category || ""},${t.type === "income" ? "Entrada" : "Saída"},${isPaid(t) ? "Pago" : t.status === "planned" ? "A pagar" : "Lançado"},${t.amount}`);
+    const rows = filteredTransactions.map(t => `${formatDateBR(t.date)},${t.description.replace(/,/g, " ")},${t.category || ""},${t.type === "income" ? "Entrada" : "Saída"},${isPaid(t) ? (t.type === "income" ? "Recebido" : "Pago") : isAtrasado(t) ? "Atrasado" : "Previsto"},${t.amount}`);
     const csv = "Data,Descrição,Categoria,Tipo,Situação,Valor\n" + rows.join("\n");
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "transacoes.csv"; a.click(); URL.revokeObjectURL(url);
@@ -166,7 +169,7 @@ const FinanceTransactions = () => {
   const exportPdf = () => {
     const doc = new jsPDF(); doc.setFontSize(16); doc.text("Transações Financeiras", 14, 20);
     doc.setFontSize(10); doc.text(`Exportado em ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 28);
-    autoTable(doc, { startY: 34, head: [["Data", "Descrição", "Categoria", "Tipo", "Situação", "Valor"]], body: filteredTransactions.map(t => [formatDateBR(t.date), t.description, t.category || "-", t.type === "income" ? "Entrada" : "Saída", isPaid(t) ? "Pago" : t.status === "planned" ? "A pagar" : "Lançado", fmtCurrency(Number(t.amount))]), styles: { fontSize: 9 }, headStyles: { fillColor: [59, 130, 246] } });
+    autoTable(doc, { startY: 34, head: [["Data", "Descrição", "Categoria", "Tipo", "Situação", "Valor"]], body: filteredTransactions.map(t => [formatDateBR(t.date), t.description, t.category || "-", t.type === "income" ? "Entrada" : "Saída", isPaid(t) ? (t.type === "income" ? "Recebido" : "Pago") : isAtrasado(t) ? "Atrasado" : "Previsto", fmtCurrency(Number(t.amount))]), styles: { fontSize: 9 }, headStyles: { fillColor: [59, 130, 246] } });
     doc.save("transacoes.pdf"); toast.success("PDF exportado!");
   };
 
