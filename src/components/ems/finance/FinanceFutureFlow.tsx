@@ -92,11 +92,11 @@ const FinanceFutureFlow = () => {
         filename: "fluxo-futuro.pdf",
         sections: [
           { heading: "Indicadores", head: [["Indicador", "Valor"]], body: [
-            ["Saldo disponível", money(workspace.openingBalance)],
+            ["Saldo disponível", money(workspace.canonical.saldoRealHoje)],
             ["Menor saldo em 90 dias", `${money(workspace.forecast90.minimumBalance)} (${formatDateBR(workspace.forecast90.minimumBalanceDate)})`],
             ["Falta pagar (45 dias)", money(workspace.upcomingPayables.reduce((s, i) => s + i.amount, 0))],
             ["Reserva", money(workspace.reserveBalance)],
-            ["Saldo esperado em 90 dias", money(workspace.forecast90.days[workspace.forecast90.days.length - 1]?.expected || workspace.openingBalance)],
+            ["Saldo esperado em 90 dias", money(workspace.forecast90.days[workspace.forecast90.days.length - 1]?.expected || workspace.canonical.saldoRealHoje)],
           ] },
           { heading: "Resumo mês a mês", head: [["Mês", "Entradas", "Saídas", "Saldo final"]], body: workspace.monthlyForecast.length ? workspace.monthlyForecast.map((m: any) => [m.month, money(m.income), money(m.expense), money(m.balance)]) : [["—", "—", "—", "—"]] },
           { heading: "Contratos", head: [["Contrato", "Tipo", "Valor/mês", "Meses restantes", "Termina em"]], body: workspace.contracts.length ? workspace.contracts.map((c) => [c.description, c.type === "income" ? "Entrada" : "Saída", money(c.amount), c.active ? String(c.monthsLeft) : "Encerrado", formatDateBR(c.endDate)]) : [["—", "—", "—", "—", "—"]] },
@@ -184,11 +184,11 @@ const FinanceFutureFlow = () => {
       </div>
 
       <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
-        <Metric label="Saldo disponivel" value={fmtCurrency(workspace.openingBalance)} icon={Wallet} tone={workspace.openingBalance >= 0 ? "positive" : "negative"} />
+        <Metric label="Saldo disponivel" value={fmtCurrency(workspace.canonical.saldoRealHoje)} icon={Wallet} tone={workspace.canonical.saldoRealHoje >= 0 ? "positive" : "negative"} />
         <Metric label="Menor saldo em 90 dias" value={fmtCurrency(workspace.forecast90.minimumBalance)} hint={formatDateBR(workspace.forecast90.minimumBalanceDate)} icon={AlertTriangle} tone={workspace.forecast90.minimumBalance >= 0 ? "positive" : "negative"} />
         <Metric label="Falta pagar (45 dias)" value={fmtCurrency(workspace.upcomingPayables.reduce((sum, item) => sum + item.amount, 0))} hint={`${workspace.upcomingPayables.length} compromissos`} icon={CalendarClock} tone="warning" />
         <Metric label="Reserva" value={fmtCurrency(workspace.reserveBalance)} icon={ShieldCheck} tone="primary" />
-        <Metric label="Saldo esperado em 90 dias" value={fmtCurrency(workspace.forecast90.days[workspace.forecast90.days.length - 1]?.expected || workspace.openingBalance)} icon={CircleDollarSign} tone="primary" />
+        <Metric label="Saldo esperado em 90 dias" value={fmtCurrency(workspace.forecast90.days[workspace.forecast90.days.length - 1]?.expected || workspace.canonical.saldoRealHoje)} icon={CircleDollarSign} tone="primary" />
       </div>
 
       {workspace.forecast90.firstNegativeDate && (

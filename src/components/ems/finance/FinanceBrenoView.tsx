@@ -36,7 +36,8 @@ const FinanceBrenoView = () => {
     );
   }
 
-  const expectedEnd = workspace.forecast90.days[workspace.forecast90.days.length - 1]?.expected ?? workspace.openingBalance;
+  const saldoHoje = workspace.canonical.saldoRealHoje; // fonte única (não recalcula)
+  const expectedEnd = workspace.forecast90.days[workspace.forecast90.days.length - 1]?.expected ?? saldoHoje;
 
   const exportPlanilha = async () => {
     const money = (v: number) => fmtCurrency(Number(v));
@@ -47,7 +48,7 @@ const FinanceBrenoView = () => {
         filename: "planilha-saldo.pdf",
         sections: [
           { heading: "Indicadores", head: [["Indicador", "Valor"]], body: [
-            ["Saldo disponível hoje", money(workspace.openingBalance)],
+            ["Saldo disponível hoje", money(saldoHoje)],
             ["Saldo esperado em 90 dias", money(expectedEnd)],
             ["Menor saldo em 90 dias", `${money(workspace.forecast90.minimumBalance)} (${formatDateBR(workspace.forecast90.minimumBalanceDate)})`],
             ["Reserva", money(workspace.reserveBalance)],
@@ -74,7 +75,7 @@ const FinanceBrenoView = () => {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Metric label="Saldo disponível hoje" value={fmtCurrency(workspace.openingBalance)} icon={Wallet} tone={workspace.openingBalance >= 0 ? "positive" : "negative"} />
+        <Metric label="Saldo disponível hoje" value={fmtCurrency(saldoHoje)} icon={Wallet} tone={saldoHoje >= 0 ? "positive" : "negative"} />
         <Metric label="Saldo esperado em 90 dias" value={fmtCurrency(expectedEnd)} icon={CircleDollarSign} tone={expectedEnd >= 0 ? "positive" : "negative"} />
         <Metric label="Menor saldo em 90 dias" value={fmtCurrency(workspace.forecast90.minimumBalance)} hint={formatDateBR(workspace.forecast90.minimumBalanceDate)} icon={TrendingDown} tone={workspace.forecast90.minimumBalance >= 0 ? "positive" : "negative"} />
         <Metric label="Reserva" value={fmtCurrency(workspace.reserveBalance)} icon={Wallet} tone="primary" />

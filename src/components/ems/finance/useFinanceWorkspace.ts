@@ -7,7 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { buildForecastSeries, getUpcomingPayables, parseFinanceCsv, summarizeForecastByMonth } from "./financeForecast";
 import type { FinanceAccount, FinanceCardInvoice, FinanceEntity, FinanceTransfer, ForecastEvent } from "./financeTypes";
-import { useFinanceData, assertUuid, type PlanItem, type Transaction } from "./useFinanceData";
+import { useFinanceData, assertUuid, buildPeriodSource, type PlanItem, type Transaction } from "./useFinanceData";
+import { canonicalTotals, curvaDiaria, menorSaldo, saldoAbertura, saldoRealHoje } from "./financeCanonical";
 
 const SCOPE_KEY = "ems-finance-scope";
 const todayIso = () => format(new Date(), "yyyy-MM-dd");
@@ -269,8 +270,21 @@ export const useFinanceWorkspace = () => {
     return balances;
   }, [accounts, finance.transactions, transfers]);
 
-  const forecast90 = useMemo(() => buildForecastSeries({ events: filteredEvents, openingBalance, days: 90 }), [filteredEvents, openingBalance]);
-  const forecast365 = useMemo(() => buildForecastSeries({ events: filteredEvents, openingBalance, days: 365 }), [filteredEvents, openingBalance]);
+  // ── Read-model CANÔNICO (fonte única): toda aba lê daqui, ninguém recalcula saldo. ──
+  const canonicalRows = useMemo(() => buildPeriodSource(finance.dashboardTransactions, allEvents), [finance.dashboardTransactions, allEvents]);
+  const saldoRealHojeVal = useMemo(() => saldoRealHoje(canonicalRows, todayIso()), [canonicalRows]);
+  const canonical = useMemo(() => ({
+    rows: canonicalRows,
+    saldoRealHoje: saldoRealHojeVal,
+    saldoAbertura: (monthStart: string) => saldoAbertura(canonicalRows, monthStart),
+    totals: (from: string, to: string) => canonicalTotals(canonicalRows, from, to),
+    curva: (days: number) => curvaDiaria(canonicalRows, days, todayIso()),
+    menorSaldo: (n: number) => menorSaldo(canonicalRows, n, todayIso()),
+  }), [canonicalRows, saldoRealHojeVal]);
+
+  // Forecast semeado pelo saldo real canônico (não pelo openingBalance inflado). Mata o duplo-5.500.
+  const forecast90 = useMemo(() => buildForecastSeries({ events: filteredEvents, openingBalance: saldoRealHojeVal, days: 90 }), [filteredEvents, saldoRealHojeVal]);
+  const forecast365 = useMemo(() => buildForecastSeries({ events: filteredEvents, openingBalance: saldoRealHojeVal, days: 365 }), [filteredEvents, saldoRealHojeVal]);
   const monthlyForecast = useMemo(() => summarizeForecastByMonth(forecast365).slice(0, 12), [forecast365]);
 
   // Contratos = recorrencias COM termino (recurrence_end_date). Escopo por conta selecionada.
@@ -477,7 +491,7 @@ export const useFinanceWorkspace = () => {
     ...finance,
     scope, setScope, entities, accounts, selectedEntity, selectedAccounts, cardAccounts, accountBalances,
     transfers, invoices, allEvents, filteredEvents, openingBalance, forecast90, monthlyForecast, contracts,
-    upcomingPayables, reserveBalance, entitiesLoading, entitiesError,
+    canonical, upcomingPayables, reserveBalance, entitiesLoading, entitiesError,
     saveAccountMutation, saveTransferMutation, saveInvoiceMutation, payInvoiceMutation,
     reconcileTransactionMutation, importCsvMutation, addInstallmentToFlowMutation, materializeReceived,
   };

@@ -45,7 +45,7 @@ const emptyForm = () => ({
 });
 
 const FinanceTransactions = () => {
-  const { rawTransactions, allCategories, saveTransactionMutation, deleteTransactionMutation, reconcileTransactionMutation, selectedAccounts, accounts } = useFinanceWorkspace();
+  const { rawTransactions, allCategories, saveTransactionMutation, deleteTransactionMutation, reconcileTransactionMutation, selectedAccounts, accounts, canonical } = useFinanceWorkspace();
   const confirm = useConfirm();
   const [showModal, setShowModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -90,12 +90,12 @@ const FinanceTransactions = () => {
     filterSituacao === "all" ? true : filterSituacao === "real" ? isPaid(t) : !isPaid(t)
   ), [periodRows, filterSituacao]);
 
-  // Resumo do período: real (Recebido/Pago) x previsto (A receber/A pagar).
+  // Resumo do período vem da FONTE ÚNICA canônica (mesmo universo do Dashboard → os números batem,
+  // inclui recorrências/parcelas). Independente dos filtros de tipo/categoria da lista.
   const periodSummary = useMemo(() => {
-    const sum = (type: "income" | "expense", paid: boolean) =>
-      periodRows.filter(t => t.type === type && isPaid(t) === paid).reduce((s, t) => s + Number(t.amount), 0);
-    return { recebido: sum("income", true), aReceber: sum("income", false), pago: sum("expense", true), aPagar: sum("expense", false) };
-  }, [periodRows]);
+    const t = canonical.totals(from, to);
+    return { recebido: t.entradasRealizadas, aReceber: t.aReceber, pago: t.saidasRealizadas, aPagar: t.aPagar };
+  }, [canonical, from, to]);
 
   // Agrupamento mes a mes (usa vencimento quando houver), inclui meses futuros (planned).
   const monthGroups = useMemo(() => {
@@ -108,13 +108,17 @@ const FinanceTransactions = () => {
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([key, items]) => {
         const sorted = [...items].sort((a, b) => String(b.due_date || b.date).localeCompare(String(a.due_date || a.date)));
-        const income = items.filter(t => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
-        const expense = items.filter(t => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
-        const pendingExpense = items.filter(t => t.type === "expense" && !isPaid(t)).reduce((s, t) => s + Number(t.amount), 0);
+        const sumBy = (pred: (t: Transaction) => boolean) => items.filter(pred).reduce((s, t) => s + Number(t.amount), 0);
+        // Realizado = só o que foi pago/recebido; Previsto = tudo (real + previsto).
+        const realIncome = sumBy(t => t.type === "income" && isPaid(t));
+        const realExpense = sumBy(t => t.type === "expense" && isPaid(t));
+        const income = sumBy(t => t.type === "income");
+        const expense = sumBy(t => t.type === "expense");
+        const pendingExpense = sumBy(t => t.type === "expense" && !isPaid(t));
         const [y, m] = key.split("-");
         const label = format(new Date(Number(y), Number(m) - 1, 1), "MMMM 'de' yyyy", { locale: ptBR });
         const isFuture = key > todayIso().slice(0, 7);
-        return { key, label, items: sorted, income, expense, balance: income - expense, pendingExpense, isFuture };
+        return { key, label, items: sorted, realIncome, realExpense, income, expense, balance: income - expense, realBalance: realIncome - realExpense, pendingExpense, isFuture };
       });
   }, [baseFiltered]);
 
@@ -287,9 +291,14 @@ const FinanceTransactions = () => {
                     <Badge variant="secondary" className="text-[10px]">{group.items.length} lanç.</Badge>
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-xs font-mono">
-                    <span className="text-emerald-400">+ {fmtCurrency(group.income)}</span>
-                    <span className="text-destructive">- {fmtCurrency(group.expense)}</span>
-                    <span className={group.balance >= 0 ? "text-emerald-400" : "text-destructive"}>Saldo {fmtCurrency(group.balance)}</span>
+                    <span className="text-muted-foreground">Real</span>
+                    <span className="text-emerald-400">+ {fmtCurrency(group.realIncome)}</span>
+                    <span className="text-destructive">- {fmtCurrency(group.realExpense)}</span>
+                    <span className={cn("hidden sm:inline", group.realBalance >= 0 ? "text-emerald-400" : "text-destructive")}>= {fmtCurrency(group.realBalance)}</span>
+                    <span className="text-muted-foreground/60">·</span>
+                    <span className="text-muted-foreground">Previsto</span>
+                    <span className="text-emerald-400/70">+ {fmtCurrency(group.income)}</span>
+                    <span className="text-destructive/70">- {fmtCurrency(group.expense)}</span>
                     {group.pendingExpense > 0 && <Badge variant="outline" className="border-amber-500/40 text-amber-500">A pagar {fmtCurrency(group.pendingExpense)}</Badge>}
                     <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openNew({ type: "expense", status: "planned", paid: false, date: `${group.key}-01`, due_date: `${group.key}-15` })}><CalendarPlus className="h-3.5 w-3.5 mr-1" />Adicionar</Button>
                   </div>

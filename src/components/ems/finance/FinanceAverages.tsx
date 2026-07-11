@@ -9,7 +9,7 @@ import { differenceInCalendarDays, differenceInCalendarMonths, format, startOfMo
 import { ptBR } from "date-fns/locale";
 import { ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { DateRangeFilter } from "@/components/ems/DateRangeFilter";
-import { fmtCurrency, effectiveDate, tooltipStyle, buildPeriodSource } from "./useFinanceData";
+import { fmtCurrency, effectiveDate, tooltipStyle } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
 import { exportTablePdf } from "@/lib/exportPdf";
 import { toast } from "sonner";
@@ -22,7 +22,7 @@ const monthLabel = (key: string) => {
 };
 
 const FinanceAverages = () => {
-  const { dashboardTransactions, allEvents, monthlyPlans, planItems } = useFinanceWorkspace();
+  const { dashboardTransactions, allEvents, monthlyPlans, planItems, canonical } = useFinanceWorkspace();
   const [from, setFrom] = useState(fmtFrom());
   const [to, setTo] = useState(fmtTo());
 
@@ -78,7 +78,7 @@ const FinanceAverages = () => {
   const month = selectedMonth || availableMonths[0] || format(new Date(), "yyyy-MM");
 
   // Mesma fonte unificada do Dashboard (realizado + previsto, dedup, sem cenários).
-  const periodSource = useMemo(() => buildPeriodSource(dashboardTransactions, allEvents), [dashboardTransactions, allEvents]);
+  const periodSource = canonical.rows; // fonte única
 
   const monthDetail = useMemo(() => {
     const [y, m] = month.split("-").map(Number);

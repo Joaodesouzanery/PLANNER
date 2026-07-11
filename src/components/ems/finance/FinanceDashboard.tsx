@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
-import { fmtCurrency, formatDateBR, effectiveDate, tooltipStyle, PIE_COLORS, buildPeriodSource } from "./useFinanceData";
+import { fmtCurrency, formatDateBR, effectiveDate, tooltipStyle, PIE_COLORS } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
 import { Badge } from "@/components/ui/badge";
 import { DateRangeFilter } from "@/components/ems/DateRangeFilter";
@@ -23,7 +23,7 @@ const defaultFrom = () => format(startOfMonth(new Date()), "yyyy-MM-dd");
 const defaultTo = () => format(endOfMonth(new Date()), "yyyy-MM-dd");
 
 const FinanceDashboard = () => {
-  const { dashboardTransactions, capitalEvolution, monthlyPlans, planItems, upcomingPayables, reconcileTransactionMutation, materializeReceived, allEvents, transactionsUpdatedAt, projectionData } = useFinanceWorkspace();
+  const { dashboardTransactions, capitalEvolution, monthlyPlans, planItems, upcomingPayables, reconcileTransactionMutation, materializeReceived, transactionsUpdatedAt, projectionData, canonical } = useFinanceWorkspace();
   const queryClient = useQueryClient();
   const [from, setFrom] = useState(defaultFrom());
   const [to, setTo] = useState(defaultTo());
@@ -60,8 +60,8 @@ const FinanceDashboard = () => {
     else if (preset === "ytd") { setFrom(`${today.getFullYear()}-01-01`); setTo(todayIso()); }
   };
 
-  // Universo unificado (realizado + previsto), fonte única compartilhada com a aba Médias.
-  const periodSource = useMemo(() => buildPeriodSource(dashboardTransactions, allEvents), [dashboardTransactions, allEvents]);
+  // Fonte única canônica (computada uma vez no workspace) — nenhuma aba recalcula.
+  const periodSource = canonical.rows;
 
   const filtered = useMemo(() => periodSource.filter((t) => t.date >= from && t.date <= to), [periodSource, from, to]);
 
@@ -85,14 +85,17 @@ const FinanceDashboard = () => {
   const pctRecebido = previstoIncome > 0 ? Math.round((realIncome / previstoIncome) * 100) : 0;
   const pctPago = previstoExpense > 0 ? Math.round((realExpense / previstoExpense) * 100) : 0;
 
-  // Previstos do mês ainda não recebidos/pagos (só transações/recorrências, marcáveis num clique).
-  const pendingReceber = useMemo(() => filtered.filter(t => !t.paid && t.type === "income" && t.sourceType === "transaction").sort((a, b) => a.date.localeCompare(b.date)), [filtered]);
-  const pendingPagar = useMemo(() => filtered.filter(t => !t.paid && t.type === "expense" && t.sourceType === "transaction").sort((a, b) => a.date.localeCompare(b.date)), [filtered]);
+  // Previstos do mês ainda não recebidos/pagos — universo INTEIRO (transações + parcelas + recorrências
+  // + plan-items), pra bater com Transações. Cada um marcável num clique.
+  const pendingReceber = useMemo(() => filtered.filter(t => !t.paid && t.type === "income").sort((a, b) => a.date.localeCompare(b.date)), [filtered]);
+  const pendingPagar = useMemo(() => filtered.filter(t => !t.paid && t.type === "expense").sort((a, b) => a.date.localeCompare(b.date)), [filtered]);
   const markReceived = (row: typeof filtered[number]) => {
-    if (row.synthetic || !row.id) {
-      materializeReceived.mutate({ sourceId: row.sourceId, date: row.date, amount: row.amount, kind: row.type, description: row.description, category: row.category, accountId: row.accountId });
-    } else {
+    // Linha real no banco (transação/parcela) → reconcilia; projetada (recorrência/plano) → materializa reconciliada.
+    const realDbRow = !row.synthetic && (row.sourceType === "transaction" || row.sourceType === "installment");
+    if (realDbRow && row.id) {
       reconcileTransactionMutation.mutate(row.id);
+    } else {
+      materializeReceived.mutate({ sourceId: row.sourceId, date: row.date, amount: row.amount, kind: row.type, description: row.description, category: row.category, accountId: row.accountId });
     }
   };
 
