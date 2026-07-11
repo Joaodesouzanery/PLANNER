@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
-import { fmtCurrency, formatDateBR, effectiveDate, tooltipStyle, PIE_COLORS } from "./useFinanceData";
+import { fmtCurrency, formatDateBR, tooltipStyle, PIE_COLORS } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
 import { Badge } from "@/components/ui/badge";
 import { DateRangeFilter } from "@/components/ems/DateRangeFilter";
@@ -23,7 +23,7 @@ const defaultFrom = () => format(startOfMonth(new Date()), "yyyy-MM-dd");
 const defaultTo = () => format(endOfMonth(new Date()), "yyyy-MM-dd");
 
 const FinanceDashboard = () => {
-  const { dashboardTransactions, capitalEvolution, monthlyPlans, planItems, upcomingPayables, reconcileTransactionMutation, materializeReceived, transactionsUpdatedAt, projectionData, canonical } = useFinanceWorkspace();
+  const { capitalEvolution, monthlyPlans, planItems, upcomingPayables, reconcileTransactionMutation, materializeReceived, transactionsUpdatedAt, projectionData, canonical } = useFinanceWorkspace();
   const queryClient = useQueryClient();
   const [from, setFrom] = useState(defaultFrom());
   const [to, setTo] = useState(defaultTo());
@@ -127,21 +127,21 @@ const FinanceDashboard = () => {
     const d = new Date(`${from}T00:00:00`);
     const month = d.getMonth() + 1;
     const year = d.getFullYear();
-    const monthKey = `${year}-${String(month).padStart(2, "0")}`;
     const planIds = monthlyPlans.filter((p) => p.month === month && p.year === year).map((p) => p.id);
     const items = planItems.filter((i) => planIds.includes(i.plan_id) && i.status !== "skipped");
     const plannedIncome = items.filter((i) => i.type === "income").reduce((s, i) => s + Number(i.amount), 0);
     const plannedExpense = items.filter((i) => i.type === "expense").reduce((s, i) => s + Number(i.amount), 0);
-    const realized = dashboardTransactions.filter((t) => effectiveDate(t).slice(0, 7) === monthKey);
-    const realizedIncome = realized.filter((t) => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
-    const realizedExpense = realized.filter((t) => t.type === "expense").reduce((s, t) => s + Number(t.amount), 0);
+    // Realizado = pago/recebido (canônico) — não conta "Lançado". (Corrige o "Saldo realizado" do plano.)
+    const tot = canonical.totals(from, to);
+    const realizedBalance = tot.entradasRealizadas - tot.saidasRealizadas;
     return {
       plannedIncome, plannedExpense, plannedBalance: plannedIncome - plannedExpense,
-      realizedBalance: realizedIncome - realizedExpense,
-      variance: (realizedIncome - realizedExpense) - (plannedIncome - plannedExpense),
+      realizedBalance,
+      variance: realizedBalance - (plannedIncome - plannedExpense),
+      hasPlan: plannedIncome > 0 || plannedExpense > 0,
       label: format(d, "MMM yyyy", { locale: ptBR }),
     };
-  }, [from, monthlyPlans, planItems, dashboardTransactions]);
+  }, [from, to, monthlyPlans, planItems, canonical]);
 
   const goMonth = (delta: number) => {
     const target = addMonths(new Date(`${from}T00:00:00`), delta);
@@ -313,6 +313,7 @@ const FinanceDashboard = () => {
           </CardContent>
         </Card>
 
+        {periodPlanSummary.hasPlan && (
         <Card className="border border-primary/20 bg-card/80">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
@@ -337,6 +338,7 @@ const FinanceDashboard = () => {
             </div>
           </CardContent>
         </Card>
+        )}
 
         <Card className="border border-amber-500/20 bg-card/80">
           <CardHeader className="pb-2">

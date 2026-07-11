@@ -144,6 +144,14 @@ export const computeProjection = (
     chosenExpense <= 0 ? "none" : recExp >= histAvgExp ? "recurring" : "historical";
 
   const alerts: ProjectionAlert[] = [];
+  // Baixa confiança: menos de 6 meses de histórico → prefira o baseline recorrente.
+  const histMonths = Math.max(incomeMonths.length, expenseMonths.length);
+  if (histMonths < 6) {
+    alerts.push({
+      level: "info",
+      message: `Confiança baixa: só ${histMonths} mês${histMonths === 1 ? "" : "es"} de histórico (ideal 6+). O cenário mostrado é conservador (o maior entre média histórica e baseline recorrente). Use os cenários do Fluxo Futuro pra ver Otimista/Esperado/Conservador.`,
+    });
+  }
   if (incomeMonths.length < Math.min(3, window)) {
     alerts.push({
       level: "warning",
