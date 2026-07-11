@@ -14,6 +14,7 @@ import { fmtCurrency } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
 import { useFinanceSettings } from "./useFinanceSettings";
 import { computeCfo, fvAportes } from "./financeCfo";
+import { goalViability, type Verdict } from "./financeGoalViability";
 import { intervalFactor } from "./projectionCalc";
 import { usePatrimonio, type NetworthItem, type SinkingFund } from "./usePatrimonio";
 
@@ -140,17 +141,30 @@ export const FinancePatrimonio = () => {
           {funds.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma provisão. Ex.: IPVA, seguro anual, viagem — separe 1/12 por mês em vez de tomar o susto.</p>}
           {funds.map((f) => {
             const pct = f.target > 0 ? Math.min(100, (Number(f.balance) / Number(f.target)) * 100) : 0;
+            const v = f.due_date ? goalViability(Number(f.target), Number(f.balance), f.due_date, sobra, todayIso()) : null;
+            const verdictInfo: Record<Verdict, { label: string; cls: string }> = {
+              "on-track": { label: "No ritmo, chega no prazo", cls: "text-success border-success/40" },
+              stretch: { label: "Aperta, mas dá", cls: "text-warning border-warning/40" },
+              unfeasible: { label: "Inviável no ritmo atual", cls: "text-destructive border-destructive/40" },
+            };
             return (
               <div key={f.id} className="rounded-lg border border-border/50 p-3">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-sm">{f.title}</span>
+                  <span className="font-medium text-sm flex items-center gap-2">{f.title}{v && <Badge variant="outline" className={cn("text-[9px]", verdictInfo[v.verdict].cls)}>{verdictInfo[v.verdict].label}</Badge>}</span>
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-sm">{fmtCurrency(Number(f.balance))} / {fmtCurrency(Number(f.target))}</span>
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => del("fund", f.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
                   </div>
                 </div>
                 <Progress value={pct} className="h-1.5 mt-1.5" />
-                <p className="text-[11px] text-muted-foreground mt-1">Aporte sugerido {fmtCurrency(Number(f.monthly))}/mês{f.due_date ? ` · até ${format(new Date(`${f.due_date}T12:00:00`), "MM/yyyy")}` : ""}</p>
+                {v ? (
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Precisa <strong className={cn(v.aporteNecessario > sobra ? "text-destructive" : "text-success")}>{fmtCurrency(v.aporteNecessario)}/mês</strong> ({v.mesesRestantes} meses) · sua sobra é {fmtCurrency(sobra)}
+                    {v.dataProjetada && <> · no ritmo atual chega em <strong>{v.dataProjetada.replace("-", "/")}</strong></>}
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground mt-1">Aporte sugerido {fmtCurrency(Number(f.monthly))}/mês · defina um prazo p/ ver a viabilidade</p>
+                )}
               </div>
             );
           })}
