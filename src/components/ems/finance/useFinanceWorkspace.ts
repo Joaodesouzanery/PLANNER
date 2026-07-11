@@ -282,6 +282,13 @@ export const useFinanceWorkspace = () => {
     menorSaldo: (n: number) => menorSaldo(canonicalRows, n, todayIso()),
   }), [canonicalRows, saldoRealHojeVal]);
 
+  // Renda/despesa mensal ESPERADA — fonte única das métricas derivadas (CFO, Viagem, Patrimônio).
+  // Reusa exatamente o que a aba Projeções mostra: max(média histórica, baseline recorrente).
+  const expectedMonthly = useMemo(() => ({
+    income: finance.projectionBreakdown?.chosenIncome ?? 0,
+    expense: finance.projectionBreakdown?.chosenExpense ?? 0,
+  }), [finance.projectionBreakdown]);
+
   // Forecast semeado pelo saldo real canônico (não pelo openingBalance inflado). Mata o duplo-5.500.
   const forecast90 = useMemo(() => buildForecastSeries({ events: filteredEvents, openingBalance: saldoRealHojeVal, days: 90 }), [filteredEvents, saldoRealHojeVal]);
   const forecast365 = useMemo(() => buildForecastSeries({ events: filteredEvents, openingBalance: saldoRealHojeVal, days: 365 }), [filteredEvents, saldoRealHojeVal]);
@@ -491,7 +498,7 @@ export const useFinanceWorkspace = () => {
     ...finance,
     scope, setScope, entities, accounts, selectedEntity, selectedAccounts, cardAccounts, accountBalances,
     transfers, invoices, allEvents, filteredEvents, openingBalance, forecast90, monthlyForecast, contracts,
-    canonical, upcomingPayables, reserveBalance, entitiesLoading, entitiesError,
+    canonical, expectedMonthly, upcomingPayables, reserveBalance, entitiesLoading, entitiesError,
     saveAccountMutation, saveTransferMutation, saveInvoiceMutation, payInvoiceMutation,
     reconcileTransactionMutation, importCsvMutation, addInstallmentToFlowMutation, materializeReceived,
   };

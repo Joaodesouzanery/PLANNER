@@ -48,7 +48,7 @@ const FinanceTravel = () => {
   const { settings } = useFinanceSettings();
   const { selectedCompanyId } = useCompany();
   const qc = useQueryClient();
-  const cfo = useMemo(() => computeCfo(workspace.canonical.rows, settings, workspace.reserveBalance, format(new Date(), "yyyy-MM-dd")), [workspace.canonical.rows, settings, workspace.reserveBalance]);
+  const cfo = useMemo(() => computeCfo(workspace.canonical.rows, settings, workspace.reserveBalance, format(new Date(), "yyyy-MM-dd"), workspace.expectedMonthly), [workspace.canonical.rows, settings, workspace.reserveBalance, workspace.expectedMonthly]);
   const menor90 = useMemo(() => workspace.canonical.menorSaldo(90).saldo, [workspace.canonical]);
   const realAvailable = cfo.sobraMensal; // sobra mensal real (líquida de imposto − despesas)
   const tripsInFlow = new Set((workspace.rawTransactions as any[]).filter((t) => t.source_type === "travel").map((t) => t.source_id));

@@ -26,14 +26,14 @@ const CfoStat = ({ icon: Icon, label, value, hint, tone }: { icon: typeof Coins;
 );
 
 export const FinanceCfoPanel = () => {
-  const { canonical, reserveBalance } = useFinanceWorkspace();
+  const { canonical, reserveBalance, expectedMonthly } = useFinanceWorkspace();
   const { settings, missing, save } = useFinanceSettings();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<{ tax_rate: string; reserve_months: string; cdi_monthly_liquid: string }>({ tax_rate: "", reserve_months: "", cdi_monthly_liquid: "" });
 
   const m = useMemo(
-    () => computeCfo(canonical.rows, settings, reserveBalance, todayIso()),
-    [canonical.rows, settings, reserveBalance],
+    () => computeCfo(canonical.rows, settings, reserveBalance, todayIso(), expectedMonthly),
+    [canonical.rows, settings, reserveBalance, expectedMonthly],
   );
   const mesesReserva = mesesParaReserva(m);
 

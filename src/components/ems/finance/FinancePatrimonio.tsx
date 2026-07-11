@@ -26,7 +26,7 @@ export const FinancePatrimonio = () => {
   const { items, funds, missing, saveItem, deleteItem, saveFund, deleteFund } = usePatrimonio();
   const confirm = useConfirm();
 
-  const cfo = useMemo(() => computeCfo(workspace.canonical.rows, settings, workspace.reserveBalance, todayIso()), [workspace.canonical.rows, settings, workspace.reserveBalance]);
+  const cfo = useMemo(() => computeCfo(workspace.canonical.rows, settings, workspace.reserveBalance, todayIso(), workspace.expectedMonthly), [workspace.canonical.rows, settings, workspace.reserveBalance, workspace.expectedMonthly]);
   const caixa = workspace.canonical.saldoRealHoje;
   // Passivo automático: parcelas ainda não pagas (Macbook etc.).
   const parcelasRestantes = useMemo(() => workspace.canonical.rows.filter((r) => r.sourceType === "installment" && !r.paid).reduce((a, r) => a + r.amount, 0), [workspace.canonical.rows]);

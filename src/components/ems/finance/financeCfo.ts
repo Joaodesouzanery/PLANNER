@@ -9,12 +9,9 @@ export interface CfoSettings {
 }
 export const DEFAULT_CFO: CfoSettings = { tax_rate: 6, reserve_months: 6, cdi_monthly_liquid: 0.9 };
 
-const mk = (d: string) => d.slice(0, 7);
-const shiftKey = (key: string, delta: number) => {
-  const [y, m] = key.split("-").map(Number);
-  const dt = new Date(y, m - 1 + delta, 1);
-  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
-};
+/** Renda/despesa mensal esperada (max média histórica × baseline recorrente) — vinda de `computeProjection`. */
+export interface ExpectedMonthly { income: number; expense: number; }
+
 const isImpostoRow = (r: PeriodRow) => /imposto|tribut|\bdas\b|simples/i.test(`${r.category || ""} ${r.description || ""}`);
 
 export interface CfoMetrics {
@@ -39,20 +36,19 @@ export interface CfoMetrics {
 /**
  * @param reservaAtual reserva já separada (ex.: saldo de contas savings/investment do workspace).
  */
-export const computeCfo = (rows: PeriodRow[], s: CfoSettings, reservaAtual: number, today: string): CfoMetrics => {
+export const computeCfo = (rows: PeriodRow[], s: CfoSettings, reservaAtual: number, today: string, expected: ExpectedMonthly): CfoMetrics => {
   const rate = (s.tax_rate || 0) / 100;
   const saldoDisponivel = saldoRealHoje(rows, today);
-  const cur = mk(today);
-  const last3 = [shiftKey(cur, -1), shiftKey(cur, -2), shiftKey(cur, -3)];
-  const paidIn = (type: "income" | "expense", key: string) =>
-    rows.reduce((a, r) => (r.type === type && r.paid && mk(r.date) === key ? a + r.amount : a), 0);
-  const faturamentoMensal = last3.reduce((a, k) => a + paidIn("income", k), 0) / 3;
-  const despesaMensal = last3.reduce((a, k) => a + paidIn("expense", k), 0) / 3;
+  // Renda/despesa mensal ESPERADA (fonte única = aba Projeções): max(média histórica, baseline recorrente).
+  // Antes derivava só do "pago" nos 3 meses fechados → com histórico curto zerava a renda e quebrava tudo.
+  const faturamentoMensal = Math.max(0, expected.income || 0);
+  const despesaMensal = Math.max(0, expected.expense || 0);
   const impostoMensal = faturamentoMensal * rate;
   const receitaLiquida = faturamentoMensal - impostoMensal;
   const sobraMensal = receitaLiquida - despesaMensal;
   const taxaPoupanca = receitaLiquida > 0 ? sobraMensal / receitaLiquida : 0;
-  const burnMensal = despesaMensal + impostoMensal;
+  // Burn = despesa esperada; o imposto já é descontado no saldo líquido (reserva-alvo = meses × despesa).
+  const burnMensal = despesaMensal;
 
   // Imposto a recolher = Σ receita recebida × alíquota − Σ imposto já pago.
   const receitaRecebida = rows.reduce((a, r) => (r.type === "income" && r.paid && r.date <= today ? a + r.amount : a), 0);
@@ -64,8 +60,9 @@ export const computeCfo = (rows: PeriodRow[], s: CfoSettings, reservaAtual: numb
   const reservaAlvo = (s.reserve_months || 0) * burnMensal;
   const reservaPct = reservaAlvo > 0 ? Math.min(1, reservaAtual / reservaAlvo) : 0;
 
+  // Aging = só recebíveis REAIS vencidos (não recorrências/projeções sintéticas, que não são "atraso").
   const aReceberVencidoRows = rows
-    .filter((r) => r.type === "income" && !r.paid && r.date < today)
+    .filter((r) => r.type === "income" && !r.paid && r.date < today && !r.synthetic && !r.projected && r.sourceType === "transaction")
     .sort((a, b) => a.date.localeCompare(b.date));
   const aReceberVencido = aReceberVencidoRows.reduce((a, r) => a + r.amount, 0);
 
