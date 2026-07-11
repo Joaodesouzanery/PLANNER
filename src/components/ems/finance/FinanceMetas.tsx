@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { exportTablePdf } from "@/lib/exportPdf";
+import { FinanceMrrPanel } from "./FinanceMrrPanel";
 import { toast } from "sonner";
 
 const statusConfig: Record<string, { label: string; color: string }> = {
@@ -71,6 +72,8 @@ const FinanceMetas = () => {
 
   return (
     <div className="space-y-4 md:space-y-6">
+      <FinanceMrrPanel />
+
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
