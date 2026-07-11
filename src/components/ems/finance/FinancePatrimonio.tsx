@@ -14,9 +14,15 @@ import { fmtCurrency } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
 import { useFinanceSettings } from "./useFinanceSettings";
 import { computeCfo, fvAportes } from "./financeCfo";
+import { intervalFactor } from "./projectionCalc";
 import { usePatrimonio, type NetworthItem, type SinkingFund } from "./usePatrimonio";
 
 const todayIso = () => format(new Date(), "yyyy-MM-dd");
+const monthsUntil = (from: string, to: string) => {
+  const [fy, fm] = from.split("-").map(Number);
+  const [ty, tm] = to.split("-").map(Number);
+  return Math.max(0, (ty - fy) * 12 + (tm - fm));
+};
 const CAT_ASSET = [["caixa", "Caixa"], ["investimento", "Investimento"], ["bem", "Bem"], ["outro", "Outro"]];
 const CAT_LIAB = [["divida", "Dívida"], ["outro", "Outro"]];
 
@@ -28,8 +34,16 @@ export const FinancePatrimonio = () => {
 
   const cfo = useMemo(() => computeCfo(workspace.canonical.rows, settings, workspace.reserveBalance, todayIso(), workspace.expectedMonthly), [workspace.canonical.rows, settings, workspace.reserveBalance, workspace.expectedMonthly]);
   const caixa = workspace.canonical.saldoRealHoje;
-  // Passivo automático: parcelas ainda não pagas (Macbook etc.).
-  const parcelasRestantes = useMemo(() => workspace.canonical.rows.filter((r) => r.sourceType === "installment" && !r.paid).reduce((a, r) => a + r.amount, 0), [workspace.canonical.rows]);
+  // Passivo automático = parcelas de installment-groups não pagas + saldo restante de despesas
+  // recorrentes COM prazo (financiamento/parcelado tem recurrence_end_date; assinatura sem fim não conta).
+  const parcelasRestantes = useMemo(() => {
+    const today = todayIso();
+    const installments = workspace.canonical.rows.filter((r) => r.sourceType === "installment" && !r.paid).reduce((a, r) => a + r.amount, 0);
+    const recorrentesComFim = (workspace.transactions as any[])
+      .filter((t) => t.type === "expense" && t.is_recurring && t.recurrence_end_date && t.recurrence_end_date >= today)
+      .reduce((a, t) => a + Number(t.amount) * intervalFactor(t.recurrence_interval) * monthsUntil(today, t.recurrence_end_date), 0);
+    return installments + recorrentesComFim;
+  }, [workspace.canonical.rows, workspace.transactions]);
 
   const ativosManuais = items.filter((i) => i.kind === "asset").reduce((a, i) => a + Number(i.value), 0);
   const passivosManuais = items.filter((i) => i.kind === "liability").reduce((a, i) => a + Number(i.value), 0);
