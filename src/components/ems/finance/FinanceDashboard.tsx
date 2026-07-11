@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import FinanceAverages from "./FinanceAverages";
 import { FinanceCfoPanel } from "./FinanceCfoPanel";
 import { FinanceClientsCard } from "./FinanceClientsCard";
+import { FinanceBudgetCard } from "./FinanceBudgetCard";
 
 const todayIso = () => format(new Date(), "yyyy-MM-dd");
 const defaultFrom = () => format(startOfMonth(new Date()), "yyyy-MM-dd");
@@ -396,7 +397,10 @@ const FinanceDashboard = () => {
           </CardContent>
         </Card>
 
-        <FinanceClientsCard />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <FinanceClientsCard />
+          <FinanceBudgetCard />
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card className="border border-border/50 bg-card/80">
