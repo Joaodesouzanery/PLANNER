@@ -10,4 +10,5 @@ create table if not exists public.finance_category_budgets (
   unique (user_id, category, year, month)
 );
 alter table public.finance_category_budgets enable row level security;
+drop policy if exists "budgets own" on public.finance_category_budgets;
 create policy "budgets own" on public.finance_category_budgets for all using (auth.uid() = user_id) with check (auth.uid() = user_id);

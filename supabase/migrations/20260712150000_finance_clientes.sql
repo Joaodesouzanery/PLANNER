@@ -8,6 +8,7 @@ create table if not exists public.finance_clientes (
   unique (user_id, nome)
 );
 alter table public.finance_clientes enable row level security;
+drop policy if exists "clientes own" on public.finance_clientes;
 create policy "clientes own" on public.finance_clientes for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 alter table public.financial_transactions add column if not exists cliente_id uuid references public.finance_clientes(id) on delete set null;
