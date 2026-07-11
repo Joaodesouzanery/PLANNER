@@ -15,6 +15,7 @@ import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns
 import { ptBR } from "date-fns/locale";
 import { fmtCurrency, formatDateBR, effectiveDate, type Transaction } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
+import { useClientes } from "./useClientes";
 import { useConfirm } from "@/hooks/useConfirm";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -44,12 +45,14 @@ const StatusBadge = ({ t }: { t: Transaction }) => {
 const emptyForm = () => ({
   description: "", amount: 0, type: "expense" as "income" | "expense", category: "",
   date: todayIso(), due_date: todayIso(), status: "confirmed", finance_account_id: "",
-  is_recurring: false, recurrence_interval: "", recurrence_end_date: "", paid: false,
+  is_recurring: false, recurrence_interval: "", recurrence_end_date: "", paid: false, cliente_id: "",
 });
 
 const FinanceTransactions = () => {
   const { rawTransactions, allCategories, saveTransactionMutation, deleteTransactionMutation, reconcileTransactionMutation, selectedAccounts, accounts, canonical } = useFinanceWorkspace();
+  const { clientes, saveCliente } = useClientes();
   const confirm = useConfirm();
+  const [newClient, setNewClient] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [filterCategory, setFilterCategory] = useState("");
@@ -138,6 +141,7 @@ const FinanceTransactions = () => {
       date: t.date, due_date: t.due_date || t.date, status: t.status || "confirmed",
       finance_account_id: t.finance_account_id || "", is_recurring: t.is_recurring || false,
       recurrence_interval: t.recurrence_interval || "", recurrence_end_date: t.recurrence_end_date || "", paid: isPaid(t),
+      cliente_id: t.cliente_id || "",
     });
     setShowModal(true);
   };
@@ -152,6 +156,7 @@ const FinanceTransactions = () => {
       settled_at: status === "reconciled" ? (editingTransaction?.settled_at || new Date().toISOString()) : null,
       recurrence_interval: form.is_recurring ? (form.recurrence_interval || "monthly") : null,
       recurrence_end_date: form.is_recurring ? (form.recurrence_end_date || null) : null,
+      cliente_id: form.type === "income" ? (form.cliente_id || null) : null,
     };
     saveTransactionMutation.mutate({ form: payload, editingId: editingTransaction?.id }, {
       onSuccess: () => { setShowModal(false); setEditingTransaction(null); setForm(emptyForm()); },
@@ -343,6 +348,22 @@ const FinanceTransactions = () => {
               <div><Label>Categoria</Label><Input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="Ex: Marketing" className="rounded-xl" /></div>
               <div><Label>Data</Label><Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className="rounded-xl" /></div>
             </div>
+            {form.type === "income" && (
+              <div>
+                <Label>Cliente <span className="text-xs text-muted-foreground">(de quem entra a receita)</span></Label>
+                <div className="flex gap-2">
+                  <Select value={form.cliente_id || "none"} onValueChange={value => setForm({ ...form, cliente_id: value === "none" ? "" : value })}>
+                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="Sem cliente" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem cliente</SelectItem>
+                      {clientes.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}{!c.recorrente && " · pontual"}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Input value={newClient} onChange={e => setNewClient(e.target.value)} placeholder="+ novo cliente" className="rounded-xl w-40" />
+                  <Button type="button" variant="outline" className="rounded-xl shrink-0" disabled={!newClient.trim()} onClick={() => saveCliente.mutate({ nome: newClient.trim() }, { onSuccess: (id) => { setForm({ ...form, cliente_id: id }); setNewClient(""); } })}>Criar</Button>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div><Label>Vencimento</Label><Input type="date" value={form.due_date} onChange={e => setForm({ ...form, due_date: e.target.value })} className="rounded-xl" /></div>
               <div><Label>Conta</Label><Select value={form.finance_account_id || "none"} onValueChange={value => setForm({ ...form, finance_account_id: value === "none" ? "" : value })}><SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Sem conta</SelectItem>{selectedAccounts.map(account => <SelectItem key={account.id} value={account.id}>{account.name}</SelectItem>)}</SelectContent></Select></div>

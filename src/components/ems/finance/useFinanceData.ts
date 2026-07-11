@@ -22,6 +22,7 @@ export interface Transaction {
   installment_group_id?: string | null; installment_number?: number | null; installment_total?: number | null;
   is_recurring?: boolean; recurrence_interval?: string | null; recurrence_end_date?: string | null;
   source_id?: string | null; is_projected?: boolean | null; projection_index?: number | null;
+  cliente_id?: string | null;
 }
 export interface SavedInstallment {
   id: string;
