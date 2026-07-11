@@ -1,0 +1,50 @@
+import { useMemo } from "react";
+import { format } from "date-fns";
+import { fmtCurrency } from "./useFinanceData";
+import { useFinanceWorkspace } from "./useFinanceWorkspace";
+import { useFinanceSettings } from "./useFinanceSettings";
+import { useClientes } from "./useClientes";
+import { useCategoryBudgets } from "./useCategoryBudgets";
+import { computeCfo } from "./financeCfo";
+import { buildClientRevenue, clientConcentration } from "./financeClients";
+import { buildBudgetLines } from "./financeBudget";
+import { buildAlerts } from "./financeAlerts";
+
+const todayIso = () => format(new Date(), "yyyy-MM-dd");
+
+/** Junta a fonte única + Fases 1/3/5 e roda o engine de alertas. Nada é persistido (derivado). */
+export const useFinanceAlerts = () => {
+  const workspace = useFinanceWorkspace();
+  const { settings } = useFinanceSettings();
+  const { clientes } = useClientes();
+  const now = new Date();
+  const { budgets } = useCategoryBudgets(now.getFullYear(), now.getMonth() + 1);
+  const curKey = format(now, "yyyy-MM");
+
+  return useMemo(() => {
+    const cfo = computeCfo(workspace.canonical.rows, settings, workspace.reserveBalance, todayIso(), workspace.expectedMonthly);
+    const curva90 = workspace.canonical.curva(90);
+
+    const realizadoPorCat: Record<string, number> = {};
+    for (const r of workspace.canonical.rows) {
+      if (r.type !== "expense" || !r.paid || r.date.slice(0, 7) !== curKey) continue;
+      const c = r.category || "Sem categoria";
+      realizadoPorCat[c] = (realizadoPorCat[c] || 0) + r.amount;
+    }
+    const lines = buildBudgetLines(budgets.map((b) => ({ category: b.category, teto: Number(b.teto) })), realizadoPorCat);
+    const budgetEstouros = lines.filter((l) => l.estourou).map((l) => ({ category: l.category, saldo: l.saldo }));
+
+    const { clients } = buildClientRevenue(workspace.rawTransactions as any[], clientes);
+    const conc = clientConcentration(clients);
+
+    const alerts = buildAlerts({
+      cfo,
+      curva90,
+      reservaAlvo: cfo.reservaAlvo,
+      budgetEstouros,
+      concentracaoTop1: clients.length ? conc.top1Share : null,
+      brl: fmtCurrency,
+    });
+    return { alerts, cfo };
+  }, [workspace.canonical, workspace.rawTransactions, workspace.reserveBalance, workspace.expectedMonthly, settings, budgets, clientes, curKey]);
+};

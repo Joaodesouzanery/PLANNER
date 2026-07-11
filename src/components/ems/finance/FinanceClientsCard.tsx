@@ -8,9 +8,8 @@ import { fmtCurrency } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
 import { useFinanceSettings } from "./useFinanceSettings";
 import { useClientes } from "./useClientes";
-import { intervalFactor } from "./projectionCalc";
 import { computeCfo } from "./financeCfo";
-import { clientConcentration, impactoSeSair, type ClientRevenue } from "./financeClients";
+import { buildClientRevenue, clientConcentration, impactoSeSair } from "./financeClients";
 
 const todayIso = () => format(new Date(), "yyyy-MM-dd");
 const CONCENTRACAO_LIMITE = 0.3; // top-1 acima disso = risco
@@ -25,23 +24,10 @@ export const FinanceClientsCard = () => {
     [workspace.canonical.rows, settings, workspace.reserveBalance, workspace.expectedMonthly],
   );
 
-  const { clients, semCliente } = useMemo(() => {
-    const nameById = new Map(clientes.map((c) => [c.id, c]));
-    const rev = new Map<string, ClientRevenue>();
-    for (const t of workspace.rawTransactions as any[]) {
-      if (t.type !== "income" || !t.is_recurring) continue; // run-rate = recorrentes de entrada
-      const mEq = Number(t.amount) * intervalFactor(t.recurrence_interval);
-      const ongoing = t.recurrence_end_date ? 0 : mEq; // com prazo = pontual, não conta pro MRR
-      const key = t.cliente_id || "__sem__";
-      const meta = t.cliente_id ? nameById.get(t.cliente_id) : null;
-      const e = rev.get(key) || { id: t.cliente_id || null, nome: meta?.nome || "Sem cliente", recorrente: meta?.recorrente ?? !t.recurrence_end_date, monthly: 0, ongoing: 0 };
-      e.monthly += mEq; e.ongoing += ongoing;
-      rev.set(key, e);
-    }
-    const semCliente = rev.get("__sem__")?.monthly ?? 0;
-    const clients = [...rev.values()].filter((e) => e.id !== null);
-    return { clients, semCliente };
-  }, [workspace.rawTransactions, clientes]);
+  const { clients, semCliente } = useMemo(
+    () => buildClientRevenue(workspace.rawTransactions as any[], clientes),
+    [workspace.rawTransactions, clientes],
+  );
 
   const conc = useMemo(() => clientConcentration(clients), [clients]);
   const mrr = useMemo(() => clients.reduce((a, c) => a + c.ongoing, 0), [clients]);

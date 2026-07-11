@@ -1,6 +1,7 @@
 // CFO v2 · Fase 1 — concentração de receita por cliente. Puro/testável.
 // `monthly` = run-rate mensal do cliente (inclui pontual); `ongoing` = parte recorrente SEM fim
 // (o que o cliente contribui pro MRR, i.e. sai de vez se ele cancelar).
+import { intervalFactor } from "./projectionCalc";
 
 export interface ClientRevenue {
   id: string | null;
@@ -9,6 +10,37 @@ export interface ClientRevenue {
   monthly: number;
   ongoing: number;
 }
+
+export interface ClientTx {
+  type: string;
+  is_recurring?: boolean | null;
+  amount: number | string;
+  recurrence_interval?: string | null;
+  recurrence_end_date?: string | null;
+  cliente_id?: string | null;
+}
+
+/** Run-rate mensal por cliente a partir das ENTRADAS recorrentes (fonte do card e dos alertas). */
+export const buildClientRevenue = (
+  txns: ClientTx[],
+  clientes: { id: string; nome: string; recorrente: boolean }[],
+): { clients: ClientRevenue[]; semCliente: number } => {
+  const nameById = new Map(clientes.map((c) => [c.id, c]));
+  const rev = new Map<string, ClientRevenue>();
+  for (const t of txns) {
+    if (t.type !== "income" || !t.is_recurring) continue;
+    const mEq = Number(t.amount) * intervalFactor(t.recurrence_interval || "monthly");
+    const ongoing = t.recurrence_end_date ? 0 : mEq;
+    const key = t.cliente_id || "__sem__";
+    const meta = t.cliente_id ? nameById.get(t.cliente_id) : null;
+    const e = rev.get(key) || { id: t.cliente_id || null, nome: meta?.nome || "Sem cliente", recorrente: meta?.recorrente ?? !t.recurrence_end_date, monthly: 0, ongoing: 0 };
+    e.monthly += mEq;
+    e.ongoing += ongoing;
+    rev.set(key, e);
+  }
+  const semCliente = rev.get("__sem__")?.monthly ?? 0;
+  return { clients: [...rev.values()].filter((e) => e.id !== null), semCliente };
+};
 
 export interface ClientConcentration {
   total: number;

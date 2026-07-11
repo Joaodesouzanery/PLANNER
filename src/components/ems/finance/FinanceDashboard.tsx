@@ -18,6 +18,7 @@ import { exportTablePdf, captureChart } from "@/lib/exportPdf";
 import { toast } from "sonner";
 import FinanceAverages from "./FinanceAverages";
 import { FinanceCfoPanel } from "./FinanceCfoPanel";
+import { FinanceAlertsFeed } from "./FinanceAlertsFeed";
 import { FinanceClientsCard } from "./FinanceClientsCard";
 import { FinanceBudgetCard } from "./FinanceBudgetCard";
 
@@ -220,6 +221,7 @@ const FinanceDashboard = () => {
 
       <TabsContent value="overview" className="mt-0 space-y-6">
         <FinanceCfoPanel />
+        <FinanceAlertsFeed />
         <Card className="border border-border/50 bg-card/80">
           <CardContent className="p-3 flex flex-wrap items-center gap-3">
             <DollarSign className="h-4 w-4 text-primary" />
