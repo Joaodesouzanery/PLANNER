@@ -83,8 +83,8 @@ const FinanceTravel = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Card className="bg-success/10 border-success/30"><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Renda líq. real / mês</p><p className="text-xl font-bold text-success">{brl(cfo.receitaLiquida)}</p><p className="text-[10px] text-muted-foreground">média 3m, − imposto</p></CardContent></Card>
-            <Card className="bg-destructive/10 border-destructive/30"><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Despesas reais / mês</p><p className="text-xl font-bold text-destructive">{brl(cfo.despesaMensal)}</p><p className="text-[10px] text-muted-foreground">média 3m</p></CardContent></Card>
+            <Card className="bg-success/10 border-success/30"><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Renda líq. real / mês</p><p className="text-xl font-bold text-success">{brl(cfo.receitaLiquida)}</p><p className="text-[10px] text-muted-foreground">renda esperada − imposto</p></CardContent></Card>
+            <Card className="bg-destructive/10 border-destructive/30"><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Despesas reais / mês</p><p className="text-xl font-bold text-destructive">{brl(cfo.despesaMensal)}</p><p className="text-[10px] text-muted-foreground">despesa esperada</p></CardContent></Card>
             <Card className="bg-primary/10 border-primary/30"><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Sobra real / mês</p><p className={cn("text-xl font-bold", realAvailable >= 0 ? "text-primary" : "text-destructive")}>{brl(realAvailable)}</p><p className="text-[10px] text-muted-foreground">base do veredito</p></CardContent></Card>
             <Card className="border-border/50"><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Menor saldo 90d</p><p className={cn("text-xl font-bold", menor90 >= 0 ? "text-foreground" : "text-destructive")}>{brl(menor90)}</p><p className="text-[10px] text-muted-foreground">piso do caixa</p></CardContent></Card>
           </div>
@@ -232,10 +232,6 @@ const TripDetail = ({ trip, categories, availableBalance, menor90, reservaAlvo, 
   const monthlyGoal = totalBRL / monthsUntil;
   const committedPct = availableBalance > 0 ? monthlyGoal / availableBalance : 1;
 
-  const trafficLight = committedPct <= 0.3 ? { color: "text-success", bg: "bg-success", label: "Viável", desc: "A meta cabe confortavelmente no seu saldo disponível." }
-    : committedPct <= 0.6 ? { color: "text-warning", bg: "bg-warning", label: "Atenção", desc: "Possível, mas exige disciplina mensal." }
-    : { color: "text-destructive", bg: "bg-destructive", label: "Replanejar", desc: "Reveja prazo, destino ou número de viajantes." };
-
   // ── Impacto REAL no fluxo: o gasto rebaixa o menor saldo em 90 dias; comparar com a reserva-alvo. ──
   const toBRL = (v: number) => (trip.is_international && trip.exchange_rate ? v * Number(trip.exchange_rate) : v);
   const flowRows = [
@@ -351,10 +347,11 @@ const TripDetail = ({ trip, categories, availableBalance, menor90, reservaAlvo, 
                 <Progress value={Math.min(100, committedPct * 100)} />
                 <p className="text-xs text-muted-foreground">{(committedPct * 100).toFixed(1)}% do saldo disponível mensal</p>
               </CardContent></Card>
-              <Card className={`border-2 ${trafficLight.color.replace("text-", "border-")}/40`}>
+              <Card className={cn("border-2", impacto.bg)}>
                 <CardContent className="pt-4 space-y-2">
-                  <div className="flex items-center gap-2"><div className={`h-3 w-3 rounded-full ${trafficLight.bg}`} /><p className={`font-bold ${trafficLight.color}`}>{trafficLight.label}</p></div>
-                  <p className="text-sm text-muted-foreground">{trafficLight.desc}</p>
+                  <div className="flex items-center gap-2"><TrendingDown className={cn("h-4 w-4", impacto.color)} /><p className={cn("font-bold", impacto.color)}>{impacto.label}</p></div>
+                  <p className="text-sm text-muted-foreground">{impacto.desc}</p>
+                  <p className="text-xs text-muted-foreground">Piso do caixa pós-viagem <span className={cn("font-mono font-semibold", impacto.color)}>{brl(menorPos)}</span> · reserva-alvo {brl(reservaAlvo)}</p>
                 </CardContent>
               </Card>
             </div>
