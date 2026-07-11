@@ -289,9 +289,16 @@ export const useFinanceWorkspace = () => {
     expense: finance.projectionBreakdown?.chosenExpense ?? 0,
   }), [finance.projectionBreakdown]);
 
+  // Gasto variável estimado (esperado − recorrente): entra nas linhas Esperado/Conservador do forecast
+  // p/ a projeção não crescer rápido demais ignorando o dia-a-dia (converge com a aba Projeções).
+  const variableMonthlyExpense = useMemo(
+    () => Math.max(0, (finance.projectionBreakdown?.chosenExpense ?? 0) - (finance.projectionBreakdown?.recurringBaselineExpense ?? 0)),
+    [finance.projectionBreakdown],
+  );
+
   // Forecast semeado pelo saldo real canônico (não pelo openingBalance inflado). Mata o duplo-5.500.
-  const forecast90 = useMemo(() => buildForecastSeries({ events: filteredEvents, openingBalance: saldoRealHojeVal, days: 90 }), [filteredEvents, saldoRealHojeVal]);
-  const forecast365 = useMemo(() => buildForecastSeries({ events: filteredEvents, openingBalance: saldoRealHojeVal, days: 365 }), [filteredEvents, saldoRealHojeVal]);
+  const forecast90 = useMemo(() => buildForecastSeries({ events: filteredEvents, openingBalance: saldoRealHojeVal, days: 90, variableMonthlyExpense }), [filteredEvents, saldoRealHojeVal, variableMonthlyExpense]);
+  const forecast365 = useMemo(() => buildForecastSeries({ events: filteredEvents, openingBalance: saldoRealHojeVal, days: 365, variableMonthlyExpense }), [filteredEvents, saldoRealHojeVal, variableMonthlyExpense]);
   const monthlyForecast = useMemo(() => summarizeForecastByMonth(forecast365).slice(0, 12), [forecast365]);
 
   // Contratos = recorrencias COM termino (recurrence_end_date). Escopo por conta selecionada.

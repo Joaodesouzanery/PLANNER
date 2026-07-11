@@ -34,12 +34,17 @@ export const buildForecastSeries = ({
   openingBalance,
   startDate = dateOnly(new Date()),
   days = 90,
+  variableMonthlyExpense = 0,
 }: {
   events: ForecastEvent[];
   openingBalance: number;
   startDate?: string;
   days?: number;
+  /** Gasto variável mensal estimado (esperado − recorrente). Aplicado só nas linhas Esperado/Conservador
+   *  como um "vazamento" diário, para a projeção não crescer rápido demais ignorando o gasto do dia-a-dia. */
+  variableMonthlyExpense?: number;
 }): ForecastSeries => {
+  const dailyVariable = Math.max(0, variableMonthlyExpense) / 30;
   const endDate = addDays(startDate, Math.max(0, days - 1));
   const activeEvents = events.filter((event) =>
     event.status !== "skipped" && event.date >= startDate && event.date <= endDate
@@ -68,8 +73,8 @@ export const buildForecastSeries = ({
     const transferIn = committed.filter((event) => event.kind === "transfer_in").reduce((sum, event) => sum + Number(event.amount), 0);
     const transferOut = committed.filter((event) => event.kind === "transfer_out").reduce((sum, event) => sum + Number(event.amount), 0);
     base += income + transferIn - expense - transferOut;
-    conservative += dayEvents.reduce((sum, event) => sum + scenarioAmount(event, "conservative"), 0);
-    expected += dayEvents.reduce((sum, event) => sum + scenarioAmount(event, "expected"), 0);
+    conservative += dayEvents.reduce((sum, event) => sum + scenarioAmount(event, "conservative"), 0) - dailyVariable;
+    expected += dayEvents.reduce((sum, event) => sum + scenarioAmount(event, "expected"), 0) - dailyVariable;
     optimistic += dayEvents.reduce((sum, event) => sum + scenarioAmount(event, "optimistic"), 0);
 
     if (base < minimumBalance) {
