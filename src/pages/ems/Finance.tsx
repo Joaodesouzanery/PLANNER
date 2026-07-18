@@ -12,6 +12,7 @@ import FinanceSimulator from "@/components/ems/finance/FinanceSimulator";
 import FinanceMetas from "@/components/ems/finance/FinanceMetas";
 import FinancePlannedImpacts from "@/components/ems/finance/FinancePlannedImpacts";
 import PurchaseImpactCalculator from "@/components/ems/finance/PurchaseImpactCalculator";
+import { FinancePurchasePlanner } from "@/components/ems/finance/FinancePurchasePlanner";
 import FinanceFutureFlow from "@/components/ems/finance/FinanceFutureFlow";
 import FinanceBrenoView from "@/components/ems/finance/FinanceBrenoView";
 import FinanceTravel from "@/components/ems/finance/travel/FinanceTravel";
@@ -78,7 +79,7 @@ const Finance = () => {
               </TabsList>
               <TabsContent value="calculator"><FinanceCalculator /></TabsContent>
               <TabsContent value="simulator"><FinanceSimulator /></TabsContent>
-              <TabsContent value="purchase"><PurchaseImpactCalculator /></TabsContent>
+              <TabsContent value="purchase" className="space-y-6"><FinancePurchasePlanner /><PurchaseImpactCalculator /></TabsContent>
               <TabsContent value="travel"><FinanceTravel /></TabsContent>
             </Tabs>
           </TabsContent>

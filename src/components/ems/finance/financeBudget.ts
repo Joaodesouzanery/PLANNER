@@ -9,15 +9,25 @@ export interface BudgetLine {
   saldo: number; // teto − realizado (negativo = estourou)
   estourou: boolean;
   orcada: boolean;
+  // Planejado (compras futuras/previstos do mês) — aditivo; 0 quando não informado.
+  planejado: number;
+  comprometido: number; // realizado + planejado
+  comprometidoPct: number;
 }
 
-/** Combina tetos (por categoria) com o realizado (por categoria) num quadro por categoria. */
-export const buildBudgetLines = (tetos: CategoryBudget[], realizadoPorCat: Record<string, number>): BudgetLine[] => {
-  const cats = new Set<string>([...tetos.map((t) => t.category), ...Object.keys(realizadoPorCat)]);
+/** Combina tetos com realizado (e, opcional, planejado) por categoria. */
+export const buildBudgetLines = (
+  tetos: CategoryBudget[],
+  realizadoPorCat: Record<string, number>,
+  planejadoPorCat: Record<string, number> = {},
+): BudgetLine[] => {
+  const cats = new Set<string>([...tetos.map((t) => t.category), ...Object.keys(realizadoPorCat), ...Object.keys(planejadoPorCat)]);
   return [...cats]
     .map((category) => {
       const teto = tetos.find((t) => t.category === category)?.teto ?? 0;
       const realizado = realizadoPorCat[category] ?? 0;
+      const planejado = planejadoPorCat[category] ?? 0;
+      const comprometido = realizado + planejado;
       return {
         category,
         teto,
@@ -26,9 +36,12 @@ export const buildBudgetLines = (tetos: CategoryBudget[], realizadoPorCat: Recor
         saldo: teto - realizado,
         estourou: teto > 0 && realizado > teto,
         orcada: teto > 0,
+        planejado,
+        comprometido,
+        comprometidoPct: teto > 0 ? comprometido / teto : 0,
       };
     })
-    .sort((a, b) => b.realizado - a.realizado);
+    .sort((a, b) => b.comprometido - a.comprometido);
 };
 
 /** Total dos tetos e do realizado (só categorias orçadas, p/ o resumo do card). */
