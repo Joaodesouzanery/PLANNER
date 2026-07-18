@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { cn } from "@/lib/utils";
 import { dateLabel } from "./boardShared";
+import { BoardAttentionFeed } from "./BoardAttentionFeed";
 
 const DAY = 86400000;
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -95,6 +96,9 @@ export const BoardCockpitPanel = ({ onNavigate }: { onNavigate: (tab: string) =>
 
   return (
     <div className="space-y-4">
+      {/* Central de Atenção — tudo que precisa de você, reds primeiro (Fase 2). */}
+      <BoardAttentionFeed />
+
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {radar.map((item) => (
           <button
