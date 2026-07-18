@@ -18,6 +18,7 @@ import { exportTablePdf, captureChart } from "@/lib/exportPdf";
 import { toast } from "sonner";
 import FinanceAverages from "./FinanceAverages";
 import { FinanceDre } from "./FinanceDre";
+import { FinanceKpis } from "./FinanceKpis";
 import { FinanceCfoPanel } from "./FinanceCfoPanel";
 import { FinanceAlertsFeed } from "./FinanceAlertsFeed";
 import { FinanceClientsCard } from "./FinanceClientsCard";
@@ -435,6 +436,7 @@ const FinanceDashboard = () => {
 
       <TabsContent value="dre" className="mt-0 space-y-6">
         <FinanceDre />
+        <FinanceKpis />
       </TabsContent>
 
       <TabsContent value="averages" className="mt-0">
