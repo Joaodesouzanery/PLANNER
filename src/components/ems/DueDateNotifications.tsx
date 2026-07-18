@@ -4,7 +4,7 @@ import { Bell, AlertTriangle, Clock, Target, ListTodo, ListChecks, FolderKanban 
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatDistanceToNow, differenceInDays, parseISO, isBefore } from "date-fns";
+import { formatDistanceToNow, differenceInDays, parseISO, isBefore, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -79,6 +79,28 @@ export const DueDateNotifications = () => {
     },
   });
 
+  // Itens de checklist recorrentes cobrados HOJE e ainda não feitos (não têm due_date → recorrência).
+  const { data: routineItems = [] } = useQuery({
+    queryKey: ["notifications", "routine-items"],
+    staleTime: 300000,
+    refetchInterval: 300000,
+    queryFn: async () => {
+      const today = format(new Date(), "yyyy-MM-dd");
+      const [items, logs] = await Promise.all([
+        (supabase as any).from("routine_checklist_items").select("id, title, frequency, weekday, day_of_month").eq("active", true),
+        (supabase as any).from("routine_checklist_logs").select("item_id").eq("log_date", today),
+      ]);
+      if (items.error) return [];
+      const done = new Set((logs.data || []).map((l: any) => l.item_id));
+      const n = new Date();
+      const dueToday = (it: any) =>
+        it.frequency === "weekly" ? (it.weekday == null || n.getDay() === it.weekday)
+          : it.frequency === "monthly" ? (it.day_of_month != null && n.getDate() === it.day_of_month)
+            : true;
+      return (items.data || []).filter((it: any) => dueToday(it) && !done.has(it.id));
+    },
+  });
+
   const notifications = useMemo(() => {
     const today = new Date();
     const items: NotificationItem[] = [];
@@ -115,9 +137,14 @@ export const DueDateNotifications = () => {
         items.push({ id: t.id, title: t.title, type: "routine", dueDate: t.due_date, daysUntilDue: days, isOverdue: overdue, priority: t.priority });
     });
 
+    const todayStr = format(today, "yyyy-MM-dd");
+    (routineItems as any[]).forEach((it) => {
+      items.push({ id: it.id, title: it.title, type: "routine", dueDate: todayStr, daysUntilDue: 0, isOverdue: false });
+    });
+
     items.sort((a, b) => a.daysUntilDue - b.daysUntilDue);
     return items;
-  }, [projects, tasks, milestones, routineTasks]);
+  }, [projects, tasks, milestones, routineTasks, routineItems]);
 
   const getTimeText = (n: NotificationItem) => {
     if (n.isOverdue) return `Atrasado há ${formatDistanceToNow(parseISO(n.dueDate), { locale: ptBR })}`;

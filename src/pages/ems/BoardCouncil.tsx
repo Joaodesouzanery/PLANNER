@@ -44,7 +44,8 @@ const BoardCouncil = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const raw = searchParams.get("tab") || "cockpit";
   const tab = VALID.has(raw) ? raw : (LEGACY_MAP[raw] || "cockpit");
-  const setTab = (value: string) => setSearchParams({ tab: value }, { replace: true });
+  // Preserva os demais params (ex.: ?client=) ao trocar de aba — o deep-link de Rotinas depende disso.
+  const setTab = (value: string) => setSearchParams((prev) => { const p = new URLSearchParams(prev); p.set("tab", value); return p; }, { replace: true });
   useBoardRealtime();
 
   return (

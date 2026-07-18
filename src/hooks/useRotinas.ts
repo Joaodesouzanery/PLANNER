@@ -81,6 +81,7 @@ export interface RoutineClientView {
   todayProgress: { done: number; total: number };
   monthProgress: { done: number; total: number };
   monthlyItems: RoutineChecklistItem[];
+  todayItems: RoutineChecklistItem[]; // itens cobrados HOJE (para a seção "Hoje")
   overdueTasks: RoutineTask[];
   nextDue: { label: string; days: number } | null;
 }
@@ -254,6 +255,7 @@ export const useRotinas = () => {
         todayProgress: { done: todayItems.filter((i) => doneItemIds.has(i.id)).length, total: todayItems.length },
         monthProgress: { done: monthlyItems.filter((i) => doneItemIds.has(i.id)).length, total: monthlyItems.length },
         monthlyItems,
+        todayItems,
         overdueTasks,
         nextDue: computeNextDue(client, monthlyItems, openTasks, day),
       });

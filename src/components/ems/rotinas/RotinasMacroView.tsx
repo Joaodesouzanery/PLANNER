@@ -2,6 +2,7 @@ import { AlertTriangle, CalendarDays, CheckSquare, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { RotinaClientCard } from "./RotinaClientCard";
+import { RotinasHojeSection } from "./RotinasHojeSection";
 import type { useRotinas, RoutineClientView } from "@/hooks/useRotinas";
 
 type Rotinas = ReturnType<typeof useRotinas>;
@@ -29,6 +30,9 @@ export const RotinasMacroView = ({ rotinas, onSelectClient }: { rotinas: Rotinas
 
   return (
     <div className="space-y-4">
+      {/* "Hoje": o dia de todos os clientes num lugar só, marcável — dentro de Rotinas. */}
+      <RotinasHojeSection rotinas={rotinas} onSelectClient={onSelectClient} />
+
       {/* Faixa de agenda (consolidado) — somando todas as empresas */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <AgendaChip icon={AlertTriangle} label="Atrasado" value={agenda.atrasado} tone={agenda.atrasado > 0 ? "text-red-400 border-red-400/40 bg-red-400/5" : "text-muted-foreground border-border/60"} />

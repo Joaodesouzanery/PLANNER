@@ -1,9 +1,12 @@
-import { useState } from "react";
-import { AlertTriangle, CalendarDays, ClipboardList, ClipboardPaste, Rows3, Settings2, Sparkles, Plus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { AlertTriangle, BellRing, CalendarDays, ClipboardList, ClipboardPaste, Rows3, Settings2, Sparkles, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useRotinas } from "@/hooks/useRotinas";
+import { useRotinas, type RoutineClientView } from "@/hooks/useRotinas";
+import { useDailyNotify } from "@/hooks/useDailyNotify";
+import { rotinasHoje } from "./rotinasHoje";
 import { RotinaClientDialog } from "./RotinaClientDialog";
 import { RotinaConfigDialog } from "./RotinaConfigDialog";
 import { RotinasMacroView } from "./RotinasMacroView";
@@ -16,6 +19,27 @@ export const RotinasPanel = () => {
   const [configOpen, setConfigOpen] = useState(false);
   const [pasteOpen, setPasteOpen] = useState(false);
   const [view, setView] = useState<"macro" | "calendario">("macro");
+  const [searchParams] = useSearchParams();
+  const notify = useDailyNotify();
+
+  // Deep-link: ?client=<id> abre o cliente direto (widgets do dashboard).
+  useEffect(() => {
+    const c = searchParams.get("client");
+    if (c) setSelectedClientId(c);
+  }, [searchParams]);
+
+  // Resumo do dia (mesma lógica da seção "Hoje") p/ o aviso do navegador.
+  const hoje = useMemo(() => {
+    const views = rotinas.clients.map((c) => rotinas.clientViews.get(c.id)).filter(Boolean) as RoutineClientView[];
+    return rotinasHoje(views, rotinas.today);
+  }, [rotinas.clients, rotinas.clientViews, rotinas.today]);
+
+  useEffect(() => {
+    if (hoje.counts.total > 0) {
+      notify.notifyDaily("Rotinas de hoje", `${hoje.counts.hoje} hoje · ${hoje.counts.atrasado} atrasadas · ${hoje.counts.nf} NF vencendo`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hoje.counts.total, notify.permission]);
 
   const isMissingTable = (rotinas.error as any)?.code === "42P01";
 
@@ -64,6 +88,11 @@ export const RotinasPanel = () => {
             <Button variant="outline" size="sm" className="h-8 gap-2" onClick={() => setConfigOpen(true)}>
               <Settings2 className="h-3.5 w-3.5" /> Configurar
             </Button>
+            {notify.supported && notify.permission !== "granted" && (
+              <Button variant="outline" size="sm" className="h-8 gap-2" onClick={() => notify.enable()} title="Receber um aviso do navegador com o resumo do dia">
+                <BellRing className="h-3.5 w-3.5" /> Ativar avisos
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>
