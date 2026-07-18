@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { exportTablePdf, captureChart } from "@/lib/exportPdf";
 import { toast } from "sonner";
 import FinanceAverages from "./FinanceAverages";
+import { FinanceDre } from "./FinanceDre";
 import { FinanceCfoPanel } from "./FinanceCfoPanel";
 import { FinanceAlertsFeed } from "./FinanceAlertsFeed";
 import { FinanceClientsCard } from "./FinanceClientsCard";
@@ -210,6 +211,7 @@ const FinanceDashboard = () => {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <TabsList className="bg-card/80 border border-border/50 rounded-xl">
           <TabsTrigger value="overview" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Visão geral</TabsTrigger>
+          <TabsTrigger value="dre" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">DRE & KPIs</TabsTrigger>
           <TabsTrigger value="averages" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Médias & mês</TabsTrigger>
         </TabsList>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -429,6 +431,10 @@ const FinanceDashboard = () => {
             </CardContent>
           </Card>
         </div>
+      </TabsContent>
+
+      <TabsContent value="dre" className="mt-0 space-y-6">
+        <FinanceDre />
       </TabsContent>
 
       <TabsContent value="averages" className="mt-0">
