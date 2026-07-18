@@ -29,6 +29,10 @@ describe("financeDre — mapeamento categoria → linha", () => {
   it("override vence a heurística", () => {
     assert.equal(mapCategoryToDreLine("Aluguel", { Aluguel: "custo" }), "custo");
   });
+  it("override do bucket 'Sem categoria' funciona (categoria nula)", () => {
+    assert.equal(mapCategoryToDreLine(null, { "Sem categoria": "custo" }), "custo");
+    assert.equal(mapCategoryToDreLine(null), "despesa_operacional");
+  });
 });
 
 describe("financeDre — DRE + EBITDA", () => {

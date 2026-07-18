@@ -22,10 +22,12 @@ const HEUR: { line: DreLine; re: RegExp }[] = [
   { line: "custo", re: /custo|\bcmv\b|\bcpv\b|insumo|mercadoria|fornecedor|mat[eé]ria.?prima|frete|logistic/i },
 ];
 
-/** Categoria → linha da DRE. Override do usuário vence; senão heurística; senão despesa operacional. */
+/** Categoria → linha da DRE. Override do usuário vence; senão heurística; senão despesa operacional.
+ *  A chave do override normaliza categoria vazia/nula para "Sem categoria" (bate com computeDre). */
 export const mapCategoryToDreLine = (category: string | null, overrides: Record<string, DreLine> = {}): DreLine => {
   const c = (category || "").trim();
-  if (c && overrides[c]) return overrides[c];
+  const key = c || "Sem categoria";
+  if (overrides[key]) return overrides[key];
   const hay = c.toLowerCase();
   for (const h of HEUR) if (h.re.test(hay)) return h.line;
   return "despesa_operacional";

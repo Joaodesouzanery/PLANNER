@@ -59,7 +59,9 @@ export const FinanceKpis = () => {
     const prev = activeIncomeContracts(txns, prevKey);
     const mrr = mrrHeadline(cur);
     const mrrPrev = mrrHeadline(prev);
-    const deltas = mrrDeltas(prev, cur);
+    // Deltas na MESMA base do headline (recorrentes sem prazo) — senão contrato a prazo que acaba
+    // vira churn absurdo e quebra NRR/LTV.
+    const deltas = mrrDeltas(prev.filter((c) => c.ongoing), cur.filter((c) => c.ongoing));
 
     const { clients } = buildClientRevenue(txns, clientes);
     const nClientesRecorrentes = clients.filter((c) => c.ongoing > 0).length;
@@ -75,7 +77,8 @@ export const FinanceKpis = () => {
       receitaBruta: dre.receitaBruta, receitaLiquida: dre.receitaLiquida,
       margemBruta: dre.margemBruta, margemEbitda: dre.margemEbitda, margemLiquida: dre.margemLiquida,
       custosFixos, margemContribuicaoPct,
-      monthlyIncome: (workspace.monthlyData as any[]).map((m) => m.income),
+      // Exclui o mês corrente (parcial, só realizado até hoje) — senão MoM/YoY leem negativo à toa.
+      monthlyIncome: (workspace.monthlyData as any[]).slice(0, -1).map((m) => m.income),
       mrr, mrrPrev, expansao: deltas.expansao, churn: deltas.churn, nClientesRecorrentes,
       novosClientesMes, custoComercialMes,
       receitaRecebidaMes: tot.entradasRealizadas, nEntradasMes,
