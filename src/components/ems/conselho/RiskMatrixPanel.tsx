@@ -223,6 +223,7 @@ export const RiskMatrixPanel = () => {
                     {r.review_date && <Badge variant="outline" className="text-[10px]">Revisar {dateLabel(r.review_date)}</Badge>}
                   </div>
                   {r.mitigation && <p className="text-xs text-muted-foreground"><span className="font-medium text-foreground">Mitigação:</span> {r.mitigation}</p>}
+                  {r.contingency && <p className="text-xs text-muted-foreground"><span className="font-medium text-amber-400">Plano de contingência:</span> {r.contingency}</p>}
                   <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openEdit(r)}>Editar</Button>
                 </div>
               );

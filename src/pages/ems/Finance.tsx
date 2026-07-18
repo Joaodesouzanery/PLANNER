@@ -1,7 +1,7 @@
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
-import { Activity, BarChart3, Calculator, CalendarDays, DollarSign, GitCompare, Landmark, Plane, ShoppingCart, Table2, Target, TrendingUp, Wallet } from "lucide-react";
+import { Activity, BarChart3, Calculator, CalendarDays, DollarSign, GitCompare, Landmark, Plane, ShieldAlert, ShoppingCart, Table2, Target, TrendingUp, Wallet } from "lucide-react";
 import FinanceDashboard from "@/components/ems/finance/FinanceDashboard";
 import FinanceOKRs from "@/components/ems/finance/FinanceOKRs";
 import FinanceTransactions from "@/components/ems/finance/FinanceTransactions";
@@ -13,6 +13,7 @@ import FinanceMetas from "@/components/ems/finance/FinanceMetas";
 import FinancePlannedImpacts from "@/components/ems/finance/FinancePlannedImpacts";
 import PurchaseImpactCalculator from "@/components/ems/finance/PurchaseImpactCalculator";
 import { FinancePurchasePlanner } from "@/components/ems/finance/FinancePurchasePlanner";
+import { FinanceContingencia } from "@/components/ems/finance/FinanceContingencia";
 import FinanceFutureFlow from "@/components/ems/finance/FinanceFutureFlow";
 import FinanceBrenoView from "@/components/ems/finance/FinanceBrenoView";
 import FinanceTravel from "@/components/ems/finance/travel/FinanceTravel";
@@ -58,12 +59,14 @@ const Finance = () => {
                 <TabsTrigger value="future-flow" className={innerTab}><Activity className="h-3.5 w-3.5" />Fluxo Futuro</TabsTrigger>
                 <TabsTrigger value="projections" className={innerTab}><TrendingUp className="h-3.5 w-3.5" />Projeções</TabsTrigger>
                 <TabsTrigger value="scenarios" className={innerTab}><GitCompare className="h-3.5 w-3.5" />Cenários</TabsTrigger>
+                <TabsTrigger value="contingencia" className={innerTab}><ShieldAlert className="h-3.5 w-3.5" />Contingência</TabsTrigger>
                 <TabsTrigger value="planned" className={innerTab}><TrendingUp className="h-3.5 w-3.5" />Previstos</TabsTrigger>
               </TabsList>
               <TabsContent value="planilha"><FinanceBrenoView /></TabsContent>
               <TabsContent value="future-flow"><FinanceFutureFlow /></TabsContent>
               <TabsContent value="projections" className="space-y-6"><FinanceProjections /></TabsContent>
               <TabsContent value="scenarios"><FinanceScenarios /></TabsContent>
+              <TabsContent value="contingencia"><FinanceContingencia /></TabsContent>
               <TabsContent value="planned"><FinancePlannedImpacts /></TabsContent>
             </Tabs>
           </TabsContent>
