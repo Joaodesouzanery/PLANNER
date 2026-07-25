@@ -2,7 +2,7 @@
 // e devolve UMA fila ranqueada (reds primeiro), clicável, dedup. Não busca/persiste nada.
 
 export type Sev = "red" | "yellow" | "low";
-export type Modulo = "financas" | "obrigacoes" | "riscos" | "documentos" | "tarefas" | "projetos" | "rotinas" | "comercial" | "inbox" | "capacidade";
+export type Modulo = "financas" | "obrigacoes" | "riscos" | "documentos" | "tarefas" | "projetos" | "rotinas" | "comercial" | "inbox" | "capacidade" | "clientes";
 
 export interface AttentionItem {
   id: string;
@@ -24,6 +24,7 @@ export interface AttentionInputs {
   comercial?: { id: string; titulo: string; paradoDias: number }[];
   inboxBacklog?: number;
   capacidade?: { id: string; nome: string; sobrecarga: boolean }[];
+  clientesRisco?: { id: string; nome: string; ongoing?: number }[];
 }
 
 const RANK: Record<Sev, number> = { red: 0, yellow: 1, low: 2 };
@@ -65,6 +66,9 @@ export const buildBoardAttention = (i: AttentionInputs): AttentionItem[] => {
 
   for (const p of i.capacidade ?? [])
     if (p.sobrecarga) out.push({ id: `cap:${p.id}`, modulo: "capacidade", severidade: "yellow", titulo: `Capacidade: ${p.nome} sobrecarregado(a)`, deeplink: "/ems/conselho" });
+
+  for (const c of i.clientesRisco ?? [])
+    out.push({ id: `cli:${c.id}`, modulo: "clientes", severidade: "red", titulo: `Cliente em risco: ${c.nome}${c.ongoing ? ` (MRR ${Math.round(c.ongoing)})` : ""}`, deeplink: `/ems/crm?client=${c.id}` });
 
   // Dedup por id + ordena por severidade (reds primeiro).
   const seen = new Set<string>();

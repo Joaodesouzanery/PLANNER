@@ -15,6 +15,7 @@ import { useCompany } from "@/contexts/CompanyContext";
 import { AttachmentManager } from "@/components/ems/AttachmentManager";
 import { useCrm } from "@/components/ems/crm/useCrm";
 import { OpportunityInbox } from "@/components/ems/crm/OpportunityInbox";
+import { ServicingTower } from "@/components/ems/crm/ServicingTower";
 import { buildCustomer360, diasSemContato, type CustomerSpine, type Customer360 } from "@/components/ems/crm/crm360";
 
 const STAGES = [
@@ -81,10 +82,15 @@ const Crm = () => {
           <TabsList className="bg-card/80 border border-border/50 rounded-xl">
             <TabsTrigger value="clientes" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Clientes 360</TabsTrigger>
             <TabsTrigger value="oportunidades" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5">Oportunidades {crm.nbaItems.length > 0 && <span className="rounded-full bg-primary/15 text-primary px-1.5 text-[10px] font-mono">{crm.nbaItems.length}</span>}</TabsTrigger>
+            <TabsTrigger value="torre" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Torre</TabsTrigger>
           </TabsList>
 
           <TabsContent value="oportunidades" className="mt-0">
             <OpportunityInbox crm={crm} onSelectCustomer={selectCustomer} />
+          </TabsContent>
+
+          <TabsContent value="torre" className="mt-0">
+            <ServicingTower crm={crm} onSelectCustomer={selectCustomer} />
           </TabsContent>
 
           <TabsContent value="clientes" className="mt-0">

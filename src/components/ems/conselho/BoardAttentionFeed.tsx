@@ -19,7 +19,7 @@ const sevStyle: Record<Sev, string> = {
 const sevDot: Record<Sev, string> = { red: "bg-red-500", yellow: "bg-amber-500", low: "bg-muted-foreground" };
 const modLabel: Record<Modulo, string> = {
   financas: "Finanças", obrigacoes: "Obrigações", riscos: "Riscos", documentos: "Documentos",
-  tarefas: "Tarefas", projetos: "Projetos", rotinas: "Rotinas", comercial: "Comercial", inbox: "Inbox", capacidade: "Capacidade",
+  tarefas: "Tarefas", projetos: "Projetos", rotinas: "Rotinas", comercial: "Comercial", inbox: "Inbox", capacidade: "Capacidade", clientes: "Clientes",
 };
 
 export const BoardAttentionFeed = () => {

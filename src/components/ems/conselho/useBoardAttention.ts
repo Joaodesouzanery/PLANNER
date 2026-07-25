@@ -40,7 +40,7 @@ export const useBoardAttention = () => {
       const today = todayIso();
       const co = (q: any) => (scoped ? q.eq("company_id", selectedCompanyId) : q);
 
-      const [obr, ris, doc, tsk, prj, com, inb, cap] = await Promise.all([
+      const [obr, ris, doc, tsk, prj, com, inb, cap, cli] = await Promise.all([
         safe(() => co(db.from("board_obligations").select("id,title,next_due_date,lead_days,status")).neq("status", "done")),
         safe(() => co(db.from("board_risks").select("id,title,score,status,review_date")).neq("status", "closed")),
         safe(() => co(db.from("attachments").select("id,file_name,expires_at,alert_days")).not("expires_at", "is", null)),
@@ -49,6 +49,7 @@ export const useBoardAttention = () => {
         safe(() => db.from("commercial_contact_meta").select("id,next_action_date,next_action_description,contact:contacts(name)").not("next_action_date", "is", null)),
         safe(() => db.from("unified_inbox").select("id,status").neq("status", "done")),
         safe(() => db.from("capacity_checkins").select("id,checkin_date,workload").order("checkin_date", { ascending: false }).limit(1)),
+        safe(() => db.from("finance_clientes").select("id,nome,health").eq("health", "red")),
       ]);
 
       return {
@@ -74,6 +75,7 @@ export const useBoardAttention = () => {
         capacidade: cap
           .filter((c) => Number(c.workload) >= 4 || Number(c.workload) >= 80)
           .map((c) => ({ id: c.id, nome: "Você", sobrecarga: true })),
+        clientesRisco: cli.map((c) => ({ id: c.id, nome: c.nome })),
       };
     },
   });
