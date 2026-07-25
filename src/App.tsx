@@ -23,6 +23,7 @@ const RoadMap = lazy(() => import("./pages/ems/RoadMap"));
 const QuickNotes = lazy(() => import("./pages/ems/QuickNotes"));
 const CalendarPage = lazy(() => import("./pages/ems/Calendar"));
 const Commercial = lazy(() => import("./pages/ems/Commercial"));
+const Crm = lazy(() => import("./pages/ems/Crm"));
 const Onboarding = lazy(() => import("./pages/ems/Onboarding"));
 const CommercialStructure = lazy(() => import("./pages/ems/CommercialStructure"));
 const CommercialComparison = lazy(() => import("./pages/ems/CommercialComparison"));
@@ -97,6 +98,7 @@ const App = () => (
               <Route path="/ems/daily-report" element={<ProtectedPage><DailyReport /></ProtectedPage>} />
               <Route path="/ems/conselho" element={<ProtectedPage><BoardCouncil /></ProtectedPage>} />
               <Route path="/ems/comercial" element={<ProtectedPage><Commercial /></ProtectedPage>} />
+              <Route path="/ems/crm" element={<ProtectedPage><Crm /></ProtectedPage>} />
               <Route path="/ems/comercial/prospeccao" element={<Navigate to="/ems/comercial?tab=prospecting" replace />} />
               <Route path="/ems/comercial/contatos" element={<ProtectedPage><Contacts /></ProtectedPage>} />
               <Route path="/ems/comercial/estrutura" element={<ProtectedPage><CommercialStructure /></ProtectedPage>} />

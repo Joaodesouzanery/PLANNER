@@ -27,6 +27,7 @@ import {
   Flag,
   Landmark,
   BrainCircuit,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
@@ -58,6 +59,7 @@ const menuGroups: MenuGroup[] = [
   {
     label: "Gestão",
     items: [
+      { icon: Users, label: "CRM", path: "/ems/crm" },
       { icon: Briefcase, label: "Comercial", path: "/ems/comercial" },
 
     ],
