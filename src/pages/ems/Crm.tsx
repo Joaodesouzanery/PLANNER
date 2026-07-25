@@ -9,10 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useCompany } from "@/contexts/CompanyContext";
 import { AttachmentManager } from "@/components/ems/AttachmentManager";
 import { useCrm } from "@/components/ems/crm/useCrm";
+import { OpportunityInbox } from "@/components/ems/crm/OpportunityInbox";
 import { buildCustomer360, diasSemContato, type CustomerSpine, type Customer360 } from "@/components/ems/crm/crm360";
 
 const STAGES = [
@@ -33,8 +35,10 @@ const Crm = () => {
   const { selectedCompanyId } = useCompany();
   const [searchParams] = useSearchParams();
   const [selectedId, setSelectedId] = useState<string | null>(searchParams.get("client"));
+  const [tab, setTab] = useState(searchParams.get("tab") || "clientes");
   const [search, setSearch] = useState("");
   const [healthFilter, setHealthFilter] = useState("all");
+  const selectCustomer = (id: string) => { setSelectedId(id); setTab("clientes"); };
 
   const rows = useMemo(() =>
     crm.customers
@@ -73,6 +77,17 @@ const Crm = () => {
           <Card className="border-amber-500/30 bg-amber-500/5"><CardContent className="p-4 text-sm text-amber-400">Nenhum cliente ainda — cadastre clientes nas Transações (campo Cliente) ou aplique a migration <code>20260713120000_crm_customer_spine.sql</code>.</CardContent></Card>
         )}
 
+        <Tabs value={tab} onValueChange={setTab} className="space-y-4">
+          <TabsList className="bg-card/80 border border-border/50 rounded-xl">
+            <TabsTrigger value="clientes" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Clientes 360</TabsTrigger>
+            <TabsTrigger value="oportunidades" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5">Oportunidades {crm.nbaItems.length > 0 && <span className="rounded-full bg-primary/15 text-primary px-1.5 text-[10px] font-mono">{crm.nbaItems.length}</span>}</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="oportunidades" className="mt-0">
+            <OpportunityInbox crm={crm} onSelectCustomer={selectCustomer} />
+          </TabsContent>
+
+          <TabsContent value="clientes" className="mt-0">
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.3fr)_minmax(360px,0.75fr)] gap-4">
           {/* LISTA */}
           <Card>
@@ -112,6 +127,8 @@ const Crm = () => {
             <Card><CardContent className="p-10 text-center text-sm text-muted-foreground">Selecione um cliente para ver o 360.</CardContent></Card>
           )}
         </div>
+          </TabsContent>
+        </Tabs>
       </motion.div>
     </EMSLayout>
   );
