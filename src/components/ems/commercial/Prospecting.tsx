@@ -688,6 +688,56 @@ export const Prospecting = () => {
     },
   });
 
+  // Converte um prospect em cliente (spine) + contato + deal do CRM. Reusa cliente existente pelo nome.
+  const convertProspectMutation = useMutation({
+    mutationFn: async (prospect: Prospect) => {
+      const db = supabase as any;
+      const companyId = selectedCompanyId !== "all" ? selectedCompanyId : null;
+      const nome = (prospect.company_name || "").trim();
+      if (!nome) throw new Error("Prospect sem nome de empresa");
+      if (prospect.status === "won") throw new Error("Prospect já convertido");
+
+      // 1. Cliente (spine): reusa se já existir pelo nome, senão cria.
+      let customerId: string | null = null;
+      const { data: existing } = await db.from("finance_clientes").select("id").ilike("nome", nome).limit(1).maybeSingle();
+      if (existing?.id) customerId = existing.id;
+      else {
+        const { data: created, error } = await db.from("finance_clientes")
+          .insert({ nome, recorrente: false, stage: "new", health: "green" }).select("id").single();
+        if (error) throw error;
+        customerId = created.id;
+      }
+
+      // 2. Contato (pessoa): extrai email/telefone de contacts[].
+      const email = prospect.contacts?.find((c) => c.type === "email")?.value || null;
+      const phone = prospect.contacts?.find((c) => c.type === "celular")?.value || null;
+      const primary = prospect.contacts?.find((c) => c.name)?.name || nome;
+      const { data: contact, error: cErr } = await db.from("contacts")
+        .insert({ name: primary, email, phone, company: nome, customer_id: customerId, company_id: companyId, pipeline_stage: "qualified" })
+        .select("id").single();
+      if (cErr) throw cErr;
+
+      // 3. Deal: oportunidade ligada ao cliente + contato (project_id null — não exige projeto).
+      const diag = prospect.operational_diagnosis as any;
+      const dealNotes = [prospect.notes, diag?.suggestedMessage, diag?.messageDraft].filter(Boolean).join("\n\n").slice(0, 2000) || null;
+      const { error: dErr } = await db.from("project_opportunities").insert({
+        title: prospect.job_title ? `${nome} — ${prospect.job_title}` : nome,
+        value: null, stage: "nova", probability: 30, expected_close_date: prospect.meeting_date || null,
+        notes: dealNotes, customer_id: customerId, contact_id: contact.id, project_id: null, company_id: companyId,
+      });
+      if (dErr) throw dErr;
+
+      // 4. Marca o prospect como convertido.
+      await db.from("commercial_prospects").update({ status: "won" }).eq("id", prospect.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["commercial-prospects"] });
+      queryClient.invalidateQueries({ queryKey: ["crm"] });
+      toast({ title: "Convertido!", description: "Cliente + contato + deal criados. Veja no CRM." });
+    },
+    onError: (e: any) => toast({ title: "Erro ao converter", description: e?.message, variant: "destructive" }),
+  });
+
   const filteredProspects = useMemo(() => {
     const query = normalize(searchQuery);
     if (!query) return prospects;
@@ -1431,16 +1481,29 @@ export const Prospecting = () => {
                 Caso/Diagnostico Operacional
               </CardTitle>
               {selectedProspect && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 gap-2 rounded-lg"
-                  onClick={() => regenerateDiagnosisMutation.mutate(selectedProspect)}
-                  disabled={regenerateDiagnosisMutation.isPending}
-                >
-                  <RefreshCw className={cn("h-3.5 w-3.5", regenerateDiagnosisMutation.isPending && "animate-spin")} />
-                  Regerar
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-8 gap-2 rounded-lg"
+                    onClick={() => convertProspectMutation.mutate(selectedProspect)}
+                    disabled={convertProspectMutation.isPending || selectedProspect.status === "won"}
+                    title="Cria cliente + contato + deal no CRM"
+                  >
+                    <UserPlus className={cn("h-3.5 w-3.5", convertProspectMutation.isPending && "animate-pulse")} />
+                    {selectedProspect.status === "won" ? "Convertido" : "Converter"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-2 rounded-lg"
+                    onClick={() => regenerateDiagnosisMutation.mutate(selectedProspect)}
+                    disabled={regenerateDiagnosisMutation.isPending}
+                  >
+                    <RefreshCw className={cn("h-3.5 w-3.5", regenerateDiagnosisMutation.isPending && "animate-spin")} />
+                    Regerar
+                  </Button>
+                </div>
               )}
             </div>
           </CardHeader>

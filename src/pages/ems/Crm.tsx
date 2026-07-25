@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, lazy, Suspense, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Users, Search, Phone, Mail, Briefcase, Repeat, CalendarClock, Plus, Target, LayoutGrid, List, TrendingUp, TrendingDown, Minus, Gift, ShieldCheck, HeartPulse } from "lucide-react";
@@ -20,6 +20,10 @@ import { CustomerKanban } from "@/components/ems/crm/CustomerKanban";
 import { ContactsTab } from "@/components/ems/crm/ContactsTab";
 import { OFERTA_LABEL, TREND_LABEL, type CustomerScore, type Trend } from "@/components/ems/crm/crmScores";
 import { buildCustomer360, diasSemContato, type CustomerSpine, type Customer360 } from "@/components/ems/crm/crm360";
+
+const Prospecting = lazy(() => import("@/components/ems/commercial/Prospecting"));
+const CampaignManager = lazy(() => import("@/components/ems/crm/CampaignManager"));
+const LazyFallback = () => <div className="p-8 text-center text-sm text-muted-foreground">Carregando…</div>;
 
 const STAGES = [
   { id: "new", label: "Novo" }, { id: "onboarding", label: "Onboarding" }, { id: "active", label: "Ativo" },
@@ -87,11 +91,21 @@ const Crm = () => {
             <TabsTrigger value="clientes" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Clientes 360</TabsTrigger>
             <TabsTrigger value="contatos" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5">Contatos {crm.contacts.filter((c) => !c.customer_id).length > 0 && <span className="rounded-full bg-amber-500/15 text-amber-500 px-1.5 text-[10px] font-mono" title="sem cliente ligado">{crm.contacts.filter((c) => !c.customer_id).length}</span>}</TabsTrigger>
             <TabsTrigger value="oportunidades" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5">Oportunidades {crm.nbaItems.length > 0 && <span className="rounded-full bg-primary/15 text-primary px-1.5 text-[10px] font-mono">{crm.nbaItems.length}</span>}</TabsTrigger>
+            <TabsTrigger value="prospeccao" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Prospecção</TabsTrigger>
+            <TabsTrigger value="campanhas" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Campanhas</TabsTrigger>
             <TabsTrigger value="torre" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Torre</TabsTrigger>
           </TabsList>
 
           <TabsContent value="contatos" className="mt-0">
             <ContactsTab crm={crm} onSelectCustomer={selectCustomer} />
+          </TabsContent>
+
+          <TabsContent value="prospeccao" className="mt-0">
+            <Suspense fallback={<LazyFallback />}><Prospecting /></Suspense>
+          </TabsContent>
+
+          <TabsContent value="campanhas" className="mt-0">
+            <Suspense fallback={<LazyFallback />}><CampaignManager crm={crm} /></Suspense>
           </TabsContent>
 
           <TabsContent value="oportunidades" className="mt-0">
@@ -146,7 +160,7 @@ const Crm = () => {
 
           {/* DETALHE 360 */}
           {c360 && selected ? (
-            <CustomerDetail c360={c360} companyId={selectedCompanyId !== "all" ? selectedCompanyId : null} crm={crm} />
+            <CustomerDetail key={selected.id} c360={c360} companyId={selectedCompanyId !== "all" ? selectedCompanyId : null} crm={crm} />
           ) : (
             <Card><CardContent className="p-10 text-center text-sm text-muted-foreground">Selecione um cliente para ver o 360.</CardContent></Card>
           )}

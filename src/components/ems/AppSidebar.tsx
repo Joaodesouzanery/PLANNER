@@ -60,8 +60,6 @@ const menuGroups: MenuGroup[] = [
     label: "Gestão",
     items: [
       { icon: Users, label: "CRM", path: "/ems/crm" },
-      { icon: Briefcase, label: "Comercial", path: "/ems/comercial" },
-
     ],
   },
   {

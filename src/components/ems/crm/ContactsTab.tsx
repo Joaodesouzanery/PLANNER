@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search, Phone, Mail, Building2, Link2, Link2Off } from "lucide-react";
+import { Search, Phone, Mail, Building2, Link2, Link2Off, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import type { useCrm } from "./useCrm";
 
 const NONE = "__none__";
+const EMPTY = { name: "", email: "", phone: "", company: "", customerId: NONE };
 
 // Aba Contatos do CRM: as pessoas (mesma tabela `contacts`, inclui as vindas do Comercial),
 // cada uma com um SELETOR DE CLIENTE (customer_id → finance_clientes). Sem isso, contato novo
@@ -16,9 +17,19 @@ const NONE = "__none__";
 export const ContactsTab = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof useCrm>; onSelectCustomer: (id: string) => void }) => {
   const [search, setSearch] = useState("");
   const [onlyUnlinked, setOnlyUnlinked] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [form, setForm] = useState(EMPTY);
 
   const customerName = useMemo(() => new Map(crm.customers.map((c) => [c.id, c.nome])), [crm.customers]);
   const unlinked = crm.contacts.filter((c) => !c.customer_id).length;
+
+  const submitNew = () => {
+    if (!form.name.trim()) return;
+    crm.createContact.mutate(
+      { name: form.name, email: form.email, phone: form.phone, company: form.company, customerId: form.customerId === NONE ? null : form.customerId },
+      { onSuccess: () => { setForm(EMPTY); setShowNew(false); } },
+    );
+  };
 
   const rows = useMemo(() =>
     crm.contacts
@@ -38,8 +49,27 @@ export const ContactsTab = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof 
           <Button variant={onlyUnlinked ? "default" : "outline"} size="sm" className="h-9 gap-1.5" onClick={() => setOnlyUnlinked((v) => !v)}>
             <Link2Off className="h-3.5 w-3.5" /> Sem cliente {unlinked > 0 && <Badge variant="secondary" className="text-[10px] ml-0.5">{unlinked}</Badge>}
           </Button>
+          <Button size="sm" className="h-9 gap-1.5" onClick={() => setShowNew((v) => !v)}><Plus className="h-3.5 w-3.5" /> Novo</Button>
         </div>
         <p className="text-[11px] text-muted-foreground pt-1">Ligue cada contato a um cliente pra ele aparecer no 360. {crm.contacts.length} contato(s){unlinked > 0 ? ` · ${unlinked} sem cliente` : ""}.</p>
+        {showNew && (
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 mt-2 space-y-2">
+            <div className="grid grid-cols-2 gap-2">
+              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nome *" className="h-8 text-xs" />
+              <Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} placeholder="Empresa" className="h-8 text-xs" />
+              <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="E-mail" className="h-8 text-xs" />
+              <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Telefone" className="h-8 text-xs" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={form.customerId} onValueChange={(v) => setForm({ ...form, customerId: v })}>
+                <SelectTrigger className="h-8 text-xs flex-1"><SelectValue placeholder="Ligar a cliente" /></SelectTrigger>
+                <SelectContent><SelectItem value={NONE}>— sem cliente —</SelectItem>{crm.customers.map((cust) => <SelectItem key={cust.id} value={cust.id}>{cust.nome}</SelectItem>)}</SelectContent>
+              </Select>
+              <Button size="sm" className="h-8 text-xs" disabled={!form.name.trim() || crm.createContact.isPending} onClick={submitNew}>Salvar</Button>
+              <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowNew(false); setForm(EMPTY); }}>Cancelar</Button>
+            </div>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="p-0">
         <div className="divide-y divide-border/50 max-h-[72vh] overflow-y-auto">

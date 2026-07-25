@@ -59,7 +59,7 @@ export const buildBoardAttention = (i: AttentionInputs): AttentionItem[] => {
   }
 
   for (const c of i.comercial ?? [])
-    out.push({ id: `com:${c.id}`, modulo: "comercial", severidade: c.paradoDias > 21 ? "red" : "yellow", titulo: `Lead parado ${c.paradoDias}d: ${c.titulo}`, deeplink: "/ems/commercial" });
+    out.push({ id: `com:${c.id}`, modulo: "comercial", severidade: c.paradoDias > 21 ? "red" : "yellow", titulo: `Lead parado ${c.paradoDias}d: ${c.titulo}`, deeplink: "/ems/crm?tab=oportunidades" });
 
   if (i.inboxBacklog && i.inboxBacklog > 0)
     out.push({ id: "inbox:backlog", modulo: "inbox", severidade: i.inboxBacklog >= 10 ? "red" : "yellow", titulo: `${i.inboxBacklog} item(ns) sem tratar no inbox`, deeplink: "/ems/inbox" });

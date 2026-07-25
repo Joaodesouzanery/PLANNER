@@ -252,6 +252,23 @@ export const useCrm = () => {
     onError: (e: any) => toast({ title: "Erro ao ligar contato", description: e?.message, variant: "destructive" }),
   });
 
+  // Cria um contato (pessoa) já ligado a um cliente do spine, direto do CRM.
+  const createContact = useMutation({
+    mutationFn: async (c: { name: string; email?: string; phone?: string; company?: string; customerId?: string | null }) => {
+      const { error } = await db.from("contacts").insert({
+        name: c.name.trim(),
+        email: c.email?.trim() || null,
+        phone: c.phone?.trim() || null,
+        company: c.company?.trim() || null,
+        customer_id: c.customerId || null,
+        company_id: scoped ? selectedCompanyId : null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidate(); toast({ title: "Contato criado" }); },
+    onError: (e: any) => toast({ title: "Erro ao criar contato", description: e?.message, variant: "destructive" }),
+  });
+
   // Cria um deal já ligado ao cliente (e opcionalmente ao contato) — molde de Projects.saveOpportunity, mas com customer_id.
   const createDeal = useMutation({
     mutationFn: async (d: { customerId: string; title: string; value?: string | number | null; stage?: string; probability?: string | number | null; expected_close_date?: string | null; contactId?: string | null }) => {
@@ -277,6 +294,6 @@ export const useCrm = () => {
     scores, onboardingByCustomer,
     isLoading: query.isLoading,
     missing: (data?.spine ?? []).length === 0 && !query.isLoading,
-    updateCustomer, addInteraction, updateDeal, linkContact, createDeal,
+    updateCustomer, addInteraction, updateDeal, linkContact, createContact, createDeal,
   };
 };
