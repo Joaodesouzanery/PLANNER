@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Users, Search, Phone, Mail, Briefcase, Repeat, CalendarClock, Plus, Target } from "lucide-react";
+import { Users, Search, Phone, Mail, Briefcase, Repeat, CalendarClock, Plus, Target, LayoutGrid, List, TrendingUp, TrendingDown, Minus, Gift, ShieldCheck, HeartPulse } from "lucide-react";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,9 @@ import { AttachmentManager } from "@/components/ems/AttachmentManager";
 import { useCrm } from "@/components/ems/crm/useCrm";
 import { OpportunityInbox } from "@/components/ems/crm/OpportunityInbox";
 import { ServicingTower } from "@/components/ems/crm/ServicingTower";
+import { CustomerKanban } from "@/components/ems/crm/CustomerKanban";
+import { ContactsTab } from "@/components/ems/crm/ContactsTab";
+import { OFERTA_LABEL, TREND_LABEL, type CustomerScore, type Trend } from "@/components/ems/crm/crmScores";
 import { buildCustomer360, diasSemContato, type CustomerSpine, type Customer360 } from "@/components/ems/crm/crm360";
 
 const STAGES = [
@@ -39,7 +42,8 @@ const Crm = () => {
   const [tab, setTab] = useState(searchParams.get("tab") || "clientes");
   const [search, setSearch] = useState("");
   const [healthFilter, setHealthFilter] = useState("all");
-  const selectCustomer = (id: string) => { setSelectedId(id); setTab("clientes"); };
+  const [view, setView] = useState<"list" | "kanban">("list");
+  const selectCustomer = (id: string) => { setSelectedId(id); setTab("clientes"); setView("list"); };
 
   const rows = useMemo(() =>
     crm.customers
@@ -81,9 +85,14 @@ const Crm = () => {
         <Tabs value={tab} onValueChange={setTab} className="space-y-4">
           <TabsList className="bg-card/80 border border-border/50 rounded-xl">
             <TabsTrigger value="clientes" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Clientes 360</TabsTrigger>
+            <TabsTrigger value="contatos" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5">Contatos {crm.contacts.filter((c) => !c.customer_id).length > 0 && <span className="rounded-full bg-amber-500/15 text-amber-500 px-1.5 text-[10px] font-mono" title="sem cliente ligado">{crm.contacts.filter((c) => !c.customer_id).length}</span>}</TabsTrigger>
             <TabsTrigger value="oportunidades" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5">Oportunidades {crm.nbaItems.length > 0 && <span className="rounded-full bg-primary/15 text-primary px-1.5 text-[10px] font-mono">{crm.nbaItems.length}</span>}</TabsTrigger>
             <TabsTrigger value="torre" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Torre</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="contatos" className="mt-0">
+            <ContactsTab crm={crm} onSelectCustomer={selectCustomer} />
+          </TabsContent>
 
           <TabsContent value="oportunidades" className="mt-0">
             <OpportunityInbox crm={crm} onSelectCustomer={selectCustomer} />
@@ -93,7 +102,16 @@ const Crm = () => {
             <ServicingTower crm={crm} onSelectCustomer={selectCustomer} />
           </TabsContent>
 
-          <TabsContent value="clientes" className="mt-0">
+          <TabsContent value="clientes" className="mt-0 space-y-3">
+        <div className="flex items-center justify-end">
+          <div className="inline-flex rounded-lg border border-border/50 bg-card/60 p-0.5">
+            <Button size="sm" variant={view === "list" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setView("list")}><List className="h-3.5 w-3.5" />Lista</Button>
+            <Button size="sm" variant={view === "kanban" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setView("kanban")}><LayoutGrid className="h-3.5 w-3.5" />Kanban</Button>
+          </div>
+        </div>
+        {view === "kanban" ? (
+          <CustomerKanban crm={crm} onSelect={selectCustomer} />
+        ) : (
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.3fr)_minmax(360px,0.75fr)] gap-4">
           {/* LISTA */}
           <Card>
@@ -109,7 +127,7 @@ const Crm = () => {
             <CardContent className="p-0">
               <div className="divide-y divide-border/50 max-h-[70vh] overflow-y-auto">
                 {rows.map(({ c, rev }) => {
-                  const h = HEALTH[c.health || "green"] ?? HEALTH.green;
+                  const h = HEALTH[crm.scores.get(c.id)?.health || c.health || "green"] ?? HEALTH.green;
                   return (
                     <button key={c.id} onClick={() => setSelectedId(c.id)} className={cn("w-full text-left px-3 py-2.5 hover:bg-muted/40 flex items-center gap-3", selectedId === c.id && "bg-primary/5")}>
                       <span className={cn("h-2 w-2 rounded-full shrink-0", h.dot)} />
@@ -133,6 +151,7 @@ const Crm = () => {
             <Card><CardContent className="p-10 text-center text-sm text-muted-foreground">Selecione um cliente para ver o 360.</CardContent></Card>
           )}
         </div>
+        )}
           </TabsContent>
         </Tabs>
       </motion.div>
@@ -140,32 +159,98 @@ const Crm = () => {
   );
 };
 
+const DEAL_STAGES = [
+  { id: "nova", label: "Nova" }, { id: "qualificacao", label: "Qualificação" }, { id: "proposta", label: "Proposta" },
+  { id: "negociacao", label: "Negociação" },
+];
+const TREND_ICON: Record<Trend, ReactNode> = {
+  up: <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />,
+  down: <TrendingDown className="h-3.5 w-3.5 text-red-400" />,
+  flat: <Minus className="h-3.5 w-3.5 text-muted-foreground" />,
+};
+
+const ScoreTile = ({ label, value, tone, hint }: { label: string; value: ReactNode; tone?: string; hint?: string }) => (
+  <div className="rounded-lg border border-border/50 bg-background/40 p-2 text-center">
+    <p className="text-[9px] text-muted-foreground uppercase tracking-wide">{label}</p>
+    <p className={cn("font-mono text-sm font-bold leading-tight mt-0.5", tone)}>{value}</p>
+    {hint && <p className="text-[9px] text-muted-foreground truncate">{hint}</p>}
+  </div>
+);
+
 const CustomerDetail = ({ c360, companyId, crm }: { c360: Customer360; companyId: string | null; crm: ReturnType<typeof useCrm> }) => {
   const s = c360.spine;
+  const sc = crm.scores.get(s.id) as CustomerScore | undefined;
+  const onb = crm.onboardingByCustomer.get(s.id);
   const [naDate, setNaDate] = useState(s.next_action_date || "");
   const [naDesc, setNaDesc] = useState(s.next_action_desc || "");
   const [intContact, setIntContact] = useState(c360.contatos[0]?.id || "");
   const [intType, setIntType] = useState("call");
   const [intDesc, setIntDesc] = useState("");
-  const h = HEALTH[s.health || "green"] ?? HEALTH.green;
+  const [showDeal, setShowDeal] = useState(false);
+  const [deal, setDeal] = useState({ title: "", value: "", probability: "50", stage: "nova", expected_close_date: "", contactId: "" });
+  const health = sc?.health || s.health || "green";
+  const h = HEALTH[health] ?? HEALTH.green;
   const dias = diasSemContato(c360, todayIso());
   const set = (patch: Partial<CustomerSpine>) => crm.updateCustomer.mutate({ id: s.id, patch });
+
+  const openDealForm = (title = "") => { setDeal((d) => ({ ...d, title })); setShowDeal(true); };
+  const submitDeal = () => {
+    if (!deal.title.trim()) return;
+    crm.createDeal.mutate(
+      { customerId: s.id, title: deal.title, value: deal.value, probability: deal.probability, stage: deal.stage, expected_close_date: deal.expected_close_date || null, contactId: deal.contactId || null },
+      { onSuccess: () => { setShowDeal(false); setDeal({ title: "", value: "", probability: "50", stage: "nova", expected_close_date: "", contactId: "" }); } },
+    );
+  };
 
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base flex items-center justify-between gap-2">
           <span className="flex items-center gap-2"><span className={cn("h-2.5 w-2.5 rounded-full", h.dot)} />{s.nome}</span>
-          <span className={cn("text-[11px]", h.cls)}>{h.label}</span>
+          <span className={cn("text-[11px] flex items-center gap-1.5", h.cls)}>{sc && <span className="font-mono">{sc.healthScore}</span>}{h.label}</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 max-h-[70vh] overflow-y-auto">
         {/* Estágio / saúde / prioridade */}
         <div className="grid grid-cols-3 gap-2">
           <div><Label className="text-[10px] text-muted-foreground">Estágio</Label><Select value={s.stage || "active"} onValueChange={(v) => set({ stage: v })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{STAGES.map((x) => <SelectItem key={x.id} value={x.id}>{x.label}</SelectItem>)}</SelectContent></Select></div>
-          <div><Label className="text-[10px] text-muted-foreground">Saúde</Label><Select value={s.health || "green"} onValueChange={(v) => set({ health: v })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="green">Saudável</SelectItem><SelectItem value="yellow">Atenção</SelectItem><SelectItem value="red">Crítico</SelectItem></SelectContent></Select></div>
+          <div><Label className="text-[10px] text-muted-foreground">Saúde {sc && <span className="text-muted-foreground/60">(calc. {sc.healthScore})</span>}</Label><Select value={s.health || "green"} onValueChange={(v) => set({ health: v })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="green">Saudável</SelectItem><SelectItem value="yellow">Atenção</SelectItem><SelectItem value="red">Crítico</SelectItem></SelectContent></Select></div>
           <div><Label className="text-[10px] text-muted-foreground">Prioridade</Label><Select value={s.priority || "medium"} onValueChange={(v) => set({ priority: v })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">Baixa</SelectItem><SelectItem value="medium">Média</SelectItem><SelectItem value="high">Alta</SelectItem></SelectContent></Select></div>
         </div>
+
+        {/* Scorecard calculado */}
+        {sc && (
+          <div className="rounded-lg border border-border/50 p-2.5 space-y-2">
+            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><HeartPulse className="h-3.5 w-3.5" />Scorecard <span className="normal-case font-normal text-[10px]">(calculado dos sinais reais)</span></p>
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              <ScoreTile label="Saúde" value={sc.healthScore} tone={h.cls} />
+              <ScoreTile label="Churn" value={`${sc.churnRisk}`} tone={sc.churnRisk >= 50 ? "text-red-400" : sc.churnRisk >= 25 ? "text-amber-400" : "text-emerald-400"} />
+              <ScoreTile label="Engaj." value={sc.engagement} tone={sc.engagement >= 60 ? "text-emerald-400" : "text-muted-foreground"} />
+              <ScoreTile label="Expansão" value={sc.expansionPropensity} tone={sc.expansionPropensity >= 50 ? "text-primary" : "text-muted-foreground"} />
+              <ScoreTile label="Receita" value={<span className="flex items-center justify-center gap-1">{TREND_ICON[sc.revenueTrend]}</span>} hint={TREND_LABEL[sc.revenueTrend]} />
+              <ScoreTile label="LTV" value={brl(sc.ltv)} />
+              <ScoreTile label="Tempo" value={sc.tenureMonths != null ? `${sc.tenureMonths}m` : "—"} hint="de casa" />
+              <ScoreTile label="Sem contato" value={sc.recencyDias != null ? `${sc.recencyDias}d` : "—"} tone={(sc.recencyDias ?? 0) > 30 ? "text-amber-400" : ""} />
+            </div>
+            {sc.reasons.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {sc.reasons.map((r, idx) => <Badge key={idx} variant="outline" className="text-[9px] font-normal">{r}</Badge>)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Próxima melhor oferta */}
+        {sc?.nextOffer && (
+          <div className="rounded-lg border border-primary/25 bg-primary/5 p-2.5 flex items-center gap-2">
+            <Gift className="h-4 w-4 text-primary shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] text-primary uppercase tracking-wide">{OFERTA_LABEL[sc.nextOffer.tipo]}</p>
+              <p className="text-xs truncate">{sc.nextOffer.titulo}</p>
+            </div>
+            <Button size="sm" variant="outline" className="h-7 text-xs shrink-0" onClick={() => openDealForm()}>Criar deal</Button>
+          </div>
+        )}
 
         {/* Receita */}
         <div className="grid grid-cols-3 gap-2">
@@ -173,6 +258,20 @@ const CustomerDetail = ({ c360, companyId, crm }: { c360: Customer360; companyId
           <div className="rounded-lg border border-border/50 p-2"><p className="text-[10px] text-muted-foreground">Run-rate/mês</p><p className="font-mono font-bold">{brl(c360.monthly)}</p></div>
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-2"><p className="text-[10px] text-muted-foreground flex items-center gap-1"><Target className="h-3 w-3" />Forecast deals</p><p className="font-mono font-bold text-primary">{brl(c360.forecastPonderado)}</p></div>
         </div>
+
+        {/* Onboarding / KYC */}
+        {onb && onb.total > 0 && (
+          <div className="rounded-lg border border-border/50 p-2.5 space-y-1.5">
+            <p className="text-xs font-medium flex items-center justify-between gap-1.5">
+              <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" />Onboarding / KYC</span>
+              <span className="text-[10px] text-muted-foreground font-mono">{onb.completeness == null ? "não iniciado" : `${onb.completed}/${onb.total} passos`}</span>
+            </p>
+            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+              <div className={cn("h-full rounded-full", onb.completeness === 1 ? "bg-emerald-500" : "bg-primary")} style={{ width: `${Math.round((onb.completeness ?? 0) * 100)}%` }} />
+            </div>
+            {onb.pendentes > 0 && <p className="text-[10px] text-amber-500">{onb.pendentes} passo(s) pendente(s)</p>}
+          </div>
+        )}
 
         {/* Próxima ação */}
         <div className="rounded-lg border border-border/50 p-2.5 space-y-2">
@@ -184,20 +283,48 @@ const CustomerDetail = ({ c360, companyId, crm }: { c360: Customer360; companyId
           </div>
         </div>
 
+        {/* Rede de relacionamento */}
+        {(c360.contatos.length > 0 || c360.deals.length > 0) && (
+          <Section title="Rede de relacionamento">
+            <RelationshipNetwork nome={s.nome} contatos={c360.contatos.map((p) => p.name)} deals={c360.deals.map((d) => d.title)} />
+          </Section>
+        )}
+
         {/* Contatos */}
         <Section title={`Contatos (${c360.contatos.length})`}>
           {c360.contatos.map((p) => (
             <div key={p.id} className="flex items-center gap-2 text-sm py-1"><Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" /><span className="flex-1 truncate">{p.name}</span>{p.phone && <Phone className="h-3 w-3 text-muted-foreground" />}{p.email && <Mail className="h-3 w-3 text-muted-foreground" />}</div>
           ))}
-          {c360.contatos.length === 0 && <p className="text-xs text-muted-foreground">Nenhum contato ligado. Ligue contatos ao cliente em Comercial.</p>}
+          {c360.contatos.length === 0 && <p className="text-xs text-muted-foreground">Nenhum contato ligado. Ligue contatos ao cliente na aba <b>Contatos</b>.</p>}
         </Section>
 
         {/* Deals */}
         <Section title={`Deals abertos (${c360.dealsAbertos})`}>
+          <div className="flex items-center justify-end -mt-6 mb-1">
+            <Button size="sm" variant="ghost" className="h-6 text-[11px] gap-1" onClick={() => openDealForm()}><Plus className="h-3 w-3" />Novo deal</Button>
+          </div>
+          {showDeal && (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-2 space-y-2 mb-2">
+              <Input value={deal.title} onChange={(e) => setDeal({ ...deal, title: e.target.value })} placeholder="Título do deal" className="h-8 text-xs" />
+              <div className="grid grid-cols-2 gap-2">
+                <Input value={deal.value} onChange={(e) => setDeal({ ...deal, value: e.target.value })} placeholder="Valor R$" inputMode="numeric" className="h-8 text-xs" />
+                <Input value={deal.probability} onChange={(e) => setDeal({ ...deal, probability: e.target.value })} placeholder="Prob %" inputMode="numeric" className="h-8 text-xs" />
+                <Select value={deal.stage} onValueChange={(v) => setDeal({ ...deal, stage: v })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{DEAL_STAGES.map((x) => <SelectItem key={x.id} value={x.id}>{x.label}</SelectItem>)}</SelectContent></Select>
+                <Input type="date" value={deal.expected_close_date} onChange={(e) => setDeal({ ...deal, expected_close_date: e.target.value })} className="h-8 text-xs" />
+              </div>
+              {c360.contatos.length > 0 && (
+                <Select value={deal.contactId || "none"} onValueChange={(v) => setDeal({ ...deal, contactId: v === "none" ? "" : v })}><SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Contato (opcional)" /></SelectTrigger><SelectContent><SelectItem value="none">Sem contato</SelectItem>{c360.contatos.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowDeal(false)}>Cancelar</Button>
+                <Button size="sm" className="h-7 text-xs" disabled={!deal.title.trim() || crm.createDeal.isPending} onClick={submitDeal}>Salvar deal</Button>
+              </div>
+            </div>
+          )}
           {c360.deals.map((d) => (
             <div key={d.id} className="flex items-center justify-between gap-2 text-sm py-1"><span className="truncate">{d.title} <span className="text-[10px] text-muted-foreground">· {d.stage}</span></span><span className="font-mono text-xs">{brl(Number(d.value) || 0)}{d.probability != null ? ` · ${d.probability}%` : ""}</span></div>
           ))}
-          {c360.deals.length === 0 && <p className="text-xs text-muted-foreground">Sem deals. (Wire de pipeline vem na Fase 2.)</p>}
+          {c360.deals.length === 0 && !showDeal && <p className="text-xs text-muted-foreground">Sem deals. Use <b>Novo deal</b> pra abrir um.</p>}
         </Section>
 
         {/* Rotinas */}
@@ -240,5 +367,45 @@ const Section = ({ title, children }: { title: string; children: ReactNode }) =>
     {children}
   </div>
 );
+
+// Rede de relacionamento — SVG leve: cliente no centro, contatos à esquerda, deals à direita.
+// Adaptação do "network graph" das telas de referência, sem lib de grafo.
+const RelationshipNetwork = ({ nome, contatos, deals }: { nome: string; contatos: string[]; deals: string[] }) => {
+  const trunc = (s: string, n = 16) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+  const cx = 160, cy = 90;
+  const col = (items: string[], x: number) => {
+    const n = items.length;
+    return items.map((label, i) => ({ label, x, y: n === 1 ? cy : 24 + (i * (132 / Math.max(1, n - 1))) }));
+  };
+  const left = col(contatos.slice(0, 5), 34);
+  const right = col(deals.slice(0, 5), 286);
+  return (
+    <div className="w-full overflow-x-auto">
+      <svg viewBox="0 0 320 180" className="w-full max-w-[420px] h-[160px] mx-auto" role="img" aria-label="Rede de relacionamento">
+        {[...left, ...right].map((p, i) => (
+          <line key={`l${i}`} x1={cx} y1={cy} x2={p.x} y2={p.y} className="stroke-border" strokeWidth={1} />
+        ))}
+        {left.map((p, i) => (
+          <g key={`c${i}`}>
+            <circle cx={p.x} cy={p.y} r={5} className="fill-emerald-500/70" />
+            <text x={p.x + 9} y={p.y + 3} className="fill-muted-foreground" fontSize={8} textAnchor="start">{trunc(p.label, 12)}</text>
+          </g>
+        ))}
+        {right.map((p, i) => (
+          <g key={`d${i}`}>
+            <circle cx={p.x} cy={p.y} r={5} className="fill-primary/70" />
+            <text x={p.x - 9} y={p.y + 3} className="fill-muted-foreground" fontSize={8} textAnchor="end">{trunc(p.label, 12)}</text>
+          </g>
+        ))}
+        <circle cx={cx} cy={cy} r={22} className="fill-primary/15 stroke-primary/40" strokeWidth={1.5} />
+        <text x={cx} y={cy + 3} className="fill-foreground" fontSize={9} fontWeight="600" textAnchor="middle">{trunc(nome, 12)}</text>
+      </svg>
+      <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-3 -mt-1">
+        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500/70" />{contatos.length} contato(s)</span>
+        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary/70" />{deals.length} deal(s)</span>
+      </p>
+    </div>
+  );
+};
 
 export default Crm;

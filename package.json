@@ -8,7 +8,7 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "test": "node --experimental-strip-types --test src/components/ems/finance/projectionCalc.test.ts",
+    "test": "node --experimental-strip-types --test \"src/**/*.test.ts\"",
     "preview": "vite preview"
   },
   "dependencies": {

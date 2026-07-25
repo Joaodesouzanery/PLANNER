@@ -2,7 +2,7 @@
 // Mesmo contrato do boardAttention: recebe inputs já buscados, devolve fila ranqueada (reds primeiro).
 
 export type NbaSev = "red" | "yellow" | "low";
-export type NbaTipo = "follow_up" | "deal_fechando" | "deal_parado" | "concentracao" | "esfriando" | "renovacao";
+export type NbaTipo = "follow_up" | "deal_fechando" | "deal_parado" | "concentracao" | "esfriando" | "renovacao" | "oferta" | "onboarding";
 
 export interface NbaItem {
   id: string;
@@ -22,6 +22,8 @@ export interface NbaInputs {
   deals?: { id: string; customerId: string | null; customerName: string; title: string; value?: number | null; stage?: string | null; expected_close_date?: string | null }[];
   concentracao?: { customerId: string; customerName: string; top1Share: number } | null;
   esfriando?: { customerId: string; customerName: string; dias: number; ongoing: number }[];
+  onboardingGaps?: { customerId: string; customerName: string; pendentes: number }[];
+  ofertas?: { customerId: string; customerName: string; titulo: string; valor?: number | null }[];
   concentracaoLimite?: number; // default 0.35
   esfriandoDias?: number; // default 30
 }
@@ -56,6 +58,15 @@ export const buildNextBestActions = (i: NbaInputs): NbaItem[] => {
   for (const e of i.esfriando ?? []) {
     if (e.dias < frio) continue;
     out.push({ id: `es:${e.customerId}`, tipo: "esfriando", severidade: e.dias > frio * 2 ? "red" : "yellow", customerId: e.customerId, customerName: e.customerName, titulo: `Esfriando: ${e.dias}d sem contato (MRR ${e.ongoing.toFixed(0)})`, valor: e.ongoing });
+  }
+
+  for (const g of i.onboardingGaps ?? []) {
+    if (g.pendentes <= 0) continue;
+    out.push({ id: `ob:${g.customerId}`, tipo: "onboarding", severidade: "yellow", customerId: g.customerId, customerName: g.customerName, titulo: `Onboarding incompleto: ${g.pendentes} passo(s) pendente(s)` });
+  }
+
+  for (const o of i.ofertas ?? []) {
+    out.push({ id: `of:${o.customerId}`, tipo: "oferta", severidade: "low", customerId: o.customerId, customerName: o.customerName, titulo: `Oportunidade: ${o.titulo}`, valor: o.valor ?? null });
   }
 
   const seen = new Set<string>();

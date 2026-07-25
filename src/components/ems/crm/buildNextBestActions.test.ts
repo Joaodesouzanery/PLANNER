@@ -40,6 +40,30 @@ describe("buildNextBestActions", () => {
   });
 });
 
+describe("buildNextBestActions — streams enriquecidos (oferta/onboarding)", () => {
+  const items = buildNextBestActions({
+    today: TODAY,
+    onboardingGaps: [
+      { customerId: "iris", customerName: "IRIS", pendentes: 3 }, // yellow
+      { customerId: "circle", customerName: "CIRCLE", pendentes: 0 }, // ignora (0 pendentes)
+    ],
+    ofertas: [
+      { customerId: "conab", customerName: "CONAB", titulo: "propor expansão/upsell", valor: 5000 }, // low
+    ],
+  });
+
+  it("gap de onboarding com pendentes vira yellow; 0 pendentes é ignorado", () => {
+    const ob = items.filter((x) => x.tipo === "onboarding");
+    assert.equal(ob.length, 1);
+    assert.equal(ob[0].severidade, "yellow");
+  });
+  it("oferta vira low e não outranquea problemas", () => {
+    const of = items.find((x) => x.tipo === "oferta");
+    assert.equal(of?.severidade, "low");
+    assert.equal(items[items.length - 1].tipo, "oferta"); // low fica por último
+  });
+});
+
 describe("forecastPonderado", () => {
   it("só deals abertos, Σ valor×prob", () => {
     const f = forecastPonderado([
