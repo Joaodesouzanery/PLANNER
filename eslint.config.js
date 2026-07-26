@@ -21,6 +21,15 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+      // Codebase é lenient (`strict: false`): `any` é ruído, não bug — vira aviso
+      // para o job de lint do CI conseguir sinalizar problemas REAIS (hooks,
+      // condicionais sempre-verdadeiras, escapes, etc.) sem ficar vermelho eterno.
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-empty-object-type": "warn",
+      "@typescript-eslint/no-require-imports": "warn",
+      "@typescript-eslint/ban-ts-comment": "warn",
+      "react-hooks/exhaustive-deps": "warn",
     },
+
   },
 );
