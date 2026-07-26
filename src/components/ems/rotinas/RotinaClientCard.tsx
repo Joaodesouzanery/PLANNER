@@ -164,9 +164,10 @@ const TaskRow = ({ task, childrenTasks, rotinas, onDelete, child }: {
               {overdue && <AlertTriangle className="h-2.5 w-2.5" />}{formatDateBR(task.due_date)}
             </span>
           )}
-          <Select value={task.status} onValueChange={(v) => rotinas.saveTask.mutate({ id: task.id, status: v as any })}>
+          <Select value={task.status} onValueChange={(v) => rotinas.saveTask.mutate({ id: task.id, status: asTaskStatus(v) })}>
             <SelectTrigger className={cn("h-6 w-[104px] text-[10px]", STATUS[task.status]?.tone)}><SelectValue /></SelectTrigger>
-            <SelectContent>{Object.entries(STATUS).map(([k, s]) => <SelectItem key={k} value={k}>{s.label}</SelectItem>)}</SelectContent>
+            <SelectContent>{TASK_STATUSES.map((k) => <SelectItem key={k} value={k}>{TASK_STATUS_LABEL[k]}</SelectItem>)}</SelectContent>
+
           </Select>
           {!child && <IconBtn title="Subtarefa" onClick={() => setAddingSub((v) => !v)}><CornerDownRight className="h-3 w-3" /></IconBtn>}
           <IconBtn title="Editar" onClick={() => setEditing(true)}><Pencil className="h-3 w-3" /></IconBtn>
