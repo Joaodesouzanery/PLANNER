@@ -1,5 +1,6 @@
 // CRM · Next-Best-Action — a fila do que fazer AGORA por cliente. Puro/testável.
 // Mesmo contrato do boardAttention: recebe inputs já buscados, devolve fila ranqueada (reds primeiro).
+import { CLOSED_STAGES } from "./crm360";
 
 export type NbaSev = "red" | "yellow" | "low";
 export type NbaTipo = "follow_up" | "deal_fechando" | "deal_parado" | "concentracao" | "esfriando" | "renovacao" | "oferta" | "onboarding";
@@ -29,7 +30,7 @@ export interface NbaInputs {
 }
 
 const RANK: Record<NbaSev, number> = { red: 0, yellow: 1, low: 2 };
-const CLOSED = new Set(["ganho", "perdido", "won", "lost", "fechado", "closed"]);
+const CLOSED = CLOSED_STAGES;
 const dayDiff = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 
 export const buildNextBestActions = (i: NbaInputs): NbaItem[] => {

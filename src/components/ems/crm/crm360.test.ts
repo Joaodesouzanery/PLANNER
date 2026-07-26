@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { buildCustomer360, diasSemContato, type CustomerSpine } from "./crm360";
+import { buildCustomer360, diasSemContato, CLOSED_STAGES, type CustomerSpine } from "./crm360";
 
 const spine: CustomerSpine = { id: "conab", nome: "CONAB", recorrente: true, stage: "ativo", health: "green" };
 
@@ -37,4 +37,18 @@ describe("crm360 — buildCustomer360", () => {
   });
   it("rotinas do cliente (1)", () => assert.equal(c.rotinas.length, 1));
   it("dias sem contato", () => assert.equal(diasSemContato(c, "2026-07-25"), 5));
+});
+
+describe("crm360 — vocabulário de fechado (ganha/perdida do modal de Projetos)", () => {
+  it("CLOSED_STAGES cobre ganha/ganho/perdida/perdido", () => {
+    for (const s of ["ganha", "ganho", "perdida", "perdido", "won", "lost"]) assert.ok(CLOSED_STAGES.has(s), s);
+  });
+  it("deal 'ganha' (grafia de Projetos) NÃO conta como aberto", () => {
+    const d = buildCustomer360(spine, { monthly: 0, ongoing: 0 }, [], [
+      { id: "x", title: "Fechado em Projetos", value: 5000, probability: 100, stage: "ganha", customer_id: "conab" },
+      { id: "y", title: "Aberto", value: 4000, probability: 50, stage: "proposta", customer_id: "conab" },
+    ], [], []);
+    assert.equal(d.dealsAbertos, 1);
+    assert.equal(d.forecastPonderado, 2000); // só o aberto: 4000×0.5
+  });
 });

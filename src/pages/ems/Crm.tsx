@@ -1,7 +1,7 @@
 import { useMemo, useState, lazy, Suspense, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Users, Search, Phone, Mail, Briefcase, Repeat, CalendarClock, Plus, Target, LayoutGrid, List, TrendingUp, TrendingDown, Minus, Gift, ShieldCheck, HeartPulse } from "lucide-react";
+import { Users, Search, Phone, Mail, Briefcase, Repeat, CalendarClock, Plus, Target, LayoutGrid, List, TrendingUp, TrendingDown, Minus, Gift, ShieldCheck, HeartPulse, ChevronLeft } from "lucide-react";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useCompany } from "@/contexts/CompanyContext";
 import { AttachmentManager } from "@/components/ems/AttachmentManager";
+import { OperationalMapPanel } from "@/components/ems/OperationalMapPanel";
 import { useCrm } from "@/components/ems/crm/useCrm";
 import { OpportunityInbox } from "@/components/ems/crm/OpportunityInbox";
 import { ServicingTower } from "@/components/ems/crm/ServicingTower";
@@ -38,23 +39,40 @@ const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", curren
 const todayIso = () => new Date().toISOString().slice(0, 10);
 const dateBR = (d?: string | null) => (d ? new Date(`${d.slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR") : "—");
 
+const TAB_META: Record<string, { title: string; sub: string }> = {
+  clientes: { title: "Clientes 360", sub: "Cada cliente num lugar só: receita, scorecard, deals, tarefas, docs e histórico." },
+  contatos: { title: "Contatos", sub: "As pessoas — ligue cada uma a um cliente pra aparecer no 360." },
+  oportunidades: { title: "Oportunidades", sub: "A fila do que fazer agora (NBA) + funil de deals." },
+  prospeccao: { title: "Prospecção", sub: "Empresas a prospectar — converta em cliente + contato + deal." },
+  campanhas: { title: "Campanhas", sub: "Segmentos dinâmicos, campanhas e performance de outreach." },
+  torre: { title: "Torre", sub: "Saúde da carteira: SLA, risco, grupos por segmento e alertas." },
+  mapa: { title: "Mapa", sub: "Clientes, projetos e tarefas no mapa operacional." },
+};
+
 const Crm = () => {
   const crm = useCrm();
   const { selectedCompanyId } = useCompany();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedId, setSelectedId] = useState<string | null>(searchParams.get("client"));
   const [tab, setTab] = useState(searchParams.get("tab") || "clientes");
   const [search, setSearch] = useState("");
   const [healthFilter, setHealthFilter] = useState("all");
-  const [view, setView] = useState<"list" | "kanban">("list");
+  const [view, setView] = useState<"list" | "kanban">(searchParams.get("view") === "kanban" ? "kanban" : "list");
+  const syncParam = (key: string, val: string | null) => setSearchParams((prev) => { const p = new URLSearchParams(prev); if (val) p.set(key, val); else p.delete(key); return p; }, { replace: true });
+  const changeTab = (v: string) => { setTab(v); syncParam("tab", v === "clientes" ? null : v); };
+  const changeView = (v: "list" | "kanban") => { setView(v); syncParam("view", v === "list" ? null : v); };
   const selectCustomer = (id: string) => { setSelectedId(id); setTab("clientes"); setView("list"); };
+  // Com empresa específica, os satélites vêm filtrados e a saúde recalculada seria falsa-baixa →
+  // prefere a persistida (canônica). No view "todas", usa a calculada (que também é persistida pelo sync).
+  const scoped = selectedCompanyId !== "all";
+  const healthOf = (c: CustomerSpine) => (scoped ? (c.health || crm.scores.get(c.id)?.health) : (crm.scores.get(c.id)?.health || c.health)) || "green";
 
   const rows = useMemo(() =>
     crm.customers
-      .map((c) => ({ c, rev: crm.revenueByCustomer.get(c.id) ?? { monthly: 0, ongoing: 0 } }))
-      .filter(({ c }) => (healthFilter === "all" || (c.health || "green") === healthFilter) && (!search || c.nome.toLowerCase().includes(search.toLowerCase())))
+      .map((c) => ({ c, rev: crm.revenueByCustomer.get(c.id) ?? { monthly: 0, ongoing: 0 }, health: healthOf(c) }))
+      .filter(({ c, health }) => (healthFilter === "all" || health === healthFilter) && (!search || c.nome.toLowerCase().includes(search.toLowerCase())))
       .sort((a, b) => b.rev.monthly - a.rev.monthly),
-    [crm.customers, crm.revenueByCustomer, healthFilter, search],
+    [crm.customers, crm.revenueByCustomer, crm.scores, healthFilter, search, scoped],
   );
 
   const selected = selectedId ? crm.customers.find((c) => c.id === selectedId) ?? null : null;
@@ -72,9 +90,9 @@ const Crm = () => {
           <div>
             <h1 className="text-2xl md:text-3xl font-heading font-bold flex items-center gap-2">
               <div className="p-2 rounded-xl bg-primary/10"><Users className="h-6 w-6 text-primary" /></div>
-              CRM — Clientes 360
+              CRM — {(TAB_META[tab] ?? TAB_META.clientes).title}
             </h1>
-            <p className="text-muted-foreground mt-1 text-sm">Cada cliente num lugar só: receita, contatos, deals, rotinas, documentos e histórico.</p>
+            <p className="text-muted-foreground mt-1 text-sm">{(TAB_META[tab] ?? TAB_META.clientes).sub}</p>
           </div>
           <div className="text-right hidden sm:block">
             <p className="font-mono text-lg font-bold text-primary">{brl(mrrTotal)}<span className="text-xs text-muted-foreground font-normal">/mês</span></p>
@@ -86,15 +104,20 @@ const Crm = () => {
           <Card className="border-amber-500/30 bg-amber-500/5"><CardContent className="p-4 text-sm text-amber-400">Nenhum cliente ainda — cadastre clientes nas Transações (campo Cliente) ou aplique a migration <code>20260713120000_crm_customer_spine.sql</code>.</CardContent></Card>
         )}
 
-        <Tabs value={tab} onValueChange={setTab} className="space-y-4">
-          <TabsList className="bg-card/80 border border-border/50 rounded-xl">
-            <TabsTrigger value="clientes" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Clientes 360</TabsTrigger>
-            <TabsTrigger value="contatos" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5">Contatos {crm.contacts.filter((c) => !c.customer_id).length > 0 && <span className="rounded-full bg-amber-500/15 text-amber-500 px-1.5 text-[10px] font-mono" title="sem cliente ligado">{crm.contacts.filter((c) => !c.customer_id).length}</span>}</TabsTrigger>
-            <TabsTrigger value="oportunidades" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5">Oportunidades {crm.nbaItems.length > 0 && <span className="rounded-full bg-primary/15 text-primary px-1.5 text-[10px] font-mono">{crm.nbaItems.length}</span>}</TabsTrigger>
-            <TabsTrigger value="prospeccao" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Prospecção</TabsTrigger>
-            <TabsTrigger value="campanhas" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Campanhas</TabsTrigger>
-            <TabsTrigger value="torre" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Torre</TabsTrigger>
+        <Tabs value={tab} onValueChange={changeTab} className="space-y-4">
+          <TabsList className="bg-card/80 border border-border/50 rounded-xl flex w-full justify-start overflow-x-auto">
+            <TabsTrigger value="clientes" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Clientes 360</TabsTrigger>
+            <TabsTrigger value="contatos" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5">Contatos {crm.contacts.filter((c) => !c.customer_id).length > 0 && <span className="rounded-full bg-amber-500/15 text-amber-500 px-1.5 text-[10px] font-mono" title="sem cliente ligado">{crm.contacts.filter((c) => !c.customer_id).length}</span>}</TabsTrigger>
+            <TabsTrigger value="oportunidades" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5">Oportunidades {crm.nbaItems.length > 0 && <span className="rounded-full bg-primary/15 text-primary px-1.5 text-[10px] font-mono">{crm.nbaItems.length}</span>}</TabsTrigger>
+            <TabsTrigger value="prospeccao" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Prospecção</TabsTrigger>
+            <TabsTrigger value="campanhas" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Campanhas</TabsTrigger>
+            <TabsTrigger value="torre" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Torre</TabsTrigger>
+            <TabsTrigger value="mapa" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Mapa</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="mapa" className="mt-0">
+            <OperationalMapPanel title="Mapa da carteira" description="Clientes, projetos e tarefas num só mapa operacional." filterKinds={["client", "task", "project"]} height={540} />
+          </TabsContent>
 
           <TabsContent value="contatos" className="mt-0">
             <ContactsTab crm={crm} onSelectCustomer={selectCustomer} />
@@ -119,16 +142,16 @@ const Crm = () => {
           <TabsContent value="clientes" className="mt-0 space-y-3">
         <div className="flex items-center justify-end">
           <div className="inline-flex rounded-lg border border-border/50 bg-card/60 p-0.5">
-            <Button size="sm" variant={view === "list" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setView("list")}><List className="h-3.5 w-3.5" />Lista</Button>
-            <Button size="sm" variant={view === "kanban" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setView("kanban")}><LayoutGrid className="h-3.5 w-3.5" />Kanban</Button>
+            <Button size="sm" variant={view === "list" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => changeView("list")}><List className="h-3.5 w-3.5" />Lista</Button>
+            <Button size="sm" variant={view === "kanban" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => changeView("kanban")}><LayoutGrid className="h-3.5 w-3.5" />Kanban</Button>
           </div>
         </div>
         {view === "kanban" ? (
           <CustomerKanban crm={crm} onSelect={selectCustomer} />
         ) : (
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.3fr)_minmax(360px,0.75fr)] gap-4">
-          {/* LISTA */}
-          <Card>
+          {/* LISTA (escondida no mobile só quando um cliente REAL está aberto — senão tela em branco) */}
+          <Card className={cn(selected && "hidden xl:block")}>
             <CardHeader className="pb-2">
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
@@ -139,9 +162,9 @@ const Crm = () => {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="divide-y divide-border/50 max-h-[70vh] overflow-y-auto">
-                {rows.map(({ c, rev }) => {
-                  const h = HEALTH[crm.scores.get(c.id)?.health || c.health || "green"] ?? HEALTH.green;
+              <div className="divide-y divide-border/50 xl:max-h-[70vh] xl:overflow-y-auto">
+                {rows.map(({ c, rev, health }) => {
+                  const h = HEALTH[health] ?? HEALTH.green;
                   return (
                     <button key={c.id} onClick={() => setSelectedId(c.id)} className={cn("w-full text-left px-3 py-2.5 hover:bg-muted/40 flex items-center gap-3", selectedId === c.id && "bg-primary/5")}>
                       <span className={cn("h-2 w-2 rounded-full shrink-0", h.dot)} />
@@ -153,16 +176,20 @@ const Crm = () => {
                     </button>
                   );
                 })}
-                {rows.length === 0 && <p className="p-6 text-center text-sm text-muted-foreground">Nenhum cliente.</p>}
+                {crm.isLoading && rows.length === 0 && <div className="p-3 space-y-2">{[...Array(6)].map((_, i) => <div key={i} className="h-12 rounded-lg bg-muted/40 animate-pulse" />)}</div>}
+                {!crm.isLoading && rows.length === 0 && <p className="p-6 text-center text-sm text-muted-foreground">Nenhum cliente.</p>}
               </div>
             </CardContent>
           </Card>
 
           {/* DETALHE 360 */}
           {c360 && selected ? (
-            <CustomerDetail key={selected.id} c360={c360} companyId={selectedCompanyId !== "all" ? selectedCompanyId : null} crm={crm} />
+            <div>
+              <Button variant="ghost" size="sm" className="xl:hidden mb-2 gap-1.5 h-8" onClick={() => setSelectedId(null)}><ChevronLeft className="h-4 w-4" />Voltar à lista</Button>
+              <CustomerDetail key={selected.id} c360={c360} companyId={selectedCompanyId !== "all" ? selectedCompanyId : null} crm={crm} />
+            </div>
           ) : (
-            <Card><CardContent className="p-10 text-center text-sm text-muted-foreground">Selecione um cliente para ver o 360.</CardContent></Card>
+            <Card className="hidden xl:block"><CardContent className="p-10 text-center text-sm text-muted-foreground">Selecione um cliente para ver o 360.</CardContent></Card>
           )}
         </div>
         )}
@@ -202,10 +229,19 @@ const CustomerDetail = ({ c360, companyId, crm }: { c360: Customer360; companyId
   const [intDesc, setIntDesc] = useState("");
   const [showDeal, setShowDeal] = useState(false);
   const [deal, setDeal] = useState({ title: "", value: "", probability: "50", stage: "nova", expected_close_date: "", contactId: "" });
-  const health = sc?.health || s.health || "green";
+  const [showTask, setShowTask] = useState(false);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskContact, setTaskContact] = useState(c360.contatos[0]?.id || "");
+  const health = (companyId ? (s.health || sc?.health) : (sc?.health || s.health)) || "green";
   const h = HEALTH[health] ?? HEALTH.green;
   const dias = diasSemContato(c360, todayIso());
   const set = (patch: Partial<CustomerSpine>) => crm.updateCustomer.mutate({ id: s.id, patch });
+
+  const contactIds = new Set(c360.contatos.map((p) => p.id));
+  const clientTasks = crm.tasks.filter((t) => t.contact_id && contactIds.has(t.contact_id));
+  const dealProjectIds = new Set(c360.deals.map((d) => d.project_id).filter(Boolean));
+  const clientProjects = crm.projects.filter((p) => dealProjectIds.has(p.id));
+  const clientTxns = crm.transactions.filter((t) => t.cliente_id === s.id).slice().sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 6);
 
   const openDealForm = (title = "") => { setDeal((d) => ({ ...d, title })); setShowDeal(true); };
   const submitDeal = () => {
@@ -224,11 +260,11 @@ const CustomerDetail = ({ c360, companyId, crm }: { c360: Customer360; companyId
           <span className={cn("text-[11px] flex items-center gap-1.5", h.cls)}>{sc && <span className="font-mono">{sc.healthScore}</span>}{h.label}</span>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4 max-h-[70vh] overflow-y-auto">
+      <CardContent className="space-y-4 xl:max-h-[70vh] xl:overflow-y-auto">
         {/* Estágio / saúde / prioridade */}
         <div className="grid grid-cols-3 gap-2">
           <div><Label className="text-[10px] text-muted-foreground">Estágio</Label><Select value={s.stage || "active"} onValueChange={(v) => set({ stage: v })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{STAGES.map((x) => <SelectItem key={x.id} value={x.id}>{x.label}</SelectItem>)}</SelectContent></Select></div>
-          <div><Label className="text-[10px] text-muted-foreground">Saúde {sc && <span className="text-muted-foreground/60">(calc. {sc.healthScore})</span>}</Label><Select value={s.health || "green"} onValueChange={(v) => set({ health: v })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="green">Saudável</SelectItem><SelectItem value="yellow">Atenção</SelectItem><SelectItem value="red">Crítico</SelectItem></SelectContent></Select></div>
+          <div><Label className="text-[10px] text-muted-foreground">Saúde <span className="text-muted-foreground/60">(auto)</span></Label><div className={cn("h-8 rounded-md border border-border/50 bg-background/40 flex items-center gap-1.5 px-2 text-xs", h.cls)}><span className={cn("h-2 w-2 rounded-full shrink-0", h.dot)} /><span className="truncate">{h.label}</span>{sc && <span className="text-muted-foreground ml-auto font-mono">{sc.healthScore}</span>}</div></div>
           <div><Label className="text-[10px] text-muted-foreground">Prioridade</Label><Select value={s.priority || "medium"} onValueChange={(v) => set({ priority: v })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="low">Baixa</SelectItem><SelectItem value="medium">Média</SelectItem><SelectItem value="high">Alta</SelectItem></SelectContent></Select></div>
         </div>
 
@@ -320,7 +356,7 @@ const CustomerDetail = ({ c360, companyId, crm }: { c360: Customer360; companyId
           {showDeal && (
             <div className="rounded-lg border border-primary/20 bg-primary/5 p-2 space-y-2 mb-2">
               <Input value={deal.title} onChange={(e) => setDeal({ ...deal, title: e.target.value })} placeholder="Título do deal" className="h-8 text-xs" />
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Input value={deal.value} onChange={(e) => setDeal({ ...deal, value: e.target.value })} placeholder="Valor R$" inputMode="numeric" className="h-8 text-xs" />
                 <Input value={deal.probability} onChange={(e) => setDeal({ ...deal, probability: e.target.value })} placeholder="Prob %" inputMode="numeric" className="h-8 text-xs" />
                 <Select value={deal.stage} onValueChange={(v) => setDeal({ ...deal, stage: v })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{DEAL_STAGES.map((x) => <SelectItem key={x.id} value={x.id}>{x.label}</SelectItem>)}</SelectContent></Select>
@@ -340,6 +376,56 @@ const CustomerDetail = ({ c360, companyId, crm }: { c360: Customer360; companyId
           ))}
           {c360.deals.length === 0 && !showDeal && <p className="text-xs text-muted-foreground">Sem deals. Use <b>Novo deal</b> pra abrir um.</p>}
         </Section>
+
+        {/* Projetos do cliente (via deals com projeto) */}
+        {clientProjects.length > 0 && (
+          <Section title={`Projetos (${clientProjects.length})`}>
+            {clientProjects.map((p) => (
+              <div key={p.id} className="flex items-center justify-between gap-2 text-sm py-1">
+                <span className="truncate">{p.title} <span className="text-[10px] text-muted-foreground">· {p.status}</span></span>
+                {p.next_invoice_date && <span className="text-[10px] text-muted-foreground shrink-0">fatura {dateBR(p.next_invoice_date)}</span>}
+              </div>
+            ))}
+          </Section>
+        )}
+
+        {/* Tarefas do cliente (tasks ligadas aos contatos) */}
+        <Section title={`Tarefas abertas (${clientTasks.length})`}>
+          <div className="flex items-center justify-end -mt-6 mb-1">
+            <Button size="sm" variant="ghost" className="h-6 text-[11px] gap-1" onClick={() => setShowTask((v) => !v)}><Plus className="h-3 w-3" />Nova</Button>
+          </div>
+          {showTask && (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-2 space-y-2 mb-2">
+              <Input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="O que fazer" className="h-8 text-xs" />
+              <div className="flex gap-2">
+                {c360.contatos.length > 0 && (
+                  <Select value={taskContact} onValueChange={setTaskContact}><SelectTrigger className="h-8 text-xs flex-1"><SelectValue placeholder="Contato" /></SelectTrigger><SelectContent>{c360.contatos.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select>
+                )}
+                <Button size="sm" className="h-8 text-xs" disabled={!taskTitle.trim() || crm.createTask.isPending} onClick={() => crm.createTask.mutate({ title: taskTitle, contactId: taskContact || null }, { onSuccess: () => { setTaskTitle(""); setShowTask(false); } })}>Salvar</Button>
+              </div>
+            </div>
+          )}
+          {clientTasks.map((t) => (
+            <div key={t.id} className="flex items-center justify-between gap-2 text-sm py-1">
+              <span className="truncate">{t.title}</span>
+              {t.due_date && <span className={cn("text-[10px] shrink-0", t.due_date < todayIso() ? "text-red-400" : "text-muted-foreground")}>{dateBR(t.due_date)}</span>}
+            </div>
+          ))}
+          {clientTasks.length === 0 && !showTask && <p className="text-xs text-muted-foreground">Sem tarefas abertas.</p>}
+        </Section>
+
+        {/* Financeiro (últimas transações do cliente) */}
+        {clientTxns.length > 0 && (
+          <Section title="Financeiro (últimas)">
+            {clientTxns.map((t) => (
+              <div key={t.id} className="flex items-center justify-between gap-2 text-xs py-1">
+                <span className="text-muted-foreground shrink-0 w-14">{dateBR(t.date)}</span>
+                <span className="flex-1 truncate">{t.description || (t.type === "income" ? "Entrada" : "Saída")}</span>
+                <span className={cn("font-mono shrink-0", t.type === "income" ? "text-emerald-400" : "text-muted-foreground")}>{t.type === "income" ? "+" : "−"}{brl(Number(t.amount) || 0)}</span>
+              </div>
+            ))}
+          </Section>
+        )}
 
         {/* Rotinas */}
         {c360.rotinas.length > 0 && (

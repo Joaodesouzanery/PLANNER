@@ -40,7 +40,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { OperationalMapPanel } from "@/components/ems/OperationalMapPanel";
 import { useMapPins } from "@/hooks/useMapPins";
 
 type ProspectStatus = "new" | "researching" | "contacted" | "meeting" | "won" | "lost";
@@ -696,10 +695,12 @@ export const Prospecting = () => {
       const nome = (prospect.company_name || "").trim();
       if (!nome) throw new Error("Prospect sem nome de empresa");
       if (prospect.status === "won") throw new Error("Prospect já convertido");
+      // Escapa curingas de LIKE (% _ \) p/ o ilike ser match exato case-insensitive (nomes tipo "100% Obras").
+      const likeEsc = (s: string) => s.replace(/[\\%_]/g, (ch) => "\\" + ch);
 
       // 1. Cliente (spine): reusa se já existir pelo nome, senão cria.
       let customerId: string | null = null;
-      const { data: existing } = await db.from("finance_clientes").select("id").ilike("nome", nome).limit(1).maybeSingle();
+      const { data: existing } = await db.from("finance_clientes").select("id").ilike("nome", likeEsc(nome)).limit(1).maybeSingle();
       if (existing?.id) customerId = existing.id;
       else {
         const { data: created, error } = await db.from("finance_clientes")
@@ -708,24 +709,35 @@ export const Prospecting = () => {
         customerId = created.id;
       }
 
-      // 2. Contato (pessoa): extrai email/telefone de contacts[].
+      // 2. Contato (pessoa): reusa um existente do cliente (por email, senão por nome) antes de criar — evita duplicar.
       const email = prospect.contacts?.find((c) => c.type === "email")?.value || null;
       const phone = prospect.contacts?.find((c) => c.type === "celular")?.value || null;
       const primary = prospect.contacts?.find((c) => c.name)?.name || nome;
-      const { data: contact, error: cErr } = await db.from("contacts")
-        .insert({ name: primary, email, phone, company: nome, customer_id: customerId, company_id: companyId, pipeline_stage: "qualified" })
-        .select("id").single();
-      if (cErr) throw cErr;
+      let contactId: string | null = null;
+      let foundContact: any = null;
+      if (email) foundContact = (await db.from("contacts").select("id").eq("customer_id", customerId).eq("email", email).limit(1).maybeSingle()).data;
+      if (!foundContact) foundContact = (await db.from("contacts").select("id").eq("customer_id", customerId).ilike("name", likeEsc(primary)).limit(1).maybeSingle()).data;
+      if (foundContact?.id) contactId = foundContact.id;
+      else {
+        const { data: contact, error: cErr } = await db.from("contacts")
+          .insert({ name: primary, email, phone, company: nome, customer_id: customerId, company_id: companyId, pipeline_stage: "qualified" })
+          .select("id").single();
+        if (cErr) throw cErr;
+        contactId = contact.id;
+      }
 
-      // 3. Deal: oportunidade ligada ao cliente + contato (project_id null — não exige projeto).
+      // 3. Deal: só cria se não existir um com o mesmo título p/ o cliente (project_id null — não exige projeto).
       const diag = prospect.operational_diagnosis as any;
       const dealNotes = [prospect.notes, diag?.suggestedMessage, diag?.messageDraft].filter(Boolean).join("\n\n").slice(0, 2000) || null;
-      const { error: dErr } = await db.from("project_opportunities").insert({
-        title: prospect.job_title ? `${nome} — ${prospect.job_title}` : nome,
-        value: null, stage: "nova", probability: 30, expected_close_date: prospect.meeting_date || null,
-        notes: dealNotes, customer_id: customerId, contact_id: contact.id, project_id: null, company_id: companyId,
-      });
-      if (dErr) throw dErr;
+      const title = prospect.job_title ? `${nome} — ${prospect.job_title}` : nome;
+      const existingDeal = (await db.from("project_opportunities").select("id").eq("customer_id", customerId).eq("title", title).limit(1).maybeSingle()).data;
+      if (!existingDeal) {
+        const { error: dErr } = await db.from("project_opportunities").insert({
+          title, value: null, stage: "nova", probability: 30, expected_close_date: prospect.meeting_date || null,
+          notes: dealNotes, customer_id: customerId, contact_id: contactId, project_id: null, company_id: companyId,
+        });
+        if (dErr) throw dErr;
+      }
 
       // 4. Marca o prospect como convertido.
       await db.from("commercial_prospects").update({ status: "won" }).eq("id", prospect.id);
@@ -1177,47 +1189,7 @@ export const Prospecting = () => {
         ))}
       </div>
 
-      <OperationalMapPanel
-        title="Mapa operacional de clientes e projetos"
-        description="Mesmo mapa usado em Dashboard, Contatos e Projetos."
-        pinsOverride={prospectingMapPins}
-        height={420}
-        headerActions={
-          <>
-            {[
-              { key: "all", label: "Todos" },
-              { key: "overdue", label: "Com alerta" },
-              { key: "today", label: "Hoje/atrasadas" },
-            ].map((filter) => (
-              <Button
-                key={filter.key}
-                variant={mapTaskFilter === filter.key ? "secondary" : "outline"}
-                size="sm"
-                className="h-8 rounded-lg text-xs"
-                onClick={() => setMapTaskFilter(filter.key as typeof mapTaskFilter)}
-              >
-                {filter.label}
-              </Button>
-            ))}
-            <Button
-              variant="outline"
-              size="sm"
-              className={cn("h-8 rounded-lg text-xs", mapLayers.contacts && "bg-primary/10 text-primary")}
-              onClick={() => setMapLayers((prev) => ({ ...prev, contacts: !prev.contacts }))}
-            >
-              Contatos
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className={cn("h-8 rounded-lg text-xs", mapLayers.projects && "bg-primary/10 text-primary")}
-              onClick={() => setMapLayers((prev) => ({ ...prev, projects: !prev.projects }))}
-            >
-              Projetos
-            </Button>
-          </>
-        }
-      />
+      {/* Mapa removido — consolidado no CRM (aba Mapa). */}
 
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)] gap-4">
         <div className="space-y-4">

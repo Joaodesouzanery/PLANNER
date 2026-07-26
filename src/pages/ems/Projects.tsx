@@ -28,7 +28,6 @@ import { cn } from "@/lib/utils";
 import { AttachmentManager } from "@/components/ems/AttachmentManager";
 import { ConferenciaContent } from "./Conferencia";
 import { OrgChartContent } from "./OrgChart";
-import { OperationalMapPanel } from "@/components/ems/OperationalMapPanel";
 import AddressAutocomplete from "@/components/ems/AddressAutocomplete";
 import { ensureCoords } from "@/lib/geocode";
 import { ProjectPlanningPanel } from "@/components/ems/projects/ProjectPlanningPanel";
@@ -746,45 +745,7 @@ const Projects = () => {
           </motion.div>
         </div>
 
-        <OperationalMapPanel
-          title="Mapa de projetos"
-          description="Filtre um projeto e ligue/desligue camadas para ver clientes, obra e tarefas separadamente."
-          projectId={mapProjectId === "all" ? undefined : mapProjectId}
-          filterKinds={mapFilterKinds}
-          height={320}
-          maxSidebarHeight="320px"
-          headerActions={
-            <>
-              <Select value={mapProjectId} onValueChange={setMapProjectId}>
-                <SelectTrigger className="h-8 w-full text-xs sm:w-[240px]">
-                  <SelectValue placeholder="Projeto no mapa" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os projetos</SelectItem>
-                  {projects.map((project) => <SelectItem key={project.id} value={project.id}>{project.title}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  ["project", "Projetos"],
-                  ["client", "Clientes"],
-                  ["task", "Tarefas"],
-                ].map(([kind, label]) => (
-                  <Button
-                    key={kind}
-                    type="button"
-                    size="sm"
-                    variant={mapVisibleKinds[kind as keyof typeof mapVisibleKinds] ? "default" : "outline"}
-                    className="h-8 text-xs"
-                    onClick={() => setMapVisibleKinds((current) => ({ ...current, [kind]: !current[kind as keyof typeof current] }))}
-                  >
-                    {label}
-                  </Button>
-                ))}
-              </div>
-            </>
-          }
-        />
+        {/* Mapa removido — consolidado no CRM (aba Mapa). */}
 
         {/* Filters */}
         <div className="flex flex-wrap gap-2 md:gap-4 items-center">

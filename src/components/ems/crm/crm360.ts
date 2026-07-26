@@ -14,7 +14,7 @@ export interface CustomerSpine {
   tier?: string | null;
 }
 export interface CrmContact { id: string; name: string; customer_id?: string | null; pipeline_stage?: string | null; email?: string | null; phone?: string | null; company?: string | null }
-export interface CrmDeal { id: string; title: string; value?: number | null; stage?: string | null; probability?: number | null; expected_close_date?: string | null; customer_id?: string | null }
+export interface CrmDeal { id: string; title: string; value?: number | null; stage?: string | null; probability?: number | null; expected_close_date?: string | null; customer_id?: string | null; project_id?: string | null }
 export interface CrmRoutine { id: string; name: string; customer_id?: string | null; status?: string | null }
 export interface CrmInteraction { id: string; contact_id: string; type: string; description: string; date: string }
 
@@ -31,7 +31,10 @@ export interface Customer360 {
   ultimaInteracao: string | null;
 }
 
-const CLOSED = new Set(["ganho", "perdido", "won", "lost", "fechado", "closed"]);
+// Vocabulário ÚNICO de estágios fechados (fonte compartilhada — evita as cópias divergentes).
+// Inclui "ganha"/"perdida" (grafia usada no modal de Projetos) além de "ganho"/"perdido".
+export const CLOSED_STAGES = new Set(["ganho", "ganha", "perdido", "perdida", "won", "lost", "fechado", "closed"]);
+const CLOSED = CLOSED_STAGES;
 
 export const buildCustomer360 = (
   spine: CustomerSpine,

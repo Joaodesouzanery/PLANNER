@@ -1,16 +1,16 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { toast } from "@/hooks/use-toast";
 import { buildClientRevenue } from "@/components/ems/finance/financeClients";
-import type { CustomerSpine, CrmContact, CrmDeal, CrmRoutine, CrmInteraction } from "./crm360";
+import { CLOSED_STAGES, type CustomerSpine, type CrmContact, type CrmDeal, type CrmRoutine, type CrmInteraction } from "./crm360";
 import { buildNextBestActions, type NbaItem } from "./buildNextBestActions";
 import { scoreCustomer, type CustomerScore } from "./crmScores";
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 const dayDiff = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
-const CLOSED = new Set(["ganho", "perdido", "won", "lost", "fechado", "closed"]);
+const CLOSED = CLOSED_STAGES;
 
 /** Últimos n meses no formato YYYY-MM (antigo→recente), a partir de uma data hoje. */
 const recentMonths = (today: string, n = 3): string[] => {
@@ -38,18 +38,20 @@ export const useCrm = () => {
     queryKey: ["crm", selectedCompanyId],
     staleTime: 60_000,
     queryFn: async () => {
-      const [spine, contacts, deals, routines, interactions, meta, txns, onbSteps, onbTracking] = await Promise.all([
+      const [spine, contacts, deals, routines, interactions, meta, txns, onbSteps, onbTracking, tasks, projects] = await Promise.all([
         safe(() => db.from("finance_clientes").select("*").order("nome")),
         safe(() => co(db.from("contacts").select("id,name,customer_id,pipeline_stage,email,phone,company"))),
-        safe(() => co(db.from("project_opportunities").select("id,title,value,stage,probability,expected_close_date,status_outcome,customer_id,contact_id"))),
+        safe(() => co(db.from("project_opportunities").select("id,title,value,stage,probability,expected_close_date,status_outcome,customer_id,contact_id,project_id"))),
         safe(() => db.from("routine_clients").select("id,name,customer_id,status")),
         safe(() => db.from("contact_interactions").select("id,contact_id,type,description,date")),
         safe(() => db.from("commercial_contact_meta").select("contact_id,next_action_date,next_action_description")),
-        safe(() => co(db.from("financial_transactions").select("id,amount,type,is_recurring,recurrence_interval,recurrence_end_date,cliente_id,date"))),
+        safe(() => co(db.from("financial_transactions").select("id,amount,type,is_recurring,recurrence_interval,recurrence_end_date,cliente_id,date,description"))),
         safe(() => db.from("onboarding_steps").select("id")),
         safe(() => db.from("contact_onboarding_tracking").select("contact_id,step_id,status")),
+        safe(() => co(db.from("tasks").select("id,title,status,due_date,priority,contact_id,project_id")).neq("status", "completed").neq("status", "done")),
+        safe(() => co(db.from("projects").select("id,title,status,next_invoice_date"))),
       ]);
-      return { spine, contacts, deals, routines, interactions, meta, txns, onbSteps, onbTracking };
+      return { spine, contacts, deals, routines, interactions, meta, txns, onbSteps, onbTracking, tasks, projects };
     },
   });
 
@@ -110,8 +112,8 @@ export const useCrm = () => {
       const a = dealAgg.get(d.customer_id) ?? dealAgg.set(d.customer_id, { open: 0, openValue: 0, won: 0, lost: 0 }).get(d.customer_id)!;
       const outcome = ((d as any).status_outcome || "").toLowerCase();
       const stage = (d.stage || "").toLowerCase();
-      if (outcome === "won" || stage === "ganho" || stage === "won") a.won++;
-      else if (outcome === "lost" || stage === "perdido" || stage === "lost") a.lost++;
+      if (outcome === "won" || stage === "ganho" || stage === "ganha" || stage === "won") a.won++;
+      else if (outcome === "lost" || stage === "perdido" || stage === "perdida" || stage === "lost") a.lost++;
       else if (!CLOSED.has(stage)) { a.open++; a.openValue += Number(d.value) || 0; }
     }
     // Próxima ação por cliente (meta dos seus contatos).
@@ -213,6 +215,25 @@ export const useCrm = () => {
     return buildNextBestActions({ today, nextActions, deals: dealsIn, concentracao, esfriando, onboardingGaps, ofertas });
   }, [customers, contacts, deals, interactions, data?.meta, revenueByCustomer, scores, onboardingByCustomer]);
 
+  // Saúde ÚNICA: persiste a saúde CALCULADA em finance_clientes.health (a fonte que o Conselho lê),
+  // pra Central de Atenção e CRM não divergirem. Converge em 1 rodada (após escrever, calculado == salvo).
+  const syncingRef = useRef(false);
+  useEffect(() => {
+    // Só sincroniza no view "todas as empresas": com empresa específica, os satélites (contatos/deals/
+    // interações) vêm filtrados e a saúde calculada seria falsa (baixa) p/ clientes de outra empresa.
+    if (scoped || query.isLoading || syncingRef.current || customers.length === 0) return;
+    const diffs = customers.filter((c) => { const h = scores.get(c.id)?.health; return h && h !== (c.health || null); });
+    if (diffs.length === 0) return;
+    syncingRef.current = true;
+    (async () => {
+      try {
+        await Promise.all(diffs.map((c) => db.from("finance_clientes").update({ health: scores.get(c.id)!.health }).eq("id", c.id)));
+        qc.invalidateQueries({ queryKey: ["crm"] });
+        qc.invalidateQueries({ queryKey: ["board-attention"] });
+      } finally { syncingRef.current = false; }
+    })();
+  }, [customers, scores, query.isLoading, qc]);
+
   const invalidate = () => qc.invalidateQueries({ queryKey: ["crm"] });
 
   const updateCustomer = useMutation({
@@ -269,6 +290,34 @@ export const useCrm = () => {
     onError: (e: any) => toast({ title: "Erro ao criar contato", description: e?.message, variant: "destructive" }),
   });
 
+  const updateContact = useMutation({
+    mutationFn: async ({ id, patch }: { id: string; patch: Record<string, any> }) => {
+      const { error } = await db.from("contacts").update(patch).eq("id", id); if (error) throw error;
+    },
+    onSuccess: invalidate,
+    onError: (e: any) => toast({ title: "Erro ao atualizar contato", description: e?.message, variant: "destructive" }),
+  });
+
+  const deleteContact = useMutation({
+    mutationFn: async (id: string) => { const { error } = await db.from("contacts").delete().eq("id", id); if (error) throw error; },
+    onSuccess: () => { invalidate(); toast({ title: "Contato removido" }); },
+    onError: (e: any) => toast({ title: "Erro ao remover contato", description: e?.message, variant: "destructive" }),
+  });
+
+  // Cria uma tarefa ligada a um contato do cliente (reusa a tabela tasks — molde de Contacts.saveTask).
+  const createTask = useMutation({
+    mutationFn: async (t: { title: string; contactId?: string | null; due_date?: string | null; priority?: string }) => {
+      const { error } = await db.from("tasks").insert({
+        title: t.title.trim(), contact_id: t.contactId || null,
+        due_date: t.due_date || todayIso(), priority: t.priority || "medium",
+        company_id: scoped ? selectedCompanyId : null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => { invalidate(); qc.invalidateQueries({ queryKey: ["contact-tasks"] }); qc.invalidateQueries({ queryKey: ["tasks"] }); toast({ title: "Tarefa criada" }); },
+    onError: (e: any) => toast({ title: "Erro ao criar tarefa", description: e?.message, variant: "destructive" }),
+  });
+
   // Cria um deal já ligado ao cliente (e opcionalmente ao contato) — molde de Projects.saveOpportunity, mas com customer_id.
   const createDeal = useMutation({
     mutationFn: async (d: { customerId: string; title: string; value?: string | number | null; stage?: string; probability?: string | number | null; expected_close_date?: string | null; contactId?: string | null }) => {
@@ -292,8 +341,11 @@ export const useCrm = () => {
   return {
     customers, contacts, deals, routines, interactions, revenueByCustomer, nbaItems,
     scores, onboardingByCustomer,
+    tasks: (data?.tasks ?? []) as any[],
+    projects: (data?.projects ?? []) as any[],
+    transactions: (data?.txns ?? []) as any[],
     isLoading: query.isLoading,
     missing: (data?.spine ?? []).length === 0 && !query.isLoading,
-    updateCustomer, addInteraction, updateDeal, linkContact, createContact, createDeal,
+    updateCustomer, addInteraction, updateDeal, linkContact, createContact, updateContact, deleteContact, createTask, createDeal,
   };
 };

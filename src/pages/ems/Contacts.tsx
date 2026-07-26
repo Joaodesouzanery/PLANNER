@@ -25,7 +25,6 @@ import { ptBR } from "date-fns/locale";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { OperationalMapPanel } from "@/components/ems/OperationalMapPanel";
 import AddressAutocomplete from "@/components/ems/AddressAutocomplete";
 import { ensureCoords } from "@/lib/geocode";
 
@@ -222,12 +221,7 @@ const Contacts = () => {
           </div>
         </div>
 
-        <OperationalMapPanel
-          title="Mapa de clientes e tarefas"
-          description="Contatos, clientes e tarefas vinculadas no mesmo mapa operacional dos demais módulos."
-          filterKinds={["client", "task"]}
-          height={320}
-        />
+        {/* Mapa removido — consolidado no CRM (aba Mapa). */}
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3">

@@ -2,6 +2,7 @@
 // Reusa clientConcentration (finance) e forecastPonderado (NBA); não recalcula receita.
 import { clientConcentration } from "@/components/ems/finance/financeClients";
 import { forecastPonderado, type NbaItem } from "./buildNextBestActions";
+import { CLOSED_STAGES } from "./crm360";
 
 export interface PortfolioCustomer { id: string; nome: string; recorrente: boolean; health?: string | null; ongoing: number }
 
@@ -19,7 +20,7 @@ export interface CrmPortfolio {
   followUpsVencidos: number;
 }
 
-const CLOSED = new Set(["ganho", "perdido", "won", "lost"]);
+const CLOSED = CLOSED_STAGES;
 
 export const crmPortfolio = (customers: PortfolioCustomer[], deals: { value?: number | null; probability?: number | null; stage?: string | null }[], nba: NbaItem[]): CrmPortfolio => {
   const conc = clientConcentration(customers.map((c) => ({ id: c.id, nome: c.nome, recorrente: c.recorrente, monthly: c.ongoing, ongoing: c.ongoing })));

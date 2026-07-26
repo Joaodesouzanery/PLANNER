@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search, Phone, Mail, Building2, Link2, Link2Off, Plus } from "lucide-react";
+import { Search, Phone, Mail, Building2, Link2, Link2Off, Plus, Pencil, Trash2, Check, X } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,10 @@ export const ContactsTab = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof 
   const [onlyUnlinked, setOnlyUnlinked] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [form, setForm] = useState(EMPTY);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [edit, setEdit] = useState({ name: "", email: "", phone: "", company: "" });
+  const startEdit = (c: any) => { setEditingId(c.id); setEdit({ name: c.name || "", email: c.email || "", phone: c.phone || "", company: c.company || "" }); };
+  const saveEdit = () => { if (!editingId) return; crm.updateContact.mutate({ id: editingId, patch: { name: edit.name.trim(), email: edit.email.trim() || null, phone: edit.phone.trim() || null, company: edit.company.trim() || null } }, { onSuccess: () => setEditingId(null) }); };
 
   const customerName = useMemo(() => new Map(crm.customers.map((c) => [c.id, c.nome])), [crm.customers]);
   const unlinked = crm.contacts.filter((c) => !c.customer_id).length;
@@ -54,7 +58,7 @@ export const ContactsTab = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof 
         <p className="text-[11px] text-muted-foreground pt-1">Ligue cada contato a um cliente pra ele aparecer no 360. {crm.contacts.length} contato(s){unlinked > 0 ? ` · ${unlinked} sem cliente` : ""}.</p>
         {showNew && (
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 mt-2 space-y-2">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nome *" className="h-8 text-xs" />
               <Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} placeholder="Empresa" className="h-8 text-xs" />
               <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="E-mail" className="h-8 text-xs" />
@@ -72,32 +76,41 @@ export const ContactsTab = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof 
         )}
       </CardHeader>
       <CardContent className="p-0">
-        <div className="divide-y divide-border/50 max-h-[72vh] overflow-y-auto">
+        <div className="divide-y divide-border/50 xl:max-h-[72vh] xl:overflow-y-auto">
           {rows.map((c) => (
-            <div key={c.id} className="flex items-center gap-3 px-3 py-2.5">
+            <div key={c.id} className="flex items-center gap-2 px-3 py-2.5">
               <span className={cn("h-2 w-2 rounded-full shrink-0", c.customer_id ? "bg-emerald-500" : "bg-muted-foreground/40")} />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium truncate">{c.name || "Sem nome"}</p>
-                <p className="text-[11px] text-muted-foreground flex items-center gap-2 truncate">
-                  {c.company && <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{c.company}</span>}
-                  {c.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{c.phone}</span>}
-                  {c.email && <span className="flex items-center gap-1 truncate"><Mail className="h-3 w-3" />{c.email}</span>}
-                </p>
-              </div>
-              <Select
-                value={c.customer_id || NONE}
-                onValueChange={(v) => crm.linkContact.mutate({ contactId: c.id, customerId: v === NONE ? null : v })}
-              >
-                <SelectTrigger className="h-8 w-[190px] text-xs shrink-0"><SelectValue placeholder="Ligar a cliente" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>— nenhum —</SelectItem>
-                  {crm.customers.map((cust) => <SelectItem key={cust.id} value={cust.id}>{cust.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {c.customer_id && (
-                <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" title={`Abrir ${customerName.get(c.customer_id) || "cliente"}`} onClick={() => onSelectCustomer(c.customer_id!)}>
-                  <Link2 className="h-3.5 w-3.5" />
-                </Button>
+              {editingId === c.id ? (
+                <>
+                  <div className="min-w-0 flex-1 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    <Input value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} placeholder="Nome" className="h-7 text-xs" />
+                    <Input value={edit.company} onChange={(e) => setEdit({ ...edit, company: e.target.value })} placeholder="Empresa" className="h-7 text-xs" />
+                    <Input value={edit.email} onChange={(e) => setEdit({ ...edit, email: e.target.value })} placeholder="E-mail" className="h-7 text-xs" />
+                    <Input value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} placeholder="Telefone" className="h-7 text-xs" />
+                  </div>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 text-emerald-500" disabled={!edit.name.trim() || crm.updateContact.isPending} onClick={saveEdit}><Check className="h-3.5 w-3.5" /></Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => setEditingId(null)}><X className="h-3.5 w-3.5" /></Button>
+                </>
+              ) : (
+                <>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{c.name || "Sem nome"}</p>
+                    <p className="text-[11px] text-muted-foreground flex items-center gap-2 truncate">
+                      {c.company && <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{c.company}</span>}
+                      {c.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{c.phone}</span>}
+                      {c.email && <span className="flex items-center gap-1 truncate"><Mail className="h-3 w-3" />{c.email}</span>}
+                    </p>
+                  </div>
+                  <Select value={c.customer_id || NONE} onValueChange={(v) => crm.linkContact.mutate({ contactId: c.id, customerId: v === NONE ? null : v })}>
+                    <SelectTrigger className="h-8 w-[130px] sm:w-[160px] text-xs shrink-0"><SelectValue placeholder="Ligar a cliente" /></SelectTrigger>
+                    <SelectContent><SelectItem value={NONE}>— nenhum —</SelectItem>{crm.customers.map((cust) => <SelectItem key={cust.id} value={cust.id}>{cust.nome}</SelectItem>)}</SelectContent>
+                  </Select>
+                  {c.customer_id && (
+                    <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 hidden sm:flex" title={`Abrir ${customerName.get(c.customer_id) || "cliente"}`} onClick={() => onSelectCustomer(c.customer_id!)}><Link2 className="h-3.5 w-3.5" /></Button>
+                  )}
+                  <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={() => startEdit(c)}><Pencil className="h-3.5 w-3.5" /></Button>
+                  <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => crm.deleteContact.mutate(c.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                </>
               )}
             </div>
           ))}

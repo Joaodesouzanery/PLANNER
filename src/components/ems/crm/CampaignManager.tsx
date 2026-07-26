@@ -116,7 +116,7 @@ export const CampaignManager = ({ crm }: { crm: ReturnType<typeof useCrm> }) => 
                 <CardContent className="p-3 space-y-2">
                   <Input value={campForm.name} onChange={(e) => setCampForm({ ...campForm, name: e.target.value })} placeholder="Nome da campanha" className="h-8 text-xs" />
                   <Input value={campForm.objective} onChange={(e) => setCampForm({ ...campForm, objective: e.target.value })} placeholder="Objetivo (ex.: reativar clientes)" className="h-8 text-xs" />
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <Select value={campForm.channel} onValueChange={(v) => setCampForm({ ...campForm, channel: v })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{CHANNELS.map((c) => <SelectItem key={c} value={c}>{CHANNEL_LABEL[c]}</SelectItem>)}</SelectContent></Select>
                     <Select value={campForm.segment_id} onValueChange={(v) => setCampForm({ ...campForm, segment_id: v })}><SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Segmento" /></SelectTrigger><SelectContent>{cm.segments.length === 0 ? <SelectItem value="__none" disabled>Crie um segmento antes</SelectItem> : cm.segments.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select>
                   </div>
@@ -167,7 +167,7 @@ const SegmentBuilder = ({ cm, filters, setFilters, tiers, segments, toggle, prev
         {segments.length > 0 && (
           <div><p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Segmento</p><div className="flex flex-wrap gap-1.5">{segments.map((s: string) => <Badge key={s} variant={(filters.segment || []).includes(s) ? "default" : "outline"} className={chip((filters.segment || []).includes(s))} onClick={() => toggle("segment", s)}>{s}</Badge>)}</div></div>
         )}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div>
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Tipo</p>
             <Select value={filters.recorrente == null ? "all" : filters.recorrente ? "rec" : "pont"} onValueChange={(v) => setFilters((f: SegmentFilter) => ({ ...f, recorrente: v === "all" ? undefined : v === "rec" }))}>

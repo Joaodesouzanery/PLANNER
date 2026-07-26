@@ -24,7 +24,6 @@ import { useCompany } from "@/contexts/CompanyContext";
 import { cn } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { AttachmentManager } from "@/components/ems/AttachmentManager";
-import { OperationalMapPanel } from "@/components/ems/OperationalMapPanel";
 
 type ClientStage = "new" | "onboarding" | "active" | "expansion" | "risk" | "recovery";
 
@@ -465,7 +464,6 @@ const ClientRelationshipKanban = ({ enabled = true }: { enabled?: boolean }) => 
         </CardContent>
       </Card>
 
-      <OperationalMapPanel title="Mapa de clientes e tarefas" filterKinds={["client", "task"]} height={320} />
 
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex gap-3 overflow-x-auto pb-4 min-h-[430px]">
