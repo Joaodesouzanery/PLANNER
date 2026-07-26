@@ -22,9 +22,10 @@ const brlK = (v: number) => (v >= 1e6 ? `R$ ${(v / 1e6).toLocaleString("pt-BR", 
 const oneDec = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 type Mode = "A" | "B";
+type SavingsMode = "fixo" | "salario";
 const KEY = "fin-aposentadoria";
-interface Saved { mode: Mode; age: number; Y: number; Z: number; P0: number; R: number; swr: number; ageT: number; income: number }
-const DEFAULTS: Saved = { mode: "A", age: 23, Y: 4000, Z: 15000, P0: 0, R: 4, swr: 3.5, ageT: 50, income: 8250 };
+interface Saved { mode: Mode; savingsMode: SavingsMode; age: number; Y: number; Z: number; P0: number; R: number; swr: number; ageT: number; salario: number; gastos: number }
+const DEFAULTS: Saved = { mode: "A", savingsMode: "fixo", age: 23, Y: 4000, Z: 15000, P0: 0, R: 4, swr: 3.5, ageT: 50, salario: 8250, gastos: 4250 };
 const load = (): Saved => { try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) || "{}") }; } catch { return DEFAULTS; } };
 
 const Seg = ({ opts, value, onChange }: { opts: [string, string][]; value: string; onChange: (v: string) => void }) => (
@@ -46,6 +47,7 @@ const Kpi = ({ label, value, hint, big, tone }: { label: string; value: string; 
 export const FinanceAposentadoria = () => {
   const init = load();
   const [mode, setMode] = useState<Mode>(init.mode);
+  const [savingsMode, setSavingsMode] = useState<SavingsMode>(init.savingsMode);
   const [age, setAge] = useState(init.age);
   const [Y, setY] = useState(init.Y);
   const [Z, setZ] = useState(init.Z);
@@ -53,11 +55,12 @@ export const FinanceAposentadoria = () => {
   const [R, setR] = useState(init.R);
   const [swr, setSwr] = useState(init.swr);
   const [ageT, setAgeT] = useState(init.ageT);
-  const [income, setIncome] = useState(init.income);
+  const [salario, setSalario] = useState(init.salario);
+  const [gastos, setGastos] = useState(init.gastos);
 
   useEffect(() => {
-    try { localStorage.setItem(KEY, JSON.stringify({ mode, age, Y, Z, P0, R, swr, ageT, income })); } catch { /* noop */ }
-  }, [mode, age, Y, Z, P0, R, swr, ageT, income]);
+    try { localStorage.setItem(KEY, JSON.stringify({ mode, savingsMode, age, Y, Z, P0, R, swr, ageT, salario, gastos })); } catch { /* noop */ }
+  }, [mode, savingsMode, age, Y, Z, P0, R, swr, ageT, salario, gastos]);
 
   // Dado REAL do usuário (sobra + patrimônio + faturamento) — pré-preenche via "Usar meu dado".
   const ws = useFinanceWorkspace();
@@ -65,24 +68,30 @@ export const FinanceAposentadoria = () => {
   const patr = usePatrimonio();
   const cfo = useMemo(() => computeCfo(ws.canonical.rows, settings, ws.reserveBalance, todayIso(), ws.expectedMonthly), [ws.canonical.rows, settings, ws.reserveBalance, ws.expectedMonthly]);
   const sobraReal = Math.max(0, Math.round(cfo.sobraMensal || 0));
-  const faturamentoReal = Math.round(cfo.faturamentoMensal || 0);
+  // Salário LÍQUIDO (faturamento − imposto): assim salário − gastos = sobra real (o CFO já desconta o DAS).
+  const receitaLiquidaReal = Math.max(0, Math.round(cfo.receitaLiquida || 0));
+  const despesaReal = Math.max(0, Math.round(cfo.despesaMensal || 0));
   const investivelReal = useMemo(() => {
     const ativos = (patr.items || []).filter((i: any) => i.kind === "asset").reduce((a: number, i: any) => a + Number(i.value), 0);
     return Math.max(0, Math.round((ws.canonical.saldoRealHoje || 0) + ativos));
   }, [patr.items, ws.canonical.saldoRealHoje]);
-  const usarMeuDado = () => { setY(sobraReal); setP0(investivelReal); if (faturamentoReal > 0) setIncome(faturamentoReal); };
+  const usarMeuDado = () => { setY(sobraReal); setP0(investivelReal); setGastos(despesaReal); if (receitaLiquidaReal > 0) setSalario(receitaLiquidaReal); };
+
+  // Poupança efetiva: "valor fixo" (slider Y) ou "salário − gastos" (sobra derivada).
+  const sobra = Math.max(0, salario - gastos);
+  const Ybase = savingsMode === "salario" ? sobra : Y;
 
   // Motor.
   const r = mrate(R);
   const target = targetFor(Z, swr);
   const { months, retAge, Yeff } = useMemo(() => {
     if (mode === "A") {
-      const m = monthsTo(target, P0, Y, r);
-      return { months: m, retAge: m === Infinity ? null : age + m / 12, Yeff: Y };
+      const m = monthsTo(target, P0, Ybase, r);
+      return { months: m, retAge: m === Infinity ? null : age + m / 12, Yeff: Ybase };
     }
     const m = Math.max(1, (ageT - age) * 12);
     return { months: m, retAge: ageT, Yeff: reqY(target, P0, m, r) };
-  }, [mode, target, P0, Y, r, age, ageT]);
+  }, [mode, target, P0, Ybase, r, age, ageT]);
 
   const chartMonths = months === Infinity ? 100 * 12 : months;
   const data = useMemo(() => series(P0, Yeff, r, chartMonths).map((p) => ({ age: Math.round((age + p.m / 12) * 10) / 10, v: p.v })), [P0, Yeff, r, chartMonths, age]);
@@ -96,7 +105,8 @@ export const FinanceAposentadoria = () => {
   // Máximo adaptativo do slider de poupança: nunca fica abaixo do Y atual (ex.: sobra real > 15k),
   // senão o Radix cortaria o valor pré-preenchido na 1ª interação.
   const yMax = Math.max(15000, Math.ceil(Y / 1000) * 1000);
-  const pctRenda = income > 0 ? Math.round((Yeff / income) * 100) : 0;
+  const salMax = Math.max(15000, Math.ceil(salario / 1000) * 1000);
+  const pctRenda = salario > 0 ? Math.round((Yeff / salario) * 100) : 0;
   const warns: string[] = [];
   if (R > 6) warns.push(`Você está usando ${oneDec(R)}% real — otimista para 40 anos. O real de hoje (~9%) é pico de juros; a média sustentável fica entre 3 e 5%.`);
   if (swr >= 4) warns.push("Retirada de 4% assume ~30 anos de aposentadoria. Aposentando cedo (renda por 40–50 anos), prefira 3–3,5% — senão o dinheiro pode acabar.");
@@ -120,15 +130,32 @@ export const FinanceAposentadoria = () => {
             <div><Label className="text-xs text-muted-foreground">Já investido</Label><Input type="number" value={P0} onChange={(e) => setP0(Number(e.target.value) || 0)} className="mt-1 font-mono" /></div>
           </div>
 
-          {mode === "A" ? (
-            <div>
-              <Label className="text-xs text-muted-foreground flex justify-between">Poupo por mês <span className="font-mono text-primary">{brl0(Y)}</span></Label>
-              <Slider value={[Y]} min={0} max={yMax} step={250} onValueChange={(v) => setY(v[0])} className="mt-2" />
-            </div>
-          ) : (
+          {mode === "A" && (
+            <div><Label className="text-xs text-muted-foreground">Poupança vem de</Label><Seg opts={[["fixo", "Valor fixo"], ["salario", "Salário − gastos"]]} value={savingsMode} onChange={(v) => setSavingsMode(v as SavingsMode)} /></div>
+          )}
+
+          {mode === "B" ? (
             <div>
               <Label className="text-xs text-muted-foreground flex justify-between">Quero me aposentar aos <span className="font-mono text-primary">{ageT}</span></Label>
               <Slider value={[ageT]} min={30} max={75} step={1} onValueChange={(v) => setAgeT(v[0])} className="mt-2" />
+            </div>
+          ) : savingsMode === "salario" ? (
+            <div className="space-y-3">
+              <div>
+                <Label className="text-xs text-muted-foreground flex justify-between">Salário líquido / mês <span className="font-mono text-primary">{brl0(salario)}</span></Label>
+                <Slider value={[salario]} min={0} max={salMax} step={250} onValueChange={(v) => setSalario(v[0])} className="mt-2" />
+                <p className="mt-1 text-[10px] text-muted-foreground">O que entra na conta (já sem imposto). "Usar meu dado" preenche pela sua receita líquida.</p>
+              </div>
+              <div><Label className="text-xs text-muted-foreground">Gastos / mês</Label><Input type="number" value={gastos} onChange={(e) => setGastos(Number(e.target.value) || 0)} className="mt-1 font-mono" /></div>
+              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2 text-xs flex items-center justify-between">
+                <span className="text-muted-foreground">Sobra (o que você poupa)</span>
+                <span className={cn("font-mono font-bold", sobra > 0 ? "text-emerald-400" : "text-destructive")}>{brl0(sobra)}/mês</span>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <Label className="text-xs text-muted-foreground flex justify-between">Poupo por mês <span className="font-mono text-primary">{brl0(Y)}</span></Label>
+              <Slider value={[Y]} min={0} max={yMax} step={250} onValueChange={(v) => setY(v[0])} className="mt-2" />
             </div>
           )}
 
@@ -150,10 +177,10 @@ export const FinanceAposentadoria = () => {
           {mode === "A" ? (
             <Kpi big label="Idade de aposentadoria" tone={retAge == null ? "text-destructive" : "text-primary"}
               value={retAge == null ? "nunca" : `${oneDec(retAge)} anos`}
-              hint={retAge == null ? "nesse ritmo não chega — aumente a poupança" : `${oneDec(months / 12)} anos guardando ${brl0(Y)}/mês`} />
+              hint={retAge == null ? "nesse ritmo não chega — aumente a poupança" : `${oneDec(months / 12)} anos guardando ${brl0(Ybase)}/mês`} />
           ) : (
             <Kpi big label="Poupança necessária/mês" tone="text-primary" value={brl0(Yeff)}
-              hint={`para se aposentar aos ${ageT} (${Math.round(months / 12)} anos) · ~${pctRenda}% de ${brl0(income)}`} />
+              hint={`para se aposentar aos ${ageT} (${Math.round(months / 12)} anos) · ~${pctRenda}% de ${brl0(salario)}`} />
           )}
           <Kpi label="Montante necessário" value={brlK(target)} hint={`gera ${brl0(Z)}/mês a ${oneDec(swr)}%`} />
         </div>
@@ -199,7 +226,7 @@ export const FinanceAposentadoria = () => {
         <div className="rounded-xl border border-primary/25 bg-primary/5 p-3 text-sm flex items-start gap-2">
           <Gift className="h-4 w-4 text-primary shrink-0 mt-0.5" />
           <p>{mode === "A"
-            ? <>Guardar <b>{brl0(Y)}/mês</b> (~{pctRenda}% de {brl0(income)}) te leva ao alvo de <b>{brlK(target)}</b>. </>
+            ? <>Guardar <b>{brl0(Ybase)}/mês</b> (~{pctRenda}% de {brl0(salario)}) te leva ao alvo de <b>{brlK(target)}</b>. </>
             : <>Guardar <b>{brl0(Yeff)}/mês</b> é o que a meta exige. </>}
             Esse montante rende <b>{brl0(Z)}/mês</b> para sempre a {oneDec(swr)}% — sua independência financeira.</p>
         </div>
