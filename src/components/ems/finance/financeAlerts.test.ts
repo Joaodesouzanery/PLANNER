@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { buildAlerts } from "./financeAlerts.ts";
-import type { CfoMetrics } from "./financeCfo.ts";
+import { buildAlerts } from "./financeAlerts";
+import type { CfoMetrics } from "./financeCfo";
 
 const baseCfo = (over: Partial<CfoMetrics> = {}): CfoMetrics => ({
   saldoDisponivel: 4995, saldoLiquidoImposto: 4665, faturamentoMensal: 8250, despesaMensal: 3352,

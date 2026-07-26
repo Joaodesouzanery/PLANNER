@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { clientConcentration, impactoSeSair, type ClientRevenue } from "./financeClients.ts";
+import { clientConcentration, impactoSeSair, type ClientRevenue } from "./financeClients";
 
 // Fase 1 — dados atuais: Σ run-rate = 8.250; Compizzo é pontual (não conta pro MRR).
 const clients: ClientRevenue[] = [

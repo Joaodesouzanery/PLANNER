@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { parcela, purchaseRows, purchaseImpact, type PurchasePlan } from "./financePurchase.ts";
+import { parcela, purchaseRows, purchaseImpact, type PurchasePlan } from "./financePurchase";
 
 const row = (o: any) => ({
   id: o.id, date: o.date, type: o.type, amount: o.amount, category: o.category ?? null,

@@ -4,7 +4,7 @@ import {
   buildRecurringSources,
   computeProjection,
   intervalFactor,
-} from "./projectionCalc.ts";
+} from "./projectionCalc";
 
 const labels = ["jul/26", "ago/26", "set/26"];
 

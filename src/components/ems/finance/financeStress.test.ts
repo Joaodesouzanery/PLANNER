@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { runwayShock, stressScenario } from "./financeStress.ts";
-import type { CfoMetrics } from "./financeCfo.ts";
+import { runwayShock, stressScenario } from "./financeStress";
+import type { CfoMetrics } from "./financeCfo";
 
 const cfo = (over: Partial<CfoMetrics> = {}): CfoMetrics => ({
   saldoDisponivel: 9400, saldoLiquidoImposto: 9400, faturamentoMensal: 8250, despesaMensal: 3352,

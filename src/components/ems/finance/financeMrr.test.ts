@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { activeIncomeContracts, mrrHeadline, recurringTotal, mrrDeltas, type RecurringTx } from "./financeMrr.ts";
+import { activeIncomeContracts, mrrHeadline, recurringTotal, mrrDeltas, type RecurringTx } from "./financeMrr";
 
 // Recorrentes de entrada; Compizzo tem prazo (2ª parcela) → não conta no MRR.
 const txns: RecurringTx[] = [

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { computeDre, mapCategoryToDreLine } from "./financeDre.ts";
+import { computeDre, mapCategoryToDreLine } from "./financeDre";
 
 const row = (o: any) => ({
   id: o.id, date: o.date, type: o.type, amount: o.amount, category: o.category ?? null,

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { computeCfo } from "./financeCfo.ts";
+import { computeCfo } from "./financeCfo";
 
 const settings = { tax_rate: 6, reserve_months: 6, cdi_monthly_liquid: 0.9 };
 const TODAY = "2026-07-11";

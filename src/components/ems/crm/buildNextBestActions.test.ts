@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { buildNextBestActions, forecastPonderado } from "./buildNextBestActions.ts";
+import { buildNextBestActions, forecastPonderado } from "./buildNextBestActions";
 
 const TODAY = "2026-07-25";
 

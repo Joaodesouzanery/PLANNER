@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { canonicalTotals, saldoAbertura, saldoRealHoje, menorSaldo } from "./financeCanonical.ts";
+import { canonicalTotals, saldoAbertura, saldoRealHoje, menorSaldo } from "./financeCanonical";
 
 // Helper: monta uma PeriodRow mínima. paid=Recebido/Pago, realized=já aconteceu.
 type Row = ReturnType<typeof row>;

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { buildBoardAttention, attentionCounts } from "./boardAttention.ts";
+import { buildBoardAttention, attentionCounts } from "./boardAttention";
 
 describe("boardAttention", () => {
   const items = buildBoardAttention({

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { towerKpis, towerGroups, type TowerCustomer } from "./crmTower.ts";
+import { towerKpis, towerGroups, type TowerCustomer } from "./crmTower";
 
 const today = "2026-07-25";
 const rows: TowerCustomer[] = [
