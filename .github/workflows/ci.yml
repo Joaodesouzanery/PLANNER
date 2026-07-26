@@ -5,8 +5,9 @@ on:
     branches: [main]
   pull_request:
 
-# Sinal de qualidade (typecheck + testes). NÃO trava o deploy da Lovable (que builda direto do main);
-# serve pra pegar TS2322 e regressões antes/depois do push. Jobs independentes → cada um reporta separado.
+# Sinal de qualidade (typecheck + lint + testes). NÃO trava o deploy da Lovable (que builda direto do main);
+# serve pra pegar TS2322, regressões e problemas de código antes/depois do push.
+# Jobs independentes → cada um reporta separado.
 jobs:
   typecheck:
     name: Typecheck (tsc --noEmit)
@@ -19,8 +20,8 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run typecheck
 
-  tests:
-    name: Testes (puros + render)
+  lint:
+    name: Lint (eslint)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,8 +29,15 @@ jobs:
         with:
           node-version: "22"
       - run: npm install --no-audit --no-fund
-      - name: Testes puros (vitest/node)
-        run: npm test
-      - name: Testes de render (vitest/jsdom)
-        run: npm run test:react
+      - run: npm run lint
 
+  tests:
+    name: Testes (vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-audit --no-fund
+      - run: npm test
