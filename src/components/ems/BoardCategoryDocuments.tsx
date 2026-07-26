@@ -74,7 +74,9 @@ export const BoardCategoryDocuments = ({ category }: Props) => {
         const url = new URL(doc.file_url);
         const parts = url.pathname.split("/storage/v1/object/public/attachments/");
         if (parts[1]) await supabase.storage.from("attachments").remove([decodeURIComponent(parts[1])]);
-      } catch {}
+      } catch {
+        // remoção do arquivo no storage é best-effort: o registro do doc é apagado abaixo de qualquer forma
+      }
       const { error } = await (supabase as any).from("board_category_documents").delete().eq("id", doc.id);
       if (error) throw error;
     },
