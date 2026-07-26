@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { goalViability } from "./financeGoalViability";
+import { goalViability } from "./financeGoalViability.ts";
 
 // Carro: alvo 200.000, atual 5.000, prazo mar/2028, sobra 4.403, hoje jul/2026.
 describe("financeGoalViability — carro", () => {

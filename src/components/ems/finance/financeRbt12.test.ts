@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { rbt12Status } from "./financeRbt12";
+import { rbt12Status } from "./financeRbt12.ts";
 
 const meses = (arr: number[]) => arr.map((income) => ({ income }));
 

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { buildBudgetLines, budgetTotals } from "./financeBudget";
+import { buildBudgetLines, budgetTotals } from "./financeBudget.ts";
 
 describe("financeBudget — orçado × realizado", () => {
   const lines = buildBudgetLines(

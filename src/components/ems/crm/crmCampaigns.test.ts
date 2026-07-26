@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { resolveSegment, campaignPerformance, groupCount, type SegCustomer } from "./crmCampaigns";
+import { resolveSegment, campaignPerformance, groupCount, type SegCustomer } from "./crmCampaigns.ts";
 
 const customers: SegCustomer[] = [
   { id: "a", health: "red", tier: "A", segment: "SaaS", recorrente: true, ongoing: 1000 },

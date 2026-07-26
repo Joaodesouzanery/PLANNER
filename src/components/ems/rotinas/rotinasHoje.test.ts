@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { rotinasHoje, type HojeClientView } from "./rotinasHoje";
+import { rotinasHoje, type HojeClientView } from "./rotinasHoje.ts";
 
 const TODAY = "2026-07-20";
 

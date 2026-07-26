@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { crmPortfolio, type PortfolioCustomer } from "./crmPortfolio";
-import type { NbaItem } from "./buildNextBestActions";
+import { crmPortfolio, type PortfolioCustomer } from "./crmPortfolio.ts";
+import type { NbaItem } from "./buildNextBestActions.ts";
 
 const customers: PortfolioCustomer[] = [
   { id: "iris", nome: "IRIS", recorrente: true, health: "green", ongoing: 2000 },

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { computeKpis, type KpiInputs } from "./financeKpis";
+import { computeKpis, type KpiInputs } from "./financeKpis.ts";
 
 const base: KpiInputs = {
   receitaBruta: 45000, receitaLiquida: 42300, margemBruta: 0.81, margemEbitda: 0.385, margemLiquida: 0.366,

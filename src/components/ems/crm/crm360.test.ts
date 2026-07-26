@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { buildCustomer360, diasSemContato, CLOSED_STAGES, type CustomerSpine } from "./crm360";
+import { buildCustomer360, diasSemContato, CLOSED_STAGES, type CustomerSpine } from "./crm360.ts";
 
 const spine: CustomerSpine = { id: "conab", nome: "CONAB", recorrente: true, stage: "ativo", health: "green" };
 

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { scoreCustomer, type ScoreInput } from "./crmScores";
+import { scoreCustomer, type ScoreInput } from "./crmScores.ts";
 
 const today = "2026-07-25";
 
