@@ -365,6 +365,68 @@ export type Database = {
           },
         ]
       }
+      board_backup_logs: {
+        Row: {
+          backup_date: string
+          backup_type: string
+          company_id: string | null
+          completed_at: string | null
+          created_at: string
+          destination: string | null
+          id: string
+          is_automated: boolean
+          notes: string | null
+          retention_until: string | null
+          scope: string | null
+          size_bytes: number | null
+          started_at: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          backup_date?: string
+          backup_type?: string
+          company_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          destination?: string | null
+          id?: string
+          is_automated?: boolean
+          notes?: string | null
+          retention_until?: string | null
+          scope?: string | null
+          size_bytes?: number | null
+          started_at?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          backup_date?: string
+          backup_type?: string
+          company_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          destination?: string | null
+          id?: string
+          is_automated?: boolean
+          notes?: string | null
+          retention_until?: string | null
+          scope?: string | null
+          size_bytes?: number | null
+          started_at?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_backup_logs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       board_category_documents: {
         Row: {
           category: string
@@ -403,6 +465,376 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      board_health_snapshots: {
+        Row: {
+          company_id: string | null
+          compliance_score: number | null
+          created_at: string
+          financial_score: number | null
+          governance_score: number | null
+          id: string
+          inputs: Json
+          overall_score: number | null
+          overall_status: string | null
+          risk_score: number | null
+          snapshot_date: string
+          user_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          compliance_score?: number | null
+          created_at?: string
+          financial_score?: number | null
+          governance_score?: number | null
+          id?: string
+          inputs?: Json
+          overall_score?: number | null
+          overall_status?: string | null
+          risk_score?: number | null
+          snapshot_date?: string
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          compliance_score?: number | null
+          created_at?: string
+          financial_score?: number | null
+          governance_score?: number | null
+          id?: string
+          inputs?: Json
+          overall_score?: number | null
+          overall_status?: string | null
+          risk_score?: number | null
+          snapshot_date?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_health_snapshots_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      board_obligation_occurrences: {
+        Row: {
+          amount: number | null
+          attachment_id: string | null
+          company_id: string | null
+          created_at: string
+          due_date: string
+          id: string
+          notes: string | null
+          obligation_id: string
+          paid_amount: number | null
+          paid_at: string | null
+          period_label: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          attachment_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          due_date: string
+          id?: string
+          notes?: string | null
+          obligation_id: string
+          paid_amount?: number | null
+          paid_at?: string | null
+          period_label?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          attachment_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          due_date?: string
+          id?: string
+          notes?: string | null
+          obligation_id?: string
+          paid_amount?: number | null
+          paid_at?: string | null
+          period_label?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_obligation_occurrences_attachment_id_fkey"
+            columns: ["attachment_id"]
+            isOneToOne: false
+            referencedRelation: "attachments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_obligation_occurrences_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_obligation_occurrences_obligation_id_fkey"
+            columns: ["obligation_id"]
+            isOneToOne: false
+            referencedRelation: "board_obligations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      board_obligations: {
+        Row: {
+          attachment_id: string | null
+          authority: string | null
+          category: string
+          company_id: string | null
+          created_at: string
+          day_of_month: number | null
+          description: string | null
+          end_date: string | null
+          estimated_amount: number | null
+          frequency: string
+          id: string
+          interval_count: number
+          lead_days: number
+          metadata: Json
+          month_of_year: number | null
+          next_due_date: string | null
+          obligation_type: string | null
+          responsible: string | null
+          start_date: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          attachment_id?: string | null
+          authority?: string | null
+          category?: string
+          company_id?: string | null
+          created_at?: string
+          day_of_month?: number | null
+          description?: string | null
+          end_date?: string | null
+          estimated_amount?: number | null
+          frequency?: string
+          id?: string
+          interval_count?: number
+          lead_days?: number
+          metadata?: Json
+          month_of_year?: number | null
+          next_due_date?: string | null
+          obligation_type?: string | null
+          responsible?: string | null
+          start_date?: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          attachment_id?: string | null
+          authority?: string | null
+          category?: string
+          company_id?: string | null
+          created_at?: string
+          day_of_month?: number | null
+          description?: string | null
+          end_date?: string | null
+          estimated_amount?: number | null
+          frequency?: string
+          id?: string
+          interval_count?: number
+          lead_days?: number
+          metadata?: Json
+          month_of_year?: number | null
+          next_due_date?: string | null
+          obligation_type?: string | null
+          responsible?: string | null
+          start_date?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_obligations_attachment_id_fkey"
+            columns: ["attachment_id"]
+            isOneToOne: false
+            referencedRelation: "attachments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "board_obligations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      board_risks: {
+        Row: {
+          category: string
+          company_id: string | null
+          contingency: string | null
+          created_at: string
+          description: string | null
+          id: string
+          impact: number
+          last_reviewed_at: string | null
+          metadata: Json
+          mitigation: string | null
+          owner: string | null
+          probability: number
+          review_date: string | null
+          score: number | null
+          status: string
+          title: string
+          trend: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          category?: string
+          company_id?: string | null
+          contingency?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          impact?: number
+          last_reviewed_at?: string | null
+          metadata?: Json
+          mitigation?: string | null
+          owner?: string | null
+          probability?: number
+          review_date?: string | null
+          score?: number | null
+          status?: string
+          title: string
+          trend?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          category?: string
+          company_id?: string | null
+          contingency?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          impact?: number
+          last_reviewed_at?: string | null
+          metadata?: Json
+          mitigation?: string | null
+          owner?: string | null
+          probability?: number
+          review_date?: string | null
+          score?: number | null
+          status?: string
+          title?: string
+          trend?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_risks_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      board_stack_items: {
+        Row: {
+          auto_renew: boolean
+          billing_cycle: string | null
+          category: string | null
+          company_id: string | null
+          cost: number | null
+          created_at: string
+          criticality: string
+          has_backup: boolean | null
+          id: string
+          metadata: Json
+          name: string
+          notes: string | null
+          owner: string | null
+          renewal_date: string | null
+          status: string
+          updated_at: string
+          url: string | null
+          user_id: string | null
+          vault_reference: string | null
+          vendor: string | null
+        }
+        Insert: {
+          auto_renew?: boolean
+          billing_cycle?: string | null
+          category?: string | null
+          company_id?: string | null
+          cost?: number | null
+          created_at?: string
+          criticality?: string
+          has_backup?: boolean | null
+          id?: string
+          metadata?: Json
+          name: string
+          notes?: string | null
+          owner?: string | null
+          renewal_date?: string | null
+          status?: string
+          updated_at?: string
+          url?: string | null
+          user_id?: string | null
+          vault_reference?: string | null
+          vendor?: string | null
+        }
+        Update: {
+          auto_renew?: boolean
+          billing_cycle?: string | null
+          category?: string | null
+          company_id?: string | null
+          cost?: number | null
+          created_at?: string
+          criticality?: string
+          has_backup?: boolean | null
+          id?: string
+          metadata?: Json
+          name?: string
+          notes?: string | null
+          owner?: string | null
+          renewal_date?: string | null
+          status?: string
+          updated_at?: string
+          url?: string | null
+          user_id?: string | null
+          vault_reference?: string | null
+          vendor?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_stack_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       calendar_events: {
         Row: {
@@ -1227,6 +1659,7 @@ export type Database = {
           company: string | null
           company_id: string | null
           created_at: string
+          customer_id: string | null
           email: string | null
           id: string
           latitude: number | null
@@ -1249,6 +1682,7 @@ export type Database = {
           company?: string | null
           company_id?: string | null
           created_at?: string
+          customer_id?: string | null
           email?: string | null
           id?: string
           latitude?: number | null
@@ -1271,6 +1705,7 @@ export type Database = {
           company?: string | null
           company_id?: string | null
           created_at?: string
+          customer_id?: string | null
           email?: string | null
           id?: string
           latitude?: number | null
@@ -1297,10 +1732,176 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "contacts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "finance_clientes"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "contacts_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_campaign_recipients: {
+        Row: {
+          campaign_id: string
+          contact_id: string | null
+          converted_at: string | null
+          created_at: string | null
+          customer_id: string | null
+          id: string
+          offer_status: string | null
+          predicted_revenue: number | null
+          propensity: number | null
+          responded_at: string | null
+          user_id: string
+        }
+        Insert: {
+          campaign_id: string
+          contact_id?: string | null
+          converted_at?: string | null
+          created_at?: string | null
+          customer_id?: string | null
+          id?: string
+          offer_status?: string | null
+          predicted_revenue?: number | null
+          propensity?: number | null
+          responded_at?: string | null
+          user_id?: string
+        }
+        Update: {
+          campaign_id?: string
+          contact_id?: string | null
+          converted_at?: string | null
+          created_at?: string | null
+          customer_id?: string | null
+          id?: string
+          offer_status?: string | null
+          predicted_revenue?: number | null
+          propensity?: number | null
+          responded_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_campaign_recipients_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "crm_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_campaign_recipients_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_campaign_recipients_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "finance_clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_campaigns: {
+        Row: {
+          channel: string | null
+          company_id: string | null
+          created_at: string | null
+          end_date: string | null
+          id: string
+          message: string | null
+          name: string
+          objective: string | null
+          segment_id: string | null
+          start_date: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          channel?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          message?: string | null
+          name: string
+          objective?: string | null
+          segment_id?: string | null
+          start_date?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Update: {
+          channel?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          message?: string | null
+          name?: string
+          objective?: string | null
+          segment_id?: string | null
+          start_date?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_campaigns_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_campaigns_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "crm_segments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_segments: {
+        Row: {
+          company_id: string | null
+          created_at: string | null
+          filters: Json
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string | null
+          filters?: Json
+          id?: string
+          name: string
+          user_id?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string | null
+          filters?: Json
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_segments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -1796,6 +2397,111 @@ export type Database = {
           },
         ]
       }
+      finance_category_budgets: {
+        Row: {
+          category: string
+          id: string
+          month: number
+          teto: number
+          updated_at: string | null
+          user_id: string
+          year: number
+        }
+        Insert: {
+          category: string
+          id?: string
+          month: number
+          teto?: number
+          updated_at?: string | null
+          user_id?: string
+          year: number
+        }
+        Update: {
+          category?: string
+          id?: string
+          month?: number
+          teto?: number
+          updated_at?: string | null
+          user_id?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      finance_clientes: {
+        Row: {
+          health: string | null
+          id: string
+          next_action_date: string | null
+          next_action_desc: string | null
+          nome: string
+          notes: string | null
+          owner: string | null
+          priority: string | null
+          recorrente: boolean
+          segment: string | null
+          stage: string | null
+          tier: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          health?: string | null
+          id?: string
+          next_action_date?: string | null
+          next_action_desc?: string | null
+          nome: string
+          notes?: string | null
+          owner?: string | null
+          priority?: string | null
+          recorrente?: boolean
+          segment?: string | null
+          stage?: string | null
+          tier?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Update: {
+          health?: string | null
+          id?: string
+          next_action_date?: string | null
+          next_action_desc?: string | null
+          nome?: string
+          notes?: string | null
+          owner?: string | null
+          priority?: string | null
+          recorrente?: boolean
+          segment?: string | null
+          stage?: string | null
+          tier?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      finance_dre_categories: {
+        Row: {
+          category: string
+          dre_line: string
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          category: string
+          dre_line: string
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Update: {
+          category?: string
+          dre_line?: string
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       finance_entities: {
         Row: {
           color: string | null
@@ -1903,6 +2609,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      finance_networth_items: {
+        Row: {
+          category: string | null
+          id: string
+          kind: string
+          label: string
+          sort_order: number | null
+          updated_at: string | null
+          user_id: string
+          value: number
+        }
+        Insert: {
+          category?: string | null
+          id?: string
+          kind?: string
+          label: string
+          sort_order?: number | null
+          updated_at?: string | null
+          user_id?: string
+          value?: number
+        }
+        Update: {
+          category?: string | null
+          id?: string
+          kind?: string
+          label?: string
+          sort_order?: number | null
+          updated_at?: string | null
+          user_id?: string
+          value?: number
+        }
+        Relationships: []
       }
       finance_plan_items: {
         Row: {
@@ -2119,6 +2858,87 @@ export type Database = {
           recurring_expense?: number
           recurring_income?: number
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      finance_settings: {
+        Row: {
+          cdi_monthly_liquid: number | null
+          expected_expense_anual: number | null
+          expected_expense_fixo: number | null
+          expected_expense_variavel: number | null
+          id: string
+          opening_bank_balance: number | null
+          rbt12_alert_pct: number | null
+          rbt12_limit: number | null
+          reserve_months: number | null
+          tax_rate: number | null
+          tax_regime: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          cdi_monthly_liquid?: number | null
+          expected_expense_anual?: number | null
+          expected_expense_fixo?: number | null
+          expected_expense_variavel?: number | null
+          id?: string
+          opening_bank_balance?: number | null
+          rbt12_alert_pct?: number | null
+          rbt12_limit?: number | null
+          reserve_months?: number | null
+          tax_rate?: number | null
+          tax_regime?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Update: {
+          cdi_monthly_liquid?: number | null
+          expected_expense_anual?: number | null
+          expected_expense_fixo?: number | null
+          expected_expense_variavel?: number | null
+          id?: string
+          opening_bank_balance?: number | null
+          rbt12_alert_pct?: number | null
+          rbt12_limit?: number | null
+          reserve_months?: number | null
+          tax_rate?: number | null
+          tax_regime?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      finance_sinking_funds: {
+        Row: {
+          balance: number | null
+          due_date: string | null
+          id: string
+          monthly: number | null
+          target: number
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          balance?: number | null
+          due_date?: string | null
+          id?: string
+          monthly?: number | null
+          target?: number
+          title: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Update: {
+          balance?: number | null
+          due_date?: string | null
+          id?: string
+          monthly?: number | null
+          target?: number
+          title?: string
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: []
@@ -2378,6 +3198,7 @@ export type Database = {
           amount: number
           card_invoice_id: string | null
           category: string | null
+          cliente_id: string | null
           company_id: string | null
           created_at: string
           date: string
@@ -2404,6 +3225,7 @@ export type Database = {
           amount: number
           card_invoice_id?: string | null
           category?: string | null
+          cliente_id?: string | null
           company_id?: string | null
           created_at?: string
           date?: string
@@ -2430,6 +3252,7 @@ export type Database = {
           amount?: number
           card_invoice_id?: string | null
           category?: string | null
+          cliente_id?: string | null
           company_id?: string | null
           created_at?: string
           date?: string
@@ -2458,6 +3281,13 @@ export type Database = {
             columns: ["card_invoice_id"]
             isOneToOne: false
             referencedRelation: "finance_card_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "finance_clientes"
             referencedColumns: ["id"]
           },
           {
@@ -3538,40 +4368,52 @@ export type Database = {
       }
       project_opportunities: {
         Row: {
+          close_reason: string | null
           company_id: string | null
+          contact_id: string | null
           created_at: string
+          customer_id: string | null
           description: string | null
           due_date: string | null
           estimated_value: number | null
           id: string
           project_id: string | null
           status: string | null
+          status_outcome: string | null
           title: string
           updated_at: string
           user_id: string | null
         }
         Insert: {
+          close_reason?: string | null
           company_id?: string | null
+          contact_id?: string | null
           created_at?: string
+          customer_id?: string | null
           description?: string | null
           due_date?: string | null
           estimated_value?: number | null
           id?: string
           project_id?: string | null
           status?: string | null
+          status_outcome?: string | null
           title: string
           updated_at?: string
           user_id?: string | null
         }
         Update: {
+          close_reason?: string | null
           company_id?: string | null
+          contact_id?: string | null
           created_at?: string
+          customer_id?: string | null
           description?: string | null
           due_date?: string | null
           estimated_value?: number | null
           id?: string
           project_id?: string | null
           status?: string | null
+          status_outcome?: string | null
           title?: string
           updated_at?: string
           user_id?: string | null
@@ -3582,6 +4424,20 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_opportunities_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_opportunities_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "finance_clientes"
             referencedColumns: ["id"]
           },
           {
@@ -3823,34 +4679,46 @@ export type Database = {
           active: boolean
           client_id: string | null
           created_at: string
+          day_of_month: number | null
+          frequency: string | null
           id: string
           kind: string
+          parent_item_id: string | null
           sort_order: number
           title: string
           updated_at: string
           user_id: string | null
+          weekday: number | null
         }
         Insert: {
           active?: boolean
           client_id?: string | null
           created_at?: string
+          day_of_month?: number | null
+          frequency?: string | null
           id?: string
           kind?: string
+          parent_item_id?: string | null
           sort_order?: number
           title: string
           updated_at?: string
           user_id?: string | null
+          weekday?: number | null
         }
         Update: {
           active?: boolean
           client_id?: string | null
           created_at?: string
+          day_of_month?: number | null
+          frequency?: string | null
           id?: string
           kind?: string
+          parent_item_id?: string | null
           sort_order?: number
           title?: string
           updated_at?: string
           user_id?: string | null
+          weekday?: number | null
         }
         Relationships: [
           {
@@ -3858,6 +4726,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "routine_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_checklist_items_parent_item_id_fkey"
+            columns: ["parent_item_id"]
+            isOneToOne: false
+            referencedRelation: "routine_checklist_items"
             referencedColumns: ["id"]
           },
         ]
@@ -3917,6 +4792,7 @@ export type Database = {
         Row: {
           color: string | null
           created_at: string
+          customer_id: string | null
           id: string
           invoice_day: number | null
           invoice_notes: string | null
@@ -3931,6 +4807,7 @@ export type Database = {
         Insert: {
           color?: string | null
           created_at?: string
+          customer_id?: string | null
           id?: string
           invoice_day?: number | null
           invoice_notes?: string | null
@@ -3945,6 +4822,7 @@ export type Database = {
         Update: {
           color?: string | null
           created_at?: string
+          customer_id?: string | null
           id?: string
           invoice_day?: number | null
           invoice_notes?: string | null
@@ -3957,6 +4835,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "routine_clients_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "finance_clientes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "routine_clients_segment_id_fkey"
             columns: ["segment_id"]
@@ -4004,6 +4889,7 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          parent_task_id: string | null
           priority: string
           sort_order: number
           status: string
@@ -4018,6 +4904,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          parent_task_id?: string | null
           priority?: string
           sort_order?: number
           status?: string
@@ -4032,6 +4919,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          parent_task_id?: string | null
           priority?: string
           sort_order?: number
           status?: string
@@ -4045,6 +4933,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "routine_clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "routine_tasks"
             referencedColumns: ["id"]
           },
         ]
