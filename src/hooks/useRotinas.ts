@@ -14,6 +14,19 @@ export const FREQ_LABEL: Record<RoutineFrequency, string> = { daily: "Diária", 
 /** Estreita o `string` que o shadcn Select devolve para a união, com fallback seguro. */
 export const asFrequency = (v: string): RoutineFrequency => (FREQUENCIES.includes(v as RoutineFrequency) ? (v as RoutineFrequency) : "daily");
 
+// Mesma estratégia para o status da tarefa: união + rótulos + narrowing, sem `as any` nos Selects.
+export const TASK_STATUSES: RoutineTaskStatus[] = ["pending", "in_progress", "done"];
+export const TASK_STATUS_LABEL: Record<RoutineTaskStatus, string> = { pending: "Pendente", in_progress: "Andamento", done: "Concluída" };
+/** Estreita o `string` do Select para RoutineTaskStatus, com fallback seguro. */
+export const asTaskStatus = (v: string): RoutineTaskStatus => (TASK_STATUSES.includes(v as RoutineTaskStatus) ? (v as RoutineTaskStatus) : "pending");
+
+/** Erro do PostgREST tipado o suficiente para checar `code` sem cast. */
+export interface PostgrestErrorLike { code?: string; message?: string }
+/** `42P01` = relation does not exist → tabela da migration ainda não aplicada. */
+export const isMissingTableError = (error: unknown): boolean =>
+  typeof error === "object" && error !== null && (error as PostgrestErrorLike).code === "42P01";
+
+
 export interface RoutineSegment {
   id: string;
   name: string;
