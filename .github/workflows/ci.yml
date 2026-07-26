@@ -28,7 +28,8 @@ jobs:
         with:
           node-version: "22"
       - run: npm install --no-audit --no-fund
-      - name: Testes puros (node:test)
+      - name: Testes puros (vitest/node)
         run: npm test
-      - name: Testes de render (vitest)
+      - name: Testes de render (vitest/jsdom)
         run: npm run test:react
+
