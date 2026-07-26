@@ -1,7 +1,7 @@
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
-import { Activity, BarChart3, Calculator, CalendarDays, DollarSign, GitCompare, Landmark, Plane, ShieldAlert, ShoppingCart, Table2, Target, TrendingUp, Wallet } from "lucide-react";
+import { Activity, BarChart3, Calculator, CalendarDays, DollarSign, GitCompare, Landmark, Plane, PiggyBank, ShieldAlert, ShoppingCart, Table2, Target, TrendingUp, Wallet } from "lucide-react";
 import FinanceDashboard from "@/components/ems/finance/FinanceDashboard";
 import FinanceOKRs from "@/components/ems/finance/FinanceOKRs";
 import FinanceTransactions from "@/components/ems/finance/FinanceTransactions";
@@ -19,6 +19,7 @@ import FinanceBrenoView from "@/components/ems/finance/FinanceBrenoView";
 import FinanceTravel from "@/components/ems/finance/travel/FinanceTravel";
 import FinanceScenarios from "@/components/ems/finance/FinanceScenarios";
 import { FinancePatrimonio } from "@/components/ems/finance/FinancePatrimonio";
+import { FinanceAposentadoria } from "@/components/ems/finance/FinanceAposentadoria";
 
 const outerTab = "gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary";
 const innerTab = "gap-1.5 rounded-md text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary";
@@ -37,12 +38,13 @@ const Finance = () => {
 
         {/* 5 grupos (consolidado de 13 abas). Cada grupo agrupa as telas em sub-abas, sem perder nada. */}
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 bg-card/80 border border-border/50 rounded-xl p-1 h-auto">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 bg-card/80 border border-border/50 rounded-xl p-1 h-auto">
             <TabsTrigger value="overview" className={outerTab}><BarChart3 className="h-4 w-4" /><span className="hidden sm:inline">Visão Geral</span></TabsTrigger>
             <TabsTrigger value="transactions" className={outerTab}><Wallet className="h-4 w-4" /><span className="hidden sm:inline">Transações</span></TabsTrigger>
             <TabsTrigger value="future" className={outerTab}><Activity className="h-4 w-4" /><span className="hidden sm:inline">Futuro & Cenários</span></TabsTrigger>
             <TabsTrigger value="simulators" className={outerTab}><Calculator className="h-4 w-4" /><span className="hidden sm:inline">Simuladores</span></TabsTrigger>
             <TabsTrigger value="goals" className={outerTab}><Target className="h-4 w-4" /><span className="hidden sm:inline">Metas & Patrimônio</span></TabsTrigger>
+            <TabsTrigger value="aposentadoria" className={outerTab}><PiggyBank className="h-4 w-4" /><span className="hidden sm:inline">Aposentadoria</span></TabsTrigger>
           </TabsList>
 
           {/* 1. Visão Geral (Dashboard + Painel CFO já embutido) */}
@@ -102,6 +104,9 @@ const Finance = () => {
               <TabsContent value="monthly-planning"><FinanceMonthlyPlanning /></TabsContent>
             </Tabs>
           </TabsContent>
+
+          {/* 6. Aposentadoria (motor FIRE conectado ao dado real) */}
+          <TabsContent value="aposentadoria"><FinanceAposentadoria /></TabsContent>
         </Tabs>
       </motion.div>
     </EMSLayout>
