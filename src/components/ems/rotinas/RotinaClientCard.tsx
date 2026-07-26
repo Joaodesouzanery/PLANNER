@@ -11,15 +11,17 @@ import { useConfirm } from "@/hooks/useConfirm";
 import { formatDateBR } from "@/components/ems/finance/useFinanceData";
 import { FreqBadge } from "./RotinaChecklistInline";
 import { RecurrenceFields } from "./RecurrenceFields";
-import type { useRotinas, RoutineChecklistItem, RoutineClientView, RoutineTask, RoutineFrequency } from "@/hooks/useRotinas";
+import { asTaskStatus, TASK_STATUSES, TASK_STATUS_LABEL } from "@/hooks/useRotinas";
+import type { useRotinas, RoutineChecklistItem, RoutineClientView, RoutineTask, RoutineFrequency, RoutineTaskStatus } from "@/hooks/useRotinas";
 
 type Rotinas = ReturnType<typeof useRotinas>;
 
-const STATUS: Record<string, { label: string; tone: string }> = {
-  pending: { label: "Pendente", tone: "text-muted-foreground" },
-  in_progress: { label: "Andamento", tone: "text-amber-400" },
-  done: { label: "Concluída", tone: "text-emerald-400" },
+const STATUS: Record<RoutineTaskStatus, { label: string; tone: string }> = {
+  pending: { label: TASK_STATUS_LABEL.pending, tone: "text-muted-foreground" },
+  in_progress: { label: TASK_STATUS_LABEL.in_progress, tone: "text-amber-400" },
+  done: { label: TASK_STATUS_LABEL.done, tone: "text-emerald-400" },
 };
+
 const PRIORITY_OPTS: [string, string][] = [["low", "Baixa"], ["medium", "Média"], ["high", "Alta"], ["urgent", "Urgente"]];
 const pct = (p: { done: number; total: number }) => (p.total === 0 ? 0 : Math.round((p.done / p.total) * 100));
 const todayIso = () => new Date().toISOString().slice(0, 10);
