@@ -8,6 +8,12 @@ export type ChecklistKind = "conferencia" | "tarefa";
 export type RoutineTaskStatus = "pending" | "in_progress" | "done";
 export type RoutineFrequency = "daily" | "weekly" | "monthly";
 
+// Fonte ÚNICA de frequência (tipo + rótulos + narrowing) — evita `string` solto e `as any` espalhados.
+export const FREQUENCIES: RoutineFrequency[] = ["daily", "weekly", "monthly"];
+export const FREQ_LABEL: Record<RoutineFrequency, string> = { daily: "Diária", weekly: "Semanal", monthly: "Mensal" };
+/** Estreita o `string` que o shadcn Select devolve para a união, com fallback seguro. */
+export const asFrequency = (v: string): RoutineFrequency => (FREQUENCIES.includes(v as RoutineFrequency) ? (v as RoutineFrequency) : "daily");
+
 export interface RoutineSegment {
   id: string;
   name: string;

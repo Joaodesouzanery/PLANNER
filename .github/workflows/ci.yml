@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Sinal de qualidade (typecheck + testes). NÃO trava o deploy da Lovable (que builda direto do main);
+# serve pra pegar TS2322 e regressões antes/depois do push. Jobs independentes → cada um reporta separado.
+jobs:
+  typecheck:
+    name: Typecheck (tsc --noEmit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-audit --no-fund
+      - run: npm run typecheck
+
+  tests:
+    name: Testes (puros + render)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-audit --no-fund
+      - name: Testes puros (node:test)
+        run: npm test
+      - name: Testes de render (vitest)
+        run: npm run test:react

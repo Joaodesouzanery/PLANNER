@@ -13,13 +13,13 @@ import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { buildClientMessage, buildDailyReport } from "@/lib/routineReport";
 import { RotinaChecklistInline } from "./RotinaChecklistInline";
-import type { useRotinas, RoutineChecklistItem, RoutineClientView, RoutineTaskStatus } from "@/hooks/useRotinas";
+import { FREQ_LABEL, asFrequency } from "@/hooks/useRotinas";
+import type { useRotinas, RoutineChecklistItem, RoutineClientView, RoutineTaskStatus, RoutineFrequency } from "@/hooks/useRotinas";
 
 type Rotinas = ReturnType<typeof useRotinas>;
 
 const statusLabel: Record<RoutineTaskStatus, string> = { pending: "Pendente", in_progress: "Em andamento", done: "Concluída" };
 const priorityLabel: Record<string, string> = { urgent: "Urgente", high: "Alta", medium: "Média", low: "Baixa" };
-const FREQ_LABEL: Record<string, string> = { daily: "Diária", weekly: "Semanal", monthly: "Mensal" };
 const WEEKDAY_OPTS: [string, string][] = [["1", "Segunda"], ["2", "Terça"], ["3", "Quarta"], ["4", "Quinta"], ["5", "Sexta"], ["6", "Sábado"], ["0", "Domingo"]];
 
 const copy = async (text: string, what: string) => {
@@ -43,7 +43,7 @@ const ItemConfigRow = ({ item, rotinas, child }: { item: RoutineChecklistItem; r
     />
     <Select
       value={item.frequency}
-      onValueChange={(v) => rotinas.saveChecklistItem.mutate({ id: item.id, frequency: v as any, day_of_month: v === "monthly" ? (item.day_of_month ?? 1) : null, weekday: v === "weekly" ? (item.weekday ?? 1) : null })}
+      onValueChange={(v) => rotinas.saveChecklistItem.mutate({ id: item.id, frequency: asFrequency(v), day_of_month: v === "monthly" ? (item.day_of_month ?? 1) : null, weekday: v === "weekly" ? (item.weekday ?? 1) : null })}
     >
       <SelectTrigger className="h-8 w-[104px] text-xs"><SelectValue /></SelectTrigger>
       <SelectContent>{Object.entries(FREQ_LABEL).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
@@ -67,7 +67,7 @@ const ItemConfigRow = ({ item, rotinas, child }: { item: RoutineChecklistItem; r
 export const RotinaClientDialog = ({ view, rotinas, open, onClose, defaultTab = "dia" }: { view: RoutineClientView; rotinas: Rotinas; open: boolean; onClose: () => void; defaultTab?: string }) => {
   const { client } = view;
   const [newTask, setNewTask] = useState({ title: "", priority: "medium", due_date: "", parent_task_id: "" });
-  const [newItem, setNewItem] = useState<{ kind: "conferencia" | "tarefa"; title: string; frequency: string; day_of_month: string; weekday: string; parent_item_id: string }>({ kind: "conferencia", title: "", frequency: "daily", day_of_month: "", weekday: "1", parent_item_id: "" });
+  const [newItem, setNewItem] = useState<{ kind: "conferencia" | "tarefa"; title: string; frequency: RoutineFrequency; day_of_month: string; weekday: string; parent_item_id: string }>({ kind: "conferencia", title: "", frequency: "daily", day_of_month: "", weekday: "1", parent_item_id: "" });
   const [clientForm, setClientForm] = useState({ name: client.name, invoice_day: client.invoice_day ?? "", invoice_notes: client.invoice_notes ?? "", notes: client.notes ?? "" });
 
   const report = useMemo(() => buildDailyReport(view), [view]);
@@ -88,7 +88,7 @@ export const RotinaClientDialog = ({ view, rotinas, open, onClose, defaultTab = 
         client_id: client.id,
         kind: newItem.kind,
         title: newItem.title.trim(),
-        frequency: newItem.frequency as any,
+        frequency: newItem.frequency,
         day_of_month: newItem.frequency === "monthly" && newItem.day_of_month ? Number(newItem.day_of_month) : null,
         weekday: newItem.frequency === "weekly" ? Number(newItem.weekday) : null,
         parent_item_id: newItem.parent_item_id || null,
@@ -274,7 +274,7 @@ export const RotinaClientDialog = ({ view, rotinas, open, onClose, defaultTab = 
                 </div>
                 <div>
                   <Label className="text-xs">Recorrência</Label>
-                  <Select value={newItem.frequency} onValueChange={(v) => setNewItem({ ...newItem, frequency: v })}>
+                  <Select value={newItem.frequency} onValueChange={(v) => setNewItem({ ...newItem, frequency: asFrequency(v) })}>
                     <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
                     <SelectContent>{Object.entries(FREQ_LABEL).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
                   </Select>

@@ -10,12 +10,11 @@ import { cn } from "@/lib/utils";
 import { useConfirm } from "@/hooks/useConfirm";
 import { formatDateBR } from "@/components/ems/finance/useFinanceData";
 import { FreqBadge } from "./RotinaChecklistInline";
-import type { useRotinas, RoutineChecklistItem, RoutineClientView, RoutineTask } from "@/hooks/useRotinas";
+import { RecurrenceFields } from "./RecurrenceFields";
+import type { useRotinas, RoutineChecklistItem, RoutineClientView, RoutineTask, RoutineFrequency } from "@/hooks/useRotinas";
 
 type Rotinas = ReturnType<typeof useRotinas>;
 
-const FREQ_LABEL: Record<string, string> = { daily: "Diária", weekly: "Semanal", monthly: "Mensal" };
-const WEEKDAY_OPTS: [string, string][] = [["1", "Seg"], ["2", "Ter"], ["3", "Qua"], ["4", "Qui"], ["5", "Sex"], ["6", "Sáb"], ["0", "Dom"]];
 const STATUS: Record<string, { label: string; tone: string }> = {
   pending: { label: "Pendente", tone: "text-muted-foreground" },
   in_progress: { label: "Andamento", tone: "text-amber-400" },
@@ -31,40 +30,19 @@ const IconBtn = ({ onClick, title, danger, children }: { onClick: () => void; ti
   </button>
 );
 
-/** Campos de recorrência (Diária/Semanal/Mensal + dia/weekday) usados em add e edição. */
-const RecurrenceFields = ({ freq, setFreq, day, setDay, weekday, setWeekday }: {
-  freq: string; setFreq: (v: string) => void; day: string; setDay: (v: string) => void; weekday: string; setWeekday: (v: string) => void;
-}) => (
-  <>
-    <Select value={freq} onValueChange={setFreq}>
-      <SelectTrigger className="h-7 w-[92px] text-xs"><SelectValue /></SelectTrigger>
-      <SelectContent>{Object.entries(FREQ_LABEL).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}</SelectContent>
-    </Select>
-    {freq === "monthly" && (
-      <Input type="number" min={1} max={31} value={day} onChange={(e) => setDay(e.target.value)} placeholder="dia" className="h-7 w-[56px] text-xs" />
-    )}
-    {freq === "weekly" && (
-      <Select value={weekday} onValueChange={setWeekday}>
-        <SelectTrigger className="h-7 w-[74px] text-xs"><SelectValue /></SelectTrigger>
-        <SelectContent>{WEEKDAY_OPTS.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
-      </Select>
-    )}
-  </>
-);
-
 /** Form inline para criar item (ou subitem, se parentId). */
 const ItemForm = ({ clientId, kind, parentId, sortBase, rotinas, onDone }: {
   clientId: string; kind: "conferencia" | "tarefa"; parentId?: string; sortBase: number; rotinas: Rotinas; onDone: () => void;
 }) => {
   const [title, setTitle] = useState("");
-  const [freq, setFreq] = useState("daily");
+  const [freq, setFreq] = useState<RoutineFrequency>("daily");
   const [day, setDay] = useState("");
   const [weekday, setWeekday] = useState("1");
   const add = () => {
     if (!title.trim()) return;
     rotinas.saveChecklistItem.mutate({
       client_id: clientId, kind, title: title.trim(),
-      frequency: freq as any,
+      frequency: freq,
       day_of_month: freq === "monthly" && day ? Number(day) : null,
       weekday: freq === "weekly" ? Number(weekday) : null,
       parent_item_id: parentId ?? null,
@@ -87,7 +65,7 @@ const ItemRow = ({ item, view, rotinas, onDelete, child }: {
   const [editing, setEditing] = useState(false);
   const [addingSub, setAddingSub] = useState(false);
   const [title, setTitle] = useState(item.title);
-  const [freq, setFreq] = useState(item.frequency || "daily");
+  const [freq, setFreq] = useState<RoutineFrequency>(item.frequency || "daily");
   const [day, setDay] = useState(item.day_of_month ? String(item.day_of_month) : "");
   const [weekday, setWeekday] = useState(item.weekday != null ? String(item.weekday) : "1");
   const done = view.doneItemIds.has(item.id);
@@ -97,7 +75,7 @@ const ItemRow = ({ item, view, rotinas, onDelete, child }: {
     if (!title.trim()) return;
     rotinas.saveChecklistItem.mutate({
       id: item.id, title: title.trim(),
-      frequency: freq as any,
+      frequency: freq,
       day_of_month: freq === "monthly" && day ? Number(day) : null,
       weekday: freq === "weekly" ? Number(weekday) : null,
     }, { onSuccess: () => setEditing(false) });
