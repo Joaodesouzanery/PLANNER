@@ -35,7 +35,7 @@ export const MeetingsPanel = () => {
     queryKey: ["review-cycles-board", selectedCompanyId],
     staleTime: 1000 * 60 * 2,
     queryFn: async () => {
-      let q = (supabase as any).from("review_cycles").select("*")
+      const q = (supabase as any).from("review_cycles").select("*")
         .in("cycle_type", ["monthly", "quarterly", "annual"])
         .order("period_start", { ascending: false }).limit(16);
       const { data, error } = await companyFilter(q);

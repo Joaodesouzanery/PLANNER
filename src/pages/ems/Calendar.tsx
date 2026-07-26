@@ -119,7 +119,7 @@ const CalendarPage = () => {
   const { data: commercialActions = [] } = useQuery({
     queryKey: ["calendar-commercial-actions", selectedCompanyId],
     queryFn: async () => {
-      let q = (supabase as any)
+      const q = (supabase as any)
         .from("commercial_contact_meta")
         .select("id, contact_id, next_action_date, next_action_description, contact:contacts(name, company, company_id)")
         .not("next_action_date", "is", null);

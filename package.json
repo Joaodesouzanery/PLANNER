@@ -9,8 +9,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
-    "test": "vitest run -c vitest.node.config.ts",
-    "test:react": "vitest run -c vitest.config.ts",
+    "test": "vitest run",
     "preview": "vite preview"
   },
   "dependencies": {

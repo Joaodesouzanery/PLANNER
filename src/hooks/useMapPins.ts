@@ -104,7 +104,7 @@ export function useMapPins(projectId?: string) {
         .not("longitude", "is", null);
       if (cf) qp = qp.eq("company_id", selectedCompanyId);
 
-      let qt = supabase
+      const qt = supabase
         .from("tasks")
         .select("id,title,priority,company_id,contact_id,project_id,due_date,status")
         .neq("status", "completed")

@@ -11,15 +11,17 @@ import { useConfirm } from "@/hooks/useConfirm";
 import { formatDateBR } from "@/components/ems/finance/useFinanceData";
 import { FreqBadge } from "./RotinaChecklistInline";
 import { RecurrenceFields } from "./RecurrenceFields";
-import type { useRotinas, RoutineChecklistItem, RoutineClientView, RoutineTask, RoutineFrequency } from "@/hooks/useRotinas";
+import { asTaskStatus, TASK_STATUSES, TASK_STATUS_LABEL } from "@/hooks/useRotinas";
+import type { useRotinas, RoutineChecklistItem, RoutineClientView, RoutineTask, RoutineFrequency, RoutineTaskStatus } from "@/hooks/useRotinas";
 
 type Rotinas = ReturnType<typeof useRotinas>;
 
-const STATUS: Record<string, { label: string; tone: string }> = {
-  pending: { label: "Pendente", tone: "text-muted-foreground" },
-  in_progress: { label: "Andamento", tone: "text-amber-400" },
-  done: { label: "Concluída", tone: "text-emerald-400" },
+const STATUS: Record<RoutineTaskStatus, { label: string; tone: string }> = {
+  pending: { label: TASK_STATUS_LABEL.pending, tone: "text-muted-foreground" },
+  in_progress: { label: TASK_STATUS_LABEL.in_progress, tone: "text-amber-400" },
+  done: { label: TASK_STATUS_LABEL.done, tone: "text-emerald-400" },
 };
+
 const PRIORITY_OPTS: [string, string][] = [["low", "Baixa"], ["medium", "Média"], ["high", "Alta"], ["urgent", "Urgente"]];
 const pct = (p: { done: number; total: number }) => (p.total === 0 ? 0 : Math.round((p.done / p.total) * 100));
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -164,9 +166,10 @@ const TaskRow = ({ task, childrenTasks, rotinas, onDelete, child }: {
               {overdue && <AlertTriangle className="h-2.5 w-2.5" />}{formatDateBR(task.due_date)}
             </span>
           )}
-          <Select value={task.status} onValueChange={(v) => rotinas.saveTask.mutate({ id: task.id, status: v as any })}>
+          <Select value={task.status} onValueChange={(v) => rotinas.saveTask.mutate({ id: task.id, status: asTaskStatus(v) })}>
             <SelectTrigger className={cn("h-6 w-[104px] text-[10px]", STATUS[task.status]?.tone)}><SelectValue /></SelectTrigger>
-            <SelectContent>{Object.entries(STATUS).map(([k, s]) => <SelectItem key={k} value={k}>{s.label}</SelectItem>)}</SelectContent>
+            <SelectContent>{TASK_STATUSES.map((k) => <SelectItem key={k} value={k}>{TASK_STATUS_LABEL[k]}</SelectItem>)}</SelectContent>
+
           </Select>
           {!child && <IconBtn title="Subtarefa" onClick={() => setAddingSub((v) => !v)}><CornerDownRight className="h-3 w-3" /></IconBtn>}
           <IconBtn title="Editar" onClick={() => setEditing(true)}><Pencil className="h-3 w-3" /></IconBtn>

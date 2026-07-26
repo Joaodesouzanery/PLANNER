@@ -174,7 +174,7 @@ export function useOperationalPlanningData() {
     queryClient.invalidateQueries({ queryKey: ["finance-okrs"] });
   };
 
-  const listQuery = <T,>(key: string, table: string, order = "created_at", ascending = false) => useQuery({
+  const useListQuery = <T,>(key: string, table: string, order = "created_at", ascending = false) => useQuery({
     queryKey: ["operational-planning", key, selectedCompanyId],
     queryFn: async () => {
       const { data, error } = await scoped((supabase as any).from(table).select("*").order(order, { ascending }));
@@ -185,14 +185,14 @@ export function useOperationalPlanningData() {
     retry: false,
   });
 
-  const northMetricsQuery = listQuery<NorthMetric>("north-metrics", "planning_north_metrics");
-  const keyResultsQuery = listQuery<KeyResult>("key-results", "okr_key_results");
-  const assumptionsQuery = listQuery<PlanningAssumption>("assumptions", "planning_assumptions");
-  const risksQuery = listQuery<PlanningRisk>("risks", "planning_risks", "score");
-  const timeQuery = listQuery<TimeAllocation>("time", "planning_time_allocations", "week_start");
-  const decisionsQuery = listQuery<DecisionLog>("decisions", "decision_logs");
-  const financialImpactsQuery = listQuery<FinancialImpact>("financial-impacts", "planning_financial_impacts", "expected_date");
-  const reviewsQuery = listQuery<ReviewCycle>("reviews", "review_cycles", "period_start");
+  const northMetricsQuery = useListQuery<NorthMetric>("north-metrics", "planning_north_metrics");
+  const keyResultsQuery = useListQuery<KeyResult>("key-results", "okr_key_results");
+  const assumptionsQuery = useListQuery<PlanningAssumption>("assumptions", "planning_assumptions");
+  const risksQuery = useListQuery<PlanningRisk>("risks", "planning_risks", "score");
+  const timeQuery = useListQuery<TimeAllocation>("time", "planning_time_allocations", "week_start");
+  const decisionsQuery = useListQuery<DecisionLog>("decisions", "decision_logs");
+  const financialImpactsQuery = useListQuery<FinancialImpact>("financial-impacts", "planning_financial_impacts", "expected_date");
+  const reviewsQuery = useListQuery<ReviewCycle>("reviews", "review_cycles", "period_start");
 
   const okrsQuery = useQuery({
     queryKey: ["operational-planning", "okrs", selectedCompanyId],

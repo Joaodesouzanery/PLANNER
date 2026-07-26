@@ -234,7 +234,7 @@ const Commercial = () => {
   const togglePhase = (phaseId: string) => {
     setExpandedPhases(prev => {
       const next = new Set(prev);
-      next.has(phaseId) ? next.delete(phaseId) : next.add(phaseId);
+      if (next.has(phaseId)) next.delete(phaseId); else next.add(phaseId);
       return next;
     });
   };

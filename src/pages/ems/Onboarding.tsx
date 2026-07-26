@@ -321,7 +321,7 @@ const Onboarding = () => {
   const toggleStep = (stepId: string) => {
     setExpandedSteps(prev => {
       const next = new Set(prev);
-      next.has(stepId) ? next.delete(stepId) : next.add(stepId);
+      if (next.has(stepId)) next.delete(stepId); else next.add(stepId);
       return next;
     });
   };

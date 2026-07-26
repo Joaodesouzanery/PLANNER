@@ -44,7 +44,7 @@ export const BoardDomainPanel = ({ category: initialCategory }: { category: stri
     queryKey: ["governance-items", selectedCompanyId, category],
     staleTime: 1000 * 60 * 2,
     queryFn: async () => {
-      let q = (supabase as any).from("governance_items").select("*").eq("category", category)
+      const q = (supabase as any).from("governance_items").select("*").eq("category", category)
         .order("due_date", { ascending: true, nullsFirst: false });
       const { data, error } = await companyFilter(q);
       if (error) throw error;
@@ -56,7 +56,7 @@ export const BoardDomainPanel = ({ category: initialCategory }: { category: stri
     queryKey: ["governance-logs", selectedCompanyId, category],
     staleTime: 1000 * 60 * 2,
     queryFn: async () => {
-      let q = (supabase as any).from("governance_logs").select("*").eq("category", category)
+      const q = (supabase as any).from("governance_logs").select("*").eq("category", category)
         .order("happened_at", { ascending: false }).limit(12);
       const { data, error } = await companyFilter(q);
       if (error) throw error;
@@ -68,7 +68,7 @@ export const BoardDomainPanel = ({ category: initialCategory }: { category: stri
     queryKey: ["governance-metrics", selectedCompanyId, category],
     staleTime: 1000 * 60 * 3,
     queryFn: async () => {
-      let q = (supabase as any).from("governance_metrics").select("*").eq("category", category)
+      const q = (supabase as any).from("governance_metrics").select("*").eq("category", category)
         .order("metric_date", { ascending: false }).limit(12);
       const { data, error } = await companyFilter(q);
       if (error) throw error;
