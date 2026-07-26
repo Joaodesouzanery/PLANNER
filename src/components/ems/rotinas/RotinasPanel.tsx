@@ -41,7 +41,7 @@ export const RotinasPanel = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hoje.counts.total, notify.permission]);
 
-  const isMissingTable = (rotinas.error as any)?.code === "42P01";
+  const isMissingTable = isMissingTableError(rotinas.error);
 
   if (isMissingTable) {
     return (
