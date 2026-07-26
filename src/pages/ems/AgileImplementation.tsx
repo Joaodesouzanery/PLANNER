@@ -50,7 +50,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
   completed: { label: "Concluído", color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/30", icon: CheckCircle2 },
 };
 
-const AgileImplementation = () => {
+const AgileImplementation = ({ embedded = false }: { embedded?: boolean }) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { selectedCompanyId } = useCompany();
@@ -220,11 +220,12 @@ const AgileImplementation = () => {
   const inProgressSteps = steps.filter((s) => s.status === "in_progress").length;
   const overallProgress = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
 
-  return (
-    <EMSLayout>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
+  const inner = (
+    <>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={embedded ? "space-y-6" : "p-4 md:p-6 max-w-6xl mx-auto space-y-6"}>
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {!embedded && (
           <div>
             <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground flex items-center gap-2">
               <div className="p-2 rounded-xl bg-primary/10"><Zap className="h-6 w-6 text-primary" /></div>
@@ -234,6 +235,7 @@ const AgileImplementation = () => {
               Gerencie sprints, etapas e checklists com anexos
             </p>
           </div>
+          )}
           <Button onClick={() => { resetForm(); setDialogOpen(true); }} className="gap-2">
             <Plus className="h-4 w-4" /> Nova Etapa
           </Button>
@@ -528,8 +530,9 @@ const AgileImplementation = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </EMSLayout>
+    </>
   );
+  return embedded ? inner : <EMSLayout>{inner}</EMSLayout>;
 };
 
 export default AgileImplementation;

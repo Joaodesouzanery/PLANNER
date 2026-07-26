@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, lazy, Suspense } from "react";
 import { Megaphone, Plus, Trash2, Sparkles, Users, Target, TrendingUp, Send } from "lucide-react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,8 @@ import type { useCrm } from "./useCrm";
 import { useCampaigns, type Campaign } from "./useCampaigns";
 import { resolveSegment, campaignPerformance, groupCount, STATUS_LABEL, CHANNEL_LABEL, CAMPAIGN_STATUS_LABEL, type SegmentFilter, type SegCustomer } from "./crmCampaigns";
 import { streamComercialAI } from "./aiMessage";
+
+const ComercialAutomatizado = lazy(() => import("@/pages/ems/ComercialAutomatizado"));
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -33,7 +35,7 @@ const chip = (active: boolean) => cn("cursor-pointer text-[11px]", active ? "" :
 
 export const CampaignManager = ({ crm }: { crm: ReturnType<typeof useCrm> }) => {
   const cm = useCampaigns();
-  const [view, setView] = useState<"campanhas" | "segmentos">("campanhas");
+  const [view, setView] = useState<"campanhas" | "segmentos" | "gerador">("campanhas");
   const [selId, setSelId] = useState<string | null>(null);
   const [showNewCamp, setShowNewCamp] = useState(false);
   const [campForm, setCampForm] = useState({ name: "", objective: "", channel: "email", segment_id: "" });
@@ -97,11 +99,14 @@ export const CampaignManager = ({ crm }: { crm: ReturnType<typeof useCrm> }) => 
         <div className="inline-flex rounded-lg border border-border/50 bg-card/60 p-0.5">
           <Button size="sm" variant={view === "campanhas" ? "secondary" : "ghost"} className="h-7 text-xs" onClick={() => setView("campanhas")}>Campanhas</Button>
           <Button size="sm" variant={view === "segmentos" ? "secondary" : "ghost"} className="h-7 text-xs" onClick={() => setView("segmentos")}>Segmentos</Button>
+          <Button size="sm" variant={view === "gerador" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setView("gerador")}><Sparkles className="h-3.5 w-3.5" />Gerador IA</Button>
         </div>
         {view === "campanhas" && <Button size="sm" className="h-8 gap-1.5" onClick={() => setShowNewCamp((v) => !v)}><Plus className="h-3.5 w-3.5" />Nova campanha</Button>}
       </div>
 
-      {view === "segmentos" ? (
+      {view === "gerador" ? (
+        <Suspense fallback={<div className="p-8 text-center text-sm text-muted-foreground">Carregando…</div>}><ComercialAutomatizado embedded /></Suspense>
+      ) : view === "segmentos" ? (
         <SegmentBuilder
           cm={cm} filters={filters} setFilters={setFilters} tiers={tiers} segments={segments}
           toggle={toggle} previewCount={previewIds.length} segName={segName} setSegName={setSegName} saveSegment={saveSegment}

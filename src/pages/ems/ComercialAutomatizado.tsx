@@ -36,7 +36,7 @@ const PRESETS_POST = [
   { id: "opinion", label: "Artigo de Opinião", icon: "💬" },
 ];
 
-const ComercialAutomatizado = () => {
+const ComercialAutomatizado = ({ embedded = false }: { embedded?: boolean }) => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"linkedin" | "post" | "chat" | "playbook" | "media">("playbook");
 
@@ -206,10 +206,10 @@ Siga rigorosamente o formato em markdown definido no system prompt.`;
     setTimeout(() => setCopiedIdx(null), 2000);
   };
 
-  return (
-    <EMSLayout>
-      <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6">
+  const inner = (
+      <div className={embedded ? "space-y-4 md:space-y-6" : "p-4 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6"}>
         {/* Header */}
+        {!embedded && (
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -224,6 +224,7 @@ Siga rigorosamente o formato em markdown definido no system prompt.`;
             </p>
           </div>
         </div>
+        )}
 
         <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as any); setOutput(""); }}>
           <TabsList className="grid grid-cols-5 w-full md:w-auto">
@@ -483,8 +484,8 @@ Siga rigorosamente o formato em markdown definido no system prompt.`;
           </TabsContent>
         </Tabs>
       </div>
-    </EMSLayout>
   );
+  return embedded ? inner : <EMSLayout>{inner}</EMSLayout>;
 };
 
 interface MediaMetric {

@@ -16,14 +16,18 @@ import { AttachmentManager } from "@/components/ems/AttachmentManager";
 import { OperationalMapPanel } from "@/components/ems/OperationalMapPanel";
 import { useCrm } from "@/components/ems/crm/useCrm";
 import { OpportunityInbox } from "@/components/ems/crm/OpportunityInbox";
+import { OnboardingPanel } from "@/components/ems/crm/OnboardingPanel";
 import { ServicingTower } from "@/components/ems/crm/ServicingTower";
 import { CustomerKanban } from "@/components/ems/crm/CustomerKanban";
+import { DealKanban } from "@/components/ems/crm/DealKanban";
 import { ContactsTab } from "@/components/ems/crm/ContactsTab";
 import { OFERTA_LABEL, TREND_LABEL, type CustomerScore, type Trend } from "@/components/ems/crm/crmScores";
 import { buildCustomer360, diasSemContato, type CustomerSpine, type Customer360 } from "@/components/ems/crm/crm360";
 
 const Prospecting = lazy(() => import("@/components/ems/commercial/Prospecting"));
 const CampaignManager = lazy(() => import("@/components/ems/crm/CampaignManager"));
+const VisitRoutesContent = lazy(() => import("@/pages/ems/VisitRoutes").then((m) => ({ default: m.VisitRoutesContent })));
+const AgileImplementation = lazy(() => import("@/pages/ems/AgileImplementation"));
 const LazyFallback = () => <div className="p-8 text-center text-sm text-muted-foreground">Carregando…</div>;
 
 const STAGES = [
@@ -46,7 +50,8 @@ const TAB_META: Record<string, { title: string; sub: string }> = {
   prospeccao: { title: "Prospecção", sub: "Empresas a prospectar — converta em cliente + contato + deal." },
   campanhas: { title: "Campanhas", sub: "Segmentos dinâmicos, campanhas e performance de outreach." },
   torre: { title: "Torre", sub: "Saúde da carteira: SLA, risco, grupos por segmento e alertas." },
-  mapa: { title: "Mapa", sub: "Clientes, projetos e tarefas no mapa operacional." },
+  mapa: { title: "Mapa", sub: "Clientes, projetos e tarefas no mapa — e planejamento de rotas." },
+  entrega: { title: "Entrega", sub: "Implementação ágil: sprints, etapas e checklists por empresa." },
 };
 
 const Crm = () => {
@@ -58,6 +63,8 @@ const Crm = () => {
   const [search, setSearch] = useState("");
   const [healthFilter, setHealthFilter] = useState("all");
   const [view, setView] = useState<"list" | "kanban">(searchParams.get("view") === "kanban" ? "kanban" : "list");
+  const [oppView, setOppView] = useState<"fila" | "kanban">("fila");
+  const [mapView, setMapView] = useState<"mapa" | "rotas">("mapa");
   const syncParam = (key: string, val: string | null) => setSearchParams((prev) => { const p = new URLSearchParams(prev); if (val) p.set(key, val); else p.delete(key); return p; }, { replace: true });
   const changeTab = (v: string) => { setTab(v); syncParam("tab", v === "clientes" ? null : v); };
   const changeView = (v: "list" | "kanban") => { setView(v); syncParam("view", v === "list" ? null : v); };
@@ -113,10 +120,23 @@ const Crm = () => {
             <TabsTrigger value="campanhas" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Campanhas</TabsTrigger>
             <TabsTrigger value="torre" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Torre</TabsTrigger>
             <TabsTrigger value="mapa" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Mapa</TabsTrigger>
+            <TabsTrigger value="entrega" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Entrega</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="mapa" className="mt-0">
-            <OperationalMapPanel title="Mapa da carteira" description="Clientes, projetos e tarefas num só mapa operacional." filterKinds={["client", "task", "project"]} height={540} />
+          <TabsContent value="entrega" className="mt-0">
+            <Suspense fallback={<LazyFallback />}><AgileImplementation embedded /></Suspense>
+          </TabsContent>
+
+          <TabsContent value="mapa" className="mt-0 space-y-3">
+            <div className="flex items-center justify-end">
+              <div className="inline-flex rounded-lg border border-border/50 bg-card/60 p-0.5">
+                <Button size="sm" variant={mapView === "mapa" ? "secondary" : "ghost"} className="h-7 text-xs" onClick={() => setMapView("mapa")}>Mapa</Button>
+                <Button size="sm" variant={mapView === "rotas" ? "secondary" : "ghost"} className="h-7 text-xs" onClick={() => setMapView("rotas")}>Rotas</Button>
+              </div>
+            </div>
+            {mapView === "rotas"
+              ? <Suspense fallback={<LazyFallback />}><VisitRoutesContent embedded /></Suspense>
+              : <OperationalMapPanel title="Mapa da carteira" description="Clientes, projetos e tarefas num só mapa operacional." filterKinds={["client", "task", "project"]} height={540} />}
           </TabsContent>
 
           <TabsContent value="contatos" className="mt-0">
@@ -131,8 +151,14 @@ const Crm = () => {
             <Suspense fallback={<LazyFallback />}><CampaignManager crm={crm} /></Suspense>
           </TabsContent>
 
-          <TabsContent value="oportunidades" className="mt-0">
-            <OpportunityInbox crm={crm} onSelectCustomer={selectCustomer} />
+          <TabsContent value="oportunidades" className="mt-0 space-y-3">
+            <div className="flex items-center justify-end">
+              <div className="inline-flex rounded-lg border border-border/50 bg-card/60 p-0.5">
+                <Button size="sm" variant={oppView === "fila" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setOppView("fila")}><List className="h-3.5 w-3.5" />Fila</Button>
+                <Button size="sm" variant={oppView === "kanban" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setOppView("kanban")}><LayoutGrid className="h-3.5 w-3.5" />Kanban</Button>
+              </div>
+            </div>
+            {oppView === "kanban" ? <DealKanban crm={crm} onSelect={selectCustomer} /> : <OpportunityInbox crm={crm} onSelectCustomer={selectCustomer} />}
           </TabsContent>
 
           <TabsContent value="torre" className="mt-0">
@@ -232,6 +258,8 @@ const CustomerDetail = ({ c360, companyId, crm }: { c360: Customer360; companyId
   const [showTask, setShowTask] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskContact, setTaskContact] = useState(c360.contatos[0]?.id || "");
+  const [onbContact, setOnbContact] = useState(c360.contatos[0]?.id || "");
+  const [showOnb, setShowOnb] = useState(false);
   const health = (companyId ? (s.health || sc?.health) : (sc?.health || s.health)) || "green";
   const h = HEALTH[health] ?? HEALTH.green;
   const dias = diasSemContato(c360, todayIso());
@@ -320,6 +348,15 @@ const CustomerDetail = ({ c360, companyId, crm }: { c360: Customer360; companyId
               <div className={cn("h-full rounded-full", onb.completeness === 1 ? "bg-emerald-500" : "bg-primary")} style={{ width: `${Math.round((onb.completeness ?? 0) * 100)}%` }} />
             </div>
             {onb.pendentes > 0 && <p className="text-[10px] text-amber-500">{onb.pendentes} passo(s) pendente(s)</p>}
+            {c360.contatos.length > 0 && (
+              <div className="pt-1 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Select value={onbContact} onValueChange={setOnbContact}><SelectTrigger className="h-7 text-xs flex-1"><SelectValue placeholder="Contato" /></SelectTrigger><SelectContent>{c360.contatos.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select>
+                  <Button size="sm" variant="outline" className="h-7 text-xs shrink-0" onClick={() => setShowOnb((v) => !v)}>{showOnb ? "Fechar" : "Gerenciar"}</Button>
+                </div>
+                {showOnb && onbContact && <OnboardingPanel contactId={onbContact} />}
+              </div>
+            )}
           </div>
         )}
 

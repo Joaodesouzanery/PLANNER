@@ -104,7 +104,7 @@ const App = () => (
               <Route path="/ems/comercial/estrutura" element={<ProtectedPage><CommercialStructure /></ProtectedPage>} />
               <Route path="/ems/comercial/comparativo" element={<ProtectedPage><CommercialComparison /></ProtectedPage>} />
               <Route path="/ems/comercial/onboarding" element={<ProtectedPage><Onboarding /></ProtectedPage>} />
-              <Route path="/ems/comercial/implementacao-agil" element={<ProtectedPage><AgileImplementation /></ProtectedPage>} />
+              <Route path="/ems/comercial/implementacao-agil" element={<Navigate to="/ems/crm?tab=entrega" replace />} />
               <Route path="/ems/estrutura-comercial" element={<ProtectedPage><CommercialStructure /></ProtectedPage>} />
               <Route path="/ems/comparativo-comercial" element={<ProtectedPage><CommercialComparison /></ProtectedPage>} />
               <Route path="/ems/onboarding" element={<ProtectedPage><Onboarding /></ProtectedPage>} />
@@ -113,10 +113,10 @@ const App = () => (
               <Route path="/ems/companies" element={<ProtectedPage><Companies /></ProtectedPage>} />
               <Route path="/ems/faculdade" element={<ProtectedPage><Faculdade /></ProtectedPage>} />
               <Route path="/ems/gratidao" element={<ProtectedPage><Gratitude /></ProtectedPage>} />
-              <Route path="/ems/comercial-automatizado" element={<ProtectedPage><ComercialAutomatizado /></ProtectedPage>} />
-              <Route path="/ems/implementacao-agil" element={<ProtectedPage><AgileImplementation /></ProtectedPage>} />
+              <Route path="/ems/comercial-automatizado" element={<Navigate to="/ems/crm?tab=campanhas" replace />} />
+              <Route path="/ems/implementacao-agil" element={<Navigate to="/ems/crm?tab=entrega" replace />} />
               <Route path="/ems/conferencia" element={<Navigate to="/ems/projects" replace />} />
-              <Route path="/ems/rotas-visita" element={<Navigate to="/ems/crm" replace />} />
+              <Route path="/ems/rotas-visita" element={<Navigate to="/ems/crm?tab=mapa" replace />} />
 
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />
