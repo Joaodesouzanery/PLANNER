@@ -4,7 +4,7 @@ import { AlertTriangle, BellRing, CalendarDays, ClipboardList, ClipboardPaste, R
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useRotinas, type RoutineClientView } from "@/hooks/useRotinas";
+import { useRotinas, isMissingTableError, type RoutineClientView } from "@/hooks/useRotinas";
 import { useDailyNotify } from "@/hooks/useDailyNotify";
 import { rotinasHoje } from "./rotinasHoje";
 import { RotinaClientDialog } from "./RotinaClientDialog";
