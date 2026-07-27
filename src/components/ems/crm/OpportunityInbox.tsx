@@ -1,11 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Target, TrendingUp, ArrowRight, Check, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { useCrm } from "./useCrm";
 import { forecastPonderado, type NbaSev } from "./buildNextBestActions";
 import { CLOSED_STAGES } from "./crm360";
+import { LOSS_REASONS } from "./crmStages";
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 const sevStyle: Record<NbaSev, string> = { red: "border-red-500/30 bg-red-500/5", yellow: "border-amber-500/30 bg-amber-500/5", low: "border-border/50 bg-muted/20" };
@@ -16,10 +19,16 @@ export const OpportunityInbox = ({ crm, onSelectCustomer }: { crm: ReturnType<ty
   const items = crm.nbaItems;
   const reds = items.filter((i) => i.severidade === "red").length;
 
-  const winLose = (dealId: string, outcome: "won" | "lost") =>
-    crm.updateDeal.mutate({ id: dealId, patch: { status_outcome: outcome, stage: outcome === "won" ? "ganho" : "perdido" } });
+  const [lostDeal, setLostDeal] = useState<string | null>(null);
+  const [reason, setReason] = useState(LOSS_REASONS[0]);
+  const markWon = (dealId: string) => crm.updateDeal.mutate({ id: dealId, patch: { status_outcome: "won", stage: "ganho" } });
+  const confirmLost = () => {
+    if (lostDeal) crm.updateDeal.mutate({ id: lostDeal, patch: { status_outcome: "lost", stage: "perdido", close_reason: reason } });
+    setLostDeal(null);
+  };
 
   return (
+    <>
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(240px,1fr)] gap-4">
       <Card>
         <CardHeader className="pb-2">
@@ -42,8 +51,8 @@ export const OpportunityInbox = ({ crm, onSelectCustomer }: { crm: ReturnType<ty
                 {i.valor != null && <span className="font-mono text-xs text-muted-foreground shrink-0">{brl(i.valor)}</span>}
                 {i.tipo.startsWith("deal") && i.refId && (
                   <>
-                    <Button size="icon" variant="ghost" className="h-6 w-6 text-emerald-500" title="Ganhou" onClick={() => winLose(i.refId!, "won")}><Check className="h-3.5 w-3.5" /></Button>
-                    <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" title="Perdeu" onClick={() => winLose(i.refId!, "lost")}><X className="h-3.5 w-3.5" /></Button>
+                    <Button size="icon" variant="ghost" className="h-6 w-6 text-emerald-500" title="Ganhou" onClick={() => markWon(i.refId!)}><Check className="h-3.5 w-3.5" /></Button>
+                    <Button size="icon" variant="ghost" className="h-6 w-6 text-destructive" title="Perdeu" onClick={() => { setReason(LOSS_REASONS[0]); setLostDeal(i.refId!); }}><X className="h-3.5 w-3.5" /></Button>
                   </>
                 )}
                 {i.customerId && <Button size="icon" variant="ghost" className="h-6 w-6" title="Ver cliente" onClick={() => onSelectCustomer(i.customerId!)}><ArrowRight className="h-3.5 w-3.5" /></Button>}
@@ -61,6 +70,22 @@ export const OpportunityInbox = ({ crm, onSelectCustomer }: { crm: ReturnType<ty
         </CardContent>
       </Card>
     </div>
+
+    <Dialog open={!!lostDeal} onOpenChange={(o) => !o && setLostDeal(null)}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader><DialogTitle>Motivo da perda</DialogTitle></DialogHeader>
+        <p className="text-xs text-muted-foreground">Por que este deal foi perdido? Alimenta o gráfico de motivos nas Métricas.</p>
+        <Select value={reason} onValueChange={setReason}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>{LOSS_REASONS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+        </Select>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setLostDeal(null)}>Cancelar</Button>
+          <Button className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={confirmLost}>Marcar como perdido</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };
 

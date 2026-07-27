@@ -64,6 +64,35 @@ describe("buildNextBestActions — streams enriquecidos (oferta/onboarding)", ()
   });
 });
 
+describe("buildNextBestActions — follow-up 48h + limiar de esfriamento", () => {
+  it("follow-up 48h: red acima de 4d, yellow em 2-4d", () => {
+    const items = buildNextBestActions({
+      today: TODAY,
+      followUps48h: [
+        { dealId: "d1", customerId: "iris", customerName: "IRIS", title: "Doc enviado", dias: 3 }, // yellow
+        { dealId: "d2", customerId: "circle", customerName: "CIRCLE", title: "Abordagem", dias: 6 }, // red
+      ],
+    });
+    assert.equal(items.find((x) => x.id === "fu48:d1")!.severidade, "yellow");
+    assert.equal(items.find((x) => x.id === "fu48:d2")!.severidade, "red");
+    assert.equal(items.find((x) => x.id === "fu48:d1")!.tipo, "follow_up_48h");
+  });
+  it("esfriandoDias configura o limiar (21) e o red é > 2x", () => {
+    const items = buildNextBestActions({
+      today: TODAY,
+      esfriandoDias: 21,
+      esfriando: [
+        { customerId: "a", customerName: "A", dias: 15, ongoing: 100 }, // < 21 → não entra
+        { customerId: "b", customerName: "B", dias: 25, ongoing: 100 }, // yellow
+        { customerId: "c", customerName: "C", dias: 45, ongoing: 100 }, // > 42 → red
+      ],
+    });
+    assert.ok(!items.some((x) => x.id === "es:a"));
+    assert.equal(items.find((x) => x.id === "es:b")!.severidade, "yellow");
+    assert.equal(items.find((x) => x.id === "es:c")!.severidade, "red");
+  });
+});
+
 describe("forecastPonderado", () => {
   it("só deals abertos, Σ valor×prob", () => {
     const f = forecastPonderado([

@@ -38,20 +38,21 @@ export const useCrm = () => {
     queryKey: ["crm", selectedCompanyId],
     staleTime: 60_000,
     queryFn: async () => {
-      const [spine, contacts, deals, routines, interactions, meta, txns, onbSteps, onbTracking, tasks, projects] = await Promise.all([
+      const [spine, contacts, deals, routines, interactions, meta, txns, onbSteps, onbTracking, tasks, projects, stageEvents] = await Promise.all([
         safe(() => db.from("finance_clientes").select("*").order("nome")),
         safe(() => co(db.from("contacts").select("id,name,customer_id,pipeline_stage,email,phone,company"))),
         safe(() => co(db.from("project_opportunities").select("id,title,value,stage,probability,expected_close_date,status_outcome,close_reason,customer_id,contact_id,project_id,company_id,modulo_id,ativo_origem_id"))),
         safe(() => db.from("routine_clients").select("id,name,customer_id,status")),
         safe(() => db.from("contact_interactions").select("id,contact_id,type,description,date")),
-        safe(() => db.from("commercial_contact_meta").select("contact_id,next_action_date,next_action_description")),
+        safe(() => db.from("commercial_contact_meta").select("contact_id,next_action_date,next_action_description,last_contact_date")),
         safe(() => co(db.from("financial_transactions").select("id,amount,type,is_recurring,recurrence_interval,recurrence_end_date,cliente_id,date,description"))),
         safe(() => db.from("onboarding_steps").select("id")),
         safe(() => db.from("contact_onboarding_tracking").select("contact_id,step_id,status")),
         safe(() => co(db.from("tasks").select("id,title,status,due_date,priority,contact_id,project_id")).neq("status", "completed").neq("status", "done")),
         safe(() => co(db.from("projects").select("id,title,status,next_invoice_date"))),
+        safe(() => co(db.from("crm_stage_events").select("deal_id,to_stage,moved_at"))),
       ]);
-      return { spine, contacts, deals, routines, interactions, meta, txns, onbSteps, onbTracking, tasks, projects };
+      return { spine, contacts, deals, routines, interactions, meta, txns, onbSteps, onbTracking, tasks, projects, stageEvents };
     },
   });
 
@@ -183,19 +184,43 @@ export const useCrm = () => {
     const total = revs.reduce((a, r) => a + r.ongoing, 0);
     const concentracao = total > 0 ? (() => { const top = revs.reduce((m, r) => (r.ongoing > m.ongoing ? r : m), revs[0]); return { customerId: top.id, customerName: nameById.get(top.id) || "?", top1Share: top.ongoing / total }; })() : null;
 
+    // Último contato: interações (contact_interactions) + o "último contato" manual (commercial_contact_meta).
     const lastByCust = new Map<string, string>();
-    for (const i of interactions) {
-      const cust = custByContact.get(i.contact_id); if (!cust) continue;
+    const touch = (cust: string | null | undefined, date: string | null | undefined) => {
+      if (!cust || !date) return;
+      const d = String(date).slice(0, 10);
       const prev = lastByCust.get(cust);
-      if (!prev || i.date > prev) lastByCust.set(cust, i.date);
-    }
+      if (!prev || d > prev) lastByCust.set(cust, d);
+    };
+    for (const i of interactions) touch(custByContact.get(i.contact_id), i.date);
+    for (const m of ((data?.meta ?? []) as any[])) touch(custByContact.get(m.contact_id), m.last_contact_date);
+
     const esfriando: any[] = [];
     for (const c of customers) {
       const r = revenueByCustomer.get(c.id);
       if (!c.recorrente || !r || r.ongoing <= 0) continue;
       const last = lastByCust.get(c.id);
-      const dias = last ? dayDiff(last.slice(0, 10), today) : 999;
-      if (dias >= 30) esfriando.push({ customerId: c.id, customerName: c.nome, dias, ongoing: r.ongoing });
+      if (!last) continue; // sem contato registrado → não inventa "999d" (higiene de dado, não esfriamento)
+      const dias = dayDiff(last, today);
+      if (dias >= 21) esfriando.push({ customerId: c.id, customerName: c.nome, dias, ongoing: r.ongoing });
+    }
+
+    // Follow-up 48h: deal ABERTO parado há ≥2d numa etapa de espera (abordado/documento/proposta) → 1 toque e para.
+    const lastMovedByDeal = new Map<string, string>();
+    for (const e of ((data?.stageEvents ?? []) as any[])) {
+      const prev = lastMovedByDeal.get(e.deal_id);
+      if (!prev || e.moved_at > prev) lastMovedByDeal.set(e.deal_id, e.moved_at);
+    }
+    // Etapas de espera (após abordar/enviar doc) onde um deal parado 48h pede 1 toque — keys do template + legadas.
+    const FOLLOWUP_STAGES = new Set(["abordado", "documento", "qualificado", "fechamento", "proposta", "negociacao"]);
+    const followUps48h: any[] = [];
+    for (const d of deals) {
+      if (d.status_outcome === "won" || d.status_outcome === "lost") continue;
+      if (!FOLLOWUP_STAGES.has(String(d.stage || "").toLowerCase())) continue;
+      const moved = lastMovedByDeal.get(d.id);
+      if (!moved) continue;
+      const dias = dayDiff(String(moved).slice(0, 10), today);
+      if (dias >= 2) followUps48h.push({ dealId: d.id, customerId: d.customer_id ?? null, customerName: (d.customer_id && nameById.get(d.customer_id)) || d.title, title: d.title, dias });
     }
 
     // Gaps de onboarding (só p/ quem ainda está entrando: novo/onboarding).
@@ -212,8 +237,8 @@ export const useCrm = () => {
       if (sc?.nextOffer && sc.nextOffer.tipo !== "retencao") ofertas.push({ customerId: c.id, customerName: c.nome, titulo: sc.nextOffer.titulo, valor: null });
     }
 
-    return buildNextBestActions({ today, nextActions, deals: dealsIn, concentracao, esfriando, onboardingGaps, ofertas });
-  }, [customers, contacts, deals, interactions, data?.meta, revenueByCustomer, scores, onboardingByCustomer]);
+    return buildNextBestActions({ today, nextActions, deals: dealsIn, concentracao, esfriando, onboardingGaps, ofertas, followUps48h, esfriandoDias: 21 });
+  }, [customers, contacts, deals, interactions, data?.meta, data?.stageEvents, revenueByCustomer, scores, onboardingByCustomer]);
 
   // Saúde ÚNICA: persiste a saúde CALCULADA em finance_clientes.health (a fonte que o Conselho lê),
   // pra Central de Atenção e CRM não divergirem. Converge em 1 rodada (após escrever, calculado == salvo).

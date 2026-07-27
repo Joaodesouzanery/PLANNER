@@ -3,7 +3,7 @@
 import { CLOSED_STAGES } from "./crm360";
 
 export type NbaSev = "red" | "yellow" | "low";
-export type NbaTipo = "follow_up" | "deal_fechando" | "deal_parado" | "concentracao" | "esfriando" | "renovacao" | "oferta" | "onboarding";
+export type NbaTipo = "follow_up" | "follow_up_48h" | "deal_fechando" | "deal_parado" | "concentracao" | "esfriando" | "renovacao" | "oferta" | "onboarding";
 
 export interface NbaItem {
   id: string;
@@ -23,6 +23,7 @@ export interface NbaInputs {
   deals?: { id: string; customerId: string | null; customerName: string; title: string; value?: number | null; stage?: string | null; expected_close_date?: string | null }[];
   concentracao?: { customerId: string; customerName: string; top1Share: number } | null;
   esfriando?: { customerId: string; customerName: string; dias: number; ongoing: number }[];
+  followUps48h?: { dealId: string; customerId: string | null; customerName: string; title: string; dias: number }[];
   onboardingGaps?: { customerId: string; customerName: string; pendentes: number }[];
   ofertas?: { customerId: string; customerName: string; titulo: string; valor?: number | null }[];
   concentracaoLimite?: number; // default 0.35
@@ -59,6 +60,10 @@ export const buildNextBestActions = (i: NbaInputs): NbaItem[] => {
   for (const e of i.esfriando ?? []) {
     if (e.dias < frio) continue;
     out.push({ id: `es:${e.customerId}`, tipo: "esfriando", severidade: e.dias > frio * 2 ? "red" : "yellow", customerId: e.customerId, customerName: e.customerName, titulo: `Esfriando: ${e.dias}d sem contato (MRR ${e.ongoing.toFixed(0)})`, valor: e.ongoing });
+  }
+
+  for (const f of i.followUps48h ?? []) {
+    out.push({ id: `fu48:${f.dealId}`, tipo: "follow_up_48h", severidade: f.dias > 4 ? "red" : "yellow", customerId: f.customerId, customerName: f.customerName, titulo: `Follow-up: "${f.title}" parado há ${f.dias}d na etapa — 1 toque e para`, valor: null, refId: f.dealId });
   }
 
   for (const g of i.onboardingGaps ?? []) {
