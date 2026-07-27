@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { format } from "date-fns";
-import { Activity, AlertTriangle, FileDown, Sheet, Trophy, Timer } from "lucide-react";
+import { Activity, AlertTriangle, FileDown, Sheet, Trophy, Timer, CalendarDays } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ import { exportTablePdf, captureChart, exportCsv } from "@/lib/exportPdf";
 import type { useCrm } from "./useCrm";
 import { useCrmStages } from "./useCrmStages";
 import { computeKanbanMetrics, type StageEvent, type DealLite } from "./kanbanMetrics";
+import { computeWeekSummary } from "./weeklyReport";
 
 const db = supabase as any;
 const safe = async (build: () => any): Promise<any[]> => {
@@ -100,6 +101,41 @@ export const KanbanMetricsPanel = ({ crm, moduloId }: { crm: ReturnType<typeof u
     );
   };
 
+  // Relatório da semana (on-demand — não agendado): resumo dos últimos 7 dias + fila de ações.
+  const exportWeek = async () => {
+    setExporting(true);
+    try {
+      const week = computeWeekSummary(events as StageEvent[], stages, nowIso());
+      const nba = (crm.nbaItems ?? [])
+        .filter((i) => ["esfriando", "follow_up_48h", "deal_parado", "deal_fechando"].includes(i.tipo))
+        .slice(0, 25);
+      await exportTablePdf({
+        title: "Relatório da semana",
+        subtitle: `Últimos 7 dias · gerado em ${format(new Date(), "dd/MM/yyyy HH:mm")}`,
+        filename: `relatorio-semana-${format(new Date(), "yyyy-MM-dd")}.pdf`,
+        sections: [
+          { heading: "Semana (últimos 7 dias)", head: [["Indicador", "Valor"]], body: [
+            ["Movimentos no funil", String(week.movimentos)],
+            ["Ganhos", String(week.ganhos)],
+            ["Perdidos", String(week.perdidos)],
+          ] },
+          { heading: "Movimentos por etapa", head: [["Etapa", "Movimentos"]], body: week.porEtapa.length ? week.porEtapa.map((p) => [p.title, String(p.count)]) : [["—", "—"]] },
+          { heading: "Ações sugeridas (fila NBA)", head: [["Cliente", "Ação"]], body: nba.length ? nba.map((i) => [i.customerName, i.titulo]) : [["—", "Nada pendente ✓"]] },
+          { heading: "Funil (geral)", head: [["Indicador", "Valor"]], body: [
+            ["Win rate", pct(m.winRate)],
+            ["Ciclo médio (ganhos)", days(m.avgCycleDays)],
+            ["Gargalo", m.bottleneck ? `${m.bottleneck.title} (${days(m.bottleneck.avgDays)})` : "—"],
+          ] },
+        ],
+      });
+      toast({ title: "Relatório da semana gerado" });
+    } catch (e: any) {
+      toast({ title: "Falha ao exportar", description: e?.message, variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
@@ -107,6 +143,7 @@ export const KanbanMetricsPanel = ({ crm, moduloId }: { crm: ReturnType<typeof u
           Tempo por etapa, win rate e ciclo são <b>incrementais</b> — enchem conforme os deals se movem (a contagem por etapa vale desde já).
         </p>
         <div className="flex items-center gap-1.5 shrink-0">
+          <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={exportWeek} disabled={exporting}><CalendarDays className="h-3.5 w-3.5" />Semana</Button>
           <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={exportSheet}><Sheet className="h-3.5 w-3.5" />CSV</Button>
           <Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={exportPdf} disabled={exporting}><FileDown className="h-3.5 w-3.5" />{exporting ? "Gerando..." : "PDF"}</Button>
         </div>
