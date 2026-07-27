@@ -23,6 +23,7 @@ import { DealKanban } from "@/components/ems/crm/DealKanban";
 import { StageManager } from "@/components/ems/crm/StageManager";
 import { KanbanMetricsPanel } from "@/components/ems/crm/KanbanMetricsPanel";
 import { useCrmStages } from "@/components/ems/crm/useCrmStages";
+import { useCrmRealtime } from "@/components/ems/crm/useCrmRealtime";
 import { ContactsTab } from "@/components/ems/crm/ContactsTab";
 import { OFERTA_LABEL, TREND_LABEL, type CustomerScore, type Trend } from "@/components/ems/crm/crmScores";
 import { buildCustomer360, diasSemContato, type CustomerSpine, type Customer360 } from "@/components/ems/crm/crm360";
@@ -61,6 +62,7 @@ const TAB_META: Record<string, { title: string; sub: string }> = {
 
 const Crm = () => {
   const crm = useCrm();
+  useCrmRealtime();
   const { selectedCompanyId } = useCompany();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedId, setSelectedId] = useState<string | null>(searchParams.get("client"));
