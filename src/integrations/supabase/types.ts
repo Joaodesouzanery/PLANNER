@@ -365,6 +365,50 @@ export type Database = {
           },
         ]
       }
+      board_attention_state: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          id: string
+          item_key: string
+          note: string | null
+          snooze_until: string | null
+          state: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          item_key: string
+          note?: string | null
+          snooze_until?: string | null
+          state?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          item_key?: string
+          note?: string | null
+          snooze_until?: string | null
+          state?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_attention_state_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       board_backup_logs: {
         Row: {
           backup_date: string
