@@ -143,6 +143,11 @@ const Crm = () => {
             <ContactsTab crm={crm} onSelectCustomer={selectCustomer} />
           </TabsContent>
 
+          <TabsContent value="quadros" className="mt-0">
+            <Suspense fallback={<LazyFallback />}><ContactBoards crm={crm} /></Suspense>
+          </TabsContent>
+
+
           <TabsContent value="prospeccao" className="mt-0">
             <Suspense fallback={<LazyFallback />}><Prospecting /></Suspense>
           </TabsContent>
