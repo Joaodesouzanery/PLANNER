@@ -1,0 +1,9 @@
+dist
+coverage
+node_modules
+bun.lockb
+bun.lock
+package-lock.json
+supabase/migrations
+src/integrations/supabase/types.ts
+*.md
