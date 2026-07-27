@@ -39,6 +39,26 @@ export interface AtivosMetrics {
   bestCopy: GroupStat | null;
 }
 
+// Loop fechado: deals originados por cada ativo (ativo_origem_id) → quantos, quantos ganhos, R$ influenciado.
+export interface AtivoDealStat { deals: number; ganhos: number; valorInfluenciado: number }
+export const dealsPerAtivo = (
+  deals: { ativo_origem_id?: string | null; status_outcome?: string | null; value?: number | null }[],
+): Map<string, AtivoDealStat> => {
+  const map = new Map<string, AtivoDealStat>();
+  for (const d of deals) {
+    const id = d.ativo_origem_id;
+    if (!id) continue;
+    const cur = map.get(id) ?? { deals: 0, ganhos: 0, valorInfluenciado: 0 };
+    cur.deals += 1;
+    if (d.status_outcome === "won") {
+      cur.ganhos += 1;
+      cur.valorInfluenciado += Number(d.value) || 0;
+    }
+    map.set(id, cur);
+  }
+  return map;
+};
+
 const groupBy = (
   ativos: CrmAtivo[],
   keyFn: (a: CrmAtivo) => string | null,

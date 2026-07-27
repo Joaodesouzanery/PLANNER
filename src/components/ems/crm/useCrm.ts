@@ -41,7 +41,7 @@ export const useCrm = () => {
       const [spine, contacts, deals, routines, interactions, meta, txns, onbSteps, onbTracking, tasks, projects] = await Promise.all([
         safe(() => db.from("finance_clientes").select("*").order("nome")),
         safe(() => co(db.from("contacts").select("id,name,customer_id,pipeline_stage,email,phone,company"))),
-        safe(() => co(db.from("project_opportunities").select("id,title,value,stage,probability,expected_close_date,status_outcome,close_reason,customer_id,contact_id,project_id,company_id,modulo_id"))),
+        safe(() => co(db.from("project_opportunities").select("id,title,value,stage,probability,expected_close_date,status_outcome,close_reason,customer_id,contact_id,project_id,company_id,modulo_id,ativo_origem_id"))),
         safe(() => db.from("routine_clients").select("id,name,customer_id,status")),
         safe(() => db.from("contact_interactions").select("id,contact_id,type,description,date")),
         safe(() => db.from("commercial_contact_meta").select("contact_id,next_action_date,next_action_description")),
@@ -320,7 +320,7 @@ export const useCrm = () => {
 
   // Cria um deal já ligado ao cliente (e opcionalmente ao contato) — molde de Projects.saveOpportunity, mas com customer_id.
   const createDeal = useMutation({
-    mutationFn: async (d: { customerId: string; title: string; value?: string | number | null; stage?: string; probability?: string | number | null; expected_close_date?: string | null; contactId?: string | null; moduloId?: string | null }) => {
+    mutationFn: async (d: { customerId: string; title: string; value?: string | number | null; stage?: string; probability?: string | number | null; expected_close_date?: string | null; contactId?: string | null; moduloId?: string | null; ativoOrigemId?: string | null }) => {
       const { error } = await db.from("project_opportunities").insert({
         title: d.title.trim(),
         value: d.value ? Number(d.value) : null,
@@ -330,6 +330,7 @@ export const useCrm = () => {
         customer_id: d.customerId,
         contact_id: d.contactId || null,
         modulo_id: d.moduloId || null,
+        ativo_origem_id: d.ativoOrigemId || null,
         project_id: null,
         company_id: scoped ? selectedCompanyId : null,
       });

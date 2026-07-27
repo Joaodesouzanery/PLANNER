@@ -14,7 +14,7 @@ export interface CustomerSpine {
   tier?: string | null;
 }
 export interface CrmContact { id: string; name: string; customer_id?: string | null; pipeline_stage?: string | null; email?: string | null; phone?: string | null; company?: string | null }
-export interface CrmDeal { id: string; title: string; value?: number | null; stage?: string | null; probability?: number | null; expected_close_date?: string | null; customer_id?: string | null; project_id?: string | null; status_outcome?: string | null; close_reason?: string | null; company_id?: string | null; modulo_id?: string | null }
+export interface CrmDeal { id: string; title: string; value?: number | null; stage?: string | null; probability?: number | null; expected_close_date?: string | null; customer_id?: string | null; project_id?: string | null; status_outcome?: string | null; close_reason?: string | null; company_id?: string | null; modulo_id?: string | null; ativo_origem_id?: string | null }
 export interface CrmRoutine { id: string; name: string; customer_id?: string | null; status?: string | null }
 export interface CrmInteraction { id: string; contact_id: string; type: string; description: string; date: string }
 

@@ -19,7 +19,10 @@ import { exportTablePdf, captureChart, exportCsv } from "@/lib/exportPdf";
 import { useCrmAtivos } from "./useCrmAtivos";
 import { useCrmModulos } from "./useCrmModulos";
 import { ModuloFilter } from "./ModuloFilter";
-import { computeAtivosMetrics, ATIVO_TIPO_LABEL, ATIVO_TIPOS, type CrmAtivo, type AtivoTipo } from "./crmAtivos";
+import { computeAtivosMetrics, dealsPerAtivo, ATIVO_TIPO_LABEL, ATIVO_TIPOS, type CrmAtivo, type AtivoTipo } from "./crmAtivos";
+import type { useCrm } from "./useCrm";
+
+const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
 const tipoLabel = (t: AtivoTipo) => ATIVO_TIPO_LABEL[t] || t;
 const tipoStyle: Record<AtivoTipo, string> = {
@@ -40,9 +43,11 @@ const Tile = ({ icon: Icon, label, value, tone }: { icon: typeof Trophy; label: 
 const tooltipStyle = { background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 };
 
 /** Painel de ativos: mede conversão (leads) por ângulo de dor / variante de copy / tipo / módulo, por produto. */
-export const AtivosPanel = () => {
+export const AtivosPanel = ({ crm }: { crm?: ReturnType<typeof useCrm> }) => {
   const { ativos, saveAtivo, deleteAtivo } = useCrmAtivos();
   const { modulos } = useCrmModulos();
+  // Loop fechado: deals/ganhos/R$ influenciado originados por cada ativo (ativo_origem_id).
+  const dealStats = useMemo(() => dealsPerAtivo((crm?.deals ?? []) as any[]), [crm?.deals]);
   const [moduloId, setModuloId] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<CrmAtivo> & { id?: string }>(emptyForm);
   const [dialog, setDialog] = useState(false);
@@ -155,6 +160,14 @@ export const AtivosPanel = () => {
                 </p>
               </div>
               <span className="font-mono text-emerald-400 shrink-0">{a.leads_gerados} leads</span>
+              {(() => {
+                const st = a.id ? dealStats.get(a.id) : undefined;
+                return st ? (
+                  <span className="hidden shrink-0 text-[10px] text-muted-foreground sm:block" title="deals originados por este ativo">
+                    {st.deals}d · {st.ganhos}✓{st.valorInfluenciado > 0 ? ` · ${brl(st.valorInfluenciado)}` : ""}
+                  </span>
+                ) : null;
+              })()}
               <div className="flex gap-0.5 shrink-0">
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openForm(a)}><Pencil className="h-3 w-3" /></Button>
                 <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setDel({ open: true, id: a.id, titulo: a.titulo })}><Trash2 className="h-3 w-3" /></Button>

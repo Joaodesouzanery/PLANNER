@@ -12,6 +12,9 @@ export interface CrmStage {
   is_offtrack: boolean; // Perdido / Em nutrição — fora da esteira principal
 }
 
+// Motivos de perda estruturados (dropdown obrigatório ao mover o deal pra uma etapa "perdido").
+export const LOSS_REASONS = ["Preço", "Timing", "Sem dor", "Sem orçamento", "Concorrente", "Sumiu", "Outro"];
+
 export const STAGE_COLOR_OPTIONS: { key: string; label: string; cls: string }[] = [
   { key: "slate", label: "Ardósia", cls: "from-slate-500/15 border-slate-500/30" },
   { key: "blue", label: "Azul", cls: "from-blue-500/15 border-blue-500/30" },

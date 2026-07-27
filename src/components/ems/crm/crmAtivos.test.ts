@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { computeAtivosMetrics, type CrmAtivo } from "./crmAtivos";
+import { computeAtivosMetrics, dealsPerAtivo, type CrmAtivo } from "./crmAtivos";
 
 const a = (o: Partial<CrmAtivo>): CrmAtivo => ({
   modulo_id: null, tipo: "post", titulo: "x", angulo_de_dor: null, variante_de_copy: null,
@@ -44,5 +44,22 @@ describe("crmAtivos — computeAtivosMetrics", () => {
     assert.equal(m1.porAngulo.length, 0); // ângulo null não entra
     assert.equal(m1.porCopy.length, 0); // copy "" não entra
     assert.equal(m1.totalLeads, 4);
+  });
+});
+
+describe("crmAtivos — dealsPerAtivo", () => {
+  it("conta deals, ganhos e R$ influenciado por ativo de origem", () => {
+    const map = dealsPerAtivo([
+      { ativo_origem_id: "at1", status_outcome: "won", value: 1000 },
+      { ativo_origem_id: "at1", status_outcome: null, value: 500 },
+      { ativo_origem_id: "at2", status_outcome: "won", value: 300 },
+      { ativo_origem_id: null, status_outcome: "won", value: 999 }, // sem origem → ignora
+    ]);
+    assert.equal(map.get("at1")!.deals, 2);
+    assert.equal(map.get("at1")!.ganhos, 1);
+    assert.equal(map.get("at1")!.valorInfluenciado, 1000); // só o ganho conta valor
+    assert.equal(map.get("at2")!.ganhos, 1);
+    assert.equal(map.has("at2"), true);
+    assert.equal(map.size, 2);
   });
 });

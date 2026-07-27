@@ -29,6 +29,7 @@ import { RotinaSemanaPanel } from "@/components/ems/crm/RotinaSemanaPanel";
 import { KanbanMetricsPanel } from "@/components/ems/crm/KanbanMetricsPanel";
 import { useCrmStages } from "@/components/ems/crm/useCrmStages";
 import { useCrmModulos } from "@/components/ems/crm/useCrmModulos";
+import { useCrmAtivos } from "@/components/ems/crm/useCrmAtivos";
 import { useCrmRealtime } from "@/components/ems/crm/useCrmRealtime";
 import { ContactsTab } from "@/components/ems/crm/ContactsTab";
 import { OFERTA_LABEL, TREND_LABEL, type CustomerScore, type Trend } from "@/components/ems/crm/crmScores";
@@ -187,7 +188,7 @@ const Crm = () => {
           </TabsContent>
 
           <TabsContent value="ativos" className="mt-0">
-            <AtivosPanel />
+            <AtivosPanel crm={crm} />
           </TabsContent>
 
           <TabsContent value="expansao" className="mt-0">
@@ -302,13 +303,14 @@ const CustomerDetail = ({ c360, companyId, crm }: { c360: Customer360; companyId
   const onTrackStages = funnelStages.filter((x) => !x.is_offtrack);
   const firstStageKey = onTrackStages[0]?.key || "lista";
   const { modulos } = useCrmModulos();
+  const { ativos } = useCrmAtivos();
   const [naDate, setNaDate] = useState(s.next_action_date || "");
   const [naDesc, setNaDesc] = useState(s.next_action_desc || "");
   const [intContact, setIntContact] = useState(c360.contatos[0]?.id || "");
   const [intType, setIntType] = useState("call");
   const [intDesc, setIntDesc] = useState("");
   const [showDeal, setShowDeal] = useState(false);
-  const [deal, setDeal] = useState({ title: "", value: "", probability: "50", stage: firstStageKey, expected_close_date: "", contactId: "", moduloId: "" });
+  const [deal, setDeal] = useState({ title: "", value: "", probability: "50", stage: firstStageKey, expected_close_date: "", contactId: "", moduloId: "", ativoOrigemId: "" });
   const [showTask, setShowTask] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskContact, setTaskContact] = useState(c360.contatos[0]?.id || "");
@@ -329,8 +331,8 @@ const CustomerDetail = ({ c360, companyId, crm }: { c360: Customer360; companyId
   const submitDeal = () => {
     if (!deal.title.trim()) return;
     crm.createDeal.mutate(
-      { customerId: s.id, title: deal.title, value: deal.value, probability: deal.probability, stage: deal.stage || firstStageKey, expected_close_date: deal.expected_close_date || null, contactId: deal.contactId || null, moduloId: deal.moduloId || null },
-      { onSuccess: () => { setShowDeal(false); setDeal({ title: "", value: "", probability: "50", stage: firstStageKey, expected_close_date: "", contactId: "", moduloId: "" }); } },
+      { customerId: s.id, title: deal.title, value: deal.value, probability: deal.probability, stage: deal.stage || firstStageKey, expected_close_date: deal.expected_close_date || null, contactId: deal.contactId || null, moduloId: deal.moduloId || null, ativoOrigemId: deal.ativoOrigemId || null },
+      { onSuccess: () => { setShowDeal(false); setDeal({ title: "", value: "", probability: "50", stage: firstStageKey, expected_close_date: "", contactId: "", moduloId: "", ativoOrigemId: "" }); } },
     );
   };
 
@@ -458,6 +460,9 @@ const CustomerDetail = ({ c360, companyId, crm }: { c360: Customer360; companyId
               )}
               {modulos.length > 0 && (
                 <Select value={deal.moduloId || "none"} onValueChange={(v) => setDeal({ ...deal, moduloId: v === "none" ? "" : v })}><SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Módulo (opcional)" /></SelectTrigger><SelectContent><SelectItem value="none">Sem módulo</SelectItem>{modulos.map((m) => <SelectItem key={m.id} value={m.id!}>{m.name}</SelectItem>)}</SelectContent></Select>
+              )}
+              {ativos.length > 0 && (
+                <Select value={deal.ativoOrigemId || "none"} onValueChange={(v) => setDeal({ ...deal, ativoOrigemId: v === "none" ? "" : v })}><SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Ativo de origem (opcional)" /></SelectTrigger><SelectContent><SelectItem value="none">Sem ativo de origem</SelectItem>{ativos.map((a) => <SelectItem key={a.id} value={a.id!}>{a.titulo}</SelectItem>)}</SelectContent></Select>
               )}
               <div className="flex justify-end gap-2">
                 <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowDeal(false)}>Cancelar</Button>

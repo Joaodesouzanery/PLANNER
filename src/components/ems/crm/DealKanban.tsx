@@ -1,15 +1,17 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DragDropContext, Draggable, Droppable, type DropResult } from "@hello-pangea/dnd";
 import { GripVertical, Undo2, Redo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { useCrm } from "./useCrm";
 import { useCrmStages } from "./useCrmStages";
-import { resolveStageKey } from "./crmStages";
+import { resolveStageKey, LOSS_REASONS } from "./crmStages";
 import { useCrmModulos } from "./useCrmModulos";
-import { useKanbanHistory } from "./useKanbanHistory";
+import { useKanbanHistory, type MoveRec } from "./useKanbanHistory";
 import { KanbanHistoryDrawer } from "./KanbanHistoryDrawer";
 
 // Kanban de DEALS: arrasta project_opportunities por etapa (o drag-and-drop moderno, ancorado no dinheiro).
@@ -24,6 +26,9 @@ export const DealKanban = ({ crm, onSelect, moduloId }: { crm: ReturnType<typeof
   const history = useKanbanHistory(crm);
   const nameById = useMemo(() => new Map(crm.customers.map((c) => [c.id, c.nome])), [crm.customers]);
   const moduloById = useMemo(() => new Map(modulos.map((m) => [m.id!, m])), [modulos]);
+  // Ao soltar em etapa "perdido", captura o motivo antes de aplicar o move.
+  const [lostRec, setLostRec] = useState<MoveRec | null>(null);
+  const [reason, setReason] = useState(LOSS_REASONS[0]);
 
   const byStage = useMemo(() => {
     const map: Record<string, any[]> = {};
@@ -44,12 +49,15 @@ export const DealKanban = ({ crm, onSelect, moduloId }: { crm: ReturnType<typeof
     const fromOutcome = stages.find((s) => s.key === from)?.outcome ?? null;
     const toOutcome = stages.find((s) => s.key === to)?.outcome ?? null;
     const deal = (crm.deals as any[]).find((d) => d.id === r.draggableId);
-    history.moveDeal({
+    const rec: MoveRec = {
       dealId: r.draggableId,
       companyId: deal?.company_id ?? null,
       from: { stage: from, outcome: fromOutcome },
       to: { stage: to, outcome: toOutcome },
-    });
+    };
+    // Perdido → pergunta o motivo antes de aplicar; senão aplica direto.
+    if (toOutcome === "lost") { setReason(LOSS_REASONS[0]); setLostRec(rec); }
+    else history.moveDeal(rec);
   };
 
   // Atalhos de teclado (Ctrl/Cmd+Z desfaz, +Shift refaz, Ctrl+Y refaz) — ignora quando digitando em campos.
@@ -137,6 +145,21 @@ export const DealKanban = ({ crm, onSelect, moduloId }: { crm: ReturnType<typeof
         })}
         </div>
       </DragDropContext>
+
+      <Dialog open={!!lostRec} onOpenChange={(o) => !o && setLostRec(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Motivo da perda</DialogTitle></DialogHeader>
+          <p className="text-xs text-muted-foreground">Por que este deal foi perdido? Alimenta o gráfico de motivos nas Métricas.</p>
+          <Select value={reason} onValueChange={setReason}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>{LOSS_REASONS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
+          </Select>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLostRec(null)}>Cancelar</Button>
+            <Button className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => { if (lostRec) history.moveDeal({ ...lostRec, closeReason: reason }); setLostRec(null); }}>Marcar como perdido</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
