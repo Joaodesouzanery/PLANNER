@@ -8,6 +8,7 @@ import { RotinasPanel } from "@/components/ems/rotinas/RotinasPanel";
 import { AutomationRulesPanel } from "@/components/ems/AutomationRulesPanel";
 import { DocumentLibrary } from "@/components/ems/DocumentLibrary";
 import { BoardHealthScoreBar } from "@/components/ems/conselho/BoardHealthScoreBar";
+import { WeeklyReviewWizard } from "@/components/ems/conselho/WeeklyReviewWizard";
 import { BoardCockpitPanel } from "@/components/ems/conselho/BoardCockpitPanel";
 import { RiskMatrixPanel } from "@/components/ems/conselho/RiskMatrixPanel";
 import { ObligationsCalendarPanel } from "@/components/ems/conselho/ObligationsCalendarPanel";
@@ -51,11 +52,14 @@ const BoardCouncil = () => {
   return (
     <EMSLayout>
       <div className="space-y-5">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <ShieldCheck className="h-6 w-6 text-primary" /> Conselho de Administração
-          </h1>
-          <p className="text-sm text-muted-foreground">Visão 360 do negócio: governança, riscos, obrigações, estratégia, memória executiva, contabilidade, stack e backup.</p>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <ShieldCheck className="h-6 w-6 text-primary" /> Conselho de Administração
+            </h1>
+            <p className="text-sm text-muted-foreground">Visão 360 do negócio: governança, riscos, obrigações, estratégia, memória executiva, contabilidade, stack e backup.</p>
+          </div>
+          <WeeklyReviewWizard />
         </div>
 
         <BoardHealthScoreBar />

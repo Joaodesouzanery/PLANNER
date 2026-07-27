@@ -35,12 +35,13 @@ import { DueDateNotifications } from "./DueDateNotifications";
 import { ColorPicker } from "./ColorPicker";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { CompanySelector } from "./CompanySelector";
+import { AttentionBadge } from "./conselho/AttentionBadge";
 import { supabase } from "@/integrations/supabase/client";
 import hiveLogo from "@/assets/hive-logo.jpg";
 
 interface MenuGroup {
   label: string;
-  items: { icon: React.ElementType; label: string; path: string }[];
+  items: { icon: React.ElementType; label: string; path: string; badge?: "attention" }[];
 }
 
 const menuGroups: MenuGroup[] = [
@@ -49,7 +50,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { icon: LayoutDashboard, label: "Dashboard", path: "/ems" },
       { icon: Flag, label: "Daily Report", path: "/ems/daily-report" },
-      { icon: Landmark, label: "Conselho", path: "/ems/conselho" },
+      { icon: Landmark, label: "Conselho", path: "/ems/conselho", badge: "attention" },
       { icon: FolderKanban, label: "Projetos", path: "/ems/projects" },
       { icon: ListTodo, label: "Tarefas", path: "/ems/tasks" },
       { icon: TrendingUp, label: "Finanças", path: "/ems/finance" },
@@ -196,6 +197,7 @@ export const AppSidebar = ({ mobileOpen, onMobileClose }: AppSidebarProps) => {
                         </motion.span>
                       )}
                     </AnimatePresence>
+                    {item.badge === "attention" && <AttentionBadge collapsed={collapsed && !isMobile} />}
                   </Link>
                 );
               })}

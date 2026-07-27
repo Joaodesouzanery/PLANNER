@@ -12,9 +12,12 @@ const db = supabase as any;
 const todayIso = () => format(new Date(), "yyyy-MM-dd");
 const dayDiff = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 
-/** Executa uma query com fallback: qualquer erro (tabela/coluna ausente) → []. */
-const safe = async (build: () => any): Promise<any[]> => {
-  try { const { data, error } = await build(); if (error) return []; return data ?? []; } catch { return []; }
+/** Executa uma query rastreando disponibilidade: `ok=false` em erro (RLS/tabela ausente) → o Conselho
+ *  mostra "dados parciais" em vez de fingir silenciosamente que não há nada. */
+interface SourceResult { rows: any[]; ok: boolean }
+const safe = async (build: () => any): Promise<SourceResult> => {
+  try { const { data, error } = await build(); if (error) return { rows: [], ok: false }; return { rows: data ?? [], ok: true }; }
+  catch { return { rows: [], ok: false }; }
 };
 
 /**
@@ -36,7 +39,7 @@ export const useBoardAttention = () => {
   const board = useQuery({
     queryKey: ["board-attention", selectedCompanyId],
     staleTime: 120_000,
-    queryFn: async (): Promise<AttentionInputs> => {
+    queryFn: async (): Promise<AttentionInputs & { sources: Record<string, boolean> }> => {
       const today = todayIso();
       const co = (q: any) => (scoped ? q.eq("company_id", selectedCompanyId) : q);
 
@@ -52,30 +55,36 @@ export const useBoardAttention = () => {
         safe(() => db.from("finance_clientes").select("id,nome,health").eq("health", "red")),
       ]);
 
+      const sources: Record<string, boolean> = {
+        obrigacoes: obr.ok, riscos: ris.ok, documentos: doc.ok, tarefas: tsk.ok,
+        projetos: prj.ok, comercial: com.ok, inbox: inb.ok, capacidade: cap.ok, clientes: cli.ok,
+      };
+
       return {
-        obrigacoes: obr
+        sources,
+        obrigacoes: obr.rows
           .filter((o) => o.next_due_date && dayDiff(today, o.next_due_date) <= (o.lead_days ?? 7))
           .map((o) => ({ id: o.id, titulo: o.title, dueDate: o.next_due_date, overdue: o.next_due_date < today })),
-        riscos: ris
+        riscos: ris.rows
           .filter((r) => Number(r.score) >= 16)
           .map((r) => ({ id: r.id, titulo: r.title, score: Number(r.score), semRevisao: !r.review_date || r.review_date < today })),
-        documentos: doc
+        documentos: doc.rows
           .map((d) => ({ id: d.id, titulo: d.file_name, expiraEmDias: dayDiff(today, d.expires_at) }))
           .filter((d) => d.expiraEmDias >= 0 && d.expiraEmDias <= 30),
-        tarefas: tsk
+        tarefas: tsk.rows
           .filter((t) => t.due_date < today)
           .map((t) => ({ id: t.id, titulo: t.title, atrasadaDias: dayDiff(t.due_date, today) })),
-        projetos: prj
+        projetos: prj.rows
           .filter((p) => p.due_date < today)
           .map((p) => ({ id: p.id, titulo: p.title, atrasadoDias: dayDiff(p.due_date, today) })),
-        comercial: com
+        comercial: com.rows
           .filter((c) => c.next_action_date && c.next_action_date < today)
           .map((c) => ({ id: c.id, titulo: c.contact?.name || c.next_action_description || "Contato", paradoDias: dayDiff(c.next_action_date, today) })),
-        inboxBacklog: inb.length,
-        capacidade: cap
+        inboxBacklog: inb.rows.length,
+        capacidade: cap.rows
           .filter((c) => Number(c.workload) >= 4 || Number(c.workload) >= 80)
           .map((c) => ({ id: c.id, nome: "Você", sobrecarga: true })),
-        clientesRisco: cli.map((c) => ({ id: c.id, nome: c.nome })),
+        clientesRisco: cli.rows.map((c) => ({ id: c.id, nome: c.nome })),
       };
     },
   });
@@ -89,5 +98,8 @@ export const useBoardAttention = () => {
     [financeAlerts, rotCounts, board.data],
   );
 
-  return { items, counts: attentionCounts(items), isLoading: board.isLoading };
+  const sources = (board.data?.sources ?? {}) as Record<string, boolean>;
+  const failedSources = Object.entries(sources).filter(([, ok]) => !ok).map(([k]) => k);
+
+  return { items, counts: attentionCounts(items), isLoading: board.isLoading, sources, failedSources };
 };

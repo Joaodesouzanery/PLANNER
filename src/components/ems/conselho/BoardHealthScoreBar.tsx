@@ -1,8 +1,52 @@
-import { Activity } from "lucide-react";
-import { PolarAngleAxis, RadialBar, RadialBarChart, ResponsiveContainer } from "recharts";
+import { useState } from "react";
+import { Activity, ChevronDown, TrendingDown } from "lucide-react";
+import { CartesianGrid, Legend, Line, LineChart, PolarAngleAxis, RadialBar, RadialBarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { tooltipStyle } from "@/components/ems/finance/useFinanceData";
 import { useBoardHealth, type HealthStatus } from "@/hooks/useBoardHealth";
+import { useBoardHealthTrend } from "./useBoardHealthTrend";
+import { biggestDrop, overallDelta, type HealthSnapshot } from "./boardHealthTrend";
+
+const TREND_LINES = [
+  { key: "overall_score", label: "Geral", color: "hsl(var(--primary))", w: 2.5 },
+  { key: "financial_score", label: "Financeiro", color: "hsl(142 76% 36%)", w: 1.5 },
+  { key: "risk_score", label: "Risco", color: "hsl(0 84% 60%)", w: 1.5 },
+  { key: "governance_score", label: "Governança", color: "hsl(262 83% 58%)", w: 1.5 },
+  { key: "compliance_score", label: "Compliance", color: "hsl(38 92% 50%)", w: 1.5 },
+];
+
+const HealthTrend = ({ trend }: { trend: HealthSnapshot[] }) => {
+  if (trend.length < 2) return <p className="mt-2 text-[11px] text-muted-foreground">Coletando histórico — a tendência aparece após alguns dias de snapshots diários.</p>;
+  const prev = trend[trend.length - 2];
+  const curr = trend[trend.length - 1];
+  const drop = biggestDrop(prev, curr);
+  const delta = overallDelta(prev, curr);
+  return (
+    <div className="mt-2 space-y-2">
+      <div className="h-[170px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={trend} margin={{ top: 6, right: 8, left: -8, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 4" stroke="hsl(var(--border))" />
+            <XAxis dataKey="snapshot_date" tickFormatter={(d: string) => d.slice(5)} stroke="hsl(var(--muted-foreground))" fontSize={10} />
+            <YAxis domain={[0, 100]} stroke="hsl(var(--muted-foreground))" fontSize={10} width={28} />
+            <Tooltip contentStyle={tooltipStyle} />
+            <Legend wrapperStyle={{ fontSize: 10 }} />
+            {TREND_LINES.map((l) => <Line key={l.key} type="monotone" dataKey={l.key} name={l.label} stroke={l.color} strokeWidth={l.w} dot={false} />)}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <div className={cn("rounded-lg border p-2 text-xs flex items-start gap-2", delta < 0 ? "border-red-500/30 bg-red-500/5 text-red-300" : "border-emerald-500/20 bg-emerald-500/5 text-emerald-300")}>
+        <TrendingDown className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+        <span>
+          {delta < 0
+            ? <>Score geral caiu <b>{Math.abs(delta)}</b> pts desde o snapshot anterior.{drop ? <> Quem mais puxou pra baixo: <b>{drop.label}</b> ({drop.from}→{drop.to}).</> : ""}</>
+            : delta > 0 ? <>Score geral subiu <b>{delta}</b> pts. ✓</> : <>Score estável desde o último snapshot.</>}
+        </span>
+      </div>
+    </div>
+  );
+};
 
 const STATUS_HEX: Record<HealthStatus, string> = {
   green: "hsl(142 76% 36%)",
@@ -19,6 +63,8 @@ const overallLabel = (status: HealthStatus) =>
 
 export const BoardHealthScoreBar = () => {
   const { overall, status, dimensions, isLoading } = useBoardHealth();
+  const trend = useBoardHealthTrend();
+  const [showTrend, setShowTrend] = useState(false);
   const gaugeData = [{ name: "saude", value: overall, fill: STATUS_HEX[status] }];
 
   return (
@@ -67,6 +113,13 @@ export const BoardHealthScoreBar = () => {
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="mt-3 border-t border-border/40 pt-2">
+          <button onClick={() => setShowTrend((v) => !v)} className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground">
+            {showTrend ? "ocultar tendência" : "ver tendência"} <ChevronDown className={cn("h-3 w-3 transition-transform", showTrend && "rotate-180")} />
+          </button>
+          {showTrend && <HealthTrend trend={trend} />}
         </div>
       </CardContent>
     </Card>
