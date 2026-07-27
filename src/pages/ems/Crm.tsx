@@ -94,6 +94,13 @@ const Crm = () => {
 
   const mrrTotal = rows.reduce((a, r) => a + r.rev.ongoing, 0);
 
+  // Segmento dominante da carteira → sugere o template de funil ao gerar o quadro.
+  const dominantSegment = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const c of crm.customers) { const seg = (c.segment || "").toLowerCase().trim(); if (seg) counts[seg] = (counts[seg] || 0) + 1; }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
+  }, [crm.customers]);
+
   return (
     <EMSLayout>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
@@ -163,7 +170,7 @@ const Crm = () => {
 
           <TabsContent value="oportunidades" className="mt-0 space-y-3">
             <div className="flex items-center justify-end gap-2">
-              {oppView === "kanban" && <StageManager />}
+              {oppView === "kanban" && <StageManager suggestedSegment={dominantSegment} />}
               <div className="inline-flex rounded-lg border border-border/50 bg-card/60 p-0.5">
                 <Button size="sm" variant={oppView === "fila" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setOppView("fila")}><List className="h-3.5 w-3.5" />Fila</Button>
                 <Button size="sm" variant={oppView === "kanban" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setOppView("kanban")}><LayoutGrid className="h-3.5 w-3.5" />Kanban</Button>

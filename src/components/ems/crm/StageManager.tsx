@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Settings2, Plus, Pencil, Trash2, ChevronUp, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCrmStages } from "./useCrmStages";
-import { STAGE_COLOR_OPTIONS, DEFAULT_STAGE_COLOR, DEFAULT_STAGES, type CrmStage } from "./crmStages";
+import { STAGE_COLOR_OPTIONS, DEFAULT_STAGE_COLOR, type CrmStage } from "./crmStages";
+import { STAGE_TEMPLATES, suggestTemplate } from "./crmStageTemplates";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -20,13 +21,17 @@ const OUTCOME_OPTS = [
   { v: "lost", label: "Perdido (lost)" },
 ];
 
-/** Gerencia as colunas do funil de deals (crm_stages): gerar quadro, add/renomear/reordenar/recolorir/excluir. */
-export const StageManager = () => {
+/** Gerencia as colunas do funil de deals (crm_stages): gerar quadro por template, add/renomear/reordenar/recolorir/excluir. */
+export const StageManager = ({ suggestedSegment }: { suggestedSegment?: string | null }) => {
   const { stages, rows, isDefault, saveStage, deleteStage, reorderStages, seedStages } = useCrmStages();
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<{ open: boolean; stage?: CrmStage }>({ open: false });
   const [form, setForm] = useState({ title: "", color: DEFAULT_STAGE_COLOR, outcome: "none", is_offtrack: false });
   const [del, setDel] = useState<{ open: boolean; id?: string; title?: string }>({ open: false });
+  // Template escolhido pra gerar o quadro; null = segue a sugestão por segmento (que pode carregar depois).
+  const suggested = suggestTemplate(suggestedSegment);
+  const [templateKey, setTemplateKey] = useState<string | null>(null);
+  const activeTemplate = STAGE_TEMPLATES.find((t) => t.key === (templateKey ?? suggested.key)) ?? suggested;
 
   const openEdit = (s?: CrmStage) => {
     setForm(
@@ -71,11 +76,24 @@ export const StageManager = () => {
           </DialogHeader>
 
           {isDefault && (
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 text-xs flex items-center justify-between gap-2">
-              <span>Você está no funil padrão. Gere o quadro pra personalizar as colunas por empresa.</span>
-              <Button size="sm" onClick={() => seedStages.mutate(DEFAULT_STAGES)} disabled={seedStages.isPending}>
-                Gerar quadro
-              </Button>
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 space-y-2">
+              <p className="text-xs">Funil padrão. Gere um quadro a partir de um template pra personalizar as colunas por empresa.</p>
+              <div className="flex items-center gap-2">
+                <Select value={activeTemplate.key} onValueChange={setTemplateKey}>
+                  <SelectTrigger className="h-8 text-xs flex-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {STAGE_TEMPLATES.map((t) => (
+                      <SelectItem key={t.key} value={t.key}>
+                        {t.name}{t.key === suggested.key && suggestedSegment ? " · sugerido" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button size="sm" onClick={() => seedStages.mutate(activeTemplate.stages)} disabled={seedStages.isPending}>
+                  Gerar quadro
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">{activeTemplate.description}</p>
             </div>
           )}
 
