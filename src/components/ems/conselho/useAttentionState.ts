@@ -29,17 +29,30 @@ export const useAttentionState = () => {
   const { selectedCompanyId } = useCompany();
   const scoped = selectedCompanyId && selectedCompanyId !== "all";
 
-  // Escopo por empresa (espelha a gravação): específica → eq; "all" → company_id null.
-  // Sem isso, um item de key estática (ex.: alerta financeiro) resolvido numa empresa vazaria pras outras.
-  const co = (q: any) => (scoped ? q.eq("company_id", selectedCompanyId) : q.is("company_id", null));
+  // Leitura (o que esconder): na visão de uma empresa, considera o estado DELA + os estados globais
+  // (company_id null, feitos na visão "todas") — assim um item resolvido no agregado também some dentro
+  // da empresa. NÃO inclui OUTRAS empresas, então keys estáticas (ex.: alerta financeiro) não vazam entre elas.
+  const readScope = (q: any) =>
+    scoped ? q.or(`company_id.eq.${selectedCompanyId},company_id.is.null`) : q.is("company_id", null);
+  // Gravação (qual linha fazer upsert): a linha exata do escopo atual — empresa X, ou null na visão "todas".
+  const writeScope = (q: any) => (scoped ? q.eq("company_id", selectedCompanyId) : q.is("company_id", null));
 
   const query = useQuery({
     queryKey: ["board-attention-state", selectedCompanyId],
     staleTime: 30_000,
-    queryFn: async () => safe(() => co(db.from("board_attention_state").select("item_key,state,snooze_until"))),
+    queryFn: async () => safe(() => readScope(db.from("board_attention_state").select("item_key,state,snooze_until"))),
   });
   const rows = (query.data ?? []) as AttentionRow[];
-  const byKey = useMemo(() => new Map(rows.map((r) => [r.item_key, r])), [rows]);
+  // Pode haver 2 linhas por key (a da empresa + a global). Guarda a que ESCONDE, se houver — assim
+  // isHidden acerta e o feed rotula o estado certo (resolvido/adiado/soneca).
+  const byKey = useMemo(() => {
+    const map = new Map<string, AttentionRow>();
+    rows.forEach((r) => {
+      const cur = map.get(r.item_key);
+      if (!cur || (!isHiddenState(cur) && isHiddenState(r))) map.set(r.item_key, r);
+    });
+    return map;
+  }, [rows]);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["board-attention-state"] });
 
@@ -48,7 +61,7 @@ export const useAttentionState = () => {
     mutationFn: async ({ key, state, snooze_until }: { key: string; state: AttentionState; snooze_until?: string | null }) => {
       const patch: any = { state };
       if (snooze_until !== undefined) patch.snooze_until = snooze_until;
-      const { data: existing } = await co(db.from("board_attention_state").select("id").eq("item_key", key)).limit(1);
+      const { data: existing } = await writeScope(db.from("board_attention_state").select("id").eq("item_key", key)).limit(1);
       if (existing && existing[0]?.id) {
         const { error } = await db.from("board_attention_state").update(patch).eq("id", existing[0].id);
         if (error) throw error;
