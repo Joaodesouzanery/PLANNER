@@ -71,12 +71,12 @@ export const useAttentionState = () => {
     mutationFn: async ({ key, state, snooze_until }: { key: string; state: AttentionState; snooze_until?: string | null }) => {
       const patch: any = { state };
       if (snooze_until !== undefined) patch.snooze_until = snooze_until;
-      const { data: existing } = await writeScope(db.from("board_attention_state").select("id").eq("item_key", key)).limit(1);
+      const { data: existing } = await writeScope(db.from("board_attention_state").select("id").eq("item_key", key), key).limit(1);
       if (existing && existing[0]?.id) {
         const { error } = await db.from("board_attention_state").update(patch).eq("id", existing[0].id);
         if (error) throw error;
       } else {
-        const { error } = await db.from("board_attention_state").insert({ item_key: key, company_id: scoped ? selectedCompanyId : null, ...patch });
+        const { error } = await db.from("board_attention_state").insert({ item_key: key, company_id: scoped && !isUniqueKey(key) ? selectedCompanyId : null, ...patch });
         if (error) throw error;
       }
     },
