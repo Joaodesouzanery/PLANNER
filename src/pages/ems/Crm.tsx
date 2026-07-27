@@ -20,6 +20,8 @@ import { OnboardingPanel } from "@/components/ems/crm/OnboardingPanel";
 import { ServicingTower } from "@/components/ems/crm/ServicingTower";
 import { CustomerKanban } from "@/components/ems/crm/CustomerKanban";
 import { DealKanban } from "@/components/ems/crm/DealKanban";
+import { StageManager } from "@/components/ems/crm/StageManager";
+import { useCrmStages } from "@/components/ems/crm/useCrmStages";
 import { ContactsTab } from "@/components/ems/crm/ContactsTab";
 import { OFERTA_LABEL, TREND_LABEL, type CustomerScore, type Trend } from "@/components/ems/crm/crmScores";
 import { buildCustomer360, diasSemContato, type CustomerSpine, type Customer360 } from "@/components/ems/crm/crm360";
@@ -160,7 +162,8 @@ const Crm = () => {
           </TabsContent>
 
           <TabsContent value="oportunidades" className="mt-0 space-y-3">
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-end gap-2">
+              {oppView === "kanban" && <StageManager />}
               <div className="inline-flex rounded-lg border border-border/50 bg-card/60 p-0.5">
                 <Button size="sm" variant={oppView === "fila" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setOppView("fila")}><List className="h-3.5 w-3.5" />Fila</Button>
                 <Button size="sm" variant={oppView === "kanban" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setOppView("kanban")}><LayoutGrid className="h-3.5 w-3.5" />Kanban</Button>
@@ -234,10 +237,6 @@ const Crm = () => {
   );
 };
 
-const DEAL_STAGES = [
-  { id: "nova", label: "Nova" }, { id: "qualificacao", label: "Qualificação" }, { id: "proposta", label: "Proposta" },
-  { id: "negociacao", label: "Negociação" },
-];
 const TREND_ICON: Record<Trend, ReactNode> = {
   up: <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />,
   down: <TrendingDown className="h-3.5 w-3.5 text-red-400" />,
@@ -256,13 +255,17 @@ const CustomerDetail = ({ c360, companyId, crm }: { c360: Customer360; companyId
   const s = c360.spine;
   const sc = crm.scores.get(s.id) as CustomerScore | undefined;
   const onb = crm.onboardingByCustomer.get(s.id);
+  // Etapas reais do funil (crm_stages) — deal novo nasce numa etapa DB-backed, não no vocabulário legado.
+  const { stages: funnelStages } = useCrmStages();
+  const onTrackStages = funnelStages.filter((x) => !x.is_offtrack);
+  const firstStageKey = onTrackStages[0]?.key || "lista";
   const [naDate, setNaDate] = useState(s.next_action_date || "");
   const [naDesc, setNaDesc] = useState(s.next_action_desc || "");
   const [intContact, setIntContact] = useState(c360.contatos[0]?.id || "");
   const [intType, setIntType] = useState("call");
   const [intDesc, setIntDesc] = useState("");
   const [showDeal, setShowDeal] = useState(false);
-  const [deal, setDeal] = useState({ title: "", value: "", probability: "50", stage: "nova", expected_close_date: "", contactId: "" });
+  const [deal, setDeal] = useState({ title: "", value: "", probability: "50", stage: firstStageKey, expected_close_date: "", contactId: "" });
   const [showTask, setShowTask] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskContact, setTaskContact] = useState(c360.contatos[0]?.id || "");
@@ -283,8 +286,8 @@ const CustomerDetail = ({ c360, companyId, crm }: { c360: Customer360; companyId
   const submitDeal = () => {
     if (!deal.title.trim()) return;
     crm.createDeal.mutate(
-      { customerId: s.id, title: deal.title, value: deal.value, probability: deal.probability, stage: deal.stage, expected_close_date: deal.expected_close_date || null, contactId: deal.contactId || null },
-      { onSuccess: () => { setShowDeal(false); setDeal({ title: "", value: "", probability: "50", stage: "nova", expected_close_date: "", contactId: "" }); } },
+      { customerId: s.id, title: deal.title, value: deal.value, probability: deal.probability, stage: deal.stage || firstStageKey, expected_close_date: deal.expected_close_date || null, contactId: deal.contactId || null },
+      { onSuccess: () => { setShowDeal(false); setDeal({ title: "", value: "", probability: "50", stage: firstStageKey, expected_close_date: "", contactId: "" }); } },
     );
   };
 
@@ -404,7 +407,7 @@ const CustomerDetail = ({ c360, companyId, crm }: { c360: Customer360; companyId
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <Input value={deal.value} onChange={(e) => setDeal({ ...deal, value: e.target.value })} placeholder="Valor R$" inputMode="numeric" className="h-8 text-xs" />
                 <Input value={deal.probability} onChange={(e) => setDeal({ ...deal, probability: e.target.value })} placeholder="Prob %" inputMode="numeric" className="h-8 text-xs" />
-                <Select value={deal.stage} onValueChange={(v) => setDeal({ ...deal, stage: v })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{DEAL_STAGES.map((x) => <SelectItem key={x.id} value={x.id}>{x.label}</SelectItem>)}</SelectContent></Select>
+                <Select value={deal.stage} onValueChange={(v) => setDeal({ ...deal, stage: v })}><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger><SelectContent>{onTrackStages.map((x) => <SelectItem key={x.key} value={x.key}>{x.title}</SelectItem>)}</SelectContent></Select>
                 <Input type="date" value={deal.expected_close_date} onChange={(e) => setDeal({ ...deal, expected_close_date: e.target.value })} className="h-8 text-xs" />
               </div>
               {c360.contatos.length > 0 && (
