@@ -1791,6 +1791,101 @@ export type Database = {
           },
         ]
       }
+      crm_board_contacts: {
+        Row: {
+          board_id: string
+          contact_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          order_index: number
+          stage_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          board_id: string
+          contact_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_index?: number
+          stage_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          board_id?: string
+          contact_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_index?: number
+          stage_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_board_contacts_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "crm_boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_board_contacts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_boards: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          id: string
+          name: string
+          order_index: number
+          segment: string | null
+          stages: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          order_index?: number
+          segment?: string | null
+          stages?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          order_index?: number
+          segment?: string | null
+          stages?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_boards_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_campaign_recipients: {
         Row: {
           campaign_id: string
