@@ -34,7 +34,7 @@ const BAR = "hsl(var(--primary))";
 const TIME_BAR = "hsl(38 92% 50%)";
 
 /** Painel de métricas do kanban de deals por empresa: lead/etapa, tempo/etapa, gargalo, win rate, ciclo, perdas. */
-export const KanbanMetricsPanel = ({ crm }: { crm: ReturnType<typeof useCrm> }) => {
+export const KanbanMetricsPanel = ({ crm, moduloId }: { crm: ReturnType<typeof useCrm>; moduloId?: string | null }) => {
   const { selectedCompanyId } = useCompany();
   const scoped = selectedCompanyId && selectedCompanyId !== "all";
   const co = (q: any) => (scoped ? q.eq("company_id", selectedCompanyId) : q);
@@ -51,8 +51,8 @@ export const KanbanMetricsPanel = ({ crm }: { crm: ReturnType<typeof useCrm> }) 
   });
 
   const m = useMemo(
-    () => computeKanbanMetrics(crm.deals as unknown as DealLite[], events as StageEvent[], stages, nowIso()),
-    [crm.deals, events, stages],
+    () => computeKanbanMetrics(crm.deals as unknown as DealLite[], events as StageEvent[], stages, nowIso(), moduloId),
+    [crm.deals, events, stages, moduloId],
   );
 
   const leadsData = m.perStage.map((s) => ({ name: s.title, count: s.count, offtrack: s.offtrack }));

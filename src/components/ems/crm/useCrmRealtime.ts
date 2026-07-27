@@ -6,7 +6,7 @@ import { useCompany } from "@/contexts/CompanyContext";
 // Realtime do CRM por empresa: sincroniza etapas e contagens do kanban entre abas e usuários da mesma
 // empresa. Canal company-scoped (como o finance-live) — cada empresa tem seu próprio canal. Um postgres_change
 // em qualquer tabela do CRM invalida as queries; o refetch reflete o move em todas as abas conectadas.
-const CRM_TABLES = ["project_opportunities", "crm_stages", "crm_stage_events", "contacts", "finance_clientes"];
+const CRM_TABLES = ["project_opportunities", "crm_stages", "crm_stage_events", "crm_modulos", "contacts", "finance_clientes"];
 
 export const useCrmRealtime = () => {
   const queryClient = useQueryClient();
@@ -17,6 +17,7 @@ export const useCrmRealtime = () => {
       queryClient.invalidateQueries({ queryKey: ["crm"] });
       queryClient.invalidateQueries({ queryKey: ["crm-stages"] });
       queryClient.invalidateQueries({ queryKey: ["crm-stage-events"] });
+      queryClient.invalidateQueries({ queryKey: ["crm-modulos"] });
     };
     let channel = supabase.channel(`crm-live-${selectedCompanyId}`);
     for (const table of CRM_TABLES) {

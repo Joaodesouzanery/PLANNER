@@ -15,6 +15,7 @@ export interface DealLite {
   status_outcome: string | null;
   value: number | null;
   close_reason?: string | null;
+  modulo_id?: string | null;
 }
 
 export interface StageMetric {
@@ -54,11 +55,16 @@ const groupByDeal = (events: StageEvent[]): Map<string, StageEvent[]> => {
 };
 
 export const computeKanbanMetrics = (
-  deals: DealLite[],
-  events: StageEvent[],
+  allDeals: DealLite[],
+  allEvents: StageEvent[],
   stages: CrmStage[],
   nowIso: string,
+  moduloId?: string | null,
 ): KanbanMetrics => {
+  // Funil por módulo: filtra deals pelo módulo e os eventos pelos deals resultantes.
+  const deals = moduloId ? allDeals.filter((d) => d.modulo_id === moduloId) : allDeals;
+  const dealIds = new Set(deals.map((d) => d.id));
+  const events = moduloId ? allEvents.filter((e) => dealIds.has(e.deal_id)) : allEvents;
   const now = Date.parse(nowIso);
   const byDeal = groupByDeal(events);
 

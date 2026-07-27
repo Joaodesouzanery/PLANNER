@@ -78,4 +78,26 @@ describe("kanbanMetrics — computeKanbanMetrics", () => {
     assert.equal(m.avgCycleDays, null);
     assert.equal(m.bottleneck, null);
   });
+
+  it("filtra por módulo (funil por módulo) — deals e eventos", () => {
+    const deals: DealLite[] = [
+      { id: "a", stage: "documento", status_outcome: null, value: 100, modulo_id: "m1" },
+      { id: "b", stage: "lista", status_outcome: null, value: 50, modulo_id: "m2" },
+      { id: "c", stage: "cliente", status_outcome: "won", value: 200, modulo_id: "m1" },
+    ];
+    const events: StageEvent[] = [
+      { deal_id: "a", from_stage: null, to_stage: "documento", moved_at: "2026-07-14T00:00:00.000Z" }, // m1
+      { deal_id: "b", from_stage: null, to_stage: "lista", moved_at: "2026-07-14T00:00:00.000Z" }, // m2
+    ];
+    const m1 = computeKanbanMetrics(deals, events, stages, NOW, "m1");
+    assert.equal(m1.totalDeals, 2); // a + c
+    assert.equal(m1.totalValue, 300);
+    assert.equal(m1.wonCount, 1);
+    // documento (do m1) tem evento; lista (do m2) foi filtrado fora
+    assert.equal(m1.perStage.find((s) => s.key === "documento")!.avgDays, 6); // 14/07 → NOW 20/07
+    assert.equal(m1.perStage.find((s) => s.key === "lista")!.avgDays, null);
+
+    const all = computeKanbanMetrics(deals, events, stages, NOW);
+    assert.equal(all.totalDeals, 3);
+  });
 });

@@ -1,4 +1,4 @@
-import { useMemo, useState, lazy, Suspense, type ReactNode } from "react";
+import { useEffect, useMemo, useState, lazy, Suspense, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Users, Search, Phone, Mail, Briefcase, Repeat, CalendarClock, Plus, Target, LayoutGrid, List, BarChart3, TrendingUp, TrendingDown, Minus, Gift, ShieldCheck, HeartPulse, ChevronLeft } from "lucide-react";
@@ -21,8 +21,11 @@ import { ServicingTower } from "@/components/ems/crm/ServicingTower";
 import { CustomerKanban } from "@/components/ems/crm/CustomerKanban";
 import { DealKanban } from "@/components/ems/crm/DealKanban";
 import { StageManager } from "@/components/ems/crm/StageManager";
+import { ModuloManager } from "@/components/ems/crm/ModuloManager";
+import { ModuloFilter } from "@/components/ems/crm/ModuloFilter";
 import { KanbanMetricsPanel } from "@/components/ems/crm/KanbanMetricsPanel";
 import { useCrmStages } from "@/components/ems/crm/useCrmStages";
+import { useCrmModulos } from "@/components/ems/crm/useCrmModulos";
 import { useCrmRealtime } from "@/components/ems/crm/useCrmRealtime";
 import { ContactsTab } from "@/components/ems/crm/ContactsTab";
 import { OFERTA_LABEL, TREND_LABEL, type CustomerScore, type Trend } from "@/components/ems/crm/crmScores";
@@ -71,6 +74,9 @@ const Crm = () => {
   const [healthFilter, setHealthFilter] = useState("all");
   const [view, setView] = useState<"list" | "kanban">(searchParams.get("view") === "kanban" ? "kanban" : "list");
   const [oppView, setOppView] = useState<"fila" | "kanban" | "metricas">("fila");
+  const [moduloId, setModuloId] = useState<string | null>(null);
+  // Reseta o filtro de módulo ao trocar de produto/empresa (o módulo é company-scoped; senão o funil esvazia).
+  useEffect(() => setModuloId(null), [selectedCompanyId]);
   const [mapView, setMapView] = useState<"mapa" | "rotas">("mapa");
   const syncParam = (key: string, val: string | null) => setSearchParams((prev) => { const p = new URLSearchParams(prev); if (val) p.set(key, val); else p.delete(key); return p; }, { replace: true });
   const changeTab = (v: string) => { setTab(v); syncParam("tab", v === "clientes" ? null : v); };
@@ -172,7 +178,9 @@ const Crm = () => {
           </TabsContent>
 
           <TabsContent value="oportunidades" className="mt-0 space-y-3">
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {oppView !== "fila" && <ModuloFilter value={moduloId} onChange={setModuloId} />}
+              {oppView === "kanban" && <ModuloManager />}
               {oppView === "kanban" && <StageManager suggestedSegment={dominantSegment} />}
               <div className="inline-flex rounded-lg border border-border/50 bg-card/60 p-0.5">
                 <Button size="sm" variant={oppView === "fila" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setOppView("fila")}><List className="h-3.5 w-3.5" />Fila</Button>
@@ -180,8 +188,8 @@ const Crm = () => {
                 <Button size="sm" variant={oppView === "metricas" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setOppView("metricas")}><BarChart3 className="h-3.5 w-3.5" />Métricas</Button>
               </div>
             </div>
-            {oppView === "kanban" ? <DealKanban crm={crm} onSelect={selectCustomer} />
-              : oppView === "metricas" ? <KanbanMetricsPanel crm={crm} />
+            {oppView === "kanban" ? <DealKanban crm={crm} onSelect={selectCustomer} moduloId={moduloId} />
+              : oppView === "metricas" ? <KanbanMetricsPanel crm={crm} moduloId={moduloId} />
               : <OpportunityInbox crm={crm} onSelectCustomer={selectCustomer} />}
           </TabsContent>
 
@@ -272,13 +280,14 @@ const CustomerDetail = ({ c360, companyId, crm }: { c360: Customer360; companyId
   const { stages: funnelStages } = useCrmStages();
   const onTrackStages = funnelStages.filter((x) => !x.is_offtrack);
   const firstStageKey = onTrackStages[0]?.key || "lista";
+  const { modulos } = useCrmModulos();
   const [naDate, setNaDate] = useState(s.next_action_date || "");
   const [naDesc, setNaDesc] = useState(s.next_action_desc || "");
   const [intContact, setIntContact] = useState(c360.contatos[0]?.id || "");
   const [intType, setIntType] = useState("call");
   const [intDesc, setIntDesc] = useState("");
   const [showDeal, setShowDeal] = useState(false);
-  const [deal, setDeal] = useState({ title: "", value: "", probability: "50", stage: firstStageKey, expected_close_date: "", contactId: "" });
+  const [deal, setDeal] = useState({ title: "", value: "", probability: "50", stage: firstStageKey, expected_close_date: "", contactId: "", moduloId: "" });
   const [showTask, setShowTask] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskContact, setTaskContact] = useState(c360.contatos[0]?.id || "");
@@ -299,8 +308,8 @@ const CustomerDetail = ({ c360, companyId, crm }: { c360: Customer360; companyId
   const submitDeal = () => {
     if (!deal.title.trim()) return;
     crm.createDeal.mutate(
-      { customerId: s.id, title: deal.title, value: deal.value, probability: deal.probability, stage: deal.stage || firstStageKey, expected_close_date: deal.expected_close_date || null, contactId: deal.contactId || null },
-      { onSuccess: () => { setShowDeal(false); setDeal({ title: "", value: "", probability: "50", stage: firstStageKey, expected_close_date: "", contactId: "" }); } },
+      { customerId: s.id, title: deal.title, value: deal.value, probability: deal.probability, stage: deal.stage || firstStageKey, expected_close_date: deal.expected_close_date || null, contactId: deal.contactId || null, moduloId: deal.moduloId || null },
+      { onSuccess: () => { setShowDeal(false); setDeal({ title: "", value: "", probability: "50", stage: firstStageKey, expected_close_date: "", contactId: "", moduloId: "" }); } },
     );
   };
 
@@ -425,6 +434,9 @@ const CustomerDetail = ({ c360, companyId, crm }: { c360: Customer360; companyId
               </div>
               {c360.contatos.length > 0 && (
                 <Select value={deal.contactId || "none"} onValueChange={(v) => setDeal({ ...deal, contactId: v === "none" ? "" : v })}><SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Contato (opcional)" /></SelectTrigger><SelectContent><SelectItem value="none">Sem contato</SelectItem>{c360.contatos.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select>
+              )}
+              {modulos.length > 0 && (
+                <Select value={deal.moduloId || "none"} onValueChange={(v) => setDeal({ ...deal, moduloId: v === "none" ? "" : v })}><SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Módulo (opcional)" /></SelectTrigger><SelectContent><SelectItem value="none">Sem módulo</SelectItem>{modulos.map((m) => <SelectItem key={m.id} value={m.id!}>{m.name}</SelectItem>)}</SelectContent></Select>
               )}
               <div className="flex justify-end gap-2">
                 <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setShowDeal(false)}>Cancelar</Button>

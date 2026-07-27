@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { useCrm } from "./useCrm";
 import { useCrmStages } from "./useCrmStages";
 import { resolveStageKey } from "./crmStages";
+import { useCrmModulos } from "./useCrmModulos";
 import { useKanbanHistory } from "./useKanbanHistory";
 import { KanbanHistoryDrawer } from "./KanbanHistoryDrawer";
 
@@ -17,21 +18,24 @@ import { KanbanHistoryDrawer } from "./KanbanHistoryDrawer";
 // Cada move passa pelo useKanbanHistory: grava o evento (crm_stage_events) e habilita undo/redo.
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
-export const DealKanban = ({ crm, onSelect }: { crm: ReturnType<typeof useCrm>; onSelect: (id: string) => void }) => {
+export const DealKanban = ({ crm, onSelect, moduloId }: { crm: ReturnType<typeof useCrm>; onSelect: (id: string) => void; moduloId?: string | null }) => {
   const { stages } = useCrmStages();
+  const { modulos } = useCrmModulos();
   const history = useKanbanHistory(crm);
   const nameById = useMemo(() => new Map(crm.customers.map((c) => [c.id, c.nome])), [crm.customers]);
+  const moduloById = useMemo(() => new Map(modulos.map((m) => [m.id!, m])), [modulos]);
 
   const byStage = useMemo(() => {
     const map: Record<string, any[]> = {};
     stages.forEach((s) => { map[s.key] = []; });
     const fallback = stages[0]?.key;
     for (const d of crm.deals as any[]) {
+      if (moduloId && d.modulo_id !== moduloId) continue; // funil por módulo
       const key = resolveStageKey(d.stage, stages);
       (map[key] ?? map[fallback]).push(d);
     }
     return map;
-  }, [crm.deals, stages]);
+  }, [crm.deals, stages, moduloId]);
 
   const onDragEnd = (r: DropResult) => {
     if (!r.destination || r.source.droppableId === r.destination.droppableId) return;
@@ -111,6 +115,9 @@ export const DealKanban = ({ crm, onSelect }: { crm: ReturnType<typeof useCrm>; 
                                 <p className="font-semibold text-sm truncate flex-1">{d.title}</p>
                               </div>
                               <p className="text-[11px] text-muted-foreground pl-5 truncate">{(d.customer_id && nameById.get(d.customer_id)) || "Sem cliente"}</p>
+                              {d.modulo_id && moduloById.get(d.modulo_id) && (
+                                <span className="ml-5 inline-block max-w-full truncate rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary">{moduloById.get(d.modulo_id)!.name}</span>
+                              )}
                               <div className="flex items-center justify-between text-[11px] pl-5">
                                 <span className="font-mono">{brl(Number(d.value) || 0)}</span>
                                 {d.probability != null && <span className="text-muted-foreground">{d.probability}%</span>}
