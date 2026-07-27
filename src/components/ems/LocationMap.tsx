@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, useMap, useMapEvents } from "react-leaflet";
-import { AlertTriangle, BookOpen, BriefcaseBusiness, ExternalLink, FolderKanban, ListTodo, MapPin as MapPinIcon } from "lucide-react";
+import { AlertTriangle, ExternalLink } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import { cn } from "@/lib/utils";
 
@@ -25,22 +25,26 @@ interface LocationMapProps {
   fallbackZoom?: number;
 }
 
-interface VisiblePin extends MapPin {
-  x: number;
-  y: number;
-}
-
 const TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png";
 const LABELS_URL = "https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png";
 const TILE_ATTR =
   '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 
-const PIN_STYLE: Record<MapPinKind, { bg: string; fg: string; borderRadius: string; Icon: typeof MapPinIcon; label: string }> = {
-  project: { bg: "hsl(262 78% 58%)", fg: "white", borderRadius: "10px", Icon: FolderKanban, label: "Projeto" },
-  client: { bg: "hsl(158 64% 42%)", fg: "white", borderRadius: "999px", Icon: BriefcaseBusiness, label: "Cliente" },
-  task: { bg: "hsl(37 92% 50%)", fg: "hsl(24 10% 10%)", borderRadius: "8px", Icon: ListTodo, label: "Tarefa" },
-  faculdade: { bg: "hsl(190 86% 45%)", fg: "white", borderRadius: "8px", Icon: BookOpen, label: "Faculdade" },
-  default: { bg: "hsl(28 100% 55%)", fg: "white", borderRadius: "999px", Icon: MapPinIcon, label: "Ponto" },
+// Marcador uniforme: cada tipo é uma COR (sem ícones lucide amontoados). Aglomerados viram uma bolha
+// com a contagem que abre (spiderfy) no clique — resolve os pins "colados" na mesma coordenada.
+const KIND_COLOR: Record<MapPinKind, string> = {
+  project: "hsl(262 78% 58%)",
+  client: "hsl(158 64% 42%)",
+  task: "hsl(37 92% 50%)",
+  faculdade: "hsl(190 86% 45%)",
+  default: "hsl(28 100% 55%)",
+};
+const KIND_LABEL: Record<MapPinKind, string> = {
+  project: "Projeto",
+  client: "Cliente",
+  task: "Tarefa",
+  faculdade: "Faculdade",
+  default: "Ponto",
 };
 
 const PROJECT_COLORS = [
@@ -52,125 +56,74 @@ const PROJECT_COLORS = [
   "hsl(12 76% 56%)",
 ];
 
-const KIND_ORDER: Record<MapPinKind, number> = {
-  project: 0,
-  client: 1,
-  task: 2,
-  faculdade: 3,
-  default: 4,
-};
+const KIND_ORDER: Record<MapPinKind, number> = { project: 0, client: 1, task: 2, faculdade: 3, default: 4 };
 
 const sortPins = (pins: MapPin[]) =>
   [...pins].sort((a, b) => {
-    const kindA = a.kind || "default";
-    const kindB = b.kind || "default";
-    const kindDiff = KIND_ORDER[kindA] - KIND_ORDER[kindB];
-    if (kindDiff !== 0) return kindDiff;
+    const diff = KIND_ORDER[a.kind || "default"] - KIND_ORDER[b.kind || "default"];
+    if (diff !== 0) return diff;
     return `${a.name}-${a.id}`.localeCompare(`${b.name}-${b.id}`);
   });
 
 const hashString = (value: string) =>
   value.split("").reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) | 0, 0);
-
 const projectColor = (id: string) => PROJECT_COLORS[Math.abs(hashString(id)) % PROJECT_COLORS.length];
-
-const compactOffset = (index: number, count: number) => {
-  if (count === 1) return { x: 0, y: 0 };
-
-  const columns = count <= 4 ? 2 : count <= 9 ? 3 : 4;
-  const gap = 34;
-  const rows = Math.ceil(count / columns);
-  const row = Math.floor(index / columns);
-  const col = index % columns;
-  const itemsInRow = row === rows - 1 ? count - row * columns : columns;
-  const rowWidth = (itemsInRow - 1) * gap;
-  const gridHeight = (rows - 1) * gap;
-
-  return {
-    x: Math.round(col * gap - rowWidth / 2),
-    y: Math.round(row * gap - gridHeight / 2),
-  };
-};
+const dotColor = (pin: MapPin) => (pin.kind === "project" ? projectColor(pin.id) : KIND_COLOR[pin.kind || "default"]);
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+const dist = (ax: number, ay: number, bx: number, by: number) => Math.hypot(ax - bx, ay - by);
 
-const PinGlyph = ({ id, kind = "default", alert = false }: { id: string; kind?: MapPinKind; alert?: boolean }) => {
-  const style = PIN_STYLE[kind] || PIN_STYLE.default;
-  const Icon = style.Icon;
-  const background = kind === "project" ? projectColor(id) : style.bg;
-  const projectInitial = kind === "project" ? id.replace(/^p-/, "").slice(0, 1).toUpperCase() : null;
-
-  return (
-    <div
-      className="relative grid h-[30px] w-[30px] place-items-center border-2 border-white/90 shadow-[0_10px_24px_rgba(0,0,0,.35)]"
-      style={{
-        color: style.fg,
-        background,
-        borderRadius: style.borderRadius,
-        boxShadow: alert
-          ? "0 0 0 5px rgba(239,68,68,.22), 0 10px 24px rgba(0,0,0,.35)"
-          : "0 10px 24px rgba(0,0,0,.35)",
-      }}
-    >
-      <Icon size={15} strokeWidth={2.4} />
-      {projectInitial && (
-        <span className="absolute -right-1 -top-1 grid h-3.5 min-w-3.5 place-items-center rounded-full border border-white/80 bg-background px-0.5 text-[8px] font-bold text-foreground">
-          {projectInitial}
-        </span>
-      )}
-      {alert && <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white bg-red-500" />}
-    </div>
-  );
+// Posições em círculo (spiderfy) ao redor do centroide; o raio cresce com a contagem.
+const spiderPositions = (cx: number, cy: number, n: number) => {
+  const R = 24 + Math.min(n, 14) * 6;
+  return Array.from({ length: n }, (_, i) => {
+    const a = (2 * Math.PI * i) / n - Math.PI / 2;
+    return { x: cx + Math.cos(a) * R, y: cy + Math.sin(a) * R };
+  });
 };
+
+interface Cluster {
+  id: string;
+  x: number;
+  y: number;
+  items: MapPin[];
+}
 
 const MapPinOverlay = ({ pins }: { pins: MapPin[] }) => {
   const map = useMap();
   const rafRef = useRef<number>();
-  const [visiblePins, setVisiblePins] = useState<VisiblePin[]>([]);
+  const [clusters, setClusters] = useState<Cluster[]>([]);
+  const [openClusterId, setOpenClusterId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
+  // Agrupa por proximidade em PIXELS no zoom atual. Pins na mesma coordenada caem num grupo só (bolha);
+  // ao aproximar o zoom, pins vizinhos se afastam em pixels e o grupo se desfaz naturalmente.
   const calculatePins = useCallback(() => {
-    const sortedPins = sortPins(pins);
     const size = map.getSize();
-    const projected = sortedPins.map((pin) => ({
-      pin,
-      point: map.latLngToContainerPoint([pin.lat, pin.lng]),
-    }));
-    const groups: Array<{ items: typeof projected; x: number; y: number }> = [];
-    const threshold = 44;
-
-    projected.forEach((item) => {
-      const group = groups.find((candidate) => {
-        const dx = candidate.x - item.point.x;
-        const dy = candidate.y - item.point.y;
-        return Math.sqrt(dx * dx + dy * dy) <= threshold;
-      });
-
-      if (!group) {
-        groups.push({ items: [item], x: item.point.x, y: item.point.y });
-        return;
+    const threshold = 42;
+    const margin = 20;
+    const groups: { items: MapPin[]; sx: number; sy: number; x: number; y: number }[] = [];
+    sortPins(pins).forEach((pin) => {
+      const pt = map.latLngToContainerPoint([pin.lat, pin.lng]);
+      const g = groups.find((c) => dist(c.x, c.y, pt.x, pt.y) <= threshold);
+      if (!g) {
+        groups.push({ items: [pin], sx: pt.x, sy: pt.y, x: pt.x, y: pt.y });
+      } else {
+        g.items.push(pin);
+        g.sx += pt.x;
+        g.sy += pt.y;
+        g.x = g.sx / g.items.length;
+        g.y = g.sy / g.items.length;
       }
-
-      group.items.push(item);
-      group.x = group.items.reduce((sum, entry) => sum + entry.point.x, 0) / group.items.length;
-      group.y = group.items.reduce((sum, entry) => sum + entry.point.y, 0) / group.items.length;
     });
-
-    const margin = 18;
-    setVisiblePins(
-      groups.flatMap((group) =>
-        group.items.map((item, index) => {
-          const offset = group.items.length > 1 ? compactOffset(index, group.items.length) : { x: 0, y: 0 };
-          const x = clamp(group.x + offset.x, margin, Math.max(margin, size.x - margin));
-          const y = clamp(group.y + offset.y, margin, Math.max(margin, size.y - margin));
-          return {
-            ...item.pin,
-            x,
-            y,
-          };
-        })
-      )
+    setClusters(
+      groups.map((g) => ({
+        id: g.items[0].id,
+        x: clamp(g.x, margin, Math.max(margin, size.x - margin)),
+        y: clamp(g.y, margin, Math.max(margin, size.y - margin)),
+        items: g.items,
+      })),
     );
   }, [map, pins]);
 
@@ -185,6 +138,10 @@ const MapPinOverlay = ({ pins }: { pins: MapPin[] }) => {
     moveend: scheduleUpdate,
     zoomend: scheduleUpdate,
     resize: scheduleUpdate,
+    click: () => {
+      setOpenClusterId(null);
+      setActiveId(null);
+    },
   });
 
   useEffect(() => {
@@ -194,78 +151,135 @@ const MapPinOverlay = ({ pins }: { pins: MapPin[] }) => {
     };
   }, [scheduleUpdate]);
 
+  // Limpa estado morto quando os pins/clusters mudam.
   useEffect(() => {
-    if (activeId && !pins.some((pin) => pin.id === activeId)) setActiveId(null);
-    if (hoveredId && !pins.some((pin) => pin.id === hoveredId)) setHoveredId(null);
-  }, [activeId, hoveredId, pins]);
+    if (activeId && !pins.some((p) => p.id === activeId)) setActiveId(null);
+    if (hoveredId && !pins.some((p) => p.id === hoveredId)) setHoveredId(null);
+    if (openClusterId && !clusters.some((c) => c.id === openClusterId)) setOpenClusterId(null);
+  }, [activeId, hoveredId, openClusterId, pins, clusters]);
 
-  const activePin = visiblePins.find((pin) => pin.id === activeId);
-  const hoveredPin = visiblePins.find((pin) => pin.id === hoveredId && pin.id !== activeId);
-  const detailPin = activePin || hoveredPin;
+  // Monta o que renderizar: singles + membros do cluster aberto (spiderfy) + bolhas + pernas.
+  const size = map.getSize();
+  const markers: { pin: MapPin; x: number; y: number }[] = [];
+  const bubbles: { cl: Cluster; open: boolean; s: number }[] = [];
+  const legs: { x1: number; y1: number; x2: number; y2: number }[] = [];
+  for (const cl of clusters) {
+    if (cl.items.length === 1) {
+      markers.push({ pin: cl.items[0], x: cl.x, y: cl.y });
+      continue;
+    }
+    const open = openClusterId === cl.id;
+    bubbles.push({ cl, open, s: open ? 24 : Math.round(30 + Math.min(cl.items.length, 30) * 0.7) });
+    if (open) {
+      const pos = spiderPositions(cl.x, cl.y, cl.items.length);
+      cl.items.forEach((p, i) => {
+        const x = clamp(pos[i].x, 12, Math.max(12, size.x - 12));
+        const y = clamp(pos[i].y, 12, Math.max(12, size.y - 12));
+        markers.push({ pin: p, x, y });
+        legs.push({ x1: cl.x, y1: cl.y, x2: x, y2: y });
+      });
+    }
+  }
+
+  const detail =
+    markers.find((mk) => mk.pin.id === activeId) ||
+    markers.find((mk) => mk.pin.id === hoveredId && mk.pin.id !== activeId);
 
   return (
     <div className="pointer-events-none absolute inset-0 z-[700]">
-      {visiblePins.map((pin, index) => {
-        const kind = pin.kind || "default";
-        const style = PIN_STYLE[kind] || PIN_STYLE.default;
-        return (
-          <button
-            key={pin.id}
-            type="button"
-            className="pointer-events-auto absolute grid h-[34px] w-[34px] place-items-center outline-none transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-white/80"
-            style={{
-              left: pin.x,
-              top: pin.y,
-              zIndex: 800 + index,
-              transform: "translate(-50%, -50%)",
-            }}
-            aria-label={`${style.label}: ${pin.name}`}
-            onMouseEnter={() => setHoveredId(pin.id)}
-            onMouseLeave={() => setHoveredId((current) => (current === pin.id ? null : current))}
-            onMouseDown={(event) => event.stopPropagation()}
-            onClick={(event) => {
-              event.stopPropagation();
-              setActiveId((current) => (current === pin.id ? null : pin.id));
-            }}
-          >
-            <PinGlyph id={pin.id} kind={kind} alert={pin.alert} />
-          </button>
-        );
-      })}
+      {legs.length > 0 && (
+        <svg className="absolute inset-0 h-full w-full" style={{ zIndex: 750 }}>
+          {legs.map((l, i) => (
+            <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="rgba(255,255,255,.35)" strokeWidth={1.5} strokeDasharray="2 3" />
+          ))}
+        </svg>
+      )}
 
-      {detailPin && (
+      {bubbles.map(({ cl, open, s }) => (
+        <button
+          key={cl.id}
+          type="button"
+          className="pointer-events-auto absolute grid place-items-center rounded-full border-2 border-white/90 font-bold text-white outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-white/80"
+          style={{
+            left: cl.x,
+            top: cl.y,
+            width: s,
+            height: s,
+            transform: "translate(-50%, -50%)",
+            zIndex: open ? 810 : 800,
+            fontSize: open ? 10 : 12,
+            background: open ? "rgba(30,41,59,.72)" : "rgba(30,41,59,.94)",
+            boxShadow: "0 6px 16px rgba(0,0,0,.4)",
+          }}
+          aria-label={`${cl.items.length} pontos agrupados`}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            setActiveId(null);
+            setOpenClusterId((c) => (c === cl.id ? null : cl.id));
+          }}
+        >
+          {cl.items.length}
+        </button>
+      ))}
+
+      {markers.map((mk, index) => (
+        <button
+          key={mk.pin.id}
+          type="button"
+          className="pointer-events-auto absolute grid h-[26px] w-[26px] place-items-center outline-none transition-transform hover:scale-110 focus-visible:ring-2 focus-visible:ring-white/80"
+          style={{ left: mk.x, top: mk.y, zIndex: 820 + index, transform: "translate(-50%, -50%)" }}
+          aria-label={`${KIND_LABEL[mk.pin.kind || "default"]}: ${mk.pin.name}`}
+          onMouseEnter={() => setHoveredId(mk.pin.id)}
+          onMouseLeave={() => setHoveredId((c) => (c === mk.pin.id ? null : c))}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            setActiveId((c) => (c === mk.pin.id ? null : mk.pin.id));
+          }}
+        >
+          <span
+            className="block rounded-full border-2 border-white/90"
+            style={{
+              width: 16,
+              height: 16,
+              background: dotColor(mk.pin),
+              boxShadow: mk.pin.alert
+                ? "0 0 0 4px rgba(239,68,68,.25), 0 4px 10px rgba(0,0,0,.4)"
+                : "0 4px 10px rgba(0,0,0,.4)",
+            }}
+          />
+        </button>
+      ))}
+
+      {detail && (
         <div
           className="pointer-events-auto absolute w-[260px] max-w-[calc(100%-24px)] overflow-hidden rounded-md border border-white/10 bg-popover text-xs text-popover-foreground shadow-xl backdrop-blur animate-in fade-in-0 zoom-in-95"
-          style={{
-            left: detailPin.x,
-            top: detailPin.y - 22,
-            zIndex: 1200,
-            transform: "translate(-50%, -100%)",
-          }}
-          onMouseDown={(event) => event.stopPropagation()}
+          style={{ left: detail.x, top: detail.y - 20, zIndex: 1200, transform: "translate(-50%, -100%)" }}
+          onMouseDown={(e) => e.stopPropagation()}
         >
-          <div className="h-1.5" style={{ background: detailPin.kind === "project" ? projectColor(detailPin.id) : PIN_STYLE[detailPin.kind || "default"]?.bg }} />
+          <div className="h-1.5" style={{ background: dotColor(detail.pin) }} />
           <div className="space-y-2 p-3">
             <div>
               <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                {PIN_STYLE[detailPin.kind || "default"]?.label || "Ponto"}
+                {KIND_LABEL[detail.pin.kind || "default"]}
               </div>
-              <div className="mt-0.5 font-semibold leading-tight text-foreground">{detailPin.name}</div>
-              {detailPin.subtitle && <div className="mt-1 text-[11px] text-muted-foreground">{detailPin.subtitle}</div>}
+              <div className="mt-0.5 font-semibold leading-tight text-foreground">{detail.pin.name}</div>
+              {detail.pin.subtitle && <div className="mt-1 text-[11px] text-muted-foreground">{detail.pin.subtitle}</div>}
             </div>
-            {detailPin.alert && (
+            {detail.pin.alert && (
               <div className="flex items-center gap-1.5 rounded-md bg-red-500/10 px-2 py-1.5 text-[11px] text-red-400">
                 <AlertTriangle className="h-3.5 w-3.5" />
                 Atividades pendentes
               </div>
             )}
-            {detailPin.onClick && (
+            {detail.pin.onClick && (
               <button
                 type="button"
                 className="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  detailPin.onClick?.();
+                onClick={(e) => {
+                  e.stopPropagation();
+                  detail.pin.onClick?.();
                 }}
               >
                 Abrir <ExternalLink className="h-3.5 w-3.5" />
@@ -285,10 +299,7 @@ export const LocationMap = ({
   fallbackCenter = [-15.78, -47.93],
   fallbackZoom = 4,
 }: LocationMapProps) => {
-  const valid = useMemo(
-    () => pins.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)),
-    [pins]
-  );
+  const valid = useMemo(() => pins.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)), [pins]);
 
   const center: [number, number] = useMemo(() => {
     if (!valid.length) return fallbackCenter;
@@ -304,17 +315,11 @@ export const LocationMap = ({
       className={cn(
         "relative overflow-hidden rounded-xl border border-border/40 bg-[hsl(220_14%_13%)] [&_.leaflet-tile]:brightness-[1.16] [&_.leaflet-tile]:contrast-[0.95]",
         "[&_.leaflet-container]:z-0 [&_.leaflet-control-container]:relative [&_.leaflet-control-container]:z-[2] [&_.leaflet-pane]:z-0 [&_.leaflet-top]:z-[3] [&_.leaflet-bottom]:z-[3]",
-        className
+        className,
       )}
       style={{ height }}
     >
-      <MapContainer
-        center={center}
-        zoom={zoom}
-        scrollWheelZoom
-        className="h-full w-full"
-        style={{ background: "hsl(220 14% 13%)" }}
-      >
+      <MapContainer center={center} zoom={zoom} scrollWheelZoom className="h-full w-full" style={{ background: "hsl(220 14% 13%)" }}>
         <TileLayer url={TILE_URL} attribution={TILE_ATTR} />
         <TileLayer url={LABELS_URL} />
         <MapPinOverlay pins={valid} />
