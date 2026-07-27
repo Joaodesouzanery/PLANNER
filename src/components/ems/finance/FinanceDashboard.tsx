@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import FinanceAverages from "./FinanceAverages";
 import { FinanceDre } from "./FinanceDre";
 import { FinanceKpis } from "./FinanceKpis";
+import { FinanceCockpitStrip } from "./FinanceCockpitStrip";
 import { FinanceCfoPanel } from "./FinanceCfoPanel";
 import { FinanceAlertsFeed } from "./FinanceAlertsFeed";
 import { FinanceClientsCard } from "./FinanceClientsCard";
@@ -223,6 +224,7 @@ const FinanceDashboard = () => {
       </div>
 
       <TabsContent value="overview" className="mt-0 space-y-6">
+        <FinanceCockpitStrip />
         <FinanceCfoPanel />
         <FinanceAlertsFeed />
         <Card className="border border-border/50 bg-card/80">
