@@ -29,13 +29,23 @@ export const useAttentionState = () => {
   const { selectedCompanyId } = useCompany();
   const scoped = selectedCompanyId && selectedCompanyId !== "all";
 
-  // Leitura (o que esconder): na visão de uma empresa, considera o estado DELA + os estados globais
-  // (company_id null, feitos na visão "todas") — assim um item resolvido no agregado também some dentro
-  // da empresa. NÃO inclui OUTRAS empresas, então keys estáticas (ex.: alerta financeiro) não vazam entre elas.
+  // Roteamento de escopo POR TIPO de item:
+  // - Itens ÚNICOS (uma obrigação/risco/documento/tarefa/projeto/lead/cliente específico, identificados
+  //   por UUID) são globais: a linha vive sempre com company_id null. Assim, resolver dentro da empresa
+  //   ou na visão "todas" é 100% consistente nos dois sentidos.
+  // - Itens AGREGADOS/estáticos (fin:, rot:, inbox:, cap:) dependem do recorte, então ficam por empresa
+  //   (ou null na visão "todas") — evita que um alerta financeiro de uma empresa suma nas outras.
+  const UNIQUE_PREFIXES = ["obr:", "ris:", "doc:", "tsk:", "prj:", "com:", "cli:"];
+  const isUniqueKey = (key: string) => UNIQUE_PREFIXES.some((p) => key.startsWith(p));
+
+  // Leitura (o que esconder): considera o estado DA empresa + os globais (company_id null), que cobrem
+  // tanto os itens únicos quanto o que foi marcado na visão "todas".
   const readScope = (q: any) =>
     scoped ? q.or(`company_id.eq.${selectedCompanyId},company_id.is.null`) : q.is("company_id", null);
-  // Gravação (qual linha fazer upsert): a linha exata do escopo atual — empresa X, ou null na visão "todas".
-  const writeScope = (q: any) => (scoped ? q.eq("company_id", selectedCompanyId) : q.is("company_id", null));
+  // Gravação: item único → sempre a linha global; agregado → a linha do escopo atual.
+  const writeScope = (q: any, key: string) =>
+    scoped && !isUniqueKey(key) ? q.eq("company_id", selectedCompanyId) : q.is("company_id", null);
+
 
   const query = useQuery({
     queryKey: ["board-attention-state", selectedCompanyId],
@@ -61,12 +71,12 @@ export const useAttentionState = () => {
     mutationFn: async ({ key, state, snooze_until }: { key: string; state: AttentionState; snooze_until?: string | null }) => {
       const patch: any = { state };
       if (snooze_until !== undefined) patch.snooze_until = snooze_until;
-      const { data: existing } = await writeScope(db.from("board_attention_state").select("id").eq("item_key", key)).limit(1);
+      const { data: existing } = await writeScope(db.from("board_attention_state").select("id").eq("item_key", key), key).limit(1);
       if (existing && existing[0]?.id) {
         const { error } = await db.from("board_attention_state").update(patch).eq("id", existing[0].id);
         if (error) throw error;
       } else {
-        const { error } = await db.from("board_attention_state").insert({ item_key: key, company_id: scoped ? selectedCompanyId : null, ...patch });
+        const { error } = await db.from("board_attention_state").insert({ item_key: key, company_id: scoped && !isUniqueKey(key) ? selectedCompanyId : null, ...patch });
         if (error) throw error;
       }
     },

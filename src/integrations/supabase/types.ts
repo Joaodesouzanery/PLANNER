@@ -365,6 +365,50 @@ export type Database = {
           },
         ]
       }
+      board_attention_state: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          id: string
+          item_key: string
+          note: string | null
+          snooze_until: string | null
+          state: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          item_key: string
+          note?: string | null
+          snooze_until?: string | null
+          state?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          item_key?: string
+          note?: string | null
+          snooze_until?: string | null
+          state?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "board_attention_state_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       board_backup_logs: {
         Row: {
           backup_date: string
@@ -1743,6 +1787,101 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_board_contacts: {
+        Row: {
+          board_id: string
+          contact_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          order_index: number
+          stage_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          board_id: string
+          contact_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_index?: number
+          stage_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          board_id?: string
+          contact_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          order_index?: number
+          stage_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_board_contacts_board_id_fkey"
+            columns: ["board_id"]
+            isOneToOne: false
+            referencedRelation: "crm_boards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_board_contacts_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_boards: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          id: string
+          name: string
+          order_index: number
+          segment: string | null
+          stages: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          order_index?: number
+          segment?: string | null
+          stages?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          order_index?: number
+          segment?: string | null
+          stages?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_boards_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]

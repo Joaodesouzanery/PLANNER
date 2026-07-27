@@ -26,6 +26,7 @@ import { buildCustomer360, diasSemContato, type CustomerSpine, type Customer360 
 
 const Prospecting = lazy(() => import("@/components/ems/commercial/Prospecting"));
 const CampaignManager = lazy(() => import("@/components/ems/crm/CampaignManager"));
+const ContactBoards = lazy(() => import("@/components/ems/crm/ContactBoards"));
 const VisitRoutesContent = lazy(() => import("@/pages/ems/VisitRoutes").then((m) => ({ default: m.VisitRoutesContent })));
 const AgileImplementation = lazy(() => import("@/pages/ems/AgileImplementation"));
 const LazyFallback = () => <div className="p-8 text-center text-sm text-muted-foreground">Carregando…</div>;
@@ -45,6 +46,7 @@ const dateBR = (d?: string | null) => (d ? new Date(`${d.slice(0, 10)}T12:00:00`
 
 const TAB_META: Record<string, { title: string; sub: string }> = {
   clientes: { title: "Clientes 360", sub: "Cada cliente num lugar só: receita, scorecard, deals, tarefas, docs e histórico." },
+  quadros: { title: "Quadros", sub: "Um kanban de contatos por empresa/segmento — arraste entre as etapas." },
   contatos: { title: "Contatos", sub: "As pessoas — ligue cada uma a um cliente pra aparecer no 360." },
   oportunidades: { title: "Oportunidades", sub: "A fila do que fazer agora (NBA) + funil de deals." },
   prospeccao: { title: "Prospecção", sub: "Empresas a prospectar — converta em cliente + contato + deal." },
@@ -115,6 +117,7 @@ const Crm = () => {
           <TabsList className="bg-card/80 border border-border/50 rounded-xl flex w-full justify-start overflow-x-auto">
             <TabsTrigger value="clientes" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Clientes 360</TabsTrigger>
             <TabsTrigger value="contatos" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5">Contatos {crm.contacts.filter((c) => !c.customer_id).length > 0 && <span className="rounded-full bg-amber-500/15 text-amber-500 px-1.5 text-[10px] font-mono" title="sem cliente ligado">{crm.contacts.filter((c) => !c.customer_id).length}</span>}</TabsTrigger>
+            <TabsTrigger value="quadros" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Quadros</TabsTrigger>
             <TabsTrigger value="oportunidades" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5">Oportunidades {crm.nbaItems.length > 0 && <span className="rounded-full bg-primary/15 text-primary px-1.5 text-[10px] font-mono">{crm.nbaItems.length}</span>}</TabsTrigger>
             <TabsTrigger value="prospeccao" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Prospecção</TabsTrigger>
             <TabsTrigger value="campanhas" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Campanhas</TabsTrigger>
@@ -142,6 +145,11 @@ const Crm = () => {
           <TabsContent value="contatos" className="mt-0">
             <ContactsTab crm={crm} onSelectCustomer={selectCustomer} />
           </TabsContent>
+
+          <TabsContent value="quadros" className="mt-0">
+            <Suspense fallback={<LazyFallback />}><ContactBoards crm={crm} /></Suspense>
+          </TabsContent>
+
 
           <TabsContent value="prospeccao" className="mt-0">
             <Suspense fallback={<LazyFallback />}><Prospecting /></Suspense>
