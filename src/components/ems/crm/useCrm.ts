@@ -41,7 +41,7 @@ export const useCrm = () => {
       const [spine, contacts, deals, routines, interactions, meta, txns, onbSteps, onbTracking, tasks, projects] = await Promise.all([
         safe(() => db.from("finance_clientes").select("*").order("nome")),
         safe(() => co(db.from("contacts").select("id,name,customer_id,pipeline_stage,email,phone,company"))),
-        safe(() => co(db.from("project_opportunities").select("id,title,value,stage,probability,expected_close_date,status_outcome,customer_id,contact_id,project_id,company_id"))),
+        safe(() => co(db.from("project_opportunities").select("id,title,value,stage,probability,expected_close_date,status_outcome,close_reason,customer_id,contact_id,project_id,company_id"))),
         safe(() => db.from("routine_clients").select("id,name,customer_id,status")),
         safe(() => db.from("contact_interactions").select("id,contact_id,type,description,date")),
         safe(() => db.from("commercial_contact_meta").select("contact_id,next_action_date,next_action_description")),

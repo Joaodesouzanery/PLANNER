@@ -1,7 +1,7 @@
 import { useMemo, useState, lazy, Suspense, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Users, Search, Phone, Mail, Briefcase, Repeat, CalendarClock, Plus, Target, LayoutGrid, List, TrendingUp, TrendingDown, Minus, Gift, ShieldCheck, HeartPulse, ChevronLeft } from "lucide-react";
+import { Users, Search, Phone, Mail, Briefcase, Repeat, CalendarClock, Plus, Target, LayoutGrid, List, BarChart3, TrendingUp, TrendingDown, Minus, Gift, ShieldCheck, HeartPulse, ChevronLeft } from "lucide-react";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import { ServicingTower } from "@/components/ems/crm/ServicingTower";
 import { CustomerKanban } from "@/components/ems/crm/CustomerKanban";
 import { DealKanban } from "@/components/ems/crm/DealKanban";
 import { StageManager } from "@/components/ems/crm/StageManager";
+import { KanbanMetricsPanel } from "@/components/ems/crm/KanbanMetricsPanel";
 import { useCrmStages } from "@/components/ems/crm/useCrmStages";
 import { ContactsTab } from "@/components/ems/crm/ContactsTab";
 import { OFERTA_LABEL, TREND_LABEL, type CustomerScore, type Trend } from "@/components/ems/crm/crmScores";
@@ -67,7 +68,7 @@ const Crm = () => {
   const [search, setSearch] = useState("");
   const [healthFilter, setHealthFilter] = useState("all");
   const [view, setView] = useState<"list" | "kanban">(searchParams.get("view") === "kanban" ? "kanban" : "list");
-  const [oppView, setOppView] = useState<"fila" | "kanban">("fila");
+  const [oppView, setOppView] = useState<"fila" | "kanban" | "metricas">("fila");
   const [mapView, setMapView] = useState<"mapa" | "rotas">("mapa");
   const syncParam = (key: string, val: string | null) => setSearchParams((prev) => { const p = new URLSearchParams(prev); if (val) p.set(key, val); else p.delete(key); return p; }, { replace: true });
   const changeTab = (v: string) => { setTab(v); syncParam("tab", v === "clientes" ? null : v); };
@@ -174,9 +175,12 @@ const Crm = () => {
               <div className="inline-flex rounded-lg border border-border/50 bg-card/60 p-0.5">
                 <Button size="sm" variant={oppView === "fila" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setOppView("fila")}><List className="h-3.5 w-3.5" />Fila</Button>
                 <Button size="sm" variant={oppView === "kanban" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setOppView("kanban")}><LayoutGrid className="h-3.5 w-3.5" />Kanban</Button>
+                <Button size="sm" variant={oppView === "metricas" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setOppView("metricas")}><BarChart3 className="h-3.5 w-3.5" />Métricas</Button>
               </div>
             </div>
-            {oppView === "kanban" ? <DealKanban crm={crm} onSelect={selectCustomer} /> : <OpportunityInbox crm={crm} onSelectCustomer={selectCustomer} />}
+            {oppView === "kanban" ? <DealKanban crm={crm} onSelect={selectCustomer} />
+              : oppView === "metricas" ? <KanbanMetricsPanel crm={crm} />
+              : <OpportunityInbox crm={crm} onSelectCustomer={selectCustomer} />}
           </TabsContent>
 
           <TabsContent value="torre" className="mt-0">
