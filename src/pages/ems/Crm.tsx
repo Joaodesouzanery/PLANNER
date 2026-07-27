@@ -25,6 +25,7 @@ import { ModuloManager } from "@/components/ems/crm/ModuloManager";
 import { ModuloFilter } from "@/components/ems/crm/ModuloFilter";
 import { AtivosPanel } from "@/components/ems/crm/AtivosPanel";
 import { ExpansaoBoard } from "@/components/ems/crm/ExpansaoBoard";
+import { RotinaSemanaPanel } from "@/components/ems/crm/RotinaSemanaPanel";
 import { KanbanMetricsPanel } from "@/components/ems/crm/KanbanMetricsPanel";
 import { useCrmStages } from "@/components/ems/crm/useCrmStages";
 import { useCrmModulos } from "@/components/ems/crm/useCrmModulos";
@@ -65,6 +66,7 @@ const TAB_META: Record<string, { title: string; sub: string }> = {
   entrega: { title: "Entrega", sub: "Implementação ágil: sprints, etapas e checklists por empresa." },
   ativos: { title: "Ativos", sub: "Matriz de conteúdo por produto+módulo — conversão (leads) por ângulo, copy e tipo." },
   expansao: { title: "Expansão", sub: "Contas landed × módulos abertos — cada linha é um upsell com prova já construída." },
+  rotina: { title: "Rotina", sub: "A semana operacional por canal (Seg abre · Ter–Qui contato · Sex fecha), com o que já foi feito." },
 };
 
 const Crm = () => {
@@ -145,6 +147,7 @@ const Crm = () => {
             <TabsTrigger value="campanhas" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Campanhas</TabsTrigger>
             <TabsTrigger value="ativos" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Ativos</TabsTrigger>
             <TabsTrigger value="expansao" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Expansão</TabsTrigger>
+            <TabsTrigger value="rotina" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Rotina</TabsTrigger>
             <TabsTrigger value="torre" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Torre</TabsTrigger>
             <TabsTrigger value="mapa" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Mapa</TabsTrigger>
             <TabsTrigger value="entrega" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Entrega</TabsTrigger>
@@ -189,6 +192,10 @@ const Crm = () => {
 
           <TabsContent value="expansao" className="mt-0">
             <ExpansaoBoard crm={crm} onSelectCustomer={selectCustomer} />
+          </TabsContent>
+
+          <TabsContent value="rotina" className="mt-0">
+            <RotinaSemanaPanel />
           </TabsContent>
 
           <TabsContent value="oportunidades" className="mt-0 space-y-3">
