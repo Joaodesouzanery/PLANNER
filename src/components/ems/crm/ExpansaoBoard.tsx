@@ -23,6 +23,19 @@ export const ExpansaoBoard = ({ crm, onSelectCustomer }: { crm: ReturnType<typeo
     [crm.customers, crm.deals, modulos],
   );
 
+  // cliente → módulos com deal EM ANDAMENTO (aberto) — evita criar deal duplicado no "expandir".
+  const openByCustomer = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const d of crm.deals as any[]) {
+      if (d.customer_id && d.modulo_id && d.status_outcome !== "won" && d.status_outcome !== "lost") {
+        const s = map.get(d.customer_id) ?? new Set<string>();
+        s.add(d.modulo_id);
+        map.set(d.customer_id, s);
+      }
+    }
+    return map;
+  }, [crm.deals]);
+
   const abrirDeal = (customerId: string, nome: string, moduloId: string, moduloName: string) =>
     crm.createDeal.mutate({ customerId, title: `${moduloName} — ${nome}`, moduloId });
 
@@ -62,18 +75,23 @@ export const ExpansaoBoard = ({ crm, onSelectCustomer }: { crm: ReturnType<typeo
             {r.abertos.length > 0 ? (
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 <span className="flex items-center gap-1 text-[11px] text-muted-foreground"><TrendingUp className="h-3.5 w-3.5" />Expandir:</span>
-                {r.abertos.map((m) => (
-                  <Button
-                    key={m.id}
-                    size="sm"
-                    variant="outline"
-                    className="h-6 gap-1 rounded-full px-2 text-[11px]"
-                    disabled={crm.createDeal.isPending}
-                    onClick={() => abrirDeal(r.cliente.id, r.cliente.nome, m.id, m.name)}
-                  >
-                    <Plus className="h-3 w-3" />{m.name}
-                  </Button>
-                ))}
+                {r.abertos.map((m) => {
+                  const emAndamento = openByCustomer.get(r.cliente.id)?.has(m.id);
+                  return emAndamento ? (
+                    <Badge key={m.id} variant="outline" className="gap-1 text-[10px] text-amber-400 border-amber-500/30">{m.name} · em andamento</Badge>
+                  ) : (
+                    <Button
+                      key={m.id}
+                      size="sm"
+                      variant="outline"
+                      className="h-6 gap-1 rounded-full px-2 text-[11px]"
+                      disabled={crm.createDeal.isPending}
+                      onClick={() => abrirDeal(r.cliente.id, r.cliente.nome, m.id, m.name)}
+                    >
+                      <Plus className="h-3 w-3" />{m.name}
+                    </Button>
+                  );
+                })}
               </div>
             ) : (
               <p className="mt-2 text-[11px] text-emerald-400/80">Todos os módulos de aquisição já vendidos. 🎉</p>
