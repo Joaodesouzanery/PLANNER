@@ -1,20 +1,25 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { DragDropContext, Draggable, Droppable, type DropResult } from "@hello-pangea/dnd";
-import { GripVertical } from "lucide-react";
+import { GripVertical, Undo2, Redo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { useCrm } from "./useCrm";
 import { useCrmStages } from "./useCrmStages";
 import { resolveStageKey } from "./crmStages";
+import { useKanbanHistory } from "./useKanbanHistory";
+import { KanbanHistoryDrawer } from "./KanbanHistoryDrawer";
 
 // Kanban de DEALS: arrasta project_opportunities por etapa (o drag-and-drop moderno, ancorado no dinheiro).
 // As colunas vêm de crm_stages (DB-backed, customizável) via useCrmStages — sem etapas hardcoded.
 // Soltar numa etapa com outcome grava status_outcome (won/lost); nas abertas, limpa o outcome.
+// Cada move passa pelo useKanbanHistory: grava o evento (crm_stage_events) e habilita undo/redo.
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
 export const DealKanban = ({ crm, onSelect }: { crm: ReturnType<typeof useCrm>; onSelect: (id: string) => void }) => {
   const { stages } = useCrmStages();
+  const history = useKanbanHistory(crm);
   const nameById = useMemo(() => new Map(crm.customers.map((c) => [c.id, c.nome])), [crm.customers]);
 
   const byStage = useMemo(() => {
@@ -30,14 +35,47 @@ export const DealKanban = ({ crm, onSelect }: { crm: ReturnType<typeof useCrm>; 
 
   const onDragEnd = (r: DropResult) => {
     if (!r.destination || r.source.droppableId === r.destination.droppableId) return;
-    const dest = r.destination.droppableId;
-    const outcome = stages.find((s) => s.key === dest)?.outcome ?? null;
-    crm.updateDeal.mutate({ id: r.draggableId, patch: { stage: dest, status_outcome: outcome } });
+    const from = r.source.droppableId;
+    const to = r.destination.droppableId;
+    const fromOutcome = stages.find((s) => s.key === from)?.outcome ?? null;
+    const toOutcome = stages.find((s) => s.key === to)?.outcome ?? null;
+    const deal = (crm.deals as any[]).find((d) => d.id === r.draggableId);
+    history.moveDeal({
+      dealId: r.draggableId,
+      companyId: deal?.company_id ?? null,
+      from: { stage: from, outcome: fromOutcome },
+      to: { stage: to, outcome: toOutcome },
+    });
   };
 
+  // Atalhos de teclado (Ctrl/Cmd+Z desfaz, +Shift refaz, Ctrl+Y refaz) — ignora quando digitando em campos.
+  const histRef = useRef(history);
+  histRef.current = history;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      const k = e.key.toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && k === "z") { e.preventDefault(); e.shiftKey ? histRef.current.redo() : histRef.current.undo(); }
+      else if ((e.ctrlKey || e.metaKey) && k === "y") { e.preventDefault(); histRef.current.redo(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
-      <div className="flex gap-3 overflow-x-auto pb-4 min-h-[420px]">
+    <>
+      <div className="flex items-center gap-1.5 mb-2">
+        <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" disabled={!history.canUndo} onClick={history.undo}>
+          <Undo2 className="h-3.5 w-3.5" />Desfazer
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" disabled={!history.canRedo} onClick={history.redo}>
+          <Redo2 className="h-3.5 w-3.5" />Refazer
+        </Button>
+        <KanbanHistoryDrawer crm={crm} />
+      </div>
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div className="flex gap-3 overflow-x-auto pb-4 min-h-[420px]">
         {stages.map((stage) => {
           const deals = byStage[stage.key] || [];
           const total = deals.reduce((a, d) => a + (Number(d.value) || 0), 0);
@@ -90,8 +128,9 @@ export const DealKanban = ({ crm, onSelect }: { crm: ReturnType<typeof useCrm>; 
             </Droppable>
           );
         })}
-      </div>
-    </DragDropContext>
+        </div>
+      </DragDropContext>
+    </>
   );
 };
 
