@@ -27,6 +27,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import AddressAutocomplete from "@/components/ems/AddressAutocomplete";
 import { ensureCoords } from "@/lib/geocode";
+import ContactPipelineKanban from "@/components/ems/contacts/ContactPipelineKanban";
 
 interface Contact {
   id: string; name: string; email: string | null; phone: string | null;
