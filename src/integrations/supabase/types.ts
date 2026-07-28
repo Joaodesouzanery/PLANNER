@@ -1791,6 +1791,74 @@ export type Database = {
           },
         ]
       }
+      crm_ativos: {
+        Row: {
+          angulo_de_dor: string | null
+          canal: string | null
+          company_id: string | null
+          created_at: string
+          data: string | null
+          id: string
+          impressions: number | null
+          leads_gerados: number
+          modulo_id: string | null
+          notes: string | null
+          opens: number | null
+          tipo: string
+          titulo: string
+          updated_at: string
+          user_id: string | null
+          variante_de_copy: string | null
+          views: number | null
+        }
+        Insert: {
+          angulo_de_dor?: string | null
+          canal?: string | null
+          company_id?: string | null
+          created_at?: string
+          data?: string | null
+          id?: string
+          impressions?: number | null
+          leads_gerados?: number
+          modulo_id?: string | null
+          notes?: string | null
+          opens?: number | null
+          tipo?: string
+          titulo: string
+          updated_at?: string
+          user_id?: string | null
+          variante_de_copy?: string | null
+          views?: number | null
+        }
+        Update: {
+          angulo_de_dor?: string | null
+          canal?: string | null
+          company_id?: string | null
+          created_at?: string
+          data?: string | null
+          id?: string
+          impressions?: number | null
+          leads_gerados?: number
+          modulo_id?: string | null
+          notes?: string | null
+          opens?: number | null
+          tipo?: string
+          titulo?: string
+          updated_at?: string
+          user_id?: string | null
+          variante_de_copy?: string | null
+          views?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_ativos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_board_contacts: {
         Row: {
           board_id: string
@@ -2010,6 +2078,175 @@ export type Database = {
           },
         ]
       }
+      crm_modulos: {
+        Row: {
+          canal_forte: string | null
+          color: string | null
+          company_id: string | null
+          comprador: string | null
+          created_at: string
+          dor: string | null
+          id: string
+          key: string
+          name: string
+          order_index: number
+          tipo: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          canal_forte?: string | null
+          color?: string | null
+          company_id?: string | null
+          comprador?: string | null
+          created_at?: string
+          dor?: string | null
+          id?: string
+          key: string
+          name: string
+          order_index?: number
+          tipo?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          canal_forte?: string | null
+          color?: string | null
+          company_id?: string | null
+          comprador?: string | null
+          created_at?: string
+          dor?: string | null
+          id?: string
+          key?: string
+          name?: string
+          order_index?: number
+          tipo?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_modulos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_provas: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          customer_id: string | null
+          data: string | null
+          descricao: string | null
+          evidencia: string | null
+          id: string
+          modulo_id: string | null
+          permissao_uso: boolean
+          resultado_valor: number | null
+          titulo: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          data?: string | null
+          descricao?: string | null
+          evidencia?: string | null
+          id?: string
+          modulo_id?: string | null
+          permissao_uso?: boolean
+          resultado_valor?: number | null
+          titulo: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          customer_id?: string | null
+          data?: string | null
+          descricao?: string | null
+          evidencia?: string | null
+          id?: string
+          modulo_id?: string | null
+          permissao_uso?: boolean
+          resultado_valor?: number | null
+          titulo?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_provas_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_provas_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "finance_clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_rotina_blocos: {
+        Row: {
+          canal: string | null
+          company_id: string | null
+          created_at: string
+          done_week: string | null
+          id: string
+          modulo_id: string | null
+          order_index: number
+          titulo: string
+          updated_at: string
+          user_id: string | null
+          weekday: number
+        }
+        Insert: {
+          canal?: string | null
+          company_id?: string | null
+          created_at?: string
+          done_week?: string | null
+          id?: string
+          modulo_id?: string | null
+          order_index?: number
+          titulo: string
+          updated_at?: string
+          user_id?: string | null
+          weekday?: number
+        }
+        Update: {
+          canal?: string | null
+          company_id?: string | null
+          created_at?: string
+          done_week?: string | null
+          id?: string
+          modulo_id?: string | null
+          order_index?: number
+          titulo?: string
+          updated_at?: string
+          user_id?: string | null
+          weekday?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_rotina_blocos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_segments: {
         Row: {
           company_id: string | null
@@ -2038,6 +2275,107 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "crm_segments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_stage_events: {
+        Row: {
+          company_id: string | null
+          deal_id: string | null
+          from_outcome: string | null
+          from_stage: string | null
+          id: string
+          moved_at: string
+          to_outcome: string | null
+          to_stage: string | null
+          user_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          deal_id?: string | null
+          from_outcome?: string | null
+          from_stage?: string | null
+          id?: string
+          moved_at?: string
+          to_outcome?: string | null
+          to_stage?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          deal_id?: string | null
+          from_outcome?: string | null
+          from_stage?: string | null
+          id?: string
+          moved_at?: string
+          to_outcome?: string | null
+          to_stage?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_stage_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_stage_events_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "project_opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_stages: {
+        Row: {
+          color: string | null
+          company_id: string | null
+          created_at: string
+          id: string
+          is_offtrack: boolean
+          key: string
+          order_index: number
+          outcome: string | null
+          title: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          color?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          is_offtrack?: boolean
+          key: string
+          order_index?: number
+          outcome?: string | null
+          title: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          color?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          is_offtrack?: boolean
+          key?: string
+          order_index?: number
+          outcome?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_stages_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
@@ -2568,6 +2906,7 @@ export type Database = {
       }
       finance_clientes: {
         Row: {
+          company_id: string | null
           health: string | null
           id: string
           next_action_date: string | null
@@ -2584,6 +2923,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          company_id?: string | null
           health?: string | null
           id?: string
           next_action_date?: string | null
@@ -2600,6 +2940,7 @@ export type Database = {
           user_id?: string
         }
         Update: {
+          company_id?: string | null
           health?: string | null
           id?: string
           next_action_date?: string | null
@@ -2615,7 +2956,15 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "finance_clientes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       finance_dre_categories: {
         Row: {
@@ -4507,6 +4856,7 @@ export type Database = {
       }
       project_opportunities: {
         Row: {
+          ativo_origem_id: string | null
           close_reason: string | null
           company_id: string | null
           contact_id: string | null
@@ -4516,6 +4866,7 @@ export type Database = {
           due_date: string | null
           estimated_value: number | null
           id: string
+          modulo_id: string | null
           project_id: string | null
           status: string | null
           status_outcome: string | null
@@ -4524,6 +4875,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          ativo_origem_id?: string | null
           close_reason?: string | null
           company_id?: string | null
           contact_id?: string | null
@@ -4533,6 +4885,7 @@ export type Database = {
           due_date?: string | null
           estimated_value?: number | null
           id?: string
+          modulo_id?: string | null
           project_id?: string | null
           status?: string | null
           status_outcome?: string | null
@@ -4541,6 +4894,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          ativo_origem_id?: string | null
           close_reason?: string | null
           company_id?: string | null
           contact_id?: string | null
@@ -4550,6 +4904,7 @@ export type Database = {
           due_date?: string | null
           estimated_value?: number | null
           id?: string
+          modulo_id?: string | null
           project_id?: string | null
           status?: string | null
           status_outcome?: string | null

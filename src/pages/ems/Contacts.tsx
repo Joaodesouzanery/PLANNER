@@ -27,6 +27,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import AddressAutocomplete from "@/components/ems/AddressAutocomplete";
 import { ensureCoords } from "@/lib/geocode";
+import ContactPipelineKanban from "@/components/ems/contacts/ContactPipelineKanban";
 
 interface Contact {
   id: string; name: string; email: string | null; phone: string | null;
@@ -108,6 +109,15 @@ const Contacts = () => {
   const updatePipelineMutation = useMutation({
     mutationFn: async ({ id, stage }: { id: string; stage: string }) => { const { error } = await supabase.from("contacts").update({ pipeline_stage: stage }).eq("id", id); if (error) throw error; },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["contacts"] }),
+  });
+  // Criação rápida direto do Kanban: nome + etapa + empresa da raia.
+  const quickCreateContact = useMutation({
+    mutationFn: async ({ name, stage, companyId }: { name: string; stage: string; companyId: string | null }) => {
+      const { error } = await supabase.from("contacts").insert({ name, pipeline_stage: stage, company_id: companyId });
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["contacts"] }); toast({ title: "Contato criado" }); },
+    onError: (error: any) => toast({ title: "Erro ao criar contato", description: error?.message, variant: "destructive" }),
   });
   const saveContactMutation = useMutation({
     mutationFn: async () => {
@@ -276,6 +286,7 @@ const Contacts = () => {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <TabsList className="w-full sm:w-auto bg-card/80 border border-border/50 rounded-xl p-1">
               <TabsTrigger value="contacts" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><Users className="h-3.5 w-3.5" /> Contatos</TabsTrigger>
+              <TabsTrigger value="kanban" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><ListTodo className="h-3.5 w-3.5" /> Kanban</TabsTrigger>
               <TabsTrigger value="tasks" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><ListTodo className="h-3.5 w-3.5" /> Tarefas</TabsTrigger>
             </TabsList>
             {activeTab === "tasks" && (
@@ -391,6 +402,24 @@ const Contacts = () => {
               )}
             </div>
           </TabsContent>
+
+          {/* Kanban de contatos por empresa */}
+          <TabsContent value="kanban">
+            {contactsLoading ? (
+              <div className="space-y-3">{[...Array(2)].map((_, i) => <div key={i} className="h-40 rounded-xl bg-muted/30 animate-pulse" />)}</div>
+            ) : (
+              <ContactPipelineKanban
+                contacts={filteredContacts as any}
+                stages={pipelineStages}
+                onMove={(id, stage) => updatePipelineMutation.mutate({ id, stage })}
+                onCreate={({ name, stage, companyId }) => quickCreateContact.mutate({ name, stage, companyId })}
+                onEdit={(c) => openEditContact(contacts.find((x) => x.id === c.id) || c)}
+                onDelete={(id) => deleteContactMutation.mutate(id)}
+              />
+            )}
+          </TabsContent>
+
+
 
           {/* Tasks Tab */}
           <TabsContent value="tasks">
