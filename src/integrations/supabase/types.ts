@@ -2906,6 +2906,7 @@ export type Database = {
       }
       finance_clientes: {
         Row: {
+          company_id: string | null
           health: string | null
           id: string
           next_action_date: string | null
@@ -2922,6 +2923,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          company_id?: string | null
           health?: string | null
           id?: string
           next_action_date?: string | null
@@ -2938,6 +2940,7 @@ export type Database = {
           user_id?: string
         }
         Update: {
+          company_id?: string | null
           health?: string | null
           id?: string
           next_action_date?: string | null
@@ -2953,7 +2956,15 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "finance_clientes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       finance_dre_categories: {
         Row: {
