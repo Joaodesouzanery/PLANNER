@@ -110,6 +110,15 @@ const Contacts = () => {
     mutationFn: async ({ id, stage }: { id: string; stage: string }) => { const { error } = await supabase.from("contacts").update({ pipeline_stage: stage }).eq("id", id); if (error) throw error; },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["contacts"] }),
   });
+  // Criação rápida direto do Kanban: nome + etapa + empresa da raia.
+  const quickCreateContact = useMutation({
+    mutationFn: async ({ name, stage, companyId }: { name: string; stage: string; companyId: string | null }) => {
+      const { error } = await supabase.from("contacts").insert({ name, pipeline_stage: stage, company_id: companyId });
+      if (error) throw error;
+    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["contacts"] }); toast({ title: "Contato criado" }); },
+    onError: (error: any) => toast({ title: "Erro ao criar contato", description: error?.message, variant: "destructive" }),
+  });
   const saveContactMutation = useMutation({
     mutationFn: async () => {
       const coords = await ensureCoords(contactForm.address, contactForm.latitude, contactForm.longitude);
