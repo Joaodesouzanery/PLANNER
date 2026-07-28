@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { Search, Phone, Mail, Building2, Link2, Link2Off, Plus, Pencil, Trash2, Check, X } from "lucide-react";
+import { Search, Phone, Mail, Building2, Link2, Link2Off, Plus, Pencil, Trash2, Check, X, Globe } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useCompany } from "@/contexts/CompanyContext";
 import type { useCrm } from "./useCrm";
 
 const NONE = "__none__";
@@ -21,11 +22,26 @@ export const ContactsTab = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof 
   const [form, setForm] = useState(EMPTY);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [edit, setEdit] = useState({ name: "", email: "", phone: "", company: "" });
+  const { companies } = useCompany();
   const startEdit = (c: any) => { setEditingId(c.id); setEdit({ name: c.name || "", email: c.email || "", phone: c.phone || "", company: c.company || "" }); };
   const saveEdit = () => { if (!editingId) return; crm.updateContact.mutate({ id: editingId, patch: { name: edit.name.trim(), email: edit.email.trim() || null, phone: edit.phone.trim() || null, company: edit.company.trim() || null } }, { onSuccess: () => setEditingId(null) }); };
 
+  const companyName = useMemo(() => new Map(companies.map((c) => [c.id, c.name])), [companies]);
   const customerName = useMemo(() => new Map(crm.customers.map((c) => [c.id, c.nome])), [crm.customers]);
+  const customerById = useMemo(() => new Map(crm.customers.map((c) => [c.id, c])), [crm.customers]);
+  // Clientes agrupados por empresa — assim o seletor mostra de qual empresa cada cliente é.
+  const grouped = useMemo(() => {
+    const groups: { id: string; label: string; items: typeof crm.customers }[] = [];
+    for (const co of companies) {
+      const items = crm.customers.filter((c) => c.company_id === co.id);
+      if (items.length) groups.push({ id: co.id, label: co.name, items });
+    }
+    const orphans = crm.customers.filter((c) => !c.company_id || !companyName.has(c.company_id));
+    if (orphans.length) groups.push({ id: "__no_co__", label: "Sem empresa", items: orphans });
+    return groups;
+  }, [crm.customers, companies, companyName]);
   const unlinked = crm.contacts.filter((c) => !c.customer_id).length;
+
 
   const submitNew = () => {
     if (!form.name.trim()) return;
