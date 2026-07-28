@@ -276,6 +276,7 @@ const Contacts = () => {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <TabsList className="w-full sm:w-auto bg-card/80 border border-border/50 rounded-xl p-1">
               <TabsTrigger value="contacts" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><Users className="h-3.5 w-3.5" /> Contatos</TabsTrigger>
+              <TabsTrigger value="kanban" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><ListTodo className="h-3.5 w-3.5" /> Kanban</TabsTrigger>
               <TabsTrigger value="tasks" className="gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary"><ListTodo className="h-3.5 w-3.5" /> Tarefas</TabsTrigger>
             </TabsList>
             {activeTab === "tasks" && (
