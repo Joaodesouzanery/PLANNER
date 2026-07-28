@@ -83,7 +83,15 @@ export const ContactsTab = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof 
             <div className="flex items-center gap-2">
               <Select value={form.customerId} onValueChange={(v) => setForm({ ...form, customerId: v })}>
                 <SelectTrigger className="h-8 text-xs flex-1"><SelectValue placeholder="Ligar a cliente" /></SelectTrigger>
-                <SelectContent><SelectItem value={NONE}>— sem cliente —</SelectItem>{crm.customers.map((cust) => <SelectItem key={cust.id} value={cust.id}>{cust.nome}</SelectItem>)}</SelectContent>
+                <SelectContent>
+                  <SelectItem value={NONE}>— sem cliente —</SelectItem>
+                  {grouped.map((g) => (
+                    <SelectGroup key={g.id}>
+                      <SelectLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">{g.label}</SelectLabel>
+                      {g.items.map((cust) => <SelectItem key={cust.id} value={cust.id}>{cust.nome}</SelectItem>)}
+                    </SelectGroup>
+                  ))}
+                </SelectContent>
               </Select>
               <Button size="sm" className="h-8 text-xs" disabled={!form.name.trim() || crm.createContact.isPending} onClick={submitNew}>Salvar</Button>
               <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowNew(false); setForm(EMPTY); }}>Cancelar</Button>
