@@ -393,6 +393,24 @@ const Contacts = () => {
             </div>
           </TabsContent>
 
+          {/* Kanban de contatos por empresa */}
+          <TabsContent value="kanban">
+            {contactsLoading ? (
+              <div className="space-y-3">{[...Array(2)].map((_, i) => <div key={i} className="h-40 rounded-xl bg-muted/30 animate-pulse" />)}</div>
+            ) : (
+              <ContactPipelineKanban
+                contacts={filteredContacts as any}
+                stages={pipelineStages}
+                onMove={(id, stage) => updatePipelineMutation.mutate({ id, stage })}
+                onCreate={({ name, stage, companyId }) => quickCreateContact.mutate({ name, stage, companyId })}
+                onEdit={(c) => openEditContact(contacts.find((x) => x.id === c.id) || c)}
+                onDelete={(id) => deleteContactMutation.mutate(id)}
+              />
+            )}
+          </TabsContent>
+
+
+
           {/* Tasks Tab */}
           <TabsContent value="tasks">
             {viewMode === "list" ? (
