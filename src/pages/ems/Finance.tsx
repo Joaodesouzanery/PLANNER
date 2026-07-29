@@ -20,6 +20,7 @@ import FinanceTravel from "@/components/ems/finance/travel/FinanceTravel";
 import FinanceScenarios from "@/components/ems/finance/FinanceScenarios";
 import { FinancePatrimonio } from "@/components/ems/finance/FinancePatrimonio";
 import { FinanceAposentadoria } from "@/components/ems/finance/FinanceAposentadoria";
+import { FinanceFullReport } from "@/components/ems/finance/FinanceFullReport";
 
 const outerTab = "gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary";
 const innerTab = "gap-1.5 rounded-md text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary";
@@ -28,12 +29,15 @@ const Finance = () => {
   return (
     <EMSLayout>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-primary/10"><DollarSign className="h-6 w-6 text-primary" /></div>
-            Financas & Estrategia
-          </h1>
-          <p className="text-muted-foreground mt-1 text-sm">Uma fonte única: tudo — real, previsto, recorrente e simulado — deriva das mesmas contas.</p>
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-primary/10"><DollarSign className="h-6 w-6 text-primary" /></div>
+              Financas & Estrategia
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm">Uma fonte única: tudo — real, previsto, recorrente e simulado — deriva das mesmas contas.</p>
+          </div>
+          <FinanceFullReport />
         </div>
 
         {/* 5 grupos (consolidado de 13 abas). Cada grupo agrupa as telas em sub-abas, sem perder nada. */}
