@@ -300,17 +300,19 @@ export const useCrm = () => {
 
   // Cria um contato (pessoa) já ligado a um cliente do spine, direto do CRM.
   const createContact = useMutation({
-    mutationFn: async (c: { name: string; email?: string; phone?: string; company?: string; customerId?: string | null }) => {
+    mutationFn: async (c: { name: string; email?: string; phone?: string; company?: string; customerId?: string | null; stage?: string | null; companyId?: string | null }) => {
       const { error } = await db.from("contacts").insert({
         name: c.name.trim(),
         email: c.email?.trim() || null,
         phone: c.phone?.trim() || null,
         company: c.company?.trim() || null,
         customer_id: c.customerId || null,
-        company_id: scoped ? selectedCompanyId : null,
+        ...(c.stage ? { pipeline_stage: c.stage } : {}),
+        company_id: c.companyId !== undefined ? c.companyId : scoped ? selectedCompanyId : null,
       });
       if (error) throw error;
     },
+
     onSuccess: () => { invalidate(); toast({ title: "Contato criado" }); },
     onError: (e: any) => toast({ title: "Erro ao criar contato", description: e?.message, variant: "destructive" }),
   });
