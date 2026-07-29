@@ -57,6 +57,8 @@ export interface RoutineChecklistItem {
   day_of_month: number | null;
   weekday: number | null;
   parent_item_id: string | null;
+  modulo_id?: string | null; // elo opcional com o CRM (crm_modulos)
+  customer_id?: string | null; // ou com um cliente (finance_clientes)
 }
 
 export interface RoutineChecklistLog {

@@ -11,6 +11,7 @@ import { useConfirm } from "@/hooks/useConfirm";
 import { formatDateBR } from "@/components/ems/finance/useFinanceData";
 import { FreqBadge } from "./RotinaChecklistInline";
 import { RecurrenceFields } from "./RecurrenceFields";
+import { ModuloLinkSelect, RotinaCrmChip } from "./RotinaCrmLink";
 import { asTaskStatus, TASK_STATUSES, TASK_STATUS_LABEL } from "@/hooks/useRotinas";
 import type { useRotinas, RoutineChecklistItem, RoutineClientView, RoutineTask, RoutineFrequency, RoutineTaskStatus } from "@/hooks/useRotinas";
 
@@ -40,6 +41,7 @@ const ItemForm = ({ clientId, kind, parentId, sortBase, rotinas, onDone }: {
   const [freq, setFreq] = useState<RoutineFrequency>("daily");
   const [day, setDay] = useState("");
   const [weekday, setWeekday] = useState("1");
+  const [moduloId, setModuloId] = useState<string | null>(null);
   const add = () => {
     if (!title.trim()) return;
     rotinas.saveChecklistItem.mutate({
@@ -47,14 +49,16 @@ const ItemForm = ({ clientId, kind, parentId, sortBase, rotinas, onDone }: {
       frequency: freq,
       day_of_month: freq === "monthly" && day ? Number(day) : null,
       weekday: freq === "weekly" ? Number(weekday) : null,
+      modulo_id: moduloId,
       parent_item_id: parentId ?? null,
       sort_order: sortBase,
-    }, { onSuccess: () => { setTitle(""); onDone(); } });
+    }, { onSuccess: () => { setTitle(""); setModuloId(null); onDone(); } });
   };
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5 rounded-md border border-dashed border-primary/40 bg-background/50 p-1.5", parentId && "ml-4")}>
       <Input value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && add()} placeholder={parentId ? "Novo subitem" : "Novo item"} className="h-7 min-w-[110px] flex-1 text-xs" autoFocus />
       <RecurrenceFields freq={freq} setFreq={setFreq} day={day} setDay={setDay} weekday={weekday} setWeekday={setWeekday} />
+      <ModuloLinkSelect value={moduloId} onChange={setModuloId} />
       <Button size="icon" className="h-7 w-7" onClick={add} disabled={!title.trim()}><Check className="h-3.5 w-3.5" /></Button>
       <IconBtn title="Cancelar" onClick={onDone}><X className="h-3.5 w-3.5" /></IconBtn>
     </div>
@@ -70,6 +74,7 @@ const ItemRow = ({ item, view, rotinas, onDelete, child }: {
   const [freq, setFreq] = useState<RoutineFrequency>(item.frequency || "daily");
   const [day, setDay] = useState(item.day_of_month ? String(item.day_of_month) : "");
   const [weekday, setWeekday] = useState(item.weekday != null ? String(item.weekday) : "1");
+  const [moduloId, setModuloId] = useState<string | null>(item.modulo_id ?? null);
   const done = view.doneItemIds.has(item.id);
   const children = view.itemChildren.get(item.id) ?? [];
 
@@ -80,6 +85,7 @@ const ItemRow = ({ item, view, rotinas, onDelete, child }: {
       frequency: freq,
       day_of_month: freq === "monthly" && day ? Number(day) : null,
       weekday: freq === "weekly" ? Number(weekday) : null,
+      modulo_id: moduloId,
     }, { onSuccess: () => setEditing(false) });
   };
 
@@ -89,6 +95,7 @@ const ItemRow = ({ item, view, rotinas, onDelete, child }: {
         <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-primary/40 bg-background/60 p-1.5">
           <Input value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} className="h-7 min-w-[110px] flex-1 text-xs" autoFocus />
           <RecurrenceFields freq={freq} setFreq={setFreq} day={day} setDay={setDay} weekday={weekday} setWeekday={setWeekday} />
+          <ModuloLinkSelect value={moduloId} onChange={setModuloId} />
           <Button size="icon" className="h-7 w-7" onClick={save}><Check className="h-3.5 w-3.5" /></Button>
           <IconBtn title="Cancelar" onClick={() => { setEditing(false); setTitle(item.title); }}><X className="h-3.5 w-3.5" /></IconBtn>
         </div>
@@ -96,6 +103,7 @@ const ItemRow = ({ item, view, rotinas, onDelete, child }: {
         <div className="flex items-center gap-1.5 rounded-md border border-border/60 bg-background/40 px-2 py-1.5">
           <Checkbox checked={done} onCheckedChange={(v) => rotinas.toggleChecklist.mutate({ item, done: !!v })} />
           <span className={cn("flex-1 truncate text-xs", done && "text-muted-foreground line-through")}>{item.title}</span>
+          <RotinaCrmChip moduloId={item.modulo_id} />
           <FreqBadge item={item} />
           {!child && <IconBtn title="Subitem" onClick={() => setAddingSub((v) => !v)}><CornerDownRight className="h-3 w-3" /></IconBtn>}
           <IconBtn title="Editar" onClick={() => setEditing(true)}><Pencil className="h-3 w-3" /></IconBtn>

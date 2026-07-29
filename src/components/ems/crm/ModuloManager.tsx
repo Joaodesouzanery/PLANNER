@@ -4,10 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Boxes, Plus, Pencil, Trash2, ChevronUp, ChevronDown } from "lucide-react";
+import { Boxes, Plus, Pencil, Trash2, ChevronUp, ChevronDown, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useCrmModulos } from "./useCrmModulos";
+import { useRotinasByModulo } from "./useRotinasByModulo";
 import { MODULO_COLOR_OPTIONS, DEFAULT_MODULO_COLOR, MODULO_TIPO_LABEL, type CrmModulo, type ModuloTipo } from "./crmModulos";
 import { MODULO_TEMPLATES, suggestModuloTemplate } from "./crmModuloTemplates";
 import {
@@ -22,6 +23,7 @@ const emptyForm: Form = { name: "", dor: "", comprador: "", canal_forte: "", tip
 export const ModuloManager = () => {
   const { selectedCompany } = useCompany();
   const { modulos, isEmpty, saveModulo, deleteModulo, reorderModulos, seedModulos } = useCrmModulos();
+  const { byModulo: rotinasByModulo } = useRotinasByModulo();
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<{ open: boolean; modulo?: CrmModulo }>({ open: false });
   const [form, setForm] = useState<Form>(emptyForm);
@@ -99,7 +101,14 @@ export const ModuloManager = () => {
               <div key={m.id || m.key} className="flex items-center gap-2 rounded-lg border border-border/50 p-2">
                 <span className={cn("h-4 w-4 rounded shrink-0 bg-gradient-to-r to-transparent border", m.color)} />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm truncate">{m.name} <Badge variant={m.tipo === "retencao" ? "secondary" : "outline"} className="ml-1 text-[9px]">{MODULO_TIPO_LABEL[m.tipo]}</Badge></p>
+                  <p className="text-sm truncate">
+                    {m.name} <Badge variant={m.tipo === "retencao" ? "secondary" : "outline"} className="ml-1 text-[9px]">{MODULO_TIPO_LABEL[m.tipo]}</Badge>
+                    {(rotinasByModulo.get(m.id!)?.length ?? 0) > 0 && (
+                      <Badge variant="outline" className="ml-1 gap-0.5 text-[9px] text-primary border-primary/40" title={rotinasByModulo.get(m.id!)!.map((r) => r.title).join(" · ")}>
+                        <Link2 className="h-2.5 w-2.5" />{rotinasByModulo.get(m.id!)!.length} rotina{rotinasByModulo.get(m.id!)!.length > 1 ? "s" : ""}
+                      </Badge>
+                    )}
+                  </p>
                   {(m.dor || m.canal_forte) && <p className="text-[10px] text-muted-foreground truncate">{m.dor}{m.canal_forte ? ` · ${m.canal_forte}` : ""}</p>}
                 </div>
                 <div className="flex gap-0.5 shrink-0">

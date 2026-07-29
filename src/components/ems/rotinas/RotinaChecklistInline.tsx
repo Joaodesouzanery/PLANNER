@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { daysUntilInvoice, type useRotinas, type RoutineClientView, type RoutineChecklistItem } from "@/hooks/useRotinas";
+import { RotinaCrmChip } from "./RotinaCrmLink";
 
 type Rotinas = ReturnType<typeof useRotinas>;
 const WEEKDAYS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
@@ -33,6 +34,7 @@ const Row = ({ item, done, onToggle, child }: { item: RoutineChecklistItem; done
   <label className={cn("flex items-center gap-2 rounded-md border border-border/60 bg-background/40 px-2 py-1.5 cursor-pointer hover:bg-muted/40 transition-colors", child && "ml-4 border-dashed bg-background/20")}>
     <Checkbox checked={done} onCheckedChange={(v) => onToggle(!!v)} onClick={(e) => e.stopPropagation()} />
     <span className={cn("flex-1 text-xs", done && "text-muted-foreground line-through")}>{item.title}</span>
+    <RotinaCrmChip moduloId={item.modulo_id} />
     <FreqBadge item={item} />
   </label>
 );
