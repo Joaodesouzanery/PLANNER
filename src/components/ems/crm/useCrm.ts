@@ -40,7 +40,7 @@ export const useCrm = () => {
     queryFn: async () => {
       const [spine, contacts, deals, routines, interactions, meta, txns, onbSteps, onbTracking, tasks, projects, stageEvents] = await Promise.all([
         safe(() => db.from("finance_clientes").select("*").order("nome")),
-        safe(() => co(db.from("contacts").select("id,name,customer_id,pipeline_stage,email,phone,company"))),
+        safe(() => co(db.from("contacts").select("id,name,customer_id,pipeline_stage,email,phone,company,company_id"))),
         safe(() => co(db.from("project_opportunities").select("id,title,value,stage,probability,expected_close_date,status_outcome,close_reason,customer_id,contact_id,project_id,company_id,modulo_id,ativo_origem_id"))),
         safe(() => db.from("routine_clients").select("id,name,customer_id,status")),
         safe(() => db.from("contact_interactions").select("id,contact_id,type,description,date")),
