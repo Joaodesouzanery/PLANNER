@@ -49,7 +49,7 @@ const emptyForm = () => ({
 });
 
 const FinanceTransactions = () => {
-  const { rawTransactions, allCategories, saveTransactionMutation, deleteTransactionMutation, reconcileTransactionMutation, selectedAccounts, accounts, canonical } = useFinanceWorkspace();
+  const { rawTransactions, allCategories, saveTransactionMutation, deleteTransactionMutation, reconcileTransactionMutation, selectedAccounts, accounts, canonical, txInScope } = useFinanceWorkspace();
   const { clientes, saveCliente } = useClientes();
   const confirm = useConfirm();
   const [newClient, setNewClient] = useState("");
@@ -82,10 +82,11 @@ const FinanceTransactions = () => {
   };
 
   const baseFiltered = useMemo(() => rawTransactions.filter(t => {
+    if (!txInScope(t)) return false; // modo TODAS mostra tudo; modo EMPRESA só a empresa selecionada
     if (filterCategory && t.category !== filterCategory) return false;
     if (filterType && t.type !== filterType) return false;
     return true;
-  }), [rawTransactions, filterCategory, filterType]);
+  }), [rawTransactions, txInScope, filterCategory, filterType]);
 
   const periodRows = useMemo(() => baseFiltered.filter(t => {
     const d = effectiveDate(t);

@@ -17,6 +17,7 @@ import { computeCfo, fvAportes } from "./financeCfo";
 import { goalViability, type Verdict } from "./financeGoalViability";
 import { intervalFactor } from "./projectionCalc";
 import { usePatrimonio, type NetworthItem, type SinkingFund } from "./usePatrimonio";
+import { computeNetWorth, investimentosPrincipal } from "./financePatrimonioCalc";
 
 const todayIso = () => format(new Date(), "yyyy-MM-dd");
 const monthsUntil = (from: string, to: string) => {
@@ -48,9 +49,10 @@ export const FinancePatrimonio = () => {
 
   const ativosManuais = items.filter((i) => i.kind === "asset").reduce((a, i) => a + Number(i.value), 0);
   const passivosManuais = items.filter((i) => i.kind === "liability").reduce((a, i) => a + Number(i.value), 0);
-  const ativos = caixa + ativosManuais;
-  const passivos = parcelasRestantes + passivosManuais;
-  const patrimonioLiquido = ativos - passivos;
+  // Investimentos/reserva entram no patrimônio pelo SALDO INICIAL (principal fora do razão) — o fluxo
+  // já está no caixa; somar o saldo atual duplicaria. Escopado pela empresa (selectedAccounts).
+  const investimentos = investimentosPrincipal(workspace.selectedAccounts);
+  const { ativos, passivos, patrimonioLiquido } = computeNetWorth({ caixa, investimentos, ativosManuais, passivosAuto: parcelasRestantes, passivosManuais });
 
   const [itemForm, setItemForm] = useState<{ kind: "asset" | "liability"; label: string; category: string; value: string }>({ kind: "asset", label: "", category: "investimento", value: "" });
   const [fundForm, setFundForm] = useState<{ title: string; target: string; due_date: string; balance: string }>({ title: "", target: "", due_date: "", balance: "" });
@@ -91,7 +93,7 @@ export const FinancePatrimonio = () => {
         <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Landmark className="h-4 w-4 text-primary" />Patrimônio líquido</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3"><p className="text-xs text-muted-foreground">Ativos</p><p className="font-mono text-xl font-bold text-emerald-400">{fmtCurrency(ativos)}</p><p className="text-[10px] text-muted-foreground">caixa {fmtCurrency(caixa)} + itens {fmtCurrency(ativosManuais)}</p></div>
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3"><p className="text-xs text-muted-foreground">Ativos</p><p className="font-mono text-xl font-bold text-emerald-400">{fmtCurrency(ativos)}</p><p className="text-[10px] text-muted-foreground">caixa {fmtCurrency(caixa)}{investimentos > 0 ? ` + invest. ${fmtCurrency(investimentos)}` : ""} + itens {fmtCurrency(ativosManuais)}</p></div>
             <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-3"><p className="text-xs text-muted-foreground">Passivos</p><p className="font-mono text-xl font-bold text-destructive">{fmtCurrency(passivos)}</p><p className="text-[10px] text-muted-foreground">parcelas {fmtCurrency(parcelasRestantes)} + dívidas {fmtCurrency(passivosManuais)}</p></div>
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-3"><p className="text-xs text-muted-foreground">Patrimônio líquido</p><p className={cn("font-mono text-xl font-bold", patrimonioLiquido >= 0 ? "text-primary" : "text-destructive")}>{fmtCurrency(patrimonioLiquido)}</p><p className="text-[10px] text-muted-foreground">ativos − passivos</p></div>
           </div>
@@ -107,6 +109,11 @@ export const FinancePatrimonio = () => {
             ))}
           </div>
 
+          {investimentos > 0 && (
+            <p className="text-[11px] text-muted-foreground -mt-1">
+              Contas de reserva/investimento já entram automaticamente ({fmtCurrency(investimentos)}, pelo saldo inicial) — não cadastre o mesmo valor como item manual p/ não contar em dobro.
+            </p>
+          )}
           <div className="flex flex-wrap items-end gap-2 rounded-xl border border-dashed border-border/50 p-3">
             <div><Label className="text-xs">Tipo</Label><Select value={itemForm.kind} onValueChange={(v) => setItemForm({ ...itemForm, kind: v as "asset" | "liability", category: v === "asset" ? "investimento" : "divida" })}><SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="asset">Ativo</SelectItem><SelectItem value="liability">Passivo</SelectItem></SelectContent></Select></div>
             <div><Label className="text-xs">Categoria</Label><Select value={itemForm.category} onValueChange={(v) => setItemForm({ ...itemForm, category: v })}><SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger><SelectContent>{(itemForm.kind === "asset" ? CAT_ASSET : CAT_LIAB).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent></Select></div>

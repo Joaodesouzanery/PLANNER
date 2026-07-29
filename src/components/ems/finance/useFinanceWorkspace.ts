@@ -133,8 +133,11 @@ export const useFinanceWorkspace = () => {
     retry: false,
   });
 
+  // Seletor global de empresa manda no escopo do Finanças:
+  //   "all"    → "consolidated" (modo TODAS: pessoal + todas as empresas agregadas)
+  //   empresaX → a entidade dela (modo EMPRESA: tudo escopado só nela)
   useEffect(() => {
-    if (selectedCompanyId === "all") return;
+    if (selectedCompanyId === "all") { setScope("consolidated"); return; }
     const entity = entities.find((item) => item.company_id === selectedCompanyId);
     if (entity) setScope(entity.id);
   }, [entities, selectedCompanyId]);
@@ -192,6 +195,18 @@ export const useFinanceWorkspace = () => {
   ), [accounts, scope, selectedEntity]);
   const selectedAccountIds = useMemo(() => new Set(selectedAccounts.map((account) => account.id)), [selectedAccounts]);
   const entityByAccount = useMemo(() => new Map(accounts.map((account) => [account.id, account.entity_id])), [accounts]);
+
+  // Predicado de escopo p/ linhas com conta OU (sem conta) empresa. "consolidated" = passa tudo.
+  // Fonte única do "modo empresa": usado no canonical E na lista de Transações (DRY).
+  const txInScope = useMemo(() => {
+    const cpfId = entities.find((item) => item.entity_type === "cpf")?.id || null;
+    return (row: { finance_account_id?: string | null; company_id?: string | null }) => {
+      if (scope === "consolidated") return true;
+      if (row.finance_account_id) return selectedAccountIds.has(row.finance_account_id);
+      const entId = entities.find((item) => item.company_id === row.company_id)?.id || cpfId;
+      return entId === (selectedEntity?.id ?? null);
+    };
+  }, [scope, selectedAccountIds, entities, selectedEntity]);
 
   const allEvents = useMemo(() => {
     const events: ForecastEvent[] = [];
@@ -273,7 +288,19 @@ export const useFinanceWorkspace = () => {
   }, [accounts, finance.transactions, transfers]);
 
   // ── Read-model CANÔNICO (fonte única): toda aba lê daqui, ninguém recalcula saldo. ──
-  const canonicalRows = useMemo(() => buildPeriodSource(finance.dashboardTransactions, allEvents), [finance.dashboardTransactions, allEvents]);
+  // Escopado pela empresa selecionada. Em "consolidated" usa allEvents/dashboardTransactions
+  // crus (modo TODAS = comportamento idêntico ao anterior, zero regressão); no modo EMPRESA
+  // usa os eventos e realizados já filtrados p/ a entidade → CFO/DRE/KPI/saldo respeitam a empresa.
+  const scopedDashboardTransactions = useMemo(
+    () => scope === "consolidated" ? finance.dashboardTransactions : finance.dashboardTransactions.filter(txInScope),
+    [scope, finance.dashboardTransactions, txInScope],
+  );
+  const canonicalRows = useMemo(
+    () => scope === "consolidated"
+      ? buildPeriodSource(finance.dashboardTransactions, allEvents)
+      : buildPeriodSource(scopedDashboardTransactions, filteredEvents),
+    [scope, finance.dashboardTransactions, allEvents, scopedDashboardTransactions, filteredEvents],
+  );
   const saldoRealHojeVal = useMemo(() => saldoRealHoje(canonicalRows, todayIso()), [canonicalRows]);
   const canonical = useMemo(() => ({
     rows: canonicalRows,
@@ -518,7 +545,7 @@ export const useFinanceWorkspace = () => {
 
   return {
     ...finance,
-    scope, setScope, entities, accounts, selectedEntity, selectedAccounts, cardAccounts, accountBalances,
+    scope, setScope, txInScope, entities, accounts, selectedEntity, selectedAccounts, cardAccounts, accountBalances,
     transfers, invoices, allEvents, filteredEvents, openingBalance, forecast90, monthlyForecast, contracts,
     canonical, expectedMonthly, upcomingPayables, reserveBalance, entitiesLoading, entitiesError,
     saveAccountMutation, saveTransferMutation, saveInvoiceMutation, payInvoiceMutation,
