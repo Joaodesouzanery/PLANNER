@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useCompany } from "@/contexts/CompanyContext";
+import { CombinedReportPanel } from "./CombinedReportPanel";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -420,6 +421,9 @@ const Reports = () => {
             </Button>
           </div>
         </motion.div>
+
+        {/* Relatório combinado multi-módulo (Finanças + Conselho + CRM) */}
+        <motion.div variants={itemVariants}><CombinedReportPanel /></motion.div>
 
         {/* Date Range Filter */}
         <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-[160px_160px_auto] gap-3 items-end">
