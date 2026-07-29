@@ -52,9 +52,15 @@ export const MODULO_TEMPLATES: ModuloTemplate[] = [
   {
     key: "agrotorre",
     name: "AgroTorre",
-    hints: ["agrotorre", "agro", "torre", "fazenda", "safra"],
+    hints: ["agrotorre", "agro", "torre", "fazenda", "safra", "pecuaria", "pecuária"],
+    // Matriz-espelho do AgroTorre (dor → módulo → comprador → canal), do doc de fundação.
     modulos: mk([
-      ["romaneio", "Romaneio", "Dado de WhatsApp vira dado estruturado", "Produtor / gerente de fazenda", "Conteúdo (ICP difícil de listar)"],
+      ["torre-controle", "Torre de Controle", "Só vejo o resultado no fim do mês, tarde demais", "Produtor / dono", "Conteúdo + outbound"],
+      ["logistica", "Logística", "Apontamento perdido no WhatsApp; romaneio no papel", "Logística / expedição", "Conteúdo (cola WhatsApp + OCR)"],
+      ["financeiro-cogs", "Financeiro & COGS (Talhão 360)", "Não sei qual pedaço da fazenda dá lucro", "Financeiro / custos", "Outbound"],
+      ["campo-producao", "Campo & Produção", "Scouting, pragas e solo soltos, sem histórico", "Agrônomo", "Conteúdo"],
+      ["pecuaria", "Pecuária", "Custo por arroba na planilha; GTA e sanidade dispersos", "Pecuarista", "Outbound + conteúdo"],
+      ["carbono", "Carbono / Rastreabilidade", "Rastreabilidade e carbono como relatório à parte", "Comprador / certificadora", "Conteúdo (alavanca de venda)"],
     ]),
   },
   {
