@@ -27,6 +27,8 @@ const PIPELINE_STAGES: KanbanStage[] = [
 // não entra no Customer 360. Essa é a lacuna que a Fase 4 fecha.
 export const ContactsTab = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof useCrm>; onSelectCustomer: (id: string) => void }) => {
   const [search, setSearch] = useState("");
+  const [view, setView] = useState<"lista" | "kanban">("lista");
+
   const [onlyUnlinked, setOnlyUnlinked] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [form, setForm] = useState(EMPTY);
