@@ -116,8 +116,19 @@ export const ContactsTab = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof 
           </div>
         )}
       </CardHeader>
-      <CardContent className="p-0">
+      <CardContent className={cn(view === "kanban" ? "p-3" : "p-0")}>
+        {view === "kanban" ? (
+          <ContactPipelineKanban
+            contacts={rows.map((c) => ({ id: c.id, name: c.name, email: c.email, phone: c.phone, company: c.company, pipeline_stage: c.pipeline_stage, company_id: c.company_id }))}
+            stages={PIPELINE_STAGES}
+            onMove={(id, stage) => crm.updateContact.mutate({ id, patch: { pipeline_stage: stage } })}
+            onCreate={({ name, stage, companyId }) => crm.createContact.mutate({ name, stage, companyId })}
+            onEdit={(c) => { setView("lista"); startEdit(c); }}
+            onDelete={(id) => crm.deleteContact.mutate(id)}
+          />
+        ) : (
         <div className="divide-y divide-border/50 xl:max-h-[72vh] xl:overflow-y-auto">
+
           {rows.map((c) => (
             <div key={c.id} className="flex items-center gap-2 px-3 py-2.5">
               <span className={cn("h-2 w-2 rounded-full shrink-0", c.customer_id ? "bg-emerald-500" : "bg-muted-foreground/40")} />
