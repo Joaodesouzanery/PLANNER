@@ -81,8 +81,13 @@ export const ContactsTab = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof 
           <Button variant={onlyUnlinked ? "default" : "outline"} size="sm" className="h-9 gap-1.5" onClick={() => setOnlyUnlinked((v) => !v)}>
             <Link2Off className="h-3.5 w-3.5" /> Sem cliente {unlinked > 0 && <Badge variant="secondary" className="text-[10px] ml-0.5">{unlinked}</Badge>}
           </Button>
+          <div className="flex rounded-lg border border-border/50 p-0.5">
+            <Button variant={view === "lista" ? "secondary" : "ghost"} size="sm" className="h-8 gap-1.5 px-2 text-xs" onClick={() => setView("lista")}><Rows3 className="h-3.5 w-3.5" /> Lista</Button>
+            <Button variant={view === "kanban" ? "secondary" : "ghost"} size="sm" className="h-8 gap-1.5 px-2 text-xs" onClick={() => setView("kanban")}><LayoutGrid className="h-3.5 w-3.5" /> Kanban</Button>
+          </div>
           <Button size="sm" className="h-9 gap-1.5" onClick={() => setShowNew((v) => !v)}><Plus className="h-3.5 w-3.5" /> Novo</Button>
         </div>
+
         <p className="text-[11px] text-muted-foreground pt-1">Ligue cada contato a um cliente pra ele aparecer no 360. {crm.contacts.length} contato(s){unlinked > 0 ? ` · ${unlinked} sem cliente` : ""}.</p>
         {showNew && (
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 mt-2 space-y-2">
