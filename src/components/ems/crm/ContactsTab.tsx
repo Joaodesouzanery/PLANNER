@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search, Phone, Mail, Building2, Link2, Link2Off, Plus, Pencil, Trash2, Check, X, Globe } from "lucide-react";
+import { Search, Phone, Mail, Building2, Link2, Link2Off, Plus, Pencil, Trash2, Check, X, Globe, Rows3, LayoutGrid } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -7,10 +7,20 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useCompany } from "@/contexts/CompanyContext";
+import ContactPipelineKanban, { type KanbanStage } from "@/components/ems/contacts/ContactPipelineKanban";
 import type { useCrm } from "./useCrm";
 
 const NONE = "__none__";
 const EMPTY = { name: "", email: "", phone: "", company: "", customerId: NONE };
+
+// Etapas do pipeline de contatos (mesmas do módulo Contatos) — visão Kanban por empresa.
+const PIPELINE_STAGES: KanbanStage[] = [
+  { key: "lead", label: "Lead", color: "bg-blue-500/15 text-blue-400 border-blue-500/30", dot: "bg-blue-500" },
+  { key: "qualified", label: "Qualificado", color: "bg-amber-500/15 text-amber-400 border-amber-500/30", dot: "bg-amber-500" },
+  { key: "proposal", label: "Proposta", color: "bg-purple-500/15 text-purple-400 border-purple-500/30", dot: "bg-purple-500" },
+  { key: "closed", label: "Fechado", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30", dot: "bg-emerald-500" },
+];
+
 
 // Aba Contatos do CRM: as pessoas (mesma tabela `contacts`, inclui as vindas do Comercial),
 // cada uma com um SELETOR DE CLIENTE (customer_id → finance_clientes). Sem isso, contato novo
