@@ -192,7 +192,9 @@ export const ContactsTab = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof 
           ))}
           {rows.length === 0 && <p className="p-6 text-center text-sm text-muted-foreground">Nenhum contato.</p>}
         </div>
+        )}
       </CardContent>
+
     </Card>
   );
 };
