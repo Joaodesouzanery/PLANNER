@@ -25,6 +25,7 @@ import { ModuloManager } from "@/components/ems/crm/ModuloManager";
 import { ModuloFilter } from "@/components/ems/crm/ModuloFilter";
 import { AtivosPanel } from "@/components/ems/crm/AtivosPanel";
 import { ProvaPanel } from "@/components/ems/crm/ProvaPanel";
+import { AtividadesPanel } from "@/components/ems/crm/AtividadesPanel";
 import { ExpansaoBoard } from "@/components/ems/crm/ExpansaoBoard";
 import { RotinaSemanaPanel } from "@/components/ems/crm/RotinaSemanaPanel";
 import { KanbanMetricsPanel } from "@/components/ems/crm/KanbanMetricsPanel";
@@ -70,6 +71,7 @@ const TAB_META: Record<string, { title: string; sub: string }> = {
   prova: { title: "Prova", sub: "Motor de Prova: casos com resultado R$ + evidência + permissão — a isca do próximo módulo." },
   expansao: { title: "Expansão", sub: "Contas landed × módulos abertos — cada linha é um upsell com prova já construída." },
   rotina: { title: "Rotina", sub: "A semana operacional por canal (Seg abre · Ter–Qui contato · Sex fecha), com o que já foi feito." },
+  atividades: { title: "Atividades", sub: "A fila do dia (followup) + cadências: aplique uma cadência num deal e ela gera os toques." },
 };
 
 const Crm = () => {
@@ -150,6 +152,7 @@ const Crm = () => {
             <TabsTrigger value="campanhas" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Campanhas</TabsTrigger>
             <TabsTrigger value="ativos" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Ativos</TabsTrigger>
             <TabsTrigger value="prova" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Prova</TabsTrigger>
+            <TabsTrigger value="atividades" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Atividades</TabsTrigger>
             <TabsTrigger value="expansao" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Expansão</TabsTrigger>
             <TabsTrigger value="rotina" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Rotina</TabsTrigger>
             <TabsTrigger value="torre" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Torre</TabsTrigger>
@@ -196,6 +199,10 @@ const Crm = () => {
 
           <TabsContent value="prova" className="mt-0">
             <ProvaPanel crm={crm} />
+          </TabsContent>
+
+          <TabsContent value="atividades" className="mt-0">
+            <AtividadesPanel crm={crm} />
           </TabsContent>
 
           <TabsContent value="expansao" className="mt-0">
