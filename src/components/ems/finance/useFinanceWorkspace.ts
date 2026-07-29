@@ -511,7 +511,10 @@ export const useFinanceWorkspace = () => {
   });
 
   const cardAccounts = selectedAccounts.filter((account) => account.account_type === "credit_card");
-  const reserveBalance = selectedAccounts.filter((account) => account.account_type === "savings" || account.account_type === "investment").reduce((sum, account) => sum + Number(account.opening_balance), 0);
+  // Reserva = saldo ATUAL das contas savings/investment (opening + movimentos), não o opening_balance estático.
+  const reserveBalance = selectedAccounts
+    .filter((account) => account.account_type === "savings" || account.account_type === "investment")
+    .reduce((sum, account) => sum + (accountBalances.get(account.id) ?? Number(account.opening_balance || 0)), 0);
 
   return {
     ...finance,
