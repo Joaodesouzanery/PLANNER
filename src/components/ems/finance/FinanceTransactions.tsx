@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,8 +17,8 @@ import { fmtCurrency, formatDateBR, effectiveDate, type Transaction } from "./us
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
 import { useClientes } from "./useClientes";
 import { useConfirm } from "@/hooks/useConfirm";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { exportTablePdf, captureChart, type PdfImage } from "@/lib/exportPdf";
+import { FinanceReportCharts, type ReportChartRefs } from "./FinanceReportCharts";
 import { toast } from "sonner";
 
 const WIDE_FROM = "2000-01-01";
@@ -163,6 +163,27 @@ const FinanceTransactions = () => {
     });
   };
 
+  // Agregados p/ o PDF turbinado (categorias + receita×despesa), da MESMA lista filtrada que se exporta.
+  const chartRefs: ReportChartRefs = { revExp: useRef<HTMLDivElement>(null), capital: useRef<HTMLDivElement>(null), income: useRef<HTMLDivElement>(null), expense: useRef<HTMLDivElement>(null) };
+  const reportData = useMemo(() => {
+    const monthMap = new Map<string, { income: number; expense: number }>();
+    const catInc = new Map<string, number>();
+    const catExp = new Map<string, number>();
+    for (const t of filteredTransactions) {
+      if (t.type !== "income" && t.type !== "expense") continue;
+      const k = effectiveDate(t).slice(0, 7);
+      const c = monthMap.get(k) ?? { income: 0, expense: 0 };
+      c[t.type] += Number(t.amount);
+      monthMap.set(k, c);
+      const cat = t.category || "Sem categoria";
+      const m = t.type === "income" ? catInc : catExp;
+      m.set(cat, (m.get(cat) || 0) + Number(t.amount));
+    }
+    const toCat = (m: Map<string, number>) => [...m.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+    const monthlyData = [...monthMap.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([month, v]) => ({ month, income: v.income, expense: v.expense, balance: v.income - v.expense }));
+    return { monthlyData, incomeByCat: toCat(catInc), expenseByCat: toCat(catExp) };
+  }, [filteredTransactions]);
+
   const exportCsv = () => {
     const rows = filteredTransactions.map(t => `${formatDateBR(t.date)},${t.description.replace(/,/g, " ")},${t.category || ""},${t.type === "income" ? "Entrada" : "Saída"},${isPaid(t) ? (t.type === "income" ? "Recebido" : "Pago") : isAtrasado(t) ? "Atrasado" : "Previsto"},${t.amount}`);
     const csv = "Data,Descrição,Categoria,Tipo,Situação,Valor\n" + rows.join("\n");
@@ -171,11 +192,25 @@ const FinanceTransactions = () => {
     toast.success("CSV exportado!");
   };
 
-  const exportPdf = () => {
-    const doc = new jsPDF(); doc.setFontSize(16); doc.text("Transações Financeiras", 14, 20);
-    doc.setFontSize(10); doc.text(`Exportado em ${format(new Date(), "dd/MM/yyyy HH:mm")}`, 14, 28);
-    autoTable(doc, { startY: 34, head: [["Data", "Descrição", "Categoria", "Tipo", "Situação", "Valor"]], body: filteredTransactions.map(t => [formatDateBR(t.date), t.description, t.category || "-", t.type === "income" ? "Entrada" : "Saída", isPaid(t) ? (t.type === "income" ? "Recebido" : "Pago") : isAtrasado(t) ? "Atrasado" : "Previsto", fmtCurrency(Number(t.amount))]), styles: { fontSize: 9 }, headStyles: { fillColor: [59, 130, 246] } });
-    doc.save("transacoes.pdf"); toast.success("PDF exportado!");
+  const exportPdf = async () => {
+    // Turbinado: gráficos (receita×despesa + categorias, capturados offscreen) + tabelas de categoria + a lista.
+    const [imgR, imgI, imgE] = await Promise.all([captureChart(chartRefs.revExp.current), captureChart(chartRefs.income.current), captureChart(chartRefs.expense.current)]);
+    const images: PdfImage[] = [];
+    if (imgR) images.push({ heading: "Receita × Despesa (mês a mês)", dataUrl: imgR, height: 62 });
+    if (imgI) images.push({ heading: "Receita por categoria", dataUrl: imgI, width: 100, height: 62 });
+    if (imgE) images.push({ heading: "Despesas por categoria", dataUrl: imgE, width: 100, height: 62 });
+    await exportTablePdf({
+      title: "Transações financeiras",
+      subtitle: `Exportado em ${format(new Date(), "dd/MM/yyyy HH:mm")}`,
+      filename: "transacoes.pdf",
+      images,
+      sections: [
+        { heading: "Receita por categoria", head: [["Categoria", "Valor"]], body: reportData.incomeByCat.length ? reportData.incomeByCat.map((c) => [c.name, fmtCurrency(c.value)]) : [["—", "—"]] },
+        { heading: "Despesas por categoria", head: [["Categoria", "Valor"]], body: reportData.expenseByCat.length ? reportData.expenseByCat.map((c) => [c.name, fmtCurrency(c.value)]) : [["—", "—"]] },
+        { heading: "Transações", head: [["Data", "Descrição", "Categoria", "Tipo", "Situação", "Valor"]], body: filteredTransactions.map((t) => [formatDateBR(t.date), t.description, t.category || "-", t.type === "income" ? "Entrada" : "Saída", isPaid(t) ? (t.type === "income" ? "Recebido" : "Pago") : isAtrasado(t) ? "Atrasado" : "Previsto", fmtCurrency(Number(t.amount))]) },
+      ],
+    });
+    toast.success("PDF exportado!");
   };
 
   const rowActions = (t: Transaction) => (
@@ -421,6 +456,11 @@ const FinanceTransactions = () => {
           <DialogFooter><Button variant="outline" className="rounded-xl" onClick={() => setShowModal(false)}>Cancelar</Button><Button className="rounded-xl shadow-lg shadow-primary/20" onClick={handleSave}>{editingTransaction ? "Salvar" : "Criar"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Gráficos renderizados offscreen p/ o PDF turbinado (categorias + receita×despesa). */}
+      <div style={{ position: "fixed", left: -10000, top: 0, width: 720, zIndex: -1 }} aria-hidden>
+        <FinanceReportCharts monthlyData={reportData.monthlyData} capitalEvolution={[]} incomeByCat={reportData.incomeByCat} expenseByCat={reportData.expenseByCat} refs={chartRefs} />
+      </div>
     </div>
   );
 };
