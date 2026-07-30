@@ -201,10 +201,15 @@ export const ContactBoards = ({ crm }: { crm: ReturnType<typeof useCrm> }) => {
   const [segment, setSegment] = useState("");
   const [f, setF] = useState<Filters>({ search: "", empresaId: null, clienteId: null, etapa: null });
   const [detail, setDetail] = useState<{ card: BoardCard; boardName: string; stageTitle: string } | null>(null);
+  const [ncName, setNcName] = useState("");
+  const [ncCompany, setNcCompany] = useState("");
+  const addContact = () => {
+    if (!ncName.trim()) return;
+    crm.createContact.mutate({ name: ncName, company: ncCompany || undefined }, { onSuccess: () => { setNcName(""); setNcCompany(""); } });
+  };
 
   const contactById = useMemo(() => new Map(crm.contacts.map((c) => [c.id, c])), [crm.contacts]);
   const companyName = (id?: string | null) => (id ? companies.find((c) => c.id === id)?.name || "—" : "—");
-  const customerName = (id?: string | null) => (id ? crm.customers.find((c) => c.id === id)?.nome || "—" : "—");
 
   // Empresas presentes nos contatos + clientes + títulos de etapa (pra os filtros).
   const empresaOpts = useMemo(() => {
@@ -308,8 +313,19 @@ export const ContactBoards = ({ crm }: { crm: ReturnType<typeof useCrm> }) => {
           <Layers className="h-4 w-4 text-primary" />
           <span className="text-sm font-medium">Novo quadro</span>
           <Input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && create()} placeholder="Empresa" className="h-9 w-48" />
-          <Input value={segment} onChange={(e) => setSegment(e.target.value)} onKeyDown={(e) => e.key === "Enter" && create()} placeholder="Segmento (opcional)" className="h-9 w-48" />
+          <Input value={segment} onChange={(e) => setSegment(e.target.value)} onKeyDown={(e) => e.key === "Enter" && create()} placeholder="Segmento (ex.: Construção)" className="h-9 w-48" />
           <Button size="sm" onClick={create} disabled={!name.trim()}><Plus className="mr-1 h-4 w-4" /> Criar kanban</Button>
+        </CardContent>
+      </Card>
+
+      {/* Novo contato — cria a pessoa (depois arraste pra um quadro/etapa) */}
+      <Card className="border-border/60">
+        <CardContent className="flex flex-wrap items-center gap-2 p-3">
+          <Briefcase className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium">Novo contato</span>
+          <Input value={ncName} onChange={(e) => setNcName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addContact()} placeholder="Nome" className="h-9 w-48" />
+          <Input value={ncCompany} onChange={(e) => setNcCompany(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addContact()} placeholder="Org (opcional)" className="h-9 w-40" />
+          <Button size="sm" variant="outline" onClick={addContact} disabled={!ncName.trim() || crm.createContact.isPending}><Plus className="mr-1 h-4 w-4" /> Criar contato</Button>
         </CardContent>
       </Card>
 
@@ -318,7 +334,10 @@ export const ContactBoards = ({ crm }: { crm: ReturnType<typeof useCrm> }) => {
       ) : boards.boards.length === 0 ? (
         <p className="p-6 text-center text-sm text-muted-foreground">Nenhum quadro ainda — crie um por empresa/segmento e arraste os contatos entre as etapas.</p>
       ) : (
-        boards.boards.map((b) => <BoardBlock key={b.id} board={b} boards={boards} crm={crm} filterFn={filterFn} etapa={f.etapa} onOpenDetail={(card, boardName, stageTitle) => setDetail({ card, boardName, stageTitle })} />)
+        // Empilha por SEGMENTO (Construção, Agro, Regulação…), sem segmento por último.
+        [...boards.boards]
+          .sort((a, b) => (a.segment || "￿").localeCompare(b.segment || "￿") || a.name.localeCompare(b.name))
+          .map((b) => <BoardBlock key={b.id} board={b} boards={boards} crm={crm} filterFn={filterFn} etapa={f.etapa} onOpenDetail={(card, boardName, stageTitle) => setDetail({ card, boardName, stageTitle })} />)
       )}
 
       {/* Painel lateral de detalhe */}
@@ -328,8 +347,14 @@ export const ContactBoards = ({ crm }: { crm: ReturnType<typeof useCrm> }) => {
           {detailContact && (
             <div className="mt-4 space-y-3 text-sm">
               <div className="rounded-lg border border-border/50 p-2.5 space-y-1.5">
-                <p className="flex items-center gap-2"><Building2 className="h-3.5 w-3.5 text-muted-foreground" />Empresa/produto: <b>{companyName(detailContact.company_id)}</b></p>
-                <p className="flex items-center gap-2"><Briefcase className="h-3.5 w-3.5 text-muted-foreground" />Cliente: <b>{customerName(detailContact.customer_id)}</b></p>
+                <p className="flex items-center gap-2"><Building2 className="h-3.5 w-3.5 text-muted-foreground" />Solução: <b>{companyName(detailContact.company_id)}</b></p>
+                {/* Ligar o contato a um cliente do 360 (o que a antiga aba "Contatos" fazia). */}
+                <div className="flex items-center gap-2"><Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" /><span className="shrink-0">Cliente:</span>
+                  <Select value={detailContact.customer_id || "none"} onValueChange={(v) => crm.linkContact.mutate({ contactId: detailContact.id, customerId: v === "none" ? null : v })}>
+                    <SelectTrigger className="h-7 flex-1 text-xs"><SelectValue placeholder="Ligar a um cliente" /></SelectTrigger>
+                    <SelectContent><SelectItem value="none">Sem cliente</SelectItem>{crm.customers.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
                 <p className="flex items-center gap-2"><Layers className="h-3.5 w-3.5 text-muted-foreground" />Quadro/etapa: <b>{detail?.boardName} · {detail?.stageTitle}</b></p>
               </div>
               <div className="rounded-lg border border-border/50 p-2.5 space-y-1.5">

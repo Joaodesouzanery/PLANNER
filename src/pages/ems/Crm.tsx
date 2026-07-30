@@ -33,11 +33,12 @@ import { useCrmStages } from "@/components/ems/crm/useCrmStages";
 import { useCrmModulos } from "@/components/ems/crm/useCrmModulos";
 import { useCrmAtivos } from "@/components/ems/crm/useCrmAtivos";
 import { useCrmRealtime } from "@/components/ems/crm/useCrmRealtime";
-import { ContactsTab } from "@/components/ems/crm/ContactsTab";
 import { OFERTA_LABEL, TREND_LABEL, type CustomerScore, type Trend } from "@/components/ems/crm/crmScores";
 import { buildCustomer360, diasSemContato, type CustomerSpine, type Customer360 } from "@/components/ems/crm/crm360";
 
+import { ContactsTab } from "@/components/ems/crm/ContactsTab";
 const Prospecting = lazy(() => import("@/components/ems/commercial/Prospecting"));
+const ContactBoards = lazy(() => import("@/components/ems/crm/ContactBoards"));
 const CampaignManager = lazy(() => import("@/components/ems/crm/CampaignManager"));
 const VisitRoutesContent = lazy(() => import("@/pages/ems/VisitRoutes").then((m) => ({ default: m.VisitRoutesContent })));
 const AgileImplementation = lazy(() => import("@/pages/ems/AgileImplementation"));
@@ -89,6 +90,7 @@ const Crm = () => {
   const [view, setView] = useState<"list" | "kanban">(searchParams.get("view") === "kanban" ? "kanban" : "list");
   // Sub-views dos grupos consolidados (semeadas pelo ?tab= antigo p/ preservar deep-links).
   const [carteiraView, setCarteiraView] = useState<"clientes" | "visao">(rawTab === "torre" ? "visao" : "clientes");
+  const [contatosView, setContatosView] = useState<"kanban" | "lista">(rawTab === "contatos" ? "lista" : "kanban");
   const [oppView, setOppView] = useState<"fila" | "kanban" | "metricas" | "atividades" | "expansao">(
     rawTab === "atividades" ? "atividades" : rawTab === "expansao" ? "expansao" : "fila");
   const [motorView, setMotorView] = useState<"ativos" | "prova" | "rotina" | "campanhas">(
@@ -226,8 +228,17 @@ const Crm = () => {
           </TabsContent>
 
           {/* CONTATOS = kanban de contatos (Bloco 3 troca por boards por segmento) */}
-          <TabsContent value="contatos" className="mt-0">
-            <ContactsTab crm={crm} onSelectCustomer={selectCustomer} />
+          {/* CONTATOS = kanban por segmento (padrão) + Lista (gestão: editar/excluir/ligar/360) */}
+          <TabsContent value="contatos" className="mt-0 space-y-3">
+            <div className="flex items-center justify-end">
+              <div className="inline-flex rounded-lg border border-border/50 bg-card/60 p-0.5">
+                <Button size="sm" variant={contatosView === "kanban" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setContatosView("kanban")}><LayoutGrid className="h-3.5 w-3.5" />Kanban</Button>
+                <Button size="sm" variant={contatosView === "lista" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setContatosView("lista")}><List className="h-3.5 w-3.5" />Lista</Button>
+              </div>
+            </div>
+            {contatosView === "kanban"
+              ? <Suspense fallback={<LazyFallback />}><ContactBoards crm={crm} /></Suspense>
+              : <ContactsTab crm={crm} onSelectCustomer={selectCustomer} />}
           </TabsContent>
 
           {/* OPORTUNIDADES = Fila · Kanban · Funil · Atividades · Expansão */}
