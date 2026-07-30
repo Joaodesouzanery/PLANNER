@@ -1,16 +1,17 @@
 import { useMemo, useState } from "react";
-import { format } from "date-fns";
+import { format, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Wallet, Copy } from "lucide-react";
+import { Wallet, Copy, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/hooks/useConfirm";
 import { fmtCurrency } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
 import { useCategoryBudgets } from "./useCategoryBudgets";
-import { buildBudgetLines, budgetTotals } from "./financeBudget";
+import { buildBudgetLines, budgetTotals, suggestTetos, type SpendSample } from "./financeBudget";
 import { canonicalCategory } from "./financeCategories";
 
 export const FinanceBudgetCard = () => {
@@ -19,9 +20,30 @@ export const FinanceBudgetCard = () => {
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
   const curKey = format(now, "yyyy-MM");
-  const { budgets, missing, setTeto, copyPrevMonth } = useCategoryBudgets(year, month);
+  const { budgets, missing, setTeto, copyPrevMonth, applyTetos } = useCategoryBudgets(year, month);
+  const confirm = useConfirm();
   const [newCat, setNewCat] = useState("");
   const [newTeto, setNewTeto] = useState("");
+
+  // Sugere tetos a partir da média das saídas pagas dos 3 meses cheios anteriores (categoria canonizada).
+  const suggestFromHistory = async () => {
+    const meses = [1, 2, 3].map((k) => format(subMonths(now, k), "yyyy-MM"));
+    const samples: SpendSample[] = [];
+    for (const r of workspace.canonical.rows) {
+      if (r.type !== "expense" || !r.paid) continue;
+      const mk = r.date.slice(0, 7);
+      if (!meses.includes(mk)) continue;
+      samples.push({ category: canonicalCategory(r.category) || "Sem categoria", amount: r.amount, month: mk });
+    }
+    const sugeridos = suggestTetos(samples, meses);
+    if (!sugeridos.length) { await confirm({ title: "Sem histórico", description: "Não há saídas pagas nos últimos 3 meses para estimar tetos.", confirmText: "Ok" }); return; }
+    const ok = await confirm({
+      title: `Sugerir ${sugeridos.length} tetos?`,
+      description: `A partir da média dos últimos 3 meses (com corte leve p/ sobrar mais). Isso sobrescreve os tetos atuais das categorias com histórico. Ex.: ${sugeridos.slice(0, 3).map((s) => `${s.category} ${fmtCurrency(s.teto)}`).join(" · ")}.`,
+      confirmText: "Aplicar",
+    });
+    if (ok) applyTetos.mutate(sugeridos);
+  };
 
   const realizadoPorCat = useMemo(() => {
     const acc: Record<string, number> = {};
@@ -46,6 +68,7 @@ export const FinanceBudgetCard = () => {
           <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4 text-primary" />Orçamento de {format(now, "MMM/yy", { locale: ptBR })}</CardTitle>
           <div className="flex items-center gap-2">
             {totals.tetoTotal > 0 && <span className="font-mono text-xs text-muted-foreground">{fmtCurrency(totals.realizadoOrcado)} / {fmtCurrency(totals.tetoTotal)}</span>}
+            <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={suggestFromHistory} disabled={missing || applyTetos.isPending}><Sparkles className="h-3.5 w-3.5" />Sugerir do histórico</Button>
             <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => copyPrevMonth.mutate()} disabled={missing || copyPrevMonth.isPending}><Copy className="h-3.5 w-3.5" />Copiar mês anterior</Button>
           </div>
         </div>

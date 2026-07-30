@@ -44,6 +44,28 @@ export const buildBudgetLines = (
     .sort((a, b) => b.comprometido - a.comprometido);
 };
 
+export interface SpendSample { category: string; amount: number; month: string } // month = "yyyy-MM"
+
+/**
+ * Sugere um teto por categoria a partir da MÉDIA das saídas pagas nos meses informados
+ * (ex.: os 3 meses cheios anteriores). Divide pelo nº de meses da janela (meses sem gasto
+ * puxam a média p/ baixo), aplica um corte leve `trim` (mira sobrar mais) e arredonda p/ passo
+ * de 10. Categorias já vêm canonizadas pelo chamador. Puro/testável.
+ */
+export const suggestTetos = (samples: SpendSample[], months: string[], trim = 0.05): CategoryBudget[] => {
+  const monthSet = new Set(months);
+  const byCat = new Map<string, number>();
+  for (const s of samples) {
+    if (!monthSet.has(s.month)) continue;
+    byCat.set(s.category, (byCat.get(s.category) ?? 0) + s.amount);
+  }
+  const n = Math.max(1, months.length);
+  return [...byCat.entries()]
+    .map(([category, total]) => ({ category, teto: Math.max(0, Math.round((total / n) * (1 - trim) / 10) * 10) }))
+    .filter((t) => t.teto > 0)
+    .sort((a, b) => b.teto - a.teto);
+};
+
 /** Total dos tetos e do realizado (só categorias orçadas, p/ o resumo do card). */
 export const budgetTotals = (lines: BudgetLine[]) => {
   const orcadas = lines.filter((l) => l.orcada);

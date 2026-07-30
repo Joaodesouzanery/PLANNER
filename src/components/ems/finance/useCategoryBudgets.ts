@@ -54,10 +54,23 @@ export const useCategoryBudgets = (year: number, month: number) => {
     onError: (e: any) => toast({ title: "Erro ao copiar", description: e?.message, variant: "destructive" }),
   });
 
+  // Aplica vários tetos de uma vez (usado pela sugestão do histórico) — um upsert, uma invalidação.
+  const applyTetos = useMutation({
+    mutationFn: async (items: { category: string; teto: number }[]) => {
+      if (!items.length) return 0;
+      const rows = items.map((i) => ({ category: i.category, year, month, teto: i.teto }));
+      const { error } = await db.from("finance_category_budgets").upsert(rows, { onConflict: "user_id,category,year,month" });
+      if (error) throw error;
+      return rows.length;
+    },
+    onSuccess: (n: number) => { qc.invalidateQueries({ queryKey: key }); toast({ title: n ? `${n} tetos sugeridos aplicados` : "Sem histórico p/ sugerir" }); },
+    onError: (e: any) => toast({ title: "Erro ao aplicar tetos", description: e?.message, variant: "destructive" }),
+  });
+
   return {
     budgets: query.data?.rows ?? [],
     missing: query.data?.missing ?? false,
     isLoading: query.isLoading,
-    setTeto, removeTeto, copyPrevMonth,
+    setTeto, removeTeto, copyPrevMonth, applyTetos,
   };
 };

@@ -18,6 +18,7 @@ import { goalViability, type Verdict } from "./financeGoalViability";
 import { intervalFactor } from "./projectionCalc";
 import { usePatrimonio, type NetworthItem, type SinkingFund } from "./usePatrimonio";
 import { computeNetWorth, investimentosPrincipal } from "./financePatrimonioCalc";
+import { categoryScope } from "./financeCategories";
 
 const todayIso = () => format(new Date(), "yyyy-MM-dd");
 const monthsUntil = (from: string, to: string) => {
@@ -78,6 +79,14 @@ export const FinancePatrimonio = () => {
   const paraReserva = reservaFalta > 0 ? Math.min(sobra, reservaFalta) : 0;
   const paraSinking = Math.min(Math.max(0, sobra - paraReserva), sinkingMensal);
   const paraInvestir = Math.max(0, sobra - paraReserva - paraSinking);
+
+  // Vínculo visual do ciclo pessoal: pró-labore − gastos PF = sobra pessoal → aporte → patrimônio.
+  const prolabore = settings.prolabore_mensal ?? 0;
+  const gastoPFMes = useMemo(() => {
+    const mk = todayIso().slice(0, 7);
+    return workspace.canonical.rows.filter((r) => r.type === "expense" && r.paid && r.date.slice(0, 7) === mk && categoryScope(r.category) === "PF").reduce((a, r) => a + r.amount, 0);
+  }, [workspace.canonical.rows]);
+  const sobraPessoal = prolabore - gastoPFMes;
   const projInvest10 = fvAportes(paraInvestir, 120, settings.cdi_monthly_liquid);
 
   return (
@@ -137,6 +146,11 @@ export const FinancePatrimonio = () => {
               <div className="rounded-lg border border-border/50 p-3"><p className="text-[11px] text-muted-foreground">3º Sinking funds</p><p className="font-mono font-bold text-sky-400">{fmtCurrency(paraSinking)}</p><p className="text-[10px] text-muted-foreground">{funds.length} metas</p></div>
               <div className="rounded-lg border border-border/50 p-3"><p className="text-[11px] text-muted-foreground">4º Investir</p><p className="font-mono font-bold text-primary">{fmtCurrency(paraInvestir)}</p><p className="text-[10px] text-muted-foreground">~{fmtCurrency(projInvest10)} em 10a (CDI)</p></div>
             </div>
+          )}
+          {prolabore > 0 && (
+            <p className="mt-3 border-t border-border/40 pt-2 text-[11px] text-muted-foreground">
+              No lado pessoal: pró-labore {fmtCurrency(prolabore)} − gastos PF {fmtCurrency(gastoPFMes)} = <strong className={cn(sobraPessoal >= 0 ? "text-emerald-400" : "text-destructive")}>{fmtCurrency(sobraPessoal)}/mês</strong> livres. Segurando os tetos, essa sobra vira aporte — e cada aporte na sua conta de investimento/reserva já entra aqui no patrimônio.
+            </p>
           )}
         </CardContent>
       </Card>
