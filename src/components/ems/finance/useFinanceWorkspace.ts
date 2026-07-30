@@ -111,9 +111,10 @@ export const useFinanceWorkspace = () => {
   const { data: impacts = [] } = useQuery({
     queryKey: ["finance-forecast-impacts"],
     queryFn: async () => {
+      // select("*") p/ tolerar a migration de datas ainda não aplicada (colunas novas viram undefined).
       const { data, error } = await (supabase as any)
         .from("project_financial_impacts")
-        .select("id,company_id,project_id,title,impact_type,amount,notes,created_at")
+        .select("*")
         .order("created_at", { ascending: false });
       if (error) {
         if (error.code === "42P01" || error.code === "PGRST205") return [];
@@ -125,9 +126,9 @@ export const useFinanceWorkspace = () => {
         title: row.title,
         impact_type: row.impact_type,
         expected_amount: Number(row.amount || 0),
-        expected_date: null,
+        expected_date: row.expected_date ?? null, // com data → entra no forecast como cenário
         confidence: "medium" as const,
-        status: "planned" as const,
+        status: row.status ?? "planned",
       })) as PlanningImpact[];
     },
     retry: false,

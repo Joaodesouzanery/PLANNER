@@ -28,15 +28,17 @@ const FinancePlannedImpacts = () => {
   const { data = [] } = useQuery({
     queryKey: ["finance-planned-impacts", selectedCompanyId],
     queryFn: async () => {
+      // select("*") tolera a migration de datas/status ainda não aplicada (coluna nova = undefined).
       let query = (supabase as any)
         .from("project_financial_impacts")
-        .select("id, project_id, title, impact_type, amount, notes, projects(title)")
+        .select("*, projects(title)")
         .order("created_at", { ascending: false });
       if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
       const { data, error } = await query;
       if (missingTable(error)) return [] as PlannedImpact[];
       if (error) throw error;
-      return (data || []) as PlannedImpact[];
+      // Esconde os cancelados (ex.: deal que saiu de "ganho"). Pré-migration status é undefined → mantém.
+      return (data || []).filter((r: any) => r.status !== "cancelled") as PlannedImpact[];
     },
     retry: false,
   });

@@ -279,12 +279,42 @@ export const useCrm = () => {
     onError: (e: any) => toast({ title: "Erro ao registrar interação", description: e?.message, variant: "destructive" }),
   });
 
+  // Ponte CRM→$: negócio GANHO vira um IMPACTO PREVISTO (project_financial_impacts) — entra no
+  // Futuro/Cenários das finanças, sem virar caixa. Idempotente por source_deal_id (1 por deal);
+  // sair de "ganho" cancela o previsto. Best-effort: se a migration de datas não estiver aplicada,
+  // o upsert falha silenciosamente e o ganho segue normal.
+  const syncWonImpact = async (deal: CrmDeal) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const ecd = deal.expected_close_date;
+    // Datas passadas/vazias caem em HOJE — senão o impacto nasce fora da janela do forecast (que começa hoje) e some.
+    const expected_date = ecd && ecd > today ? ecd : today;
+    try {
+      await db.from("project_financial_impacts").upsert({
+        source_deal_id: deal.id,
+        title: deal.title || "Negócio ganho",
+        amount: Number(deal.value) || 0,
+        impact_type: "revenue",
+        company_id: deal.company_id ?? (scoped ? selectedCompanyId : null),
+        expected_date,
+        status: "planned",
+      }, { onConflict: "source_deal_id" });
+    } catch { /* migration de datas pode não estar aplicada — não bloqueia o ganho */ }
+  };
+  const cancelWonImpact = async (dealId: string) => {
+    try { await db.from("project_financial_impacts").update({ status: "cancelled" }).eq("source_deal_id", dealId); } catch { /* best-effort */ }
+  };
+
   const updateDeal = useMutation({
     mutationFn: async ({ id, patch }: { id: string; patch: Record<string, any> }) => {
       const { error } = await db.from("project_opportunities").update(patch).eq("id", id);
       if (error) throw error;
+      if (Object.prototype.hasOwnProperty.call(patch, "status_outcome")) {
+        const deal = deals.find((d) => d.id === id);
+        if (patch.status_outcome === "won" && deal) await syncWonImpact(deal);
+        else if (patch.status_outcome !== "won") await cancelWonImpact(id); // saiu de ganho → cancela o previsto
+      }
     },
-    onSuccess: invalidate,
+    onSuccess: () => { invalidate(); qc.invalidateQueries({ queryKey: ["finance-forecast-impacts"] }); qc.invalidateQueries({ queryKey: ["finance-planned-impacts"] }); },
     onError: (e: any) => toast({ title: "Erro ao atualizar deal", description: e?.message, variant: "destructive" }),
   });
 
