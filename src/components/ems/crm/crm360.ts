@@ -35,7 +35,15 @@ export interface Customer360 {
 // Vocabulário ÚNICO de estágios fechados (fonte compartilhada — evita as cópias divergentes).
 // Inclui "ganha"/"perdida" (grafia usada no modal de Projetos) além de "ganho"/"perdido".
 export const CLOSED_STAGES = new Set(["ganho", "ganha", "perdido", "perdida", "won", "lost", "fechado", "closed"]);
-const CLOSED = CLOSED_STAGES;
+
+/**
+ * Deal FECHADO = ganho/perdido pelo status_outcome (fonte da verdade do funil DB-backed, ex.: ganhar
+ * arrastando pra etapa "Cliente"/"Obra" seta status_outcome sem que a KEY esteja em CLOSED_STAGES)
+ * OU pela grafia terminal do estágio (compat com Projetos/legado). Sem isso, o 360/Torre/Fila/NBA
+ * contavam um deal já ganho como "aberto".
+ */
+export const isDealClosed = (d: { status_outcome?: string | null; stage?: string | null }): boolean =>
+  d.status_outcome === "won" || d.status_outcome === "lost" || CLOSED_STAGES.has((d.stage || "").toLowerCase());
 
 export const buildCustomer360 = (
   spine: CustomerSpine,
@@ -53,9 +61,9 @@ export const buildCustomer360 = (
     .filter((i) => contactIds.has(i.contact_id))
     .sort((a, b) => b.date.localeCompare(a.date));
 
-  const dealsAbertos = deals.filter((d) => !CLOSED.has((d.stage || "").toLowerCase())).length;
+  const dealsAbertos = deals.filter((d) => !isDealClosed(d)).length;
   const forecastPonderado = deals
-    .filter((d) => !CLOSED.has((d.stage || "").toLowerCase()))
+    .filter((d) => !isDealClosed(d))
     .reduce((a, d) => a + (Number(d.value) || 0) * ((Number(d.probability) || 0) / 100), 0);
 
   return {

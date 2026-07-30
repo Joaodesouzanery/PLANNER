@@ -4,6 +4,7 @@ import { GripVertical, CalendarClock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useCompany } from "@/contexts/CompanyContext";
 import type { useCrm } from "./useCrm";
 
 // Kanban de saúde/estágio DIRETO no spine (finance_clientes.stage) — substitui o ClientRelationshipKanban
@@ -21,6 +22,9 @@ const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", curren
 const dateBR = (d?: string | null) => (d ? new Date(`${d.slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR") : null);
 
 export const CustomerKanban = ({ crm, onSelect }: { crm: ReturnType<typeof useCrm>; onSelect: (id: string) => void }) => {
+  // Saúde escopo-aware (igual Torre/360): empresa específica → persistida; "todas" → calculada.
+  const { selectedCompanyId } = useCompany();
+  const scoped = selectedCompanyId !== "all";
   const byStage = useMemo(() => {
     const map: Record<string, typeof crm.customers> = {};
     STAGES.forEach((s) => { map[s.id] = []; });
@@ -56,7 +60,7 @@ export const CustomerKanban = ({ crm, onSelect }: { crm: ReturnType<typeof useCr
                   {(byStage[stage.id] || []).map((c, index) => {
                     const rev = crm.revenueByCustomer.get(c.id);
                     const sc = crm.scores.get(c.id);
-                    const health = sc?.health || c.health || "green";
+                    const health = (scoped ? (c.health || sc?.health) : (sc?.health || c.health)) || "green";
                     const na = dateBR(c.next_action_date);
                     return (
                       <Draggable draggableId={c.id} index={index} key={c.id}>

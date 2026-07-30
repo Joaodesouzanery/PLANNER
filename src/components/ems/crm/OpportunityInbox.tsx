@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import type { useCrm } from "./useCrm";
 import { forecastPonderado, type NbaSev } from "./buildNextBestActions";
-import { CLOSED_STAGES } from "./crm360";
+import { isDealClosed } from "./crm360";
 import { LOSS_REASONS } from "./crmStages";
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -66,7 +66,7 @@ export const OpportunityInbox = ({ crm, onSelectCustomer }: { crm: ReturnType<ty
         <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary" />Funil</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5"><p className="text-[11px] text-muted-foreground">Forecast ponderado</p><p className="font-mono text-lg font-bold text-primary">{brl(forecast)}</p><p className="text-[10px] text-muted-foreground">Σ valor × probabilidade dos deals abertos</p></div>
-          <div className="rounded-lg border border-border/50 p-2.5"><p className="text-[11px] text-muted-foreground">Deals abertos</p><p className="font-mono text-lg font-bold">{(crm.deals as any[]).filter((d) => !CLOSED_STAGES.has((d.stage || "").toLowerCase())).length}</p></div>
+          <div className="rounded-lg border border-border/50 p-2.5"><p className="text-[11px] text-muted-foreground">Deals abertos</p><p className="font-mono text-lg font-bold">{(crm.deals as any[]).filter((d) => !isDealClosed(d)).length}</p></div>
         </CardContent>
       </Card>
     </div>

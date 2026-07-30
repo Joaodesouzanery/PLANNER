@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { useCompany } from "@/contexts/CompanyContext";
 import { PIE_COLORS, tooltipStyle } from "@/components/ems/finance/useFinanceData";
 import type { useCrm } from "./useCrm";
 import { crmPortfolio } from "./crmPortfolio";
@@ -46,13 +47,19 @@ const Donut = ({ title, data, colorOf }: { title: string; data: { label: string;
 
 export const ServicingTower = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof useCrm>; onSelectCustomer: (id: string) => void }) => {
   const [by, setBy] = useState<"segment" | "tier">("segment");
+  const { selectedCompanyId } = useCompany();
+  // Escopado (empresa específica) → prefere a saúde PERSISTIDA (canônica); a calculada fica falsa-baixa
+  // porque os satélites vêm filtrados. Consistente com Crm.tsx.healthOf, senão Torre × 360 divergem.
+  const scoped = selectedCompanyId !== "all";
+  const healthOf = (c: { id: string; health?: string | null }) =>
+    (scoped ? (c.health || crm.scores.get(c.id)?.health) : (crm.scores.get(c.id)?.health || c.health)) || "green";
 
   const rows: TowerCustomer[] = useMemo(() => crm.customers.map((c) => {
     const sc = crm.scores.get(c.id);
     const rev = crm.revenueByCustomer.get(c.id);
     return {
       id: c.id, nome: c.nome, segment: c.segment, tier: c.tier, stage: c.stage,
-      health: sc?.health || c.health || "green",
+      health: healthOf(c),
       healthScore: sc?.healthScore ?? 0,
       churnRisk: sc?.churnRisk ?? 0,
       recencyDias: sc?.recencyDias ?? null,
@@ -61,12 +68,12 @@ export const ServicingTower = ({ crm, onSelectCustomer }: { crm: ReturnType<type
       nextActionDate: c.next_action_date ?? null,
       priority: c.priority ?? null,
     };
-  }), [crm.customers, crm.scores, crm.revenueByCustomer]);
+  }), [crm.customers, crm.scores, crm.revenueByCustomer, scoped]);
 
   const p = useMemo(() => {
-    const custs = crm.customers.map((c) => ({ id: c.id, nome: c.nome, recorrente: c.recorrente, health: crm.scores.get(c.id)?.health || c.health, ongoing: crm.revenueByCustomer.get(c.id)?.ongoing ?? 0 }));
+    const custs = crm.customers.map((c) => ({ id: c.id, nome: c.nome, recorrente: c.recorrente, health: healthOf(c), ongoing: crm.revenueByCustomer.get(c.id)?.ongoing ?? 0 }));
     return crmPortfolio(custs, crm.deals as any[], crm.nbaItems);
-  }, [crm.customers, crm.deals, crm.nbaItems, crm.revenueByCustomer, crm.scores]);
+  }, [crm.customers, crm.deals, crm.nbaItems, crm.revenueByCustomer, crm.scores, scoped]);
 
   const k = useMemo(() => towerKpis(rows, todayIso()), [rows]);
   const groups = useMemo(() => towerGroups(rows, by, todayIso()), [rows, by]);

@@ -178,7 +178,7 @@ export const useCrm = () => {
       nextActions.push({ customerId: cust, customerName: (cust && nameById.get(cust)) || "Contato", contactId: m.contact_id, date: m.next_action_date, desc: m.next_action_description });
     }
 
-    const dealsIn = deals.map((d) => ({ id: d.id, customerId: d.customer_id ?? null, customerName: (d.customer_id && nameById.get(d.customer_id)) || d.title, title: d.title, value: d.value ?? null, stage: d.stage ?? null, expected_close_date: d.expected_close_date ?? null }));
+    const dealsIn = deals.map((d) => ({ id: d.id, customerId: d.customer_id ?? null, customerName: (d.customer_id && nameById.get(d.customer_id)) || d.title, title: d.title, value: d.value ?? null, stage: d.stage ?? null, status_outcome: d.status_outcome ?? null, expected_close_date: d.expected_close_date ?? null }));
 
     const revs = [...revenueByCustomer.entries()].map(([id, r]) => ({ id, ongoing: r.ongoing }));
     const total = revs.reduce((a, r) => a + r.ongoing, 0);
@@ -338,7 +338,10 @@ export const useCrm = () => {
         company: c.company?.trim() || null,
         customer_id: c.customerId || null,
         ...(c.stage ? { pipeline_stage: c.stage } : {}),
-        company_id: c.companyId !== undefined ? c.companyId : scoped ? selectedCompanyId : null,
+        // Ligado a um cliente → herda o company_id dele; senão o default da view.
+        company_id: c.companyId !== undefined ? c.companyId
+          : c.customerId ? (customers.find((x) => x.id === c.customerId)?.company_id ?? null)
+          : scoped ? selectedCompanyId : null,
       });
       if (error) throw error;
     },
@@ -367,7 +370,8 @@ export const useCrm = () => {
       const { error } = await db.from("tasks").insert({
         title: t.title.trim(), contact_id: t.contactId || null,
         due_date: t.due_date || todayIso(), priority: t.priority || "medium",
-        company_id: scoped ? selectedCompanyId : null,
+        // Herda o company_id do CONTATO ligado (senão a tarefa some ao escopar a empresa).
+        company_id: (t.contactId ? contacts.find((c) => c.id === t.contactId)?.company_id : null) ?? (scoped ? selectedCompanyId : null),
       });
       if (error) throw error;
     },
@@ -389,7 +393,8 @@ export const useCrm = () => {
         modulo_id: d.moduloId || null,
         ativo_origem_id: d.ativoOrigemId || null,
         project_id: null,
-        company_id: scoped ? selectedCompanyId : null,
+        // Herda o company_id do CLIENTE (senão, criado no "todas", o deal some ao escopar a empresa dele).
+        company_id: customers.find((c) => c.id === d.customerId)?.company_id ?? (scoped ? selectedCompanyId : null),
       });
       if (error) throw error;
     },

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { buildCustomer360, diasSemContato, CLOSED_STAGES, type CustomerSpine } from "./crm360";
+import { buildCustomer360, diasSemContato, CLOSED_STAGES, isDealClosed, type CustomerSpine } from "./crm360";
 
 const spine: CustomerSpine = { id: "conab", nome: "CONAB", recorrente: true, stage: "ativo", health: "green" };
 
@@ -50,5 +50,20 @@ describe("crm360 — vocabulário de fechado (ganha/perdida do modal de Projetos
     ], [], []);
     assert.equal(d.dealsAbertos, 1);
     assert.equal(d.forecastPonderado, 2000); // só o aberto: 4000×0.5
+  });
+
+  it("deal ganho ARRASTANDO pra 'Cliente' (status_outcome=won, key fora de CLOSED_STAGES) conta como FECHADO", () => {
+    // O bug: a etapa "cliente"/"obra" não está em CLOSED_STAGES; sem status_outcome, contava como aberto.
+    assert.equal(isDealClosed({ status_outcome: "won", stage: "cliente" }), true);
+    assert.equal(isDealClosed({ status_outcome: "lost", stage: "perdido" }), true);
+    assert.equal(isDealClosed({ status_outcome: null, stage: "ganho" }), true); // legado por grafia
+    assert.equal(isDealClosed({ status_outcome: null, stage: "proposta" }), false);
+    // No 360: um deal "cliente/won" some dos abertos e do forecast.
+    const d = buildCustomer360(spine, { monthly: 0, ongoing: 0 }, [], [
+      { id: "w", title: "Ganho no funil", value: 9000, probability: 100, stage: "cliente", status_outcome: "won", customer_id: "conab" } as any,
+      { id: "o", title: "Aberto", value: 2000, probability: 50, stage: "proposta", customer_id: "conab" },
+    ], [], []);
+    assert.equal(d.dealsAbertos, 1);
+    assert.equal(d.forecastPonderado, 1000);
   });
 });

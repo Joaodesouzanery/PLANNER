@@ -2,7 +2,7 @@
 // Reusa clientConcentration (finance) e forecastPonderado (NBA); não recalcula receita.
 import { clientConcentration } from "@/components/ems/finance/financeClients";
 import { forecastPonderado, type NbaItem } from "./buildNextBestActions";
-import { CLOSED_STAGES } from "./crm360";
+import { isDealClosed } from "./crm360";
 
 export interface PortfolioCustomer { id: string; nome: string; recorrente: boolean; health?: string | null; ongoing: number }
 
@@ -20,7 +20,6 @@ export interface CrmPortfolio {
   followUpsVencidos: number;
 }
 
-const CLOSED = CLOSED_STAGES;
 
 export const crmPortfolio = (customers: PortfolioCustomer[], deals: { value?: number | null; probability?: number | null; stage?: string | null }[], nba: NbaItem[]): CrmPortfolio => {
   const conc = clientConcentration(customers.map((c) => ({ id: c.id, nome: c.nome, recorrente: c.recorrente, monthly: c.ongoing, ongoing: c.ongoing })));
@@ -34,7 +33,7 @@ export const crmPortfolio = (customers: PortfolioCustomer[], deals: { value?: nu
     mrr: customers.reduce((a, c) => a + c.ongoing, 0),
     top1Share: conc.top1Share,
     hhi: conc.hhi,
-    dealsAbertos: deals.filter((d) => !CLOSED.has((d.stage || "").toLowerCase())).length,
+    dealsAbertos: deals.filter((d) => !isDealClosed(d)).length,
     forecast: forecastPonderado(deals),
     esfriandoCount: nba.filter((n) => n.tipo === "esfriando").length,
     followUpsVencidos: nba.filter((n) => n.tipo === "follow_up").length,

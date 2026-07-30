@@ -77,7 +77,7 @@ export const ModuloManager = () => {
 
           {isEmpty && (
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5 space-y-2">
-              <p className="text-xs">Este produto ainda não tem módulos. Gere a partir de um template pra começar.</p>
+              <p className="text-xs">Esta solução ainda não tem módulos. Gere a partir de um template pra começar.</p>
               <div className="flex items-center gap-2">
                 <Select value={activeTemplate.key} onValueChange={setTemplateKey}>
                   <SelectTrigger className="h-8 text-xs flex-1"><SelectValue /></SelectTrigger>

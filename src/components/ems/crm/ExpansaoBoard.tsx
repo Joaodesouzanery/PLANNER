@@ -40,10 +40,10 @@ export const ExpansaoBoard = ({ crm, onSelectCustomer }: { crm: ReturnType<typeo
     crm.createDeal.mutate({ customerId, title: `${moduloName} — ${nome}`, moduloId });
 
   if (selectedCompanyId === "all") {
-    return <p className="text-sm text-muted-foreground text-center py-10">Selecione um produto (empresa) no topo para ver a expansão por módulo.</p>;
+    return <p className="text-sm text-muted-foreground text-center py-10">Selecione uma solução (empresa) no topo para ver a expansão por módulo.</p>;
   }
   if (modulos.filter((m) => m.tipo === "aquisicao").length === 0) {
-    return <p className="text-sm text-muted-foreground text-center py-10">Cadastre os módulos deste produto (aba Oportunidades → Módulos) para montar o board de expansão.</p>;
+    return <p className="text-sm text-muted-foreground text-center py-10">Cadastre os módulos desta solução (aba Oportunidades → Módulos) para montar o board de expansão.</p>;
   }
 
   return (

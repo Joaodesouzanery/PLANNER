@@ -1,6 +1,6 @@
 // CRM · Next-Best-Action — a fila do que fazer AGORA por cliente. Puro/testável.
 // Mesmo contrato do boardAttention: recebe inputs já buscados, devolve fila ranqueada (reds primeiro).
-import { CLOSED_STAGES } from "./crm360";
+import { isDealClosed } from "./crm360";
 
 export type NbaSev = "red" | "yellow" | "low";
 export type NbaTipo = "follow_up" | "follow_up_48h" | "deal_fechando" | "deal_parado" | "concentracao" | "esfriando" | "renovacao" | "oferta" | "onboarding";
@@ -20,7 +20,7 @@ export interface NbaItem {
 export interface NbaInputs {
   today: string;
   nextActions?: { customerId: string | null; customerName: string; contactId?: string | null; date: string; desc?: string | null }[];
-  deals?: { id: string; customerId: string | null; customerName: string; title: string; value?: number | null; stage?: string | null; expected_close_date?: string | null }[];
+  deals?: { id: string; customerId: string | null; customerName: string; title: string; value?: number | null; stage?: string | null; status_outcome?: string | null; expected_close_date?: string | null }[];
   concentracao?: { customerId: string; customerName: string; top1Share: number } | null;
   esfriando?: { customerId: string; customerName: string; dias: number; ongoing: number }[];
   followUps48h?: { dealId: string; customerId: string | null; customerName: string; title: string; dias: number }[];
@@ -31,8 +31,7 @@ export interface NbaInputs {
 }
 
 const RANK: Record<NbaSev, number> = { red: 0, yellow: 1, low: 2 };
-const CLOSED = CLOSED_STAGES;
-const dayDiff = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+const dayDiff =(from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 
 export const buildNextBestActions = (i: NbaInputs): NbaItem[] => {
   const today = i.today;
@@ -47,7 +46,7 @@ export const buildNextBestActions = (i: NbaInputs): NbaItem[] => {
   }
 
   for (const d of i.deals ?? []) {
-    if (CLOSED.has((d.stage || "").toLowerCase()) || !d.expected_close_date) continue;
+    if (isDealClosed(d) || !d.expected_close_date) continue;
     const dias = dayDiff(today, d.expected_close_date);
     if (dias < 0) out.push({ id: `dl:${d.id}`, tipo: "deal_parado", severidade: "red", customerId: d.customerId, customerName: d.customerName, titulo: `Deal vencido no funil: ${d.title}`, data: d.expected_close_date, valor: d.value ?? null, refId: d.id });
     else if (dias <= 14) out.push({ id: `dl:${d.id}`, tipo: "deal_fechando", severidade: "yellow", customerId: d.customerId, customerName: d.customerName, titulo: `Deal fechando em ${dias}d: ${d.title}`, data: d.expected_close_date, valor: d.value ?? null, refId: d.id });
@@ -80,5 +79,5 @@ export const buildNextBestActions = (i: NbaInputs): NbaItem[] => {
 };
 
 /** Forecast ponderado dos deals abertos. */
-export const forecastPonderado = (deals: { value?: number | null; probability?: number | null; stage?: string | null }[]): number =>
-  deals.filter((d) => !CLOSED.has((d.stage || "").toLowerCase())).reduce((a, d) => a + (Number(d.value) || 0) * ((Number(d.probability) || 0) / 100), 0);
+export const forecastPonderado = (deals: { value?: number | null; probability?: number | null; stage?: string | null; status_outcome?: string | null }[]): number =>
+  deals.filter((d) => !isDealClosed(d)).reduce((a, d) => a + (Number(d.value) || 0) * ((Number(d.probability) || 0) / 100), 0);
