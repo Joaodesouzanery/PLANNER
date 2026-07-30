@@ -31,4 +31,8 @@ describe("financeKpis", () => {
   it("CAC null quando não há custo comercial marcado", () => {
     assert.equal(computeKpis({ ...base, custoComercialMes: 0 }).cac, null);
   });
+  it("NRR desconta a contração (downgrade): (6500+800−200−300)/6500 ≈ 1.046", () => {
+    const k2 = computeKpis({ ...base, contracao: 200 });
+    assert.equal(Math.round(k2.nrr! * 1000) / 1000, 1.046);
+  });
 });

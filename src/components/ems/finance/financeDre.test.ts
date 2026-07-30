@@ -75,4 +75,46 @@ describe("financeDre — pró-labore (= Lucro da empresa)", () => {
     const dp = computeDre(rows, "2026-07-01", "2026-07-31", { taxRate: 6, prolabore: -100 });
     assert.equal(dp.prolabore, 0);
   });
+  it("pró-labore LANÇADO como despesa não conta 2× (é ignorado nas despesas)", () => {
+    const r2 = [
+      row({ id: "inc", date: "2026-08-05", type: "income", amount: 10000 }),
+      row({ id: "pl", date: "2026-08-10", type: "expense", amount: 4500, category: "Pró-labore" }),
+    ];
+    const dp = computeDre(r2, "2026-08-01", "2026-08-31", { taxRate: 6, prolabore: 4500 });
+    assert.equal(dp.despesaOperacional, 0); // a despesa "Pró-labore" foi ignorada
+    assert.equal(dp.lucroLiquido, 10000 - 600); // só a dedução de 6%
+    assert.equal(dp.lucroEmpresa, 9400 - 4500); // pró-labore subtraído UMA vez
+  });
+});
+
+describe("financeDre — dedução com piso da estimativa (não é mais tudo-ou-nada)", () => {
+  const inc = (m: string) => row({ id: `i${m}`, date: `2026-${m}-05`, type: "income", amount: 10000 });
+  it("imposto lançado parcial → usa o piso da estimativa (6%)", () => {
+    const r2 = [inc("07"), row({ id: "imp", date: "2026-07-10", type: "expense", amount: 200, category: "Simples Nacional" })];
+    const dp = computeDre(r2, "2026-07-01", "2026-07-31", { taxRate: 6 });
+    assert.equal(dp.deducoes, 600); // max(200 lançado, 600 estimado)
+    assert.equal(dp.deducoesEstimada, true);
+  });
+  it("imposto real acima da estimativa → usa o real", () => {
+    const r2 = [inc("07"), row({ id: "imp", date: "2026-07-10", type: "expense", amount: 900, category: "Simples Nacional" })];
+    const dp = computeDre(r2, "2026-07-01", "2026-07-31", { taxRate: 6 });
+    assert.equal(dp.deducoes, 900);
+    assert.equal(dp.deducoesEstimada, false);
+  });
+});
+
+describe("financeDre — receita financeira e D&A", () => {
+  it("rendimento (income de juros) não infla receita bruta e vira resultado financeiro positivo", () => {
+    const r2 = [
+      row({ id: "v", date: "2026-07-05", type: "income", amount: 10000, category: "Vendas" }),
+      row({ id: "j", date: "2026-07-06", type: "income", amount: 300, category: "Juros recebidos" }),
+    ];
+    const dp = computeDre(r2, "2026-07-01", "2026-07-31", { taxRate: 6 });
+    assert.equal(dp.receitaBruta, 10000); // rendimento fica fora da receita bruta
+    assert.equal(dp.resultadoFinanceiro, 300); // e entra POSITIVO no resultado financeiro
+  });
+  it("D&A manual escala pelo nº de meses do período", () => {
+    const dp = computeDre([row({ id: "i", date: "2026-03-05", type: "income", amount: 5000 })], "2026-01-01", "2026-12-31", { dAndAManual: 100, periodMonths: 3 });
+    assert.equal(dp.depreciacaoAmortizacao, 300);
+  });
 });

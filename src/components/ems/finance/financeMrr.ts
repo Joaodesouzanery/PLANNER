@@ -36,19 +36,21 @@ export const mrrHeadline = (contracts: MrrContract[]): number =>
 export const recurringTotal = (contracts: MrrContract[]): number =>
   contracts.reduce((a, c) => a + c.monthly, 0);
 
-export interface MrrDeltas { novos: number; expansao: number; churn: number; liquido: number }
+export interface MrrDeltas { novos: number; expansao: number; contracao: number; churn: number; liquido: number }
 
-/** Variação entre dois meses (snapshots de {id, monthly}). */
+/** Variação entre dois meses (snapshots de {id, monthly}). Contração = downgrade sem cancelar. */
 export const mrrDeltas = (prev: { id: string; monthly: number }[], cur: { id: string; monthly: number }[]): MrrDeltas => {
   const p = new Map(prev.map((c) => [c.id, c.monthly]));
   const c = new Map(cur.map((x) => [x.id, x.monthly]));
-  let novos = 0, expansao = 0, churn = 0;
+  let novos = 0, expansao = 0, contracao = 0, churn = 0;
   for (const x of cur) {
-    if (!p.has(x.id)) novos += x.monthly;
-    else if (x.monthly > (p.get(x.id) as number)) expansao += x.monthly - (p.get(x.id) as number);
+    if (!p.has(x.id)) { novos += x.monthly; continue; }
+    const pv = p.get(x.id) as number;
+    if (x.monthly > pv) expansao += x.monthly - pv;
+    else if (x.monthly < pv) contracao += pv - x.monthly;
   }
   for (const x of prev) {
     if (!c.has(x.id)) churn += x.monthly;
   }
-  return { novos, expansao, churn, liquido: novos + expansao - churn };
+  return { novos, expansao, contracao, churn, liquido: novos + expansao - contracao - churn };
 };

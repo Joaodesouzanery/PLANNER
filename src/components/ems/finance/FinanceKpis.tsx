@@ -70,7 +70,9 @@ export const FinanceKpis = () => {
     const custoComercialMes = rows.reduce((a, r) => (r.type === "expense" && r.paid && r.date.slice(0, 7) === curKey && COMERCIAL_RE.test(r.category || "") ? a + r.amount : a), 0);
     const nEntradasMes = rows.filter((r) => r.type === "income" && r.paid && r.date.slice(0, 7) === curKey).length;
 
-    const custosFixos = (workspace.expectedMonthly.fixo || 0) + dre.despesaOperacional;
+    // Custos fixos = o balde fixo mensal (baseline recorrente). NÃO somar dre.despesaOperacional:
+    // as despesas operacionais do mês JÁ incluem esses fixos → dobrava e inflava o ponto de equilíbrio.
+    const custosFixos = workspace.expectedMonthly.fixo || 0;
     const margemContribuicaoPct = dre.receitaBruta > 0 ? 1 - (dre.custo + dre.deducoes) / dre.receitaBruta : 0;
 
     return computeKpis({
@@ -79,7 +81,7 @@ export const FinanceKpis = () => {
       custosFixos, margemContribuicaoPct,
       // Exclui o mês corrente (parcial, só realizado até hoje) — senão MoM/YoY leem negativo à toa.
       monthlyIncome: (workspace.monthlyData as any[]).slice(0, -1).map((m) => m.income),
-      mrr, mrrPrev, expansao: deltas.expansao, churn: deltas.churn, nClientesRecorrentes,
+      mrr, mrrPrev, expansao: deltas.expansao, contracao: deltas.contracao, churn: deltas.churn, nClientesRecorrentes,
       novosClientesMes, custoComercialMes,
       receitaRecebidaMes: tot.entradasRealizadas, nEntradasMes,
       aReceber: tot.aReceber, aReceberVencido: cfo.aReceberVencido,

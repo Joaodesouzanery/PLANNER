@@ -21,13 +21,18 @@ export interface ExpectedMonthly {
   anual?: number;
 }
 
-const isImpostoRow = (r: PeriodRow) => /imposto|tribut|\bdas\b|simples/i.test(`${r.category || ""} ${r.description || ""}`);
+// Imposto: palavras genéricas (case-insensitive) OU acrônimos EXATOS em maiúsculas. Não usar
+// \bdas\b/i — pegava a contração "das" (de+as) de "luz DAS lojas" como imposto pago.
+const isImpostoRow = (r: PeriodRow) => {
+  const s = `${r.category || ""} ${r.description || ""}`;
+  return /imposto|tribut|simples/i.test(s) || /\b(DAS|ISS|ICMS|PIS|COFINS|INSS)\b/.test(s);
+};
 
 export interface CfoMetrics {
   saldoDisponivel: number;
   saldoLiquidoImposto: number;
-  faturamentoMensal: number; // média entradas recebidas 3 meses fechados
-  despesaMensal: number; // média saídas pagas 3 meses fechados
+  faturamentoMensal: number; // ESPERADO/mês (projeção = max(média histórica, baseline recorrente)) — não é o realizado do mês
+  despesaMensal: number; // despesa ESPERADA/mês (fixo+variável+anual da projeção) — não é o realizado do mês
   impostoMensal: number;
   receitaLiquida: number;
   sobraMensal: number;

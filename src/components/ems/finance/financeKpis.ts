@@ -17,6 +17,7 @@ export interface KpiInputs {
   mrr: number;
   mrrPrev: number;
   expansao: number;
+  contracao?: number; // downgrade (redução sem cancelar) — entra no NRR
   churn: number;
   nClientesRecorrentes: number;
   // Aquisição
@@ -78,7 +79,7 @@ export const computeKpis = (i: KpiInputs): Kpis => {
     crescimentoYoY: prevY != null && prevY > 0 ? (cur - prevY) / prevY : null,
     mrr: i.mrr,
     arr: i.mrr * 12,
-    nrr: i.mrrPrev > 0 ? (i.mrrPrev + i.expansao - i.churn) / i.mrrPrev : null,
+    nrr: i.mrrPrev > 0 ? (i.mrrPrev + i.expansao - (i.contracao ?? 0) - i.churn) / i.mrrPrev : null,
     churnRate,
     arpu,
     ltv,

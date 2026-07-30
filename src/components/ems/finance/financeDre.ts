@@ -2,7 +2,7 @@
 // PeriodRow[] (realizado × previsto via `paid`). Classifica cada categoria numa linha da DRE
 // por heurística, com override do usuário vencendo. Simples Nacional: IR embutido (sem IRPJ à parte).
 import type { PeriodRow } from "./useFinanceData";
-import { catalogDreLine } from "./financeCategories";
+import { catalogDreLine, canonicalCategory } from "./financeCategories";
 
 export type DreLine = "receita" | "deducao" | "custo" | "despesa_operacional" | "resultado_financeiro" | "depreciacao";
 
@@ -71,12 +71,20 @@ export const computeDre = (rows: PeriodRow[], from: string, to: string, opts: Dr
   const overrides = opts.overrides ?? {};
   const inP = (r: PeriodRow) => r.date >= from && r.date <= to && (basis === "competencia" || r.paid);
 
-  const receitaBruta = rows.reduce((a, r) => (r.type === "income" && inP(r) ? a + r.amount : a), 0);
-
   const byLine: Record<DreLine, number> = { receita: 0, deducao: 0, custo: 0, despesa_operacional: 0, resultado_financeiro: 0, depreciacao: 0 };
   const catMap = new Map<string, { line: DreLine; value: number }>();
+  let receitaBruta = 0;
   for (const r of rows) {
-    if (r.type !== "expense" || !inP(r)) continue;
+    if (!inP(r)) continue;
+    if (r.type === "income") {
+      // Receita financeira (rendimentos/juros recebidos) NÃO infla a receita bruta nem a base do imposto:
+      // entra líquida no resultado financeiro (que assim pode ser positivo).
+      if (mapCategoryToDreLine(r.category, overrides) === "resultado_financeiro") byLine.resultado_financeiro -= r.amount;
+      else receitaBruta += r.amount;
+      continue;
+    }
+    // Pró-labore é tratado só pela linha de settings (opts.prolabore) — nunca conta como despesa (evita dobra).
+    if (canonicalCategory(r.category) === "Pró-labore") continue;
     const line = mapCategoryToDreLine(r.category, overrides);
     byLine[line] += r.amount;
     const key = r.category || "Sem categoria";
@@ -86,15 +94,17 @@ export const computeDre = (rows: PeriodRow[], from: string, to: string, opts: Dr
   }
 
   const rate = (opts.taxRate ?? 0) / 100;
-  const deducoesEstimada = byLine.deducao <= 0 && rate > 0 && receitaBruta > 0;
-  const deducoes = deducoesEstimada ? receitaBruta * rate : byLine.deducao;
+  // Dedução = piso do imposto: pelo menos a estimativa (receita×alíquota), mesmo que só parte tenha sido lançada.
+  const estimativaImposto = rate > 0 && receitaBruta > 0 ? receitaBruta * rate : 0;
+  const deducoes = Math.max(byLine.deducao, estimativaImposto);
+  const deducoesEstimada = deducoes > byLine.deducao; // topou/estimou acima do que foi de fato lançado
 
   const receitaLiquida = receitaBruta - deducoes;
   const custo = byLine.custo;
   const lucroBruto = receitaLiquida - custo;
   const despesaOperacional = byLine.despesa_operacional;
   const ebitda = lucroBruto - despesaOperacional;
-  const depreciacaoAmortizacao = byLine.depreciacao + (opts.dAndAManual ?? 0);
+  const depreciacaoAmortizacao = byLine.depreciacao + (opts.dAndAManual ?? 0) * Math.max(1, opts.periodMonths ?? 1);
   const ebit = ebitda - depreciacaoAmortizacao;
   const resultadoFinanceiro = -byLine.resultado_financeiro;
   const lucroLiquido = ebit + resultadoFinanceiro;

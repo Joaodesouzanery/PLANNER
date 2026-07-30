@@ -100,7 +100,7 @@ export const FinanceCfoPanel = () => {
           <CfoStat icon={Receipt} label="Imposto a recolher" value={fmtCurrency(m.impostoARecolher)} hint={`${settings.tax_rate}% · ${fmtCurrency(m.impostoMensal)}/mês`} tone={m.impostoARecolher > 0 ? "text-amber-400" : ""} />
           <CfoStat icon={AlertTriangle} label="A receber vencido" value={fmtCurrency(m.aReceberVencido)} hint={m.aReceberVencidoRows.length ? `${m.aReceberVencidoRows.length} em atraso` : "em dia"} tone={m.aReceberVencido > 0 ? "text-destructive" : "text-emerald-400"} />
           <div className="rounded-xl border border-border/50 bg-background/40 p-3">
-            <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><PiggyBank className="h-3.5 w-3.5" />Reserva</p>
+            <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground" title="Conta só o saldo das contas do tipo poupança/investimento. Se sua reserva está na conta corrente, ela não aparece aqui — mova-a para uma conta desse tipo."><PiggyBank className="h-3.5 w-3.5" />Reserva</p>
             <p className="mt-1 font-mono text-sm font-bold leading-tight">{fmtCurrency(m.reservaAtual)} <span className="text-muted-foreground font-normal">/ {fmtCurrency(m.reservaAlvo)}</span></p>
             <Progress value={m.reservaPct * 100} className="h-1.5 mt-1" />
             <p className="text-[10px] text-muted-foreground mt-0.5">{mesesReserva === 0 ? "alvo atingido" : mesesReserva ? `~${mesesReserva} meses` : "sem sobra p/ poupar"}</p>

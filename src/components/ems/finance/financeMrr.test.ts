@@ -33,4 +33,11 @@ describe("financeMrr", () => {
     assert.equal(d.novos, 2000);
     assert.equal(d.liquido, 2000);
   });
+  it("contração (downgrade sem cancelar): 2.000 → 1.500 conta 500 de contração", () => {
+    const d = mrrDeltas([{ id: "z", monthly: 2000 }], [{ id: "z", monthly: 1500 }]);
+    assert.equal(d.contracao, 500);
+    assert.equal(d.expansao, 0);
+    assert.equal(d.churn, 0);
+    assert.equal(d.liquido, -500);
+  });
 });

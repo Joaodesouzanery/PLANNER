@@ -20,3 +20,31 @@ describe("financeCfo — despesa em 3 baldes", () => {
     assert.equal(m2.burnMensal, 3352);
   });
 });
+
+describe("financeCfo — imposto a recolher (regex do 'das')", () => {
+  const row = (o: any): any => ({
+    id: o.id, date: o.date, type: o.type, amount: o.amount, category: o.category ?? null,
+    description: o.description ?? "x", sourceId: null, accountId: null, sourceType: "transaction",
+    paid: true, realized: true, projected: false, synthetic: false,
+  });
+  const exp = { income: 0, expense: 0 };
+
+  it("'das' minúsculo (contração) NÃO conta como imposto pago", () => {
+    const rows = [
+      row({ id: "inc", type: "income", amount: 10000, date: "2026-07-01" }),
+      row({ id: "luz", type: "expense", amount: 500, date: "2026-07-02", description: "Conta de luz das lojas" }),
+    ];
+    const m = computeCfo(rows, settings, 0, TODAY, exp);
+    // imposto a recolher = 10000*6% − 0 (a despesa "das lojas" não é imposto) = 600
+    assert.equal(m.impostoARecolher, 600);
+  });
+
+  it("acrônimo DAS em maiúsculas conta como imposto pago", () => {
+    const rows = [
+      row({ id: "inc", type: "income", amount: 10000, date: "2026-07-01" }),
+      row({ id: "das", type: "expense", amount: 400, date: "2026-07-03", category: "Contador / Fiscal", description: "DAS 07/2026" }),
+    ];
+    const m = computeCfo(rows, settings, 0, TODAY, exp);
+    assert.equal(m.impostoARecolher, 200); // 600 devido − 400 pago
+  });
+});
