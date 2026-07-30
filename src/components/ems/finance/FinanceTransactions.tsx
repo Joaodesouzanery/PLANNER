@@ -15,6 +15,7 @@ import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns
 import { ptBR } from "date-fns/locale";
 import { fmtCurrency, formatDateBR, effectiveDate, type Transaction } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
+import { CategorySelect } from "./CategorySelect";
 import { useClientes } from "./useClientes";
 import { useConfirm } from "@/hooks/useConfirm";
 import { exportTablePdf, captureChart, type PdfImage } from "@/lib/exportPdf";
@@ -381,7 +382,7 @@ const FinanceTransactions = () => {
               <div><Label>Tipo</Label><select value={form.type} onChange={e => setForm({ ...form, type: e.target.value as "income" | "expense" })} className="w-full h-10 rounded-xl border border-input bg-background px-3 py-2 text-sm"><option value="income">Entrada</option><option value="expense">Saída</option></select></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div><Label>Categoria</Label><Input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="Ex: Marketing" className="rounded-xl" /></div>
+              <div><Label>Categoria</Label><CategorySelect value={form.category} onChange={(v) => setForm({ ...form, category: v })} allCategories={allCategories} type={form.type} className="rounded-xl" /></div>
               <div><Label>Data</Label><Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className="rounded-xl" /></div>
             </div>
             {form.type === "income" && (

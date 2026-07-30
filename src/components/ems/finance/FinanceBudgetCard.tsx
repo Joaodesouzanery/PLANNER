@@ -11,6 +11,7 @@ import { fmtCurrency } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
 import { useCategoryBudgets } from "./useCategoryBudgets";
 import { buildBudgetLines, budgetTotals } from "./financeBudget";
+import { canonicalCategory } from "./financeCategories";
 
 export const FinanceBudgetCard = () => {
   const workspace = useFinanceWorkspace();
@@ -26,7 +27,7 @@ export const FinanceBudgetCard = () => {
     const acc: Record<string, number> = {};
     for (const r of workspace.canonical.rows) {
       if (r.type !== "expense" || !r.paid || r.date.slice(0, 7) !== curKey) continue;
-      const c = r.category || "Sem categoria";
+      const c = canonicalCategory(r.category) || "Sem categoria";
       acc[c] = (acc[c] || 0) + r.amount;
     }
     return acc;

@@ -10,6 +10,7 @@ import { ptBR } from "date-fns/locale";
 import { ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { fmtCurrency, formatDateBR, tooltipStyle, PIE_COLORS } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
+import { canonicalCategory } from "./financeCategories";
 import { Badge } from "@/components/ui/badge";
 import { DateRangeFilter } from "@/components/ems/DateRangeFilter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -108,13 +109,13 @@ const FinanceDashboard = () => {
 
   const incomeByCat = useMemo(() => {
     const map: Record<string, number> = {};
-    filtered.filter(t => t.type === "income").forEach(t => { const c = t.category || "Sem categoria"; map[c] = (map[c] || 0) + Number(t.amount); });
+    filtered.filter(t => t.type === "income").forEach(t => { const c = canonicalCategory(t.category) || "Sem categoria"; map[c] = (map[c] || 0) + Number(t.amount); });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [filtered]);
 
   const expenseByCat = useMemo(() => {
     const map: Record<string, number> = {};
-    filtered.filter(t => t.type === "expense").forEach(t => { const c = t.category || "Sem categoria"; map[c] = (map[c] || 0) + Number(t.amount); });
+    filtered.filter(t => t.type === "expense").forEach(t => { const c = canonicalCategory(t.category) || "Sem categoria"; map[c] = (map[c] || 0) + Number(t.amount); });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [filtered]);
 

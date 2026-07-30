@@ -9,6 +9,7 @@ import { ptBR } from "date-fns/locale";
 import { expandRecurringTransactions, parseDateOnly } from "@/lib/geocode";
 import { computeProjection, type ProjectionBreakdown } from "./projectionCalc";
 import { buildPeriodSource, effectiveDate, isRealized, isSyntheticId, type PeriodRow } from "./financePeriodSource";
+import { canonicalCategory } from "./financeCategories";
 
 export interface OKR {
   id: string; title: string; description: string | null; target_value: number;
@@ -459,13 +460,13 @@ export const useFinanceData = (options?: { historyWindow?: number }) => {
 
   const incomeByCat = useMemo(() => {
     const map: Record<string, number> = {};
-    dashboardTransactions.filter(t => t.type === "income").forEach(t => { const cat = t.category || "Sem categoria"; map[cat] = (map[cat] || 0) + Number(t.amount); });
+    dashboardTransactions.filter(t => t.type === "income").forEach(t => { const cat = canonicalCategory(t.category) || "Sem categoria"; map[cat] = (map[cat] || 0) + Number(t.amount); });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [dashboardTransactions]);
 
   const expenseByCat = useMemo(() => {
     const map: Record<string, number> = {};
-    dashboardTransactions.filter(t => t.type === "expense").forEach(t => { const cat = t.category || "Sem categoria"; map[cat] = (map[cat] || 0) + Number(t.amount); });
+    dashboardTransactions.filter(t => t.type === "expense").forEach(t => { const cat = canonicalCategory(t.category) || "Sem categoria"; map[cat] = (map[cat] || 0) + Number(t.amount); });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [dashboardTransactions]);
 

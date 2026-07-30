@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { parseDateOnly } from "@/lib/geocode";
 import { fmtCurrency, formatDateBR, type PlanItem, useFinanceData } from "./useFinanceData";
+import { CategorySelect } from "./CategorySelect";
 import { SavingsGoalForm, emptySavingsGoal, computeSavingsOutputs, type SavingsGoalInputs } from "./SavingsGoalForm";
 import { exportTablePdf } from "@/lib/exportPdf";
 import { toast } from "sonner";
@@ -400,7 +401,7 @@ const FinanceMonthlyPlanning = () => {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><Label>Categoria</Label><Input value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} placeholder="Ex: Marketing" className="rounded-xl" /></div>
+                <div><Label>Categoria</Label><CategorySelect value={form.category} onChange={(v) => setForm({ ...form, category: v })} allCategories={allCategories} type={form.type} className="rounded-xl" /></div>
                 <div><Label>Vencimento</Label><Input type="date" value={form.due_date} onChange={(event) => setForm({ ...form, due_date: event.target.value })} className="rounded-xl" /></div>
               </div>
               <div>

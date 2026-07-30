@@ -2,6 +2,7 @@
 // PeriodRow[] (realizado × previsto via `paid`). Classifica cada categoria numa linha da DRE
 // por heurística, com override do usuário vencendo. Simples Nacional: IR embutido (sem IRPJ à parte).
 import type { PeriodRow } from "./useFinanceData";
+import { catalogDreLine } from "./financeCategories";
 
 export type DreLine = "receita" | "deducao" | "custo" | "despesa_operacional" | "resultado_financeiro" | "depreciacao";
 
@@ -27,7 +28,9 @@ const HEUR: { line: DreLine; re: RegExp }[] = [
 export const mapCategoryToDreLine = (category: string | null, overrides: Record<string, DreLine> = {}): DreLine => {
   const c = (category || "").trim();
   const key = c || "Sem categoria";
-  if (overrides[key]) return overrides[key];
+  if (overrides[key]) return overrides[key]; // override explícito do usuário vence
+  const fromCatalog = catalogDreLine(category); // categoria fixa do catálogo (Infra→custo, Equipamento→depreciação…)
+  if (fromCatalog) return fromCatalog;
   const hay = c.toLowerCase();
   for (const h of HEUR) if (h.re.test(hay)) return h.line;
   return "despesa_operacional";
