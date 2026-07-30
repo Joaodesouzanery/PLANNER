@@ -15,7 +15,6 @@ const Companies = lazy(() => import("./pages/ems/Companies"));
 const Projects = lazy(() => import("./pages/ems/Projects"));
 const Finance = lazy(() => import("./pages/ems/Finance"));
 const Settings = lazy(() => import("./pages/ems/Settings"));
-const Reports = lazy(() => import("./pages/ems/Reports"));
 const Persuasion = lazy(() => import("./pages/ems/Persuasion"));
 const Tasks = lazy(() => import("./pages/ems/Tasks"));
 const Contacts = lazy(() => import("./pages/ems/Contacts"));
@@ -86,7 +85,8 @@ const App = () => (
               <Route path="/ems/knowledge" element={<Navigate to="/ems/quick-notes" replace />} />
               <Route path="/ems/finance" element={<ProtectedPage><Finance /></ProtectedPage>} />
               <Route path="/ems/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
-              <Route path="/ems/reports" element={<ProtectedPage><Reports /></ProtectedPage>} />
+              {/* Relatórios agora é aba do Dashboard */}
+              <Route path="/ems/reports" element={<Navigate to="/ems" replace />} />
               <Route path="/ems/planning" element={<Navigate to="/ems/projects?tab=planning" replace />} />
               <Route path="/ems/persuasao" element={<ProtectedPage><Persuasion /></ProtectedPage>} />
               <Route path="/ems/persuasion" element={<ProtectedPage><Persuasion /></ProtectedPage>} />

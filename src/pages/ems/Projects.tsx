@@ -1408,8 +1408,8 @@ const Projects = () => {
                 <div><Label className="text-xs md:text-sm">Data de Entrega</Label><Input type="date" value={projectForm.due_date} onChange={(e) => setProjectForm({ ...projectForm, due_date: e.target.value })} className="text-sm" /></div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-                <div><Label className="text-xs md:text-sm">PrÃ³xima Nota Fiscal</Label><Input type="date" value={projectForm.next_invoice_date} onChange={(e) => setProjectForm({ ...projectForm, next_invoice_date: e.target.value })} className="text-sm" /></div>
-                <div><Label className="text-xs md:text-sm">Alertar com antecedÃªncia (dias)</Label><Input type="number" min="0" value={projectForm.invoice_alert_days} onChange={(e) => setProjectForm({ ...projectForm, invoice_alert_days: e.target.value })} className="text-sm" /></div>
+                <div><Label className="text-xs md:text-sm">Próxima Nota Fiscal</Label><Input type="date" value={projectForm.next_invoice_date} onChange={(e) => setProjectForm({ ...projectForm, next_invoice_date: e.target.value })} className="text-sm" /></div>
+                <div><Label className="text-xs md:text-sm">Alertar com antecedência (dias)</Label><Input type="number" min="0" value={projectForm.invoice_alert_days} onChange={(e) => setProjectForm({ ...projectForm, invoice_alert_days: e.target.value })} className="text-sm" /></div>
               </div>
               <div><Label className="text-xs md:text-sm">Observações da Nota Fiscal</Label><Textarea value={projectForm.invoice_notes} onChange={(e) => setProjectForm({ ...projectForm, invoice_notes: e.target.value })} placeholder="Competência, valor previsto, dados de faturamento..." className="text-sm" rows={2} /></div>
               <div>

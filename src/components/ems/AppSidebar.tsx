@@ -10,7 +10,6 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  FileText,
   Moon,
   Sun,
   ListTodo,
@@ -54,7 +53,6 @@ const menuGroups: MenuGroup[] = [
       { icon: FolderKanban, label: "Projetos", path: "/ems/projects" },
       { icon: ListTodo, label: "Tarefas", path: "/ems/tasks" },
       { icon: TrendingUp, label: "Finanças", path: "/ems/finance" },
-      { icon: FileText, label: "Relatórios", path: "/ems/reports" },
     ],
   },
   {

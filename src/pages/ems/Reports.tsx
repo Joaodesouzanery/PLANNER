@@ -64,7 +64,7 @@ interface Project {
 
 const COLORS = ["hsl(var(--primary))", "hsl(142.1, 76.2%, 36.3%)", "hsl(0, 84.2%, 60.2%)", "hsl(45, 93%, 47%)"];
 
-const Reports = () => {
+const Reports = ({ embedded = false }: { embedded?: boolean }) => {
   const { toast } = useToast();
   const { selectedCompanyId } = useCompany();
   const [okrs, setOkrs] = useState<OKR[]>([]);
@@ -153,7 +153,7 @@ const Reports = () => {
   // OKR average progress
   const avgOkrProgress =
     okrs.length > 0
-      ? okrs.reduce((acc, okr) => acc + (okr.current_value / okr.target_value) * 100, 0) / okrs.length
+      ? okrs.reduce((acc, okr) => acc + (okr.target_value > 0 ? (okr.current_value / okr.target_value) * 100 : 0), 0) / okrs.length
       : 0;
 
   const exportCSV = () => {
@@ -261,7 +261,7 @@ const Reports = () => {
     doc.text("Detalhamento de OKRs", 20, 80);
 
     const tableData = okrs.map((okr) => {
-      const progress = (okr.current_value / okr.target_value) * 100;
+      const progress = okr.target_value > 0 ? (okr.current_value / okr.target_value) * 100 : 0;
       return [
         okr.title,
         okr.description || "-",
@@ -335,7 +335,7 @@ const Reports = () => {
     doc.text("Detalhamento de OKRs", 20, 140);
 
     const okrTableData = okrs.map((okr) => {
-      const progress = (okr.current_value / okr.target_value) * 100;
+      const progress = okr.target_value > 0 ? (okr.current_value / okr.target_value) * 100 : 0;
       return [okr.title, `${okr.current_value}/${okr.target_value}`, `${progress.toFixed(0)}%`];
     });
 
@@ -388,8 +388,7 @@ const Reports = () => {
     visible: { opacity: 1, y: 0 },
   };
 
-  return (
-    <EMSLayout>
+  const content = (
       <motion.div
         variants={containerVariants}
         initial="hidden"
@@ -604,7 +603,7 @@ const Reports = () => {
               {okrs.length > 0 ? (
                 <div className="space-y-4">
                   {okrs.map((okr) => {
-                    const progress = Math.min((okr.current_value / okr.target_value) * 100, 100);
+                    const progress = Math.min(okr.target_value > 0 ? (okr.current_value / okr.target_value) * 100 : 0, 100);
                     return (
                       <div key={okr.id} className="space-y-2">
                         <div className="flex items-center justify-between">
@@ -696,8 +695,8 @@ const Reports = () => {
           </Card>
         </motion.div>
       </motion.div>
-    </EMSLayout>
   );
+  return embedded ? content : <EMSLayout>{content}</EMSLayout>;
 };
 
 export default Reports;

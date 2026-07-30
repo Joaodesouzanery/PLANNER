@@ -10,6 +10,8 @@ import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
 import { useFinanceWorkspace } from "@/components/ems/finance/useFinanceWorkspace";
+import { useFinanceSettings } from "@/components/ems/finance/useFinanceSettings";
+import { useDreCategories } from "@/components/ems/finance/useDreCategories";
 import { computeDre } from "@/components/ems/finance/financeDre";
 import { useBoardHealth } from "@/hooks/useBoardHealth";
 import { useCrm } from "@/components/ems/crm/useCrm";
@@ -34,6 +36,8 @@ export const CombinedReportPanel = () => {
   const [gen, setGen] = useState(false);
 
   const ws = useFinanceWorkspace();
+  const { settings } = useFinanceSettings();
+  const { overrides } = useDreCategories();
   const health = useBoardHealth();
   const crm = useCrm();
   const { stages } = useCrmStages();
@@ -47,7 +51,9 @@ export const CombinedReportPanel = () => {
     if (!from || !to) { toast({ title: "Escolha o período" }); return; }
     setGen(true);
     try {
-      const dre = computeDre(ws.canonical.rows, from, to);
+      // Mesmas opções da página Finanças, senão o DRE do relatório não bate (imposto/pró-labore/overrides).
+      const periodMonths = Math.max(1, (Number(to.slice(0, 4)) - Number(from.slice(0, 4))) * 12 + (Number(to.slice(5, 7)) - Number(from.slice(5, 7))) + 1);
+      const dre = computeDre(ws.canonical.rows, from, to, { taxRate: (settings as any).tax_rate, overrides, prolabore: (settings as any).prolabore_mensal ?? 0, periodMonths });
       const m = computeKanbanMetrics(crm.deals as unknown as DealLite[], events as StageEvent[], stages, new Date().toISOString());
       await exportTablePdf({
         title: "Relatório combinado",

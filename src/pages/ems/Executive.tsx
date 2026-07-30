@@ -51,8 +51,8 @@ export const ExecutiveDashboardContent = () => {
         <Card>
           <CardContent className="p-4 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
             <div>
-              <p className="text-sm font-medium">Filtros avanÃ§ados</p>
-              <p className="text-xs text-muted-foreground">{filteredProjects.length} projetos e {filteredTasks.length} tarefas na visÃ£o filtrada</p>
+              <p className="text-sm font-medium">Filtros avançados</p>
+              <p className="text-xs text-muted-foreground">{filteredProjects.length} projetos e {filteredTasks.length} tarefas na visão filtrada</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <Select value={projectStatus} onValueChange={setProjectStatus}>
@@ -61,7 +61,7 @@ export const ExecutiveDashboardContent = () => {
                   <SelectItem value="all">Todos os projetos</SelectItem>
                   <SelectItem value="todo">A Fazer</SelectItem>
                   <SelectItem value="in_progress">Em Progresso</SelectItem>
-                  <SelectItem value="done">ConcluÃ­dos</SelectItem>
+                  <SelectItem value="done">Concluídos</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={taskPriority} onValueChange={setTaskPriority}>
@@ -70,7 +70,7 @@ export const ExecutiveDashboardContent = () => {
                   <SelectItem value="all">Todas prioridades</SelectItem>
                   <SelectItem value="urgent">Urgente</SelectItem>
                   <SelectItem value="high">Alta</SelectItem>
-                  <SelectItem value="medium">MÃ©dia</SelectItem>
+                  <SelectItem value="medium">Média</SelectItem>
                   <SelectItem value="low">Baixa</SelectItem>
                 </SelectContent>
               </Select>
@@ -176,7 +176,7 @@ export const ExecutiveDashboardContent = () => {
             </CardContent>
           </Card>
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">PrÃ³ximas Notas Fiscais</CardTitle></CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Próximas Notas Fiscais</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               {upcomingInvoices.length === 0 ? <p className="text-sm text-muted-foreground py-6 text-center">Nenhuma NF programada</p> : upcomingInvoices.map((project: any) => (
                 <div key={project.id} className="flex items-center justify-between gap-2 text-sm border-b border-border/50 pb-2">

@@ -1,8 +1,12 @@
-import { useState, useContext } from "react";
+import { useState, useContext, Suspense, lazy } from "react";
 import { useCompany } from "@/contexts/CompanyContext";
 import { AuthContext } from "@/contexts/AuthContext";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+
+// Relatórios agora vive como aba do Dashboard (o item do menu foi removido).
+const LazyReports = lazy(() => import("@/pages/ems/Reports"));
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,7 +18,7 @@ import { motion } from "framer-motion";
 import {
   Target, Rocket, Users, TrendingUp, CheckCircle2, Clock, DollarSign, Plus, Edit2, Save, X,
   AlertTriangle, UserCheck, Calendar, ArrowUpRight, ArrowDownRight, FolderKanban, ListTodo, Contact,
-  Download, FileText, Folder, ChevronDown, Trash2,
+  Folder, ChevronDown, Trash2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -203,7 +207,9 @@ const Overview = () => {
     queryFn: async () => {
       const now = new Date();
       const ws = startOfWeek(now, { locale: ptBR });
-      let q = supabase.from("financial_transactions").select("amount, type, date").eq("type", "income").gte("date", format(ws, "yyyy-MM-dd"));
+      const we = endOfWeek(now, { locale: ptBR });
+      // Limite superior: senão "receita desta semana" contava entradas de dias/semanas FUTUROS.
+      let q = supabase.from("financial_transactions").select("amount, type, date").eq("type", "income").gte("date", format(ws, "yyyy-MM-dd")).lte("date", format(we, "yyyy-MM-dd"));
       if (cf) q = q.eq("company_id", cid);
       const { data } = await q;
       const days = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
@@ -248,10 +254,15 @@ const Overview = () => {
 
   const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.08 } } };
   const itemVariants = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } };
-  const completionRate = (projectStats.pending + projectStats.completed) > 0 ? Math.round((projectStats.completed / (projectStats.pending + projectStats.completed)) * 100) : 0;
 
   return (
     <EMSLayout>
+      <Tabs defaultValue="dashboard" className="space-y-4">
+        <TabsList className="bg-card/80 border border-border/50 rounded-xl">
+          <TabsTrigger value="dashboard" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Dashboard</TabsTrigger>
+          <TabsTrigger value="relatorios" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Relatórios</TabsTrigger>
+        </TabsList>
+        <TabsContent value="dashboard" className="mt-0">
       <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
         {/* Greeting Header (Orbit-style) */}
         <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
@@ -310,9 +321,6 @@ const Overview = () => {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Atualizado às {format(new Date(), "HH:mm")}</span>
-            <Button variant="outline" size="sm" className="gap-2 h-9">
-              <Download className="h-3.5 w-3.5" /> Exportar
-            </Button>
           </div>
         </motion.div>
 
@@ -334,7 +342,7 @@ const Overview = () => {
           ) : [
             { label: "Projetos Ativos", value: counts.projects, delta: `+${projectStats.pending}`, deltaLabel: "pendentes", Icon: FolderKanban, accent: true },
             { label: "Tarefas Concluídas", value: counts.completedTasks, delta: `+${counts.pendingTasks}`, deltaLabel: "abertas", Icon: CheckCircle2 },
-            { label: "Total de Contatos", value: counts.contacts, delta: "ativo", deltaLabel: "este mês", Icon: Contact },
+            { label: "Total de Contatos", value: counts.contacts, delta: "total", deltaLabel: "cadastrados", Icon: Contact },
             { label: "Receita do Mês", value: `R$${(financeData.monthlyIncome / 1000).toFixed(1)}k`, delta: financeData.monthlyBalance >= 0 ? `+R$${(financeData.monthlyBalance/1000).toFixed(1)}k` : `-R$${(Math.abs(financeData.monthlyBalance)/1000).toFixed(1)}k`, deltaLabel: "saldo mensal", Icon: DollarSign },
           ].map(({ label, value, delta, deltaLabel, Icon, accent }, i) => (
             <Card key={i} className={`relative overflow-hidden transition-all hover:border-primary/40 ${accent ? "border-primary/30 bg-gradient-to-br from-primary/[0.06] to-card" : ""}`}>
@@ -579,6 +587,13 @@ const Overview = () => {
           <ExecutiveDashboardContent />
         </motion.div>
       </motion.div>
+        </TabsContent>
+        <TabsContent value="relatorios" className="mt-0">
+          <Suspense fallback={<div className="p-8 text-center text-sm text-muted-foreground">Carregando relatórios…</div>}>
+            <LazyReports embedded />
+          </Suspense>
+        </TabsContent>
+      </Tabs>
     </EMSLayout>
   );
 };
