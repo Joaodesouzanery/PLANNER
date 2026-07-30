@@ -31,7 +31,7 @@ export const FinanceCfoPanel = () => {
   const { canonical, reserveBalance, expectedMonthly, monthlyData } = useFinanceWorkspace();
   const { settings, missing, save } = useFinanceSettings();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<{ tax_rate: string; reserve_months: string; cdi_monthly_liquid: string; fixo: string; variavel: string; anual: string; rbt12_limit: string; rbt12_alert_pct: string }>({ tax_rate: "", reserve_months: "", cdi_monthly_liquid: "", fixo: "", variavel: "", anual: "", rbt12_limit: "", rbt12_alert_pct: "" });
+  const [form, setForm] = useState<{ tax_rate: string; reserve_months: string; cdi_monthly_liquid: string; fixo: string; variavel: string; anual: string; rbt12_limit: string; rbt12_alert_pct: string; prolabore: string }>({ tax_rate: "", reserve_months: "", cdi_monthly_liquid: "", fixo: "", variavel: "", anual: "", rbt12_limit: "", rbt12_alert_pct: "", prolabore: "" });
 
   const m = useMemo(
     () => computeCfo(canonical.rows, settings, reserveBalance, todayIso(), expectedMonthly),
@@ -52,6 +52,7 @@ export const FinanceCfoPanel = () => {
       anual: settings.expected_expense_anual != null ? String(settings.expected_expense_anual) : "",
       rbt12_limit: settings.rbt12_limit != null ? String(settings.rbt12_limit) : "",
       rbt12_alert_pct: settings.rbt12_alert_pct != null ? String(settings.rbt12_alert_pct) : "80",
+      prolabore: settings.prolabore_mensal != null ? String(settings.prolabore_mensal) : "",
     });
     setOpen(true);
   };
@@ -64,6 +65,7 @@ export const FinanceCfoPanel = () => {
     expected_expense_anual: form.anual === "" ? null : Number(form.anual),
     rbt12_limit: form.rbt12_limit === "" ? null : Number(form.rbt12_limit),
     rbt12_alert_pct: form.rbt12_alert_pct === "" ? 80 : Number(form.rbt12_alert_pct),
+    prolabore_mensal: form.prolabore === "" ? null : Number(form.prolabore),
   }, { onSuccess: () => setOpen(false) });
 
   const runwayTone = m.runwayMeses < 3 ? "text-destructive" : m.runwayMeses < 6 ? "text-amber-400" : "text-emerald-400";
@@ -127,6 +129,7 @@ export const FinanceCfoPanel = () => {
             <div><Label className="text-xs">Alíquota de imposto (%)</Label><Input type="number" step="0.1" value={form.tax_rate} onChange={(e) => setForm({ ...form, tax_rate: e.target.value })} placeholder="6" /></div>
             <div><Label className="text-xs">Reserva de emergência (meses de custo)</Label><Input type="number" min={1} value={form.reserve_months} onChange={(e) => setForm({ ...form, reserve_months: e.target.value })} placeholder="6" /></div>
             <div><Label className="text-xs">CDI líquido ao mês (%)</Label><Input type="number" step="0.1" value={form.cdi_monthly_liquid} onChange={(e) => setForm({ ...form, cdi_monthly_liquid: e.target.value })} placeholder="0.9" /></div>
+            <div><Label className="text-xs">Pró-labore mensal (PJ→PF)</Label><Input type="number" value={form.prolabore} onChange={(e) => setForm({ ...form, prolabore: e.target.value })} placeholder="ex.: 4500 · vazio = sem pró-labore" /><p className="text-[10px] text-muted-foreground mt-0.5">Sua retirada mensal da empresa. Vira a linha "= Lucro da empresa" na DRE e a base do painel de gastos pessoais.</p></div>
 
             <div className="rounded-lg border border-border/50 p-2.5 space-y-2">
               <p className="text-xs font-medium">Despesa esperada / mês <span className="text-[10px] text-muted-foreground">(vazio = usa a sugestão da projeção)</span></p>

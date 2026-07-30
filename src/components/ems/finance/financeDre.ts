@@ -52,6 +52,8 @@ export interface DreResult {
   resultadoFinanceiro: number; // negativo = despesa financeira
   lucroLiquido: number;
   margemLiquida: number;
+  prolabore: number; // retirada do dono (PJ→PF) no período
+  lucroEmpresa: number; // = lucroLiquido − prolabore (o que sobra NA empresa)
   porCategoria: { category: string; line: DreLine; value: number }[];
 }
 
@@ -60,6 +62,8 @@ export interface DreOptions {
   overrides?: Record<string, DreLine>;
   dAndAManual?: number;
   basis?: "caixa" | "competencia"; // caixa = só pago; competência = tudo no período
+  prolabore?: number; // pró-labore do MÊS (config); a linha da DRE usa o proporcional ao período
+  periodMonths?: number; // nº de meses do período (p/ escalar o pró-labore mensal); default 1
 }
 
 export const computeDre = (rows: PeriodRow[], from: string, to: string, opts: DreOptions = {}): DreResult => {
@@ -94,6 +98,8 @@ export const computeDre = (rows: PeriodRow[], from: string, to: string, opts: Dr
   const ebit = ebitda - depreciacaoAmortizacao;
   const resultadoFinanceiro = -byLine.resultado_financeiro;
   const lucroLiquido = ebit + resultadoFinanceiro;
+  const prolabore = Math.max(0, opts.prolabore ?? 0) * Math.max(1, opts.periodMonths ?? 1);
+  const lucroEmpresa = lucroLiquido - prolabore;
   const m = (x: number) => (receitaLiquida > 0 ? x / receitaLiquida : 0);
 
   return {
@@ -101,6 +107,7 @@ export const computeDre = (rows: PeriodRow[], from: string, to: string, opts: Dr
     lucroBruto, margemBruta: m(lucroBruto), despesaOperacional,
     ebitda, margemEbitda: m(ebitda), depreciacaoAmortizacao, ebit,
     resultadoFinanceiro, lucroLiquido, margemLiquida: m(lucroLiquido),
+    prolabore, lucroEmpresa,
     porCategoria: [...catMap.entries()].map(([category, v]) => ({ category, line: v.line, value: v.value })).sort((a, b) => b.value - a.value),
   };
 };

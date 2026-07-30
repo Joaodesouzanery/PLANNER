@@ -25,6 +25,7 @@ import { FinanceCfoPanel } from "./FinanceCfoPanel";
 import { FinanceAlertsFeed } from "./FinanceAlertsFeed";
 import { FinanceClientsCard } from "./FinanceClientsCard";
 import { FinanceBudgetCard } from "./FinanceBudgetCard";
+import { FinanceProLaborePanel } from "./FinanceProLaborePanel";
 
 const todayIso = () => format(new Date(), "yyyy-MM-dd");
 const defaultFrom = () => format(startOfMonth(new Date()), "yyyy-MM-dd");
@@ -404,6 +405,8 @@ const FinanceDashboard = () => {
             )}
           </CardContent>
         </Card>
+
+        <FinanceProLaborePanel />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <FinanceClientsCard />

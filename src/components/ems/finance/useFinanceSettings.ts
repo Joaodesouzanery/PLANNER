@@ -18,6 +18,8 @@ export interface FinanceSettings {
   // Vigia do teto do Simples (RBT12) — limite configurável (null = não vigia).
   rbt12_limit: number | null;
   rbt12_alert_pct: number | null;
+  // Pró-labore mensal (PJ→PF): entra na DRE como "= Lucro da empresa" e no painel PF (null = 0).
+  prolabore_mensal: number | null;
 }
 
 const FALLBACK: FinanceSettings = {
@@ -31,6 +33,7 @@ const FALLBACK: FinanceSettings = {
   expected_expense_anual: null,
   rbt12_limit: null,
   rbt12_alert_pct: 80,
+  prolabore_mensal: null,
 };
 
 /** Config CFO. Se a tabela finance_settings ainda não existir (migration não aplicada), usa defaults. */

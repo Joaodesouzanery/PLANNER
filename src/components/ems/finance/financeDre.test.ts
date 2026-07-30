@@ -55,3 +55,24 @@ describe("financeDre — DRE + EBITDA", () => {
     assert.equal(d2.deducoesEstimada, true);
   });
 });
+
+describe("financeDre — pró-labore (= Lucro da empresa)", () => {
+  it("sem pró-labore: prolabore 0 e lucroEmpresa = lucroLiquido (nada muda)", () => {
+    assert.equal(d.prolabore, 0);
+    assert.equal(d.lucroEmpresa, d.lucroLiquido);
+  });
+  it("pró-labore mensal subtrai do lucro líquido", () => {
+    const dp = computeDre(rows, "2026-07-01", "2026-07-31", { taxRate: 6, prolabore: 4500 });
+    assert.equal(dp.prolabore, 4500);
+    assert.equal(dp.lucroEmpresa, 15500 - 4500);
+  });
+  it("escala pelo nº de meses do período (trimestre = 3× o pró-labore mensal)", () => {
+    const dp = computeDre(rows, "2026-07-01", "2026-07-31", { taxRate: 6, prolabore: 4500, periodMonths: 3 });
+    assert.equal(dp.prolabore, 13500);
+    assert.equal(dp.lucroEmpresa, 15500 - 13500);
+  });
+  it("pró-labore negativo é pisado em 0", () => {
+    const dp = computeDre(rows, "2026-07-01", "2026-07-31", { taxRate: 6, prolabore: -100 });
+    assert.equal(dp.prolabore, 0);
+  });
+});

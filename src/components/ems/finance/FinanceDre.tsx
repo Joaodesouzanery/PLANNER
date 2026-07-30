@@ -35,16 +35,17 @@ export const FinanceDre = () => {
   const [dAndA, setDAndA] = useState("");
   const [showClassifier, setShowClassifier] = useState(false);
 
-  const { from, to, label } = useMemo(() => {
+  const { from, to, label, months } = useMemo(() => {
     const now = new Date();
-    if (periodType === "ano") return { from: format(startOfYear(now), "yyyy-MM-dd"), to: format(endOfYear(now), "yyyy-MM-dd"), label: format(now, "yyyy") };
-    if (periodType === "tri") return { from: format(startOfMonth(subMonths(now, 2)), "yyyy-MM-dd"), to: format(endOfMonth(now), "yyyy-MM-dd"), label: "últimos 3 meses" };
-    return { from: format(startOfMonth(now), "yyyy-MM-dd"), to: format(endOfMonth(now), "yyyy-MM-dd"), label: format(now, "MM/yyyy") };
+    if (periodType === "ano") return { from: format(startOfYear(now), "yyyy-MM-dd"), to: format(endOfYear(now), "yyyy-MM-dd"), label: format(now, "yyyy"), months: now.getMonth() + 1 };
+    if (periodType === "tri") return { from: format(startOfMonth(subMonths(now, 2)), "yyyy-MM-dd"), to: format(endOfMonth(now), "yyyy-MM-dd"), label: "últimos 3 meses", months: 3 };
+    return { from: format(startOfMonth(now), "yyyy-MM-dd"), to: format(endOfMonth(now), "yyyy-MM-dd"), label: format(now, "MM/yyyy"), months: 1 };
   }, [periodType]);
 
+  const prolaboreMensal = settings.prolabore_mensal ?? 0;
   const dre = useMemo(
-    () => computeDre(workspace.canonical.rows, from, to, { taxRate: settings.tax_rate, overrides, dAndAManual: Number(dAndA) || 0, basis }),
-    [workspace.canonical.rows, from, to, settings.tax_rate, overrides, dAndA, basis],
+    () => computeDre(workspace.canonical.rows, from, to, { taxRate: settings.tax_rate, overrides, dAndAManual: Number(dAndA) || 0, basis, prolabore: prolaboreMensal, periodMonths: months }),
+    [workspace.canonical.rows, from, to, settings.tax_rate, overrides, dAndA, basis, prolaboreMensal, months],
   );
 
   return (
@@ -72,7 +73,12 @@ export const FinanceDre = () => {
           <DreRow label="= EBIT" value={dre.ebit} kind="total" />
           <DreRow label="(+/−) Resultado financeiro" value={dre.resultadoFinanceiro} kind="sub" />
           <DreRow label="= Lucro líquido" value={dre.lucroLiquido} kind="total" margem={dre.margemLiquida} />
+          {dre.prolabore > 0 && <>
+            <DreRow label={`(−) Pró-labore${months > 1 ? ` (${months}× ${fmtCurrency(prolaboreMensal)})` : ""}`} value={-dre.prolabore} kind="sub" />
+            <DreRow label="= Lucro da empresa" value={dre.lucroEmpresa} kind="ebitda" />
+          </>}
         </div>
+        {dre.prolabore > 0 && <p className="text-[11px] text-muted-foreground">Pró-labore é a sua retirada (PJ→PF): o que sobra depois dele fica na empresa (reserva/reinvestir). Seus gastos pessoais são medidos contra o pró-labore, não contra o faturamento.</p>}
 
         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5"><Label className="text-[11px]">Deprec./amort. mensal (manual)</Label><Input type="number" value={dAndA} onChange={(e) => setDAndA(e.target.value)} placeholder="0" className="h-7 w-24 text-xs" /></span>
