@@ -39,7 +39,6 @@ import { buildCustomer360, diasSemContato, type CustomerSpine, type Customer360 
 
 const Prospecting = lazy(() => import("@/components/ems/commercial/Prospecting"));
 const CampaignManager = lazy(() => import("@/components/ems/crm/CampaignManager"));
-const ContactBoards = lazy(() => import("@/components/ems/crm/ContactBoards"));
 const VisitRoutesContent = lazy(() => import("@/pages/ems/VisitRoutes").then((m) => ({ default: m.VisitRoutesContent })));
 const AgileImplementation = lazy(() => import("@/pages/ems/AgileImplementation"));
 const LazyFallback = () => <div className="p-8 text-center text-sm text-muted-foreground">Carregando…</div>;
@@ -57,21 +56,24 @@ const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", curren
 const todayIso = () => new Date().toISOString().slice(0, 10);
 const dateBR = (d?: string | null) => (d ? new Date(`${d.slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR") : "—");
 
+// 6 grupos (consolidado das 13 telas). Cada grupo agrupa as antigas abas em sub-toggles.
 const TAB_META: Record<string, { title: string; sub: string }> = {
-  clientes: { title: "Clientes 360", sub: "Cada cliente num lugar só: receita, scorecard, deals, tarefas, docs e histórico." },
-  quadros: { title: "Quadros", sub: "Um kanban de contatos por empresa/segmento — arraste entre as etapas." },
-  contatos: { title: "Contatos", sub: "As pessoas — ligue cada uma a um cliente pra aparecer no 360." },
-  oportunidades: { title: "Oportunidades", sub: "A fila do que fazer agora (NBA) + funil de deals." },
+  carteira: { title: "Carteira", sub: "Saúde da carteira + cada cliente no 360: receita, scorecard, deals, tarefas e histórico." },
+  contatos: { title: "Contatos", sub: "As pessoas num kanban por segmento — ligue cada uma a um cliente pra aparecer no 360." },
+  oportunidades: { title: "Oportunidades", sub: "Fila (NBA) · funil de deals · métricas · atividades (cadências) · expansão." },
   prospeccao: { title: "Prospecção", sub: "Empresas a prospectar — converta em cliente + contato + deal." },
-  campanhas: { title: "Campanhas", sub: "Segmentos dinâmicos, campanhas e performance de outreach." },
-  torre: { title: "Torre", sub: "Saúde da carteira: SLA, risco, grupos por segmento e alertas." },
-  mapa: { title: "Mapa", sub: "Clientes, projetos e tarefas no mapa — e planejamento de rotas." },
-  entrega: { title: "Entrega", sub: "Implementação ágil: sprints, etapas e checklists por empresa." },
-  ativos: { title: "Ativos", sub: "Matriz de conteúdo por produto+módulo — conversão (leads) por ângulo, copy e tipo." },
-  prova: { title: "Prova", sub: "Motor de Prova: casos com resultado R$ + evidência + permissão — a isca do próximo módulo." },
-  expansao: { title: "Expansão", sub: "Contas landed × módulos abertos — cada linha é um upsell com prova já construída." },
-  rotina: { title: "Rotina", sub: "A semana operacional por canal (Seg abre · Ter–Qui contato · Sex fecha), com o que já foi feito." },
-  atividades: { title: "Atividades", sub: "A fila do dia (followup) + cadências: aplique uma cadência num deal e ela gera os toques." },
+  motor: { title: "Motor", sub: "Ativos, Prova, Rotina e Campanhas — o motor de conteúdo e outreach." },
+  operacao: { title: "Operação", sub: "Mapa da carteira, rotas e a entrega (implementação ágil)." },
+};
+
+// Deep-links antigos (?tab=torre etc.) → novo grupo, pra não quebrar favoritos.
+const TAB_ALIAS: Record<string, string> = {
+  clientes: "carteira", torre: "carteira",
+  quadros: "contatos", contatos: "contatos",
+  oportunidades: "oportunidades", atividades: "oportunidades", expansao: "oportunidades",
+  prospeccao: "prospeccao",
+  ativos: "motor", prova: "motor", rotina: "motor", campanhas: "motor",
+  mapa: "operacao", entrega: "operacao",
 };
 
 const Crm = () => {
@@ -80,19 +82,25 @@ const Crm = () => {
   const { selectedCompanyId } = useCompany();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedId, setSelectedId] = useState<string | null>(searchParams.get("client"));
-  const [tab, setTab] = useState(searchParams.get("tab") || "clientes");
+  const rawTab = searchParams.get("tab") || "";
+  const [tab, setTab] = useState(TAB_ALIAS[rawTab] || (TAB_META[rawTab] ? rawTab : "carteira"));
   const [search, setSearch] = useState("");
   const [healthFilter, setHealthFilter] = useState("all");
   const [view, setView] = useState<"list" | "kanban">(searchParams.get("view") === "kanban" ? "kanban" : "list");
-  const [oppView, setOppView] = useState<"fila" | "kanban" | "metricas">("fila");
+  // Sub-views dos grupos consolidados (semeadas pelo ?tab= antigo p/ preservar deep-links).
+  const [carteiraView, setCarteiraView] = useState<"clientes" | "visao">(rawTab === "torre" ? "visao" : "clientes");
+  const [oppView, setOppView] = useState<"fila" | "kanban" | "metricas" | "atividades" | "expansao">(
+    rawTab === "atividades" ? "atividades" : rawTab === "expansao" ? "expansao" : "fila");
+  const [motorView, setMotorView] = useState<"ativos" | "prova" | "rotina" | "campanhas">(
+    (["ativos", "prova", "rotina", "campanhas"] as const).includes(rawTab as any) ? (rawTab as any) : "ativos");
+  const [opsView, setOpsView] = useState<"mapa" | "rotas" | "entrega">(rawTab === "entrega" ? "entrega" : "mapa");
   const [moduloId, setModuloId] = useState<string | null>(null);
-  // Reseta o filtro de módulo ao trocar de produto/empresa (o módulo é company-scoped; senão o funil esvazia).
+  // Reseta o filtro de módulo ao trocar de solução/empresa (o módulo é company-scoped; senão o funil esvazia).
   useEffect(() => setModuloId(null), [selectedCompanyId]);
-  const [mapView, setMapView] = useState<"mapa" | "rotas">("mapa");
   const syncParam = (key: string, val: string | null) => setSearchParams((prev) => { const p = new URLSearchParams(prev); if (val) p.set(key, val); else p.delete(key); return p; }, { replace: true });
-  const changeTab = (v: string) => { setTab(v); syncParam("tab", v === "clientes" ? null : v); };
+  const changeTab = (v: string) => { setTab(v); syncParam("tab", v === "carteira" ? null : v); };
   const changeView = (v: "list" | "kanban") => { setView(v); syncParam("view", v === "list" ? null : v); };
-  const selectCustomer = (id: string) => { setSelectedId(id); setTab("clientes"); setView("list"); };
+  const selectCustomer = (id: string) => { setSelectedId(id); setTab("carteira"); setCarteiraView("clientes"); setView("list"); };
   // Com empresa específica, os satélites vêm filtrados e a saúde recalculada seria falsa-baixa →
   // prefere a persistida (canônica). No view "todas", usa a calculada (que também é persistida pelo sync).
   const scoped = selectedCompanyId !== "all";
@@ -128,9 +136,9 @@ const Crm = () => {
           <div>
             <h1 className="text-2xl md:text-3xl font-heading font-bold flex items-center gap-2">
               <div className="p-2 rounded-xl bg-primary/10"><Users className="h-6 w-6 text-primary" /></div>
-              CRM — {(TAB_META[tab] ?? TAB_META.clientes).title}
+              CRM — {(TAB_META[tab] ?? TAB_META.carteira).title}
             </h1>
-            <p className="text-muted-foreground mt-1 text-sm">{(TAB_META[tab] ?? TAB_META.clientes).sub}</p>
+            <p className="text-muted-foreground mt-1 text-sm">{(TAB_META[tab] ?? TAB_META.carteira).sub}</p>
           </div>
           <div className="text-right hidden sm:block">
             <p className="font-mono text-lg font-bold text-primary">{brl(mrrTotal)}<span className="text-xs text-muted-foreground font-normal">/mês</span></p>
@@ -144,106 +152,34 @@ const Crm = () => {
 
         <Tabs value={tab} onValueChange={changeTab} className="space-y-4">
           <TabsList className="bg-card/80 border border-border/50 rounded-xl flex w-full justify-start overflow-x-auto">
-            <TabsTrigger value="clientes" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Clientes 360</TabsTrigger>
+            <TabsTrigger value="carteira" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Carteira</TabsTrigger>
             <TabsTrigger value="contatos" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5">Contatos {crm.contacts.filter((c) => !c.customer_id).length > 0 && <span className="rounded-full bg-amber-500/15 text-amber-500 px-1.5 text-[10px] font-mono" title="sem cliente ligado">{crm.contacts.filter((c) => !c.customer_id).length}</span>}</TabsTrigger>
-            <TabsTrigger value="quadros" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Quadros</TabsTrigger>
             <TabsTrigger value="oportunidades" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5">Oportunidades {crm.nbaItems.length > 0 && <span className="rounded-full bg-primary/15 text-primary px-1.5 text-[10px] font-mono">{crm.nbaItems.length}</span>}</TabsTrigger>
             <TabsTrigger value="prospeccao" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Prospecção</TabsTrigger>
-            <TabsTrigger value="campanhas" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Campanhas</TabsTrigger>
-            <TabsTrigger value="ativos" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Ativos</TabsTrigger>
-            <TabsTrigger value="prova" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Prova</TabsTrigger>
-            <TabsTrigger value="atividades" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Atividades</TabsTrigger>
-            <TabsTrigger value="expansao" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Expansão</TabsTrigger>
-            <TabsTrigger value="rotina" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Rotina</TabsTrigger>
-            <TabsTrigger value="torre" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Torre</TabsTrigger>
-            <TabsTrigger value="mapa" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Mapa</TabsTrigger>
-            <TabsTrigger value="entrega" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Entrega</TabsTrigger>
+            <TabsTrigger value="motor" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Motor</TabsTrigger>
+            <TabsTrigger value="operacao" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Operação</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="entrega" className="mt-0">
-            <Suspense fallback={<LazyFallback />}><AgileImplementation embedded /></Suspense>
-          </TabsContent>
-
-          <TabsContent value="mapa" className="mt-0 space-y-3">
-            <div className="flex items-center justify-end">
-              <div className="inline-flex rounded-lg border border-border/50 bg-card/60 p-0.5">
-                <Button size="sm" variant={mapView === "mapa" ? "secondary" : "ghost"} className="h-7 text-xs" onClick={() => setMapView("mapa")}>Mapa</Button>
-                <Button size="sm" variant={mapView === "rotas" ? "secondary" : "ghost"} className="h-7 text-xs" onClick={() => setMapView("rotas")}>Rotas</Button>
-              </div>
-            </div>
-            {mapView === "rotas"
-              ? <Suspense fallback={<LazyFallback />}><VisitRoutesContent embedded /></Suspense>
-              : <OperationalMapPanel title="Mapa da carteira" description="Clientes, projetos e tarefas num só mapa operacional." filterKinds={["client", "task", "project"]} height={540} />}
-          </TabsContent>
-
-          <TabsContent value="contatos" className="mt-0">
-            <ContactsTab crm={crm} onSelectCustomer={selectCustomer} />
-          </TabsContent>
-
-          <TabsContent value="quadros" className="mt-0">
-            <Suspense fallback={<LazyFallback />}><ContactBoards crm={crm} /></Suspense>
-          </TabsContent>
-
-
-          <TabsContent value="prospeccao" className="mt-0">
-            <Suspense fallback={<LazyFallback />}><Prospecting /></Suspense>
-          </TabsContent>
-
-          <TabsContent value="campanhas" className="mt-0">
-            <Suspense fallback={<LazyFallback />}><CampaignManager crm={crm} /></Suspense>
-          </TabsContent>
-
-          <TabsContent value="ativos" className="mt-0">
-            <AtivosPanel crm={crm} />
-          </TabsContent>
-
-          <TabsContent value="prova" className="mt-0">
-            <ProvaPanel crm={crm} />
-          </TabsContent>
-
-          <TabsContent value="atividades" className="mt-0">
-            <AtividadesPanel crm={crm} />
-          </TabsContent>
-
-          <TabsContent value="expansao" className="mt-0">
-            <ExpansaoBoard crm={crm} onSelectCustomer={selectCustomer} />
-          </TabsContent>
-
-          <TabsContent value="rotina" className="mt-0">
-            <RotinaSemanaPanel />
-          </TabsContent>
-
-          <TabsContent value="oportunidades" className="mt-0 space-y-3">
+          {/* CARTEIRA = Visão (Torre, agregado) + Clientes 360 (lista/kanban + detalhe) */}
+          <TabsContent value="carteira" className="mt-0 space-y-3">
             <div className="flex flex-wrap items-center justify-end gap-2">
-              {oppView !== "fila" && <ModuloFilter value={moduloId} onChange={setModuloId} />}
-              {oppView === "kanban" && <ModuloManager />}
-              {oppView === "kanban" && <StageManager suggestedSegment={dominantSegment} />}
+              {carteiraView === "clientes" && (
+                <div className="inline-flex rounded-lg border border-border/50 bg-card/60 p-0.5">
+                  <Button size="sm" variant={view === "list" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => changeView("list")}><List className="h-3.5 w-3.5" />Lista</Button>
+                  <Button size="sm" variant={view === "kanban" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => changeView("kanban")}><LayoutGrid className="h-3.5 w-3.5" />Kanban</Button>
+                </div>
+              )}
               <div className="inline-flex rounded-lg border border-border/50 bg-card/60 p-0.5">
-                <Button size="sm" variant={oppView === "fila" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setOppView("fila")}><List className="h-3.5 w-3.5" />Fila</Button>
-                <Button size="sm" variant={oppView === "kanban" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setOppView("kanban")}><LayoutGrid className="h-3.5 w-3.5" />Kanban</Button>
-                <Button size="sm" variant={oppView === "metricas" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setOppView("metricas")}><BarChart3 className="h-3.5 w-3.5" />Métricas</Button>
+                <Button size="sm" variant={carteiraView === "clientes" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setCarteiraView("clientes")}><Users className="h-3.5 w-3.5" />Clientes</Button>
+                <Button size="sm" variant={carteiraView === "visao" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setCarteiraView("visao")}><ShieldCheck className="h-3.5 w-3.5" />Visão</Button>
               </div>
             </div>
-            {oppView === "kanban" ? <DealKanban crm={crm} onSelect={selectCustomer} moduloId={moduloId} />
-              : oppView === "metricas" ? <KanbanMetricsPanel crm={crm} moduloId={moduloId} />
-              : <OpportunityInbox crm={crm} onSelectCustomer={selectCustomer} />}
-          </TabsContent>
-
-          <TabsContent value="torre" className="mt-0">
-            <ServicingTower crm={crm} onSelectCustomer={selectCustomer} />
-          </TabsContent>
-
-          <TabsContent value="clientes" className="mt-0 space-y-3">
-        <div className="flex items-center justify-end">
-          <div className="inline-flex rounded-lg border border-border/50 bg-card/60 p-0.5">
-            <Button size="sm" variant={view === "list" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => changeView("list")}><List className="h-3.5 w-3.5" />Lista</Button>
-            <Button size="sm" variant={view === "kanban" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => changeView("kanban")}><LayoutGrid className="h-3.5 w-3.5" />Kanban</Button>
-          </div>
-        </div>
-        {view === "kanban" ? (
-          <CustomerKanban crm={crm} onSelect={selectCustomer} />
-        ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.3fr)_minmax(360px,0.75fr)] gap-4">
+            {carteiraView === "visao" ? (
+              <ServicingTower crm={crm} onSelectCustomer={selectCustomer} />
+            ) : view === "kanban" ? (
+              <CustomerKanban crm={crm} onSelect={selectCustomer} />
+            ) : (
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.3fr)_minmax(360px,0.75fr)] gap-4">
           {/* LISTA (escondida no mobile só quando um cliente REAL está aberto — senão tela em branco) */}
           <Card className={cn(selected && "hidden xl:block")}>
             <CardHeader className="pb-2">
@@ -287,6 +223,68 @@ const Crm = () => {
           )}
         </div>
         )}
+          </TabsContent>
+
+          {/* CONTATOS = kanban de contatos (Bloco 3 troca por boards por segmento) */}
+          <TabsContent value="contatos" className="mt-0">
+            <ContactsTab crm={crm} onSelectCustomer={selectCustomer} />
+          </TabsContent>
+
+          {/* OPORTUNIDADES = Fila · Kanban · Funil · Atividades · Expansão */}
+          <TabsContent value="oportunidades" className="mt-0 space-y-3">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {(oppView === "kanban" || oppView === "metricas") && <ModuloFilter value={moduloId} onChange={setModuloId} />}
+              {oppView === "kanban" && <ModuloManager />}
+              {oppView === "kanban" && <StageManager suggestedSegment={dominantSegment} />}
+              <div className="inline-flex rounded-lg border border-border/50 bg-card/60 p-0.5">
+                <Button size="sm" variant={oppView === "fila" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setOppView("fila")}><List className="h-3.5 w-3.5" />Fila</Button>
+                <Button size="sm" variant={oppView === "kanban" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setOppView("kanban")}><LayoutGrid className="h-3.5 w-3.5" />Kanban</Button>
+                <Button size="sm" variant={oppView === "metricas" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setOppView("metricas")}><BarChart3 className="h-3.5 w-3.5" />Funil</Button>
+                <Button size="sm" variant={oppView === "atividades" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setOppView("atividades")}><CalendarClock className="h-3.5 w-3.5" />Atividades</Button>
+                <Button size="sm" variant={oppView === "expansao" ? "secondary" : "ghost"} className="h-7 gap-1.5 text-xs" onClick={() => setOppView("expansao")}><TrendingUp className="h-3.5 w-3.5" />Expansão</Button>
+              </div>
+            </div>
+            {oppView === "kanban" ? <DealKanban crm={crm} onSelect={selectCustomer} moduloId={moduloId} />
+              : oppView === "metricas" ? <KanbanMetricsPanel crm={crm} moduloId={moduloId} />
+              : oppView === "atividades" ? <AtividadesPanel crm={crm} />
+              : oppView === "expansao" ? <ExpansaoBoard crm={crm} onSelectCustomer={selectCustomer} />
+              : <OpportunityInbox crm={crm} onSelectCustomer={selectCustomer} />}
+          </TabsContent>
+
+          <TabsContent value="prospeccao" className="mt-0">
+            <Suspense fallback={<LazyFallback />}><Prospecting /></Suspense>
+          </TabsContent>
+
+          {/* MOTOR = Ativos · Prova · Rotina · Campanhas */}
+          <TabsContent value="motor" className="mt-0 space-y-3">
+            <div className="flex items-center justify-end">
+              <div className="inline-flex rounded-lg border border-border/50 bg-card/60 p-0.5">
+                <Button size="sm" variant={motorView === "ativos" ? "secondary" : "ghost"} className="h-7 text-xs" onClick={() => setMotorView("ativos")}>Ativos</Button>
+                <Button size="sm" variant={motorView === "prova" ? "secondary" : "ghost"} className="h-7 text-xs" onClick={() => setMotorView("prova")}>Prova</Button>
+                <Button size="sm" variant={motorView === "rotina" ? "secondary" : "ghost"} className="h-7 text-xs" onClick={() => setMotorView("rotina")}>Rotina</Button>
+                <Button size="sm" variant={motorView === "campanhas" ? "secondary" : "ghost"} className="h-7 text-xs" onClick={() => setMotorView("campanhas")}>Campanhas</Button>
+              </div>
+            </div>
+            {motorView === "prova" ? <ProvaPanel crm={crm} />
+              : motorView === "rotina" ? <RotinaSemanaPanel />
+              : motorView === "campanhas" ? <Suspense fallback={<LazyFallback />}><CampaignManager crm={crm} /></Suspense>
+              : <AtivosPanel crm={crm} />}
+          </TabsContent>
+
+          {/* OPERAÇÃO = Mapa · Rotas · Entrega */}
+          <TabsContent value="operacao" className="mt-0 space-y-3">
+            <div className="flex items-center justify-end">
+              <div className="inline-flex rounded-lg border border-border/50 bg-card/60 p-0.5">
+                <Button size="sm" variant={opsView === "mapa" ? "secondary" : "ghost"} className="h-7 text-xs" onClick={() => setOpsView("mapa")}>Mapa</Button>
+                <Button size="sm" variant={opsView === "rotas" ? "secondary" : "ghost"} className="h-7 text-xs" onClick={() => setOpsView("rotas")}>Rotas</Button>
+                <Button size="sm" variant={opsView === "entrega" ? "secondary" : "ghost"} className="h-7 text-xs" onClick={() => setOpsView("entrega")}>Entrega</Button>
+              </div>
+            </div>
+            {opsView === "entrega"
+              ? <Suspense fallback={<LazyFallback />}><AgileImplementation embedded /></Suspense>
+              : opsView === "rotas"
+                ? <Suspense fallback={<LazyFallback />}><VisitRoutesContent embedded /></Suspense>
+                : <OperationalMapPanel title="Mapa da carteira" description="Clientes, projetos e tarefas num só mapa operacional." filterKinds={["client", "task", "project"]} height={540} />}
           </TabsContent>
         </Tabs>
       </motion.div>
