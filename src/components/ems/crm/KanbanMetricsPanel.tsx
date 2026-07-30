@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from "recharts";
 import { format } from "date-fns";
-import { Activity, AlertTriangle, FileDown, Sheet, Trophy, Timer, CalendarDays } from "lucide-react";
+import { Activity, AlertTriangle, FileDown, Sheet, Trophy, Timer, CalendarDays, Filter, TrendingUp, DollarSign } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -33,6 +33,7 @@ const KpiTile = ({ icon: Icon, label, value, tone }: { icon: typeof Activity; la
 
 const BAR = "hsl(var(--primary))";
 const TIME_BAR = "hsl(38 92% 50%)";
+const LOSS_COLORS = ["hsl(0 84% 60%)", "hsl(38 92% 50%)", "hsl(280 65% 60%)", "hsl(200 80% 55%)", "hsl(160 60% 45%)", "hsl(320 60% 55%)", "hsl(20 80% 55%)"];
 
 /** Painel de métricas do kanban de deals por empresa: lead/etapa, tempo/etapa, gargalo, win rate, ciclo, perdas. */
 export const KanbanMetricsPanel = ({ crm, moduloId }: { crm: ReturnType<typeof useCrm>; moduloId?: string | null }) => {
@@ -58,6 +59,9 @@ export const KanbanMetricsPanel = ({ crm, moduloId }: { crm: ReturnType<typeof u
 
   const leadsData = m.perStage.map((s) => ({ name: s.title, count: s.count, offtrack: s.offtrack }));
   const timeData = m.perStage.filter((s) => !s.offtrack && s.avgDays != null).map((s) => ({ name: s.title, avgDays: Number((s.avgDays as number).toFixed(1)) }));
+  const monthlyData = m.monthly.map((p) => ({ mes: p.month.slice(5), valor: p.valorGanho, ganhos: p.ganhos, criados: p.criados }));
+  const lossData = m.lostReasons.map((r) => ({ name: r.reason, value: r.count }));
+  const funnelMax = m.funnel[0]?.reached || 1;
 
   const exportPdf = async () => {
     setExporting(true);
@@ -76,11 +80,16 @@ export const KanbanMetricsPanel = ({ crm, moduloId }: { crm: ReturnType<typeof u
           { heading: "Resumo", head: [["Indicador", "Valor"]], body: [
             ["Total de deals", String(m.totalDeals)],
             ["Valor total", brl(m.totalValue)],
+            ["Ganhos (R$)", `${brl(m.wonValue)} · ${m.wonCount}`],
+            ["Perdidos (R$)", `${brl(m.lostValue)} · ${m.lostCount}`],
+            ["Em aberto (R$)", `${brl(m.openValue)} · ${m.openCount}`],
+            ["Ticket médio", m.ticketMedio != null ? brl(m.ticketMedio) : "—"],
             ["Win rate", pct(m.winRate)],
-            ["Ganhos / Perdidos / Abertos", `${m.wonCount} / ${m.lostCount} / ${m.openCount}`],
             ["Ciclo médio (ganhos)", days(m.avgCycleDays)],
             ["Gargalo", m.bottleneck ? `${m.bottleneck.title} (${days(m.bottleneck.avgDays)})` : "—"],
           ] },
+          { heading: "Funil de conversão", head: [["Etapa", "Chegou aqui", "Conversão"]], body: m.funnel.map((f) => [f.title, String(f.reached), f.convPct != null ? pct(f.convPct) : "—"]) },
+          { heading: "Ganhos por mês", head: [["Mês", "Criados", "Ganhos", "Valor ganho"]], body: m.monthly.map((p) => [p.month, String(p.criados), String(p.ganhos), brl(p.valorGanho)]) },
           { heading: "Por etapa", head: [["Etapa", "Deals", "Valor", "Tempo médio"]], body: m.perStage.map((s) => [s.title, String(s.count), brl(s.totalValue), days(s.avgDays)]) },
           { heading: "Motivos de perda", head: [["Motivo", "Qtd"]], body: m.lostReasons.length ? m.lostReasons.map((r) => [r.reason, String(r.count)]) : [["—", "—"]] },
         ],
@@ -157,6 +166,53 @@ export const KanbanMetricsPanel = ({ crm, moduloId }: { crm: ReturnType<typeof u
         <KpiTile icon={Trophy} label="Ganhos / Perdidos" value={`${m.wonCount} / ${m.lostCount}`} />
       </div>
 
+      {/* Resultado em R$ por outcome + ticket médio */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <KpiTile icon={Trophy} label="Ganhos (R$)" value={brl(m.wonValue)} tone="text-emerald-400" />
+        <KpiTile icon={AlertTriangle} label="Perdidos (R$)" value={brl(m.lostValue)} tone="text-destructive" />
+        <KpiTile icon={Activity} label="Em aberto (R$)" value={brl(m.openValue)} />
+        <KpiTile icon={DollarSign} label="Ticket médio" value={m.ticketMedio != null ? brl(m.ticketMedio) : "—"} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Funil de conversão etapa a etapa */}
+        <Card className="border border-border/50 bg-card/80">
+          <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Filter className="h-4 w-4 text-primary" />Funil de conversão</CardTitle></CardHeader>
+          <CardContent className="space-y-2 pt-1">
+            {m.funnel.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Sem etapas na esteira.</p>
+            ) : m.funnel.map((f) => (
+              <div key={f.key}>
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="truncate">{f.title}</span>
+                  <span className="font-mono shrink-0"><span className="text-muted-foreground">{f.reached}</span>{f.convPct != null && <span className={cn("ml-2", f.convPct >= 0.6 ? "text-emerald-400" : f.convPct >= 0.3 ? "text-amber-400" : "text-destructive")}>{Math.round(f.convPct * 100)}%</span>}</span>
+                </div>
+                <div className="h-3 rounded bg-muted/40 overflow-hidden"><div className="h-full rounded bg-primary/80" style={{ width: `${Math.max(2, Math.round((f.reached / funnelMax) * 100))}%` }} /></div>
+              </div>
+            ))}
+            <p className="text-[10px] text-muted-foreground pt-1">% = conversão da etapa anterior. "Chegou aqui" conta quem alcançou a etapa (ou além), pelos eventos de movimentação.</p>
+          </CardContent>
+        </Card>
+
+        {/* Série mensal — valor ganho por mês (6 meses) */}
+        <Card className="border border-border/50 bg-card/80">
+          <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary" />Ganhos por mês (R$)</CardTitle></CardHeader>
+          <CardContent>
+            <div className="h-[260px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyData} margin={{ top: 6, right: 8, left: -4, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="mes" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} formatter={(v: number) => brl(v)} />
+                  <Bar dataKey="valor" name="Ganho (R$)" fill={BAR} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="border border-border/50 bg-card/80">
           <CardHeader className="pb-2"><CardTitle className="text-base">Lead por etapa</CardTitle></CardHeader>
@@ -204,13 +260,25 @@ export const KanbanMetricsPanel = ({ crm, moduloId }: { crm: ReturnType<typeof u
       {m.lostReasons.length > 0 && (
         <Card className="border border-border/50 bg-card/80">
           <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-destructive" />Motivos de perda</CardTitle></CardHeader>
-          <CardContent className="space-y-1.5">
-            {m.lostReasons.map((r) => (
-              <div key={r.reason} className="flex items-center justify-between text-sm">
-                <span className="truncate">{r.reason}</span>
-                <span className="font-mono text-muted-foreground">{r.count}</span>
-              </div>
-            ))}
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+            <div className="h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={lossData} cx="50%" cy="50%" innerRadius={45} outerRadius={80} paddingAngle={3} dataKey="value" nameKey="name">
+                    {lossData.map((_, i) => <Cell key={i} fill={LOSS_COLORS[i % LOSS_COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="space-y-1.5">
+              {m.lostReasons.map((r, i) => (
+                <div key={r.reason} className="flex items-center justify-between text-sm">
+                  <span className="truncate flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: LOSS_COLORS[i % LOSS_COLORS.length] }} />{r.reason}</span>
+                  <span className="font-mono text-muted-foreground">{r.count}</span>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}

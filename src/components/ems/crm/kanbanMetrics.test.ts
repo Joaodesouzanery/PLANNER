@@ -79,6 +79,44 @@ describe("kanbanMetrics — computeKanbanMetrics", () => {
     assert.equal(m.bottleneck, null);
   });
 
+  it("valores por outcome, ticket médio, funil de conversão e série mensal", () => {
+    const deals: DealLite[] = [
+      { id: "won1", stage: "cliente", status_outcome: "won", value: 1000, created_at: "2026-06-05T10:00:00.000Z" },
+      { id: "won2", stage: "cliente", status_outcome: "won", value: 3000, created_at: "2026-07-02T10:00:00.000Z" },
+      { id: "lost1", stage: "perdido", status_outcome: "lost", value: 500, close_reason: "Preço", created_at: "2026-07-03T10:00:00.000Z" },
+      { id: "open1", stage: "documento", status_outcome: null, value: 200, created_at: "2026-07-10T10:00:00.000Z" },
+      { id: "open2", stage: "abordado", status_outcome: null, value: 800, created_at: "2026-07-11T10:00:00.000Z" },
+    ];
+    const events: StageEvent[] = [
+      { deal_id: "won1", from_stage: "fechamento", to_stage: "cliente", moved_at: "2026-06-20T00:00:00.000Z" },
+      { deal_id: "won2", from_stage: "fechamento", to_stage: "cliente", moved_at: "2026-07-15T00:00:00.000Z" },
+    ];
+    const m = computeKanbanMetrics(deals, events, stages, NOW);
+
+    assert.equal(m.wonValue, 4000);
+    assert.equal(m.lostValue, 500);
+    assert.equal(m.openValue, 1000);
+    assert.equal(m.ticketMedio, 2000); // 4000 / 2 ganhos
+
+    // Funil (7 etapas on-track). reached: won1/won2 chegam ao fim (idx 6); open1 documento(3); open2 abordado(2).
+    assert.equal(m.funnel.length, 7);
+    assert.equal(m.funnel[0].reached, 4); // lista: os 4 com etapa on-track
+    assert.equal(m.funnel[0].convPct, null);
+    assert.equal(m.funnel.find((f) => f.key === "documento")!.reached, 3);
+    assert.equal(m.funnel.find((f) => f.key === "documento")!.convPct, 0.75); // 3/4
+    assert.equal(m.funnel.find((f) => f.key === "cliente")!.reached, 2);
+
+    // Série mensal (últimos 6 meses, termina em 2026-07).
+    assert.equal(m.monthly.length, 6);
+    const jul = m.monthly.find((p) => p.month === "2026-07")!;
+    const jun = m.monthly.find((p) => p.month === "2026-06")!;
+    assert.equal(jul.criados, 4);
+    assert.equal(jul.ganhos, 1);
+    assert.equal(jul.valorGanho, 3000);
+    assert.equal(jun.ganhos, 1);
+    assert.equal(jun.valorGanho, 1000);
+  });
+
   it("filtra por módulo (funil por módulo) — deals e eventos", () => {
     const deals: DealLite[] = [
       { id: "a", stage: "documento", status_outcome: null, value: 100, modulo_id: "m1" },

@@ -16,6 +16,7 @@ export interface DealLite {
   value: number | null;
   close_reason?: string | null;
   modulo_id?: string | null;
+  created_at?: string | null;
 }
 
 export interface StageMetric {
@@ -26,15 +27,33 @@ export interface StageMetric {
   totalValue: number;
   avgDays: number | null; // tempo médio no estágio (de eventos); null = sem dado ainda
 }
+export interface FunnelStage {
+  key: string;
+  title: string;
+  reached: number; // nº de deals que já chegaram nesta etapa (ou além) — funil monotônico
+  convPct: number | null; // conversão da etapa anterior p/ esta (null na 1ª)
+}
+export interface MonthlyPoint {
+  month: string; // "yyyy-MM"
+  criados: number;
+  ganhos: number;
+  valorGanho: number;
+}
 export interface KanbanMetrics {
   perStage: StageMetric[];
   bottleneck: { key: string; title: string; avgDays: number } | null;
   wonCount: number;
   lostCount: number;
   openCount: number;
+  wonValue: number; // R$ ganho
+  lostValue: number; // R$ perdido
+  openValue: number; // R$ em aberto
+  ticketMedio: number | null; // wonValue / wonCount
   winRate: number | null; // won / (won + lost)
   avgCycleDays: number | null; // 1º evento → último (deals ganhos)
   lostReasons: { reason: string; count: number }[];
+  funnel: FunnelStage[]; // conversão etapa a etapa (só esteira on-track)
+  monthly: MonthlyPoint[]; // últimos 6 meses: criados + ganhos + valor ganho
   totalDeals: number;
   totalValue: number;
 }
@@ -130,15 +149,72 @@ export const computeKanbanMetrics = (
     .map(([reason, count]) => ({ reason, count }))
     .sort((a, b) => b.count - a.count);
 
+  const val = (arr: DealLite[]) => arr.reduce((a, d) => a + (Number(d.value) || 0), 0);
+  const wonValue = val(won);
+  const lostValue = val(lost);
+  const open = deals.filter((d) => d.status_outcome !== "won" && d.status_outcome !== "lost");
+  const openValue = val(open);
+  const ticketMedio = wonCount > 0 ? wonValue / wonCount : null;
+
+  // Funil de conversão (só esteira on-track): "reached" = deals cujo estágio mais avançado alcançado
+  // (etapa atual / eventos / ganho = chegou ao fim) é >= o índice da etapa. Monotônico decrescente.
+  const onTrack = stages.filter((s) => !s.is_offtrack);
+  const idxOf = new Map(onTrack.map((s, i) => [s.key, i] as const));
+  const furthest = new Map<string, number>();
+  for (const d of deals) {
+    let mx = -1;
+    const cur = resolveStageKey(d.stage, stages);
+    if (idxOf.has(cur)) mx = Math.max(mx, idxOf.get(cur) as number);
+    if (d.status_outcome === "won") mx = onTrack.length - 1;
+    for (const e of byDeal.get(d.id) || []) if (e.to_stage && idxOf.has(e.to_stage)) mx = Math.max(mx, idxOf.get(e.to_stage) as number);
+    if (mx >= 0) furthest.set(d.id, mx);
+  }
+  const reachedAt = onTrack.map((_, i) => [...furthest.values()].filter((v) => v >= i).length);
+  const funnel: FunnelStage[] = onTrack.map((s, i) => ({
+    key: s.key,
+    title: s.title,
+    reached: reachedAt[i],
+    convPct: i === 0 ? null : reachedAt[i - 1] > 0 ? reachedAt[i] / reachedAt[i - 1] : null,
+  }));
+
+  // Série mensal (últimos 6 meses): criados por created_at; ganhos/valor por data do ganho
+  // (último evento do deal ganho, com fallback no created_at).
+  // Chaves de mês em UTC (os buckets usam .slice(0,7) do ISO 'Z' → tem que casar, senão perto da
+  // virada de mês em fuso ≠ UTC um deal cairia fora da janela e sumiria).
+  const base = new Date(nowIso);
+  const monthKeys: string[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() - i, 1));
+    monthKeys.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`);
+  }
+  const mk = new Map<string, MonthlyPoint>(monthKeys.map((month) => [month, { month, criados: 0, ganhos: 0, valorGanho: 0 }]));
+  for (const d of deals) {
+    const cm = (d.created_at || "").slice(0, 7);
+    if (mk.has(cm)) (mk.get(cm) as MonthlyPoint).criados += 1;
+    if (d.status_outcome === "won") {
+      const evs = byDeal.get(d.id);
+      const wonAt = (evs && evs.length ? evs[evs.length - 1].moved_at : d.created_at || "").slice(0, 7);
+      const p = mk.get(wonAt);
+      if (p) { p.ganhos += 1; p.valorGanho += Number(d.value) || 0; }
+    }
+  }
+  const monthly = monthKeys.map((month) => mk.get(month) as MonthlyPoint);
+
   return {
     perStage,
     bottleneck: bottleneck ? { key: bottleneck.key, title: bottleneck.title, avgDays: bottleneck.avgDays as number } : null,
     wonCount,
     lostCount,
     openCount,
+    wonValue,
+    lostValue,
+    openValue,
+    ticketMedio,
     winRate,
     avgCycleDays,
     lostReasons,
+    funnel,
+    monthly,
     totalDeals: deals.length,
     totalValue: deals.reduce((a, d) => a + (Number(d.value) || 0), 0),
   };
