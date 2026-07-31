@@ -1,7 +1,7 @@
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
-import { Activity, BarChart3, Calculator, CalendarDays, DollarSign, GitCompare, Landmark, Plane, PiggyBank, ShieldAlert, ShoppingCart, Table2, Target, TrendingUp, Wallet } from "lucide-react";
+import { Activity, BarChart3, Calculator, CalendarDays, DollarSign, GitCompare, Landmark, Plane, PiggyBank, ShieldAlert, ShoppingCart, Sparkles, Table2, Target, TrendingUp, Wallet } from "lucide-react";
 import FinanceDashboard from "@/components/ems/finance/FinanceDashboard";
 import FinanceOKRs from "@/components/ems/finance/FinanceOKRs";
 import FinanceTransactions from "@/components/ems/finance/FinanceTransactions";
@@ -21,6 +21,7 @@ import FinanceScenarios from "@/components/ems/finance/FinanceScenarios";
 import { FinancePatrimonio } from "@/components/ems/finance/FinancePatrimonio";
 import { FinanceAposentadoria } from "@/components/ems/finance/FinanceAposentadoria";
 import { FinanceFullReport } from "@/components/ems/finance/FinanceFullReport";
+import EstrategiaCascade from "@/components/ems/estrategia/EstrategiaCascade";
 
 const outerTab = "gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary";
 const innerTab = "gap-1.5 rounded-md text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary";
@@ -47,7 +48,7 @@ const Finance = () => {
             <TabsTrigger value="transactions" className={outerTab}><Wallet className="h-4 w-4" /><span className="hidden sm:inline">Transações</span></TabsTrigger>
             <TabsTrigger value="future" className={outerTab}><Activity className="h-4 w-4" /><span className="hidden sm:inline">Futuro & Cenários</span></TabsTrigger>
             <TabsTrigger value="simulators" className={outerTab}><Calculator className="h-4 w-4" /><span className="hidden sm:inline">Simuladores</span></TabsTrigger>
-            <TabsTrigger value="goals" className={outerTab}><Target className="h-4 w-4" /><span className="hidden sm:inline">Metas & Patrimônio</span></TabsTrigger>
+            <TabsTrigger value="goals" className={outerTab}><Target className="h-4 w-4" /><span className="hidden sm:inline">Estratégia & Metas</span></TabsTrigger>
             <TabsTrigger value="aposentadoria" className={outerTab}><PiggyBank className="h-4 w-4" /><span className="hidden sm:inline">Aposentadoria</span></TabsTrigger>
           </TabsList>
 
@@ -93,15 +94,17 @@ const Finance = () => {
             </Tabs>
           </TabsContent>
 
-          {/* 5. Metas & Patrimônio */}
+          {/* 5. Estratégia & Metas */}
           <TabsContent value="goals">
-            <Tabs defaultValue="patrimonio" className="space-y-4">
+            <Tabs defaultValue="estrategia" className="space-y-4">
               <TabsList className="flex flex-wrap h-auto bg-card/60 border border-border/50 rounded-lg p-1">
+                <TabsTrigger value="estrategia" className={innerTab}><Sparkles className="h-3.5 w-3.5" />Visão & Objetivos</TabsTrigger>
                 <TabsTrigger value="patrimonio" className={innerTab}><Landmark className="h-3.5 w-3.5" />Patrimônio</TabsTrigger>
                 <TabsTrigger value="metas" className={innerTab}><Target className="h-3.5 w-3.5" />Metas</TabsTrigger>
                 <TabsTrigger value="okrs" className={innerTab}><Target className="h-3.5 w-3.5" />OKRs</TabsTrigger>
                 <TabsTrigger value="monthly-planning" className={innerTab}><CalendarDays className="h-3.5 w-3.5" />Planejamento</TabsTrigger>
               </TabsList>
+              <TabsContent value="estrategia"><EstrategiaCascade /></TabsContent>
               <TabsContent value="patrimonio"><FinancePatrimonio /></TabsContent>
               <TabsContent value="metas"><FinanceMetas /></TabsContent>
               <TabsContent value="okrs"><FinanceOKRs /></TabsContent>
