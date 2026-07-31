@@ -120,15 +120,12 @@ export const AppSidebar = ({ mobileOpen, onMobileClose }: AppSidebarProps) => {
       <div className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden">
-            <img src={hiveLogo} alt="Hive Tech" className="h-10 w-10 rounded-xl object-cover" />
+            <img src={hiveLogo} alt="Grupo Nery" className="h-10 w-10 rounded-xl object-cover" />
           </div>
           {(!collapsed || isMobile) && (
             <div className="flex flex-col">
-              <span className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground font-medium">
-                EMS
-              </span>
               <span className="text-sm font-semibold text-foreground whitespace-nowrap leading-tight">
-                Hive Tech
+                Grupo Nery
               </span>
             </div>
           )}
@@ -315,9 +312,9 @@ export const MobileHeader = ({ onMenuClick }: { onMenuClick: () => void }) => {
         <Menu className="h-5 w-5" />
       </Button>
       <div className="flex items-center gap-2">
-        <img src={hiveLogo} alt="Hive Tech" className="h-8 w-8 rounded-lg object-cover" />
+        <img src={hiveLogo} alt="Grupo Nery" className="h-8 w-8 rounded-lg object-cover" />
         <span className="font-semibold text-foreground">
-          {currentPage?.label || "Hive Tech"}
+          {currentPage?.label || "Grupo Nery"}
         </span>
       </div>
     </div>
