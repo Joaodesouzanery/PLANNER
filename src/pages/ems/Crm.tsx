@@ -148,8 +148,13 @@ const Crm = () => {
           </div>
         </div>
 
-        {crm.missing && !crm.isLoading && (
-          <Card className="border-amber-500/30 bg-amber-500/5"><CardContent className="p-4 text-sm text-amber-400">Nenhum cliente ainda — cadastre clientes nas Transações (campo Cliente) ou aplique a migration <code>20260713120000_crm_customer_spine.sql</code>.</CardContent></Card>
+        {/* Aviso de clientes só na Carteira (é sobre clientes; contato ≠ cliente). Tabela ausente
+            → migration; vazia → dica leve; erro (RLS/rede) → nada (sem falso alarme). */}
+        {tab === "carteira" && crm.missing && (
+          <Card className="border-amber-500/30 bg-amber-500/5"><CardContent className="p-4 text-sm text-amber-400">Módulo de clientes não instalado — aplique a migration <code>20260713120000_crm_customer_spine.sql</code> na Lovable.</CardContent></Card>
+        )}
+        {tab === "carteira" && crm.noCustomers && (
+          <Card className="border-border/50 bg-muted/20"><CardContent className="p-4 text-sm text-muted-foreground">Nenhum cliente ainda — no campo <b>Cliente</b> das Transações (Finanças) cada cliente vira um registro aqui.</CardContent></Card>
         )}
 
         <Tabs value={tab} onValueChange={changeTab} className="space-y-4">

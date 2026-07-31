@@ -26,6 +26,15 @@ const db = supabase as any;
 const safe = async (build: () => any): Promise<any[]> => {
   try { const { data, error } = await build(); if (error) return []; return data ?? []; } catch { return []; }
 };
+// Spine (finance_clientes) com diagnóstico: distingue tabela AUSENTE (migration) × vazia × erro (RLS/rede),
+// senão o `safe` genérico transforma qualquer falha em "0 clientes" e dispara o banner de migration à toa.
+const safeSpine = async (): Promise<{ rows: any[]; missingTable: boolean; errored: boolean }> => {
+  try {
+    const { data, error } = await db.from("finance_clientes").select("*").order("nome");
+    if (error) return { rows: [], missingTable: error.code === "42P01" || error.code === "PGRST205", errored: true };
+    return { rows: data ?? [], missingTable: false, errored: false };
+  } catch { return { rows: [], missingTable: false, errored: true }; }
+};
 
 /** Fonte única do CRM: spine (finance_clientes + campos CRM) + satélites + receita + scores por cliente. */
 export const useCrm = () => {
@@ -39,7 +48,7 @@ export const useCrm = () => {
     staleTime: 60_000,
     queryFn: async () => {
       const [spine, contacts, deals, routines, interactions, meta, txns, onbSteps, onbTracking, tasks, projects, stageEvents] = await Promise.all([
-        safe(() => db.from("finance_clientes").select("*").order("nome")),
+        safeSpine(),
         safe(() => co(db.from("contacts").select("id,name,customer_id,pipeline_stage,email,phone,company,company_id"))),
         safe(() => co(db.from("project_opportunities").select("id,title,value,stage,probability,expected_close_date,status_outcome,close_reason,customer_id,contact_id,project_id,company_id,modulo_id,ativo_origem_id,created_at"))),
         safe(() => db.from("routine_clients").select("id,name,customer_id,status")),
@@ -57,7 +66,8 @@ export const useCrm = () => {
   });
 
   const data = query.data;
-  const customers = (data?.spine ?? []) as CustomerSpine[];
+  const spineInfo = data?.spine as { rows: any[]; missingTable: boolean; errored: boolean } | undefined;
+  const customers = (spineInfo?.rows ?? []) as CustomerSpine[];
   const contacts = (data?.contacts ?? []) as CrmContact[];
   const deals = (data?.deals ?? []) as CrmDeal[];
   const routines = (data?.routines ?? []) as CrmRoutine[];
@@ -409,7 +419,10 @@ export const useCrm = () => {
     projects: (data?.projects ?? []) as any[],
     transactions: (data?.txns ?? []) as any[],
     isLoading: query.isLoading,
-    missing: (data?.spine ?? []).length === 0 && !query.isLoading,
+    // missing = tabela ausente (mostra a migration). noCustomers = tabela existe mas sem clientes (dica leve).
+    // Erro (RLS/rede) não vira nenhum dos dois → sem banner falso.
+    missing: !!spineInfo?.missingTable && !query.isLoading,
+    noCustomers: !spineInfo?.missingTable && !spineInfo?.errored && customers.length === 0 && !query.isLoading,
     updateCustomer, addInteraction, updateDeal, linkContact, createContact, updateContact, deleteContact, createTask, createDeal,
   };
 };
