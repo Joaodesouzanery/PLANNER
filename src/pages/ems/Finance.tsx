@@ -22,6 +22,7 @@ import { FinancePatrimonio } from "@/components/ems/finance/FinancePatrimonio";
 import { FinanceAposentadoria } from "@/components/ems/finance/FinanceAposentadoria";
 import { FinanceFullReport } from "@/components/ems/finance/FinanceFullReport";
 import EstrategiaCascade from "@/components/ems/estrategia/EstrategiaCascade";
+import EstrategiaCiclos from "@/components/ems/estrategia/EstrategiaCiclos";
 
 const outerTab = "gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary";
 const innerTab = "gap-1.5 rounded-md text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary";
@@ -104,7 +105,7 @@ const Finance = () => {
                 <TabsTrigger value="okrs" className={innerTab}><Target className="h-3.5 w-3.5" />OKRs</TabsTrigger>
                 <TabsTrigger value="monthly-planning" className={innerTab}><CalendarDays className="h-3.5 w-3.5" />Planejamento</TabsTrigger>
               </TabsList>
-              <TabsContent value="estrategia"><EstrategiaCascade /></TabsContent>
+              <TabsContent value="estrategia" className="space-y-6"><EstrategiaCascade /><EstrategiaCiclos /></TabsContent>
               <TabsContent value="patrimonio"><FinancePatrimonio /></TabsContent>
               <TabsContent value="metas"><FinanceMetas /></TabsContent>
               <TabsContent value="okrs"><FinanceOKRs /></TabsContent>

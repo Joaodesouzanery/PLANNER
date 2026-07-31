@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import {
   ChevronDown, ChevronRight, Plus, Pencil, Trash2, Target, Flag, ListChecks,
-  CircleDot, Circle, CheckCircle2, TrendingUp, Sparkles, Gauge,
+  CircleDot, Circle, CheckCircle2, TrendingUp, Sparkles, Gauge, Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -78,22 +78,30 @@ const Viability = ({ alvo, atual, prazo, sobra }: { alvo: number; atual: number;
 
 type EditKind = "visao" | "objetivo" | "kr" | "acao";
 interface EditState { kind: EditKind; parentId?: string; data?: any; }
+// Handlers específicos da ação (folha), passados como bloco único pela árvore.
+interface AcaoOps { cycle: (a: Acao) => void; lancar: (a: Acao) => void; remover: (a: Acao) => void; }
 
 // ── Ação (folha da cascata) ─────────────────────────────────────────────────────────────────
 const STATUS_ICON: Record<AcaoStatus, typeof Circle> = { todo: Circle, doing: CircleDot, done: CheckCircle2 };
 const nextStatus: Record<AcaoStatus, AcaoStatus> = { todo: "doing", doing: "done", done: "todo" };
 
-const AcaoRow = ({ acao, onCycle, onEdit, onDelete }: {
-  acao: Acao; onCycle: () => void; onEdit: () => void; onDelete: () => void;
+const AcaoRow = ({ acao, ops, onEdit, onDelete }: {
+  acao: Acao; ops: AcaoOps; onEdit: () => void; onDelete: () => void;
 }) => {
   const Icon = STATUS_ICON[acao.status];
+  const custo = Number(acao.custo_estimado) || 0;
+  const noFluxo = !!acao.transacao_id;
   return (
     <div className="flex items-center gap-2 py-1.5 pl-2 pr-1 rounded-md hover:bg-muted/30 group">
-      <button onClick={onCycle} title="Mudar status" className={cn("shrink-0", acao.status === "done" ? "text-emerald-400" : acao.status === "doing" ? "text-amber-400" : "text-muted-foreground hover:text-foreground")}>
+      <button onClick={() => ops.cycle(acao)} title="Mudar status" className={cn("shrink-0", acao.status === "done" ? "text-emerald-400" : acao.status === "doing" ? "text-amber-400" : "text-muted-foreground hover:text-foreground")}>
         <Icon className="h-4 w-4" />
       </button>
       <span className={cn("flex-1 text-xs truncate", acao.status === "done" && "line-through text-muted-foreground")}>{acao.descricao}</span>
-      {acao.custo_estimado ? <Badge variant="outline" className="text-[9px] shrink-0">{fmtCurrency(acao.custo_estimado)}</Badge> : null}
+      {custo > 0 && (
+        noFluxo
+          ? <button onClick={() => ops.remover(acao)} title="Remover do fluxo" className="shrink-0"><Badge variant="outline" className="text-[9px] gap-0.5 text-emerald-400 border-emerald-500/40"><Wallet className="h-2.5 w-2.5" />no fluxo</Badge></button>
+          : <button onClick={() => ops.lancar(acao)} title="Lançar custo no fluxo (previsto)" className="shrink-0"><Badge variant="outline" className="text-[9px] gap-0.5 hover:text-primary hover:border-primary/40"><Wallet className="h-2.5 w-2.5" />{fmtCurrency(custo)}</Badge></button>
+      )}
       {acao.quinzena ? <span className="text-[9px] text-muted-foreground shrink-0">{acao.quinzena}</span> : null}
       <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
         <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-primary" onClick={onEdit}><Pencil className="h-3 w-3" /></Button>
@@ -116,7 +124,11 @@ export const EstrategiaCascade = () => {
     const map = { visao: est.deleteVisao, objetivo: est.deleteObjetivo, kr: est.deleteKr, acao: est.deleteAcao } as const;
     map[kind].mutate(id);
   };
-  const cycleAcao = (a: Acao) => est.setAcaoStatus.mutate({ id: a.id, status: nextStatus[a.status] });
+  const acaoOps: AcaoOps = {
+    cycle: (a) => est.setAcaoStatus.mutate({ id: a.id, status: nextStatus[a.status] }),
+    lancar: (a) => est.lancarNoFluxo.mutate(a),
+    remover: (a) => est.removerDoFluxo.mutate(a),
+  };
 
   if (est.isLoading) return <div className="py-12 text-center text-sm text-muted-foreground">Carregando estratégia…</div>;
 
@@ -144,7 +156,7 @@ export const EstrategiaCascade = () => {
           {est.tree.map((v) => (
             <VisaoCard
               key={v.id} visao={v} fin={fin} expanded={expanded} toggle={toggle}
-              onAdd={setEditing} onEdit={setEditing} onDelete={del} onCycleAcao={cycleAcao}
+              onAdd={setEditing} onEdit={setEditing} onDelete={del} acaoOps={acaoOps}
             />
           ))}
         </div>
@@ -156,11 +168,11 @@ export const EstrategiaCascade = () => {
 };
 
 // ── Cartão da Visão ─────────────────────────────────────────────────────────────────────────
-const VisaoCard = ({ visao, fin, expanded, toggle, onAdd, onEdit, onDelete, onCycleAcao }: {
+const VisaoCard = ({ visao, fin, expanded, toggle, onAdd, onEdit, onDelete, acaoOps }: {
   visao: VisaoNode; fin: ReturnType<typeof useFinMetrics>;
   expanded: Set<string>; toggle: (id: string) => void;
   onAdd: (e: EditState) => void; onEdit: (e: EditState) => void; onDelete: (k: EditKind, id: string) => void;
-  onCycleAcao: (a: Acao) => void;
+  acaoOps: AcaoOps;
 }) => {
   const prog = visaoProgress(visao, fin);
   const s = SEM[prog.semaforo];
@@ -193,7 +205,7 @@ const VisaoCard = ({ visao, fin, expanded, toggle, onAdd, onEdit, onDelete, onCy
         {visao.objetivos.length > 0 && (
           <div className="pl-3 ml-2 border-l border-border/50 space-y-2">
             {visao.objetivos.map((o) => (
-              <ObjetivoCard key={o.id} obj={o} fin={fin} expanded={expanded} toggle={toggle} onAdd={onAdd} onEdit={onEdit} onDelete={onDelete} onCycleAcao={onCycleAcao} />
+              <ObjetivoCard key={o.id} obj={o} fin={fin} expanded={expanded} toggle={toggle} onAdd={onAdd} onEdit={onEdit} onDelete={onDelete} acaoOps={acaoOps} />
             ))}
           </div>
         )}
@@ -203,11 +215,11 @@ const VisaoCard = ({ visao, fin, expanded, toggle, onAdd, onEdit, onDelete, onCy
 };
 
 // ── Objetivo ────────────────────────────────────────────────────────────────────────────────
-const ObjetivoCard = ({ obj, fin, expanded, toggle, onAdd, onEdit, onDelete, onCycleAcao }: {
+const ObjetivoCard = ({ obj, fin, expanded, toggle, onAdd, onEdit, onDelete, acaoOps }: {
   obj: ObjetivoNode; fin: ReturnType<typeof useFinMetrics>;
   expanded: Set<string>; toggle: (id: string) => void;
   onAdd: (e: EditState) => void; onEdit: (e: EditState) => void; onDelete: (k: EditKind, id: string) => void;
-  onCycleAcao: (a: Acao) => void;
+  acaoOps: AcaoOps;
 }) => {
   const prog = objetivoProgress(obj, fin);
   const open = expanded.has(obj.id);
@@ -238,7 +250,7 @@ const ObjetivoCard = ({ obj, fin, expanded, toggle, onAdd, onEdit, onDelete, onC
           {obj.krs.length === 0 ? (
             <p className="text-[10px] text-muted-foreground italic">Sem resultados-chave. <button className="underline hover:text-foreground" onClick={() => onAdd({ kind: "kr", parentId: obj.id })}>adicionar</button></p>
           ) : obj.krs.map((k) => (
-            <KrCard key={k.id} kr={k} fin={fin} expanded={expanded} toggle={toggle} onAdd={onAdd} onEdit={onEdit} onDelete={onDelete} onCycleAcao={onCycleAcao} />
+            <KrCard key={k.id} kr={k} fin={fin} expanded={expanded} toggle={toggle} onAdd={onAdd} onEdit={onEdit} onDelete={onDelete} acaoOps={acaoOps} />
           ))}
         </div>
       )}
@@ -247,11 +259,11 @@ const ObjetivoCard = ({ obj, fin, expanded, toggle, onAdd, onEdit, onDelete, onC
 };
 
 // ── KR ──────────────────────────────────────────────────────────────────────────────────────
-const KrCard = ({ kr, fin, expanded, toggle, onAdd, onEdit, onDelete, onCycleAcao }: {
+const KrCard = ({ kr, fin, expanded, toggle, onAdd, onEdit, onDelete, acaoOps }: {
   kr: KrNode; fin: ReturnType<typeof useFinMetrics>;
   expanded: Set<string>; toggle: (id: string) => void;
   onAdd: (e: EditState) => void; onEdit: (e: EditState) => void; onDelete: (k: EditKind, id: string) => void;
-  onCycleAcao: (a: Acao) => void;
+  acaoOps: AcaoOps;
 }) => {
   const prog = krProgress(kr, fin);
   const open = expanded.has(kr.id);
@@ -276,7 +288,7 @@ const KrCard = ({ kr, fin, expanded, toggle, onAdd, onEdit, onDelete, onCycleAca
           {kr.acoes.length === 0 ? (
             <p className="text-[10px] text-muted-foreground italic">Sem ações. <button className="underline hover:text-foreground" onClick={() => onAdd({ kind: "acao", parentId: kr.id })}>adicionar</button></p>
           ) : kr.acoes.map((a) => (
-            <AcaoRow key={a.id} acao={a} onCycle={() => onCycleAcao(a)} onEdit={() => onEdit({ kind: "acao", data: a })} onDelete={() => onDelete("acao", a.id)} />
+            <AcaoRow key={a.id} acao={a} ops={acaoOps} onEdit={() => onEdit({ kind: "acao", data: a })} onDelete={() => onDelete("acao", a.id)} />
           ))}
         </div>
       )}

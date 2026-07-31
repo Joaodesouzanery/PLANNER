@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { format } from "date-fns";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -161,6 +162,46 @@ export const useEstrategia = () => {
     onError: (e: any) => toast({ title: "Erro ao mover ação", description: e?.message, variant: "destructive" }),
   });
 
+  // Custo estimado da ação → SAÍDA PREVISTA no fluxo (status "planned"). Guarda o transacao_id de volta,
+  // para não duplicar e permitir remover. user_id vem do trigger; company_id herda o da ação/escopo.
+  const lancarNoFluxo = useMutation({
+    mutationFn: async (a: Acao) => {
+      const custo = Number(a.custo_estimado);
+      if (!custo || custo <= 0) throw new Error("Ação sem custo estimado.");
+      if (a.transacao_id) throw new Error("Custo já está no fluxo.");
+      const hoje = format(new Date(), "yyyy-MM-dd");
+      const { data, error } = await db.from("financial_transactions").insert({
+        description: `Estratégia: ${a.descricao}`,
+        amount: custo, type: "expense", category: "Estratégia",
+        date: hoje, due_date: hoje, status: "planned",
+        source_type: "estrategia", source_id: a.id,
+        company_id: a.company_id ?? companyId,
+      }).select("id").single();
+      if (error) throw error;
+      const { error: e2 } = await db.from("estrategia_acao").update({ transacao_id: data.id }).eq("id", a.id);
+      if (e2) {
+        // rollback: sem back-ref, a transação viraria órfã (invisível ao "remover", duplicável no retry).
+        await db.from("financial_transactions").delete().eq("id", data.id);
+        throw e2;
+      }
+    },
+    onSuccess: () => { invalidate(); qc.invalidateQueries({ queryKey: ["finance-transactions"] }); toast({ title: "Custo lançado no fluxo (previsto)" }); },
+    onError: (e: any) => toast({ title: "Erro ao lançar no fluxo", description: e?.message, variant: "destructive" }),
+  });
+
+  const removerDoFluxo = useMutation({
+    mutationFn: async (a: Acao) => {
+      if (a.transacao_id) {
+        const { error } = await db.from("financial_transactions").delete().eq("id", a.transacao_id);
+        if (error) throw error;
+      }
+      const { error: e2 } = await db.from("estrategia_acao").update({ transacao_id: null }).eq("id", a.id);
+      if (e2) throw e2;
+    },
+    onSuccess: () => { invalidate(); qc.invalidateQueries({ queryKey: ["finance-transactions"] }); toast({ title: "Removido do fluxo" }); },
+    onError: (e: any) => toast({ title: "Erro ao remover do fluxo", description: e?.message, variant: "destructive" }),
+  });
+
   return {
     isLoading: query.isLoading,
     visoes, objetivos, krs, acoes, ciclos, revisoes, tree,
@@ -168,6 +209,7 @@ export const useEstrategia = () => {
     saveObjetivo, deleteObjetivo: useDelete("estrategia_objetivo", "Objetivo removido"),
     saveKr, deleteKr: useDelete("estrategia_kr", "Resultado-chave removido"),
     saveAcao, deleteAcao: useDelete("estrategia_acao", "Ação removida"), setAcaoStatus,
+    lancarNoFluxo, removerDoFluxo,
     saveCiclo, deleteCiclo: useDelete("estrategia_ciclo", "Ciclo removido"),
     saveRevisao, deleteRevisao: useDelete("estrategia_revisao", "Revisão removida"),
   };
