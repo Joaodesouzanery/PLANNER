@@ -11,7 +11,7 @@ import { useCrmBoards } from "./useCrmBoards";
 import type { useCrm } from "./useCrm";
 
 const NONE = "__none__";
-const EMPTY = { name: "", email: "", phone: "", company: "", customerId: NONE };
+const EMPTY = { name: "", email: "", phone: "", company: "", customerId: NONE, companyId: NONE };
 
 // Aba Contatos do CRM — a LISTA (o Kanban é o de Quadros, no nível acima). Mesma fonte única:
 // a etapa de cada contato vem do quadro (crm_board_contacts), mostrada aqui como "Quadro · Etapa".
@@ -62,7 +62,9 @@ export const ContactsTab = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof 
   const submitNew = () => {
     if (!form.name.trim()) return;
     crm.createContact.mutate(
-      { name: form.name, email: form.email, phone: form.phone, company: form.company, customerId: form.customerId === NONE ? null : form.customerId },
+      // companyId undefined (não null) quando "sem empresa" → deixa createContact usar o default
+      // (herda do cliente ligado / empresa escopada); senão o contato criado escopado sumiria da lista.
+      { name: form.name, email: form.email, phone: form.phone, company: form.company, customerId: form.customerId === NONE ? null : form.customerId, companyId: form.companyId === NONE ? undefined : form.companyId },
       { onSuccess: () => { setForm(EMPTY); setShowNew(false); } },
     );
   };
@@ -98,6 +100,14 @@ export const ContactsTab = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof 
               <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Telefone" className="h-8 text-xs" />
             </div>
             <div className="flex items-center gap-2">
+              {/* Empresa do contato (as 5 soluções) */}
+              <Select value={form.companyId} onValueChange={(v) => setForm({ ...form, companyId: v })}>
+                <SelectTrigger className="h-8 text-xs w-[150px]"><SelectValue placeholder="Empresa" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>— sem empresa —</SelectItem>
+                  {companies.map((co) => <SelectItem key={co.id} value={co.id}>{co.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
               <Select value={form.customerId} onValueChange={(v) => setForm({ ...form, customerId: v })}>
                 <SelectTrigger className="h-8 text-xs flex-1"><SelectValue placeholder="Ligar a cliente" /></SelectTrigger>
                 <SelectContent>
@@ -163,15 +173,29 @@ export const ContactsTab = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof 
                       ))}
                     </SelectContent>
                   </Select>
-                  {/* Empresa do cliente ligado — visível e editável direto daqui. */}
+                  {/* Empresa DO CONTATO (a qual das soluções ele pertence) → contacts.company_id. */}
+                  <Select
+                    value={c.company_id || NONE}
+                    onValueChange={(v) => crm.updateContact.mutate({ id: c.id, patch: { company_id: v === NONE ? null : v } })}
+                  >
+                    <SelectTrigger className="h-8 w-[120px] sm:w-[150px] text-xs shrink-0 hidden md:flex" title="Empresa do contato">
+                      <Globe className="h-3 w-3 mr-1 text-muted-foreground" />
+                      <SelectValue placeholder="Empresa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>— sem empresa —</SelectItem>
+                      {companies.map((co) => <SelectItem key={co.id} value={co.id}>{co.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {/* Empresa do CLIENTE ligado (finance_clientes.company_id) — o que agrupa o seletor de ligar cliente. */}
                   {c.customer_id && (
                     <Select
                       value={customerById.get(c.customer_id)?.company_id || NONE}
                       onValueChange={(v) => crm.updateCustomer.mutate({ id: c.customer_id!, patch: { company_id: v === NONE ? null : v } as any })}
                     >
-                      <SelectTrigger className="h-8 w-[120px] sm:w-[150px] text-xs shrink-0 hidden md:flex" title="Empresa do cliente">
-                        <Globe className="h-3 w-3 mr-1 text-muted-foreground" />
-                        <SelectValue placeholder="Empresa" />
+                      <SelectTrigger className="h-8 w-[130px] text-xs shrink-0 hidden lg:flex" title="Empresa do cliente ligado">
+                        <Building2 className="h-3 w-3 mr-1 text-muted-foreground" />
+                        <SelectValue placeholder="Empresa do cliente" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={NONE}>— sem empresa —</SelectItem>

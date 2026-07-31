@@ -3,14 +3,14 @@ import { useNavigate } from "react-router-dom";
 import {
   CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
 } from "@/components/ui/command";
-import { BrainCircuit, FolderKanban, ListTodo, Users, StickyNote, CalendarDays, Search } from "lucide-react";
+import { BrainCircuit, FolderKanban, ListTodo, Users, StickyNote, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 
 interface SearchResult {
   id: string;
   title: string;
-  type: "project" | "task" | "contact" | "note" | "event" | "persuasion";
+  type: "project" | "task" | "contact" | "note" | "persuasion";
   path: string;
 }
 
@@ -19,7 +19,6 @@ const typeConfig = {
   task: { icon: ListTodo, label: "Tarefas", path: "/ems/tasks" },
   contact: { icon: Users, label: "Contatos", path: "/ems/contacts" },
   note: { icon: StickyNote, label: "Notas", path: "/ems/quick-notes" },
-  event: { icon: CalendarDays, label: "Eventos", path: "/ems/calendar" },
   persuasion: { icon: BrainCircuit, label: "Persuasão", path: "/ems/persuasao" },
 };
 
@@ -58,12 +57,11 @@ export const GlobalSearch = () => {
           return { data: [] };
         }
       };
-      const [projects, tasks, contacts, notes, events, persuasion] = await Promise.all([
+      const [projects, tasks, contacts, notes, persuasion] = await Promise.all([
         supabase.from("projects").select("id, title").ilike("title", term).limit(5),
         supabase.from("tasks").select("id, title").ilike("title", term).limit(5),
         supabase.from("contacts").select("id, name, email").or(`name.ilike.${term},email.ilike.${term}`).limit(5),
         supabase.from("quick_notes").select("id, content").ilike("content", term).limit(5),
-        supabase.from("calendar_events").select("id, title").ilike("title", term).limit(5),
         safe((supabase as any).from("persuasion_notes").select("id, title").ilike("title", term).limit(5)),
       ]);
 
@@ -72,7 +70,6 @@ export const GlobalSearch = () => {
         ...(tasks.data || []).map((t) => ({ id: t.id, title: t.title, type: "task" as const, path: "/ems/tasks" })),
         ...(contacts.data || []).map((c) => ({ id: c.id, title: `${c.name}${c.email ? ` (${c.email})` : ""}`, type: "contact" as const, path: "/ems/contacts" })),
         ...(notes.data || []).map((n) => ({ id: n.id, title: n.content.substring(0, 60), type: "note" as const, path: "/ems/quick-notes" })),
-        ...(events.data || []).map((e) => ({ id: e.id, title: e.title, type: "event" as const, path: "/ems/calendar" })),
         ...(persuasion.data || []).map((p: any) => ({ id: p.id, title: p.title, type: "persuasion" as const, path: "/ems/persuasao" })),
       ];
       setResults(all);

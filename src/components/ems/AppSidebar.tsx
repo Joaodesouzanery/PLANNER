@@ -14,7 +14,6 @@ import {
   Sun,
   ListTodo,
   StickyNote,
-  CalendarDays,
   Menu,
   X,
   ChevronDown,
@@ -64,7 +63,6 @@ const menuGroups: MenuGroup[] = [
   {
     label: "Ferramentas",
     items: [
-      { icon: CalendarDays, label: "Calendário", path: "/ems/calendar" },
       { icon: BrainCircuit, label: "Persuasão", path: "/ems/persuasao" },
       { icon: Heart, label: "Gratidão", path: "/ems/gratidao" },
       { icon: StickyNote, label: "Notas + Knowledge", path: "/ems/quick-notes" },

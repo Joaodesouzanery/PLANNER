@@ -20,7 +20,6 @@ const Tasks = lazy(() => import("./pages/ems/Tasks"));
 const Contacts = lazy(() => import("./pages/ems/Contacts"));
 const RoadMap = lazy(() => import("./pages/ems/RoadMap"));
 const QuickNotes = lazy(() => import("./pages/ems/QuickNotes"));
-const CalendarPage = lazy(() => import("./pages/ems/Calendar"));
 const Crm = lazy(() => import("./pages/ems/Crm"));
 const Onboarding = lazy(() => import("./pages/ems/Onboarding"));
 const CommercialStructure = lazy(() => import("./pages/ems/CommercialStructure"));
@@ -93,7 +92,8 @@ const App = () => (
               <Route path="/ems/orgchart" element={<Navigate to="/ems/projects" replace />} />
               <Route path="/ems/roadmap" element={<ProtectedPage><RoadMap /></ProtectedPage>} />
               <Route path="/ems/quick-notes" element={<ProtectedPage><QuickNotes /></ProtectedPage>} />
-              <Route path="/ems/calendar" element={<ProtectedPage><CalendarPage /></ProtectedPage>} />
+              {/* Calendário removido */}
+              <Route path="/ems/calendar" element={<Navigate to="/ems" replace />} />
               <Route path="/ems/daily-report" element={<ProtectedPage><DailyReport /></ProtectedPage>} />
               <Route path="/ems/conselho" element={<ProtectedPage><BoardCouncil /></ProtectedPage>} />
               {/* Comercial deprecado → consolidado no CRM */}
