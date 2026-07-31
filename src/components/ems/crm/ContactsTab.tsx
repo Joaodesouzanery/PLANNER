@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Search, Phone, Mail, Building2, Link2, Link2Off, Plus, Pencil, Trash2, Check, X, Globe, Rows3, LayoutGrid } from "lucide-react";
+import { Search, Phone, Mail, Building2, Link2, Link2Off, Plus, Pencil, Trash2, Check, X, Globe, Layers } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -7,29 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useCompany } from "@/contexts/CompanyContext";
-import ContactPipelineKanban, { type KanbanStage } from "@/components/ems/contacts/ContactPipelineKanban";
+import { useCrmBoards } from "./useCrmBoards";
 import type { useCrm } from "./useCrm";
 
 const NONE = "__none__";
 const EMPTY = { name: "", email: "", phone: "", company: "", customerId: NONE };
 
-// Etapas do pipeline de contatos (mesmas do módulo Contatos) — visão Kanban por empresa.
-const PIPELINE_STAGES: KanbanStage[] = [
-  { key: "lead", label: "Lead", color: "bg-blue-500/15 text-blue-400 border-blue-500/30", dot: "bg-blue-500" },
-  { key: "qualified", label: "Qualificado", color: "bg-amber-500/15 text-amber-400 border-amber-500/30", dot: "bg-amber-500" },
-  { key: "proposal", label: "Proposta", color: "bg-purple-500/15 text-purple-400 border-purple-500/30", dot: "bg-purple-500" },
-  { key: "closed", label: "Fechado", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30", dot: "bg-emerald-500" },
-];
-
-
-// Aba Contatos do CRM: as pessoas (mesma tabela `contacts`, inclui as vindas do Comercial),
-// cada uma com um SELETOR DE CLIENTE (customer_id → finance_clientes). Sem isso, contato novo
-// não entra no Customer 360. Essa é a lacuna que a Fase 4 fecha.
+// Aba Contatos do CRM — a LISTA (o Kanban é o de Quadros, no nível acima). Mesma fonte única:
+// a etapa de cada contato vem do quadro (crm_board_contacts), mostrada aqui como "Quadro · Etapa".
+// Cada linha liga o contato a um cliente (customer_id → finance_clientes) p/ entrar no 360.
 export const ContactsTab = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof useCrm>; onSelectCustomer: (id: string) => void }) => {
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<"lista" | "kanban">("lista");
-
   const [onlyUnlinked, setOnlyUnlinked] = useState(false);
+  const boards = useCrmBoards();
   const [showNew, setShowNew] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -53,6 +43,20 @@ export const ContactsTab = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof 
     return groups;
   }, [crm.customers, companies, companyName]);
   const unlinked = crm.contacts.filter((c) => !c.customer_id).length;
+  // Quadro · Etapa de cada contato (fonte única = crm_board_contacts). Se está em >1 quadro, mostra o 1º + "+N".
+  const boardOf = useMemo(() => {
+    const map = new Map<string, { board: string; stage: string; extra: number }>();
+    for (const b of boards.boards) {
+      const cards = boards.cardsByBoard.get(b.id) ?? [];
+      const stageTitle = new Map(b.stages.map((s) => [s.id, s.title]));
+      for (const c of cards) {
+        const cur = map.get(c.contact_id);
+        if (!cur) map.set(c.contact_id, { board: b.name, stage: stageTitle.get(c.stage_id) || "—", extra: 0 });
+        else cur.extra += 1;
+      }
+    }
+    return map;
+  }, [boards.boards, boards.cardsByBoard]);
 
 
   const submitNew = () => {
@@ -81,10 +85,6 @@ export const ContactsTab = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof 
           <Button variant={onlyUnlinked ? "default" : "outline"} size="sm" className="h-9 gap-1.5" onClick={() => setOnlyUnlinked((v) => !v)}>
             <Link2Off className="h-3.5 w-3.5" /> Sem cliente {unlinked > 0 && <Badge variant="secondary" className="text-[10px] ml-0.5">{unlinked}</Badge>}
           </Button>
-          <div className="flex rounded-lg border border-border/50 p-0.5">
-            <Button variant={view === "lista" ? "secondary" : "ghost"} size="sm" className="h-8 gap-1.5 px-2 text-xs" onClick={() => setView("lista")}><Rows3 className="h-3.5 w-3.5" /> Lista</Button>
-            <Button variant={view === "kanban" ? "secondary" : "ghost"} size="sm" className="h-8 gap-1.5 px-2 text-xs" onClick={() => setView("kanban")}><LayoutGrid className="h-3.5 w-3.5" /> Kanban</Button>
-          </div>
           <Button size="sm" className="h-9 gap-1.5" onClick={() => setShowNew((v) => !v)}><Plus className="h-3.5 w-3.5" /> Novo</Button>
         </div>
 
@@ -116,17 +116,7 @@ export const ContactsTab = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof 
           </div>
         )}
       </CardHeader>
-      <CardContent className={cn(view === "kanban" ? "p-3" : "p-0")}>
-        {view === "kanban" ? (
-          <ContactPipelineKanban
-            contacts={rows.map((c) => ({ id: c.id, name: c.name, email: c.email, phone: c.phone, company: c.company, pipeline_stage: c.pipeline_stage, company_id: c.company_id }))}
-            stages={PIPELINE_STAGES}
-            onMove={(id, stage) => crm.updateContact.mutate({ id, patch: { pipeline_stage: stage } })}
-            onCreate={({ name, stage, companyId }) => crm.createContact.mutate({ name, stage, companyId })}
-            onEdit={(c) => { setView("lista"); startEdit(c); }}
-            onDelete={(id) => crm.deleteContact.mutate(id)}
-          />
-        ) : (
+      <CardContent className="p-0">
         <div className="divide-y divide-border/50 xl:max-h-[72vh] xl:overflow-y-auto">
 
           {rows.map((c) => (
@@ -146,7 +136,15 @@ export const ContactsTab = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof 
               ) : (
                 <>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{c.name || "Sem nome"}</p>
+                    <p className="text-sm font-medium truncate flex items-center gap-2">
+                      <span className="truncate">{c.name || "Sem nome"}</span>
+                      {(() => {
+                        const bo = boardOf.get(c.id);
+                        return bo
+                          ? <Badge variant="outline" className="shrink-0 gap-1 text-[9px] font-normal"><Layers className="h-2.5 w-2.5" />{bo.board} · {bo.stage}{bo.extra > 0 ? ` +${bo.extra}` : ""}</Badge>
+                          : <span className="shrink-0 flex items-center gap-1 text-[9px] text-muted-foreground/60"><Layers className="h-2.5 w-2.5" />sem quadro</span>;
+                      })()}
+                    </p>
                     <p className="text-[11px] text-muted-foreground flex items-center gap-2 truncate">
                       {c.company && <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{c.company}</span>}
                       {c.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{c.phone}</span>}
@@ -192,7 +190,6 @@ export const ContactsTab = ({ crm, onSelectCustomer }: { crm: ReturnType<typeof 
           ))}
           {rows.length === 0 && <p className="p-6 text-center text-sm text-muted-foreground">Nenhum contato.</p>}
         </div>
-        )}
       </CardContent>
 
     </Card>
