@@ -24,6 +24,7 @@ import {
   Flag,
   Landmark,
   Users,
+  Compass,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "./ThemeProvider";
@@ -50,6 +51,7 @@ const menuGroups: MenuGroup[] = [
       { icon: FolderKanban, label: "Projetos", path: "/ems/projects" },
       { icon: ListTodo, label: "Tarefas", path: "/ems/tasks" },
       { icon: TrendingUp, label: "Finanças", path: "/ems/finance" },
+      { icon: Compass, label: "Estratégia", path: "/ems/estrategia" },
     ],
   },
   {

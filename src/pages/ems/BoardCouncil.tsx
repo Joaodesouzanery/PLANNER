@@ -13,7 +13,7 @@ import { BoardCockpitPanel } from "@/components/ems/conselho/BoardCockpitPanel";
 import { RiskMatrixPanel } from "@/components/ems/conselho/RiskMatrixPanel";
 import { ObligationsCalendarPanel } from "@/components/ems/conselho/ObligationsCalendarPanel";
 import { StackBackupPanel } from "@/components/ems/conselho/StackBackupPanel";
-import { StrategyMemoryPanel } from "@/components/ems/conselho/StrategyMemoryPanel";
+import EstrategiaCascade from "@/components/ems/estrategia/EstrategiaCascade";
 import { DecisionsTimelinePanel } from "@/components/ems/conselho/DecisionsTimelinePanel";
 import { MeetingsPanel } from "@/components/ems/conselho/MeetingsPanel";
 import { BoardDomainPanel } from "@/components/ems/conselho/BoardDomainPanel";
@@ -79,7 +79,7 @@ const BoardCouncil = () => {
           <TabsContent value="risks" className="mt-4"><RiskMatrixPanel /></TabsContent>
           <TabsContent value="obligations" className="mt-4"><ObligationsCalendarPanel /></TabsContent>
           <TabsContent value="stack" className="mt-4"><StackBackupPanel /></TabsContent>
-          <TabsContent value="strategy" className="mt-4"><StrategyMemoryPanel /></TabsContent>
+          <TabsContent value="strategy" className="mt-4"><EstrategiaCascade /></TabsContent>
           <TabsContent value="decisions" className="mt-4"><DecisionsTimelinePanel /></TabsContent>
           <TabsContent value="legal" className="mt-4"><BoardDomainPanel category="legal" /></TabsContent>
           <TabsContent value="accounting" className="mt-4"><BoardDomainPanel category="accounting" /></TabsContent>
