@@ -28,13 +28,18 @@ const IconBtn = ({ title, onClick, children, tone }: { title: string; onClick: (
 );
 
 export const BoardAttentionFeed = () => {
-  const { items, counts, failedSources } = useBoardAttention();
+  const { items, failedSources } = useBoardAttention();
   const att = useAttentionState();
   const navigate = useNavigate();
   const [showHidden, setShowHidden] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const CAP = 5;
 
   const visible = useMemo(() => items.filter((i) => !att.isHidden(i.id)), [items, att]);
   const hidden = useMemo(() => items.filter((i) => att.isHidden(i.id)), [items, att]);
+  // Críticos só dos VISÍVEIS (senão o badge inclui resolvidos/soneca e não bate com a lista).
+  const visibleRed = useMemo(() => visible.filter((i) => i.severidade === "red").length, [visible]);
+  const shown = showAll ? visible : visible.slice(0, CAP);
 
   return (
     <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
@@ -42,7 +47,7 @@ export const BoardAttentionFeed = () => {
         <CardTitle className="text-base flex items-center gap-2 flex-wrap">
           <Bell className="h-4 w-4 text-primary" /> Central de Atenção
           {visible.length > 0 && <span className="rounded-full bg-primary/15 text-primary px-2 text-xs font-mono">{visible.length}</span>}
-          {counts.red > 0 && <span className="rounded-full bg-red-500/15 text-red-500 px-2 text-[10px]">{counts.red} crítico{counts.red > 1 ? "s" : ""}</span>}
+          {visibleRed > 0 && <span className="rounded-full bg-red-500/15 text-red-500 px-2 text-[10px]">{visibleRed} crítico{visibleRed > 1 ? "s" : ""}</span>}
           <div className="ml-auto flex items-center gap-2">
             {hidden.length > 0 && (
               <button onClick={() => setShowHidden((v) => !v)} className="text-[11px] text-muted-foreground hover:text-foreground">
@@ -63,7 +68,7 @@ export const BoardAttentionFeed = () => {
         {visible.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nada exigindo sua atenção agora. ✓</p>
         ) : (
-          visible.map((i) => (
+          shown.map((i) => (
             <div key={i.id} className={cn("flex items-center gap-1.5 rounded-lg border p-2 text-sm", sevStyle[i.severidade])}>
               <span className={cn("h-2 w-2 shrink-0 rounded-full", sevDot[i.severidade])} />
               <button onClick={() => navigate(i.deeplink)} className="min-w-0 flex-1 truncate text-left hover:underline">
@@ -76,6 +81,11 @@ export const BoardAttentionFeed = () => {
               <IconBtn title="Ignorar" onClick={() => att.setState(i.id, "ignored")}><EyeOff className="h-3.5 w-3.5" /></IconBtn>
             </div>
           ))
+        )}
+        {visible.length > CAP && (
+          <button onClick={() => setShowAll((v) => !v)} className="w-full pt-1 text-[11px] text-muted-foreground hover:text-foreground">
+            {showAll ? "ver menos" : `ver todos (${visible.length})`}
+          </button>
         )}
 
         {showHidden && hidden.map((i) => {

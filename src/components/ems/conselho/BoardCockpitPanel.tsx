@@ -96,9 +96,6 @@ export const BoardCockpitPanel = ({ onNavigate }: { onNavigate: (tab: string) =>
 
   return (
     <div className="space-y-4">
-      {/* Central de Atenção — tudo que precisa de você, reds primeiro (Fase 2). */}
-      <BoardAttentionFeed />
-
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         {radar.map((item) => (
           <button
@@ -153,6 +150,9 @@ export const BoardCockpitPanel = ({ onNavigate }: { onNavigate: (tab: string) =>
           </CardContent>
         </Card>
       </div>
+
+      {/* Central de Atenção — no FIM p/ não empurrar o radar; compacta (top 5 + "ver todos"). */}
+      <BoardAttentionFeed />
     </div>
   );
 };

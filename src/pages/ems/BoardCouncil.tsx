@@ -23,10 +23,10 @@ import { useBoardRealtime } from "@/hooks/useBoardRealtime";
 const TABS = [
   { id: "cockpit", label: "Visão 360", icon: LayoutDashboard },
   { id: "rotinas", label: "Rotinas", icon: ListChecks },
+  { id: "strategy", label: "Estratégia", icon: Compass },
   { id: "risks", label: "Riscos", icon: AlertTriangle },
   { id: "obligations", label: "Obrigações", icon: CalendarClock },
   { id: "stack", label: "Backup & Stack", icon: Archive },
-  { id: "strategy", label: "Estratégia", icon: Compass },
   { id: "decisions", label: "Memória", icon: Scale },
   { id: "legal", label: "Jurídico", icon: Gavel },
   { id: "accounting", label: "Contábil", icon: BookOpen },

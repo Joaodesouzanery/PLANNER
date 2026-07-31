@@ -82,7 +82,8 @@ export const useBoardAttention = () => {
           .map((c) => ({ id: c.id, titulo: c.contact?.name || c.next_action_description || "Contato", paradoDias: dayDiff(c.next_action_date, today) })),
         inboxBacklog: inb.rows.length,
         capacidade: cap.rows
-          .filter((c) => Number(c.workload) >= 4 || Number(c.workload) >= 80)
+          // Carga 1–5; sobrecarga = 5 (mesma régua do Daily Report). (Antes tinha "|| >= 80" morto.)
+          .filter((c) => Number(c.workload) >= 5)
           .map((c) => ({ id: c.id, nome: "Você", sobrecarga: true })),
         clientesRisco: cli.rows.map((c) => ({ id: c.id, nome: c.nome })),
       };
