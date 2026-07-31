@@ -18,8 +18,8 @@ const typeConfig = {
   project: { icon: FolderKanban, label: "Projetos", path: "/ems/projects" },
   task: { icon: ListTodo, label: "Tarefas", path: "/ems/tasks" },
   contact: { icon: Users, label: "Contatos", path: "/ems/contacts" },
-  note: { icon: StickyNote, label: "Notas", path: "/ems/quick-notes" },
-  persuasion: { icon: BrainCircuit, label: "Persuasão", path: "/ems/persuasao" },
+  note: { icon: StickyNote, label: "Notas", path: "/ems/pessoal?tab=notas" },
+  persuasion: { icon: BrainCircuit, label: "Persuasão", path: "/ems/pessoal" },
 };
 
 export const GlobalSearch = () => {
@@ -69,8 +69,8 @@ export const GlobalSearch = () => {
         ...(projects.data || []).map((p) => ({ id: p.id, title: p.title, type: "project" as const, path: "/ems/projects" })),
         ...(tasks.data || []).map((t) => ({ id: t.id, title: t.title, type: "task" as const, path: "/ems/tasks" })),
         ...(contacts.data || []).map((c) => ({ id: c.id, title: `${c.name}${c.email ? ` (${c.email})` : ""}`, type: "contact" as const, path: "/ems/contacts" })),
-        ...(notes.data || []).map((n) => ({ id: n.id, title: n.content.substring(0, 60), type: "note" as const, path: "/ems/quick-notes" })),
-        ...(persuasion.data || []).map((p: any) => ({ id: p.id, title: p.title, type: "persuasion" as const, path: "/ems/persuasao" })),
+        ...(notes.data || []).map((n) => ({ id: n.id, title: n.content.substring(0, 60), type: "note" as const, path: "/ems/pessoal?tab=notas" })),
+        ...(persuasion.data || []).map((p: any) => ({ id: p.id, title: p.title, type: "persuasion" as const, path: "/ems/pessoal" })),
       ];
       setResults(all);
     }, 300);

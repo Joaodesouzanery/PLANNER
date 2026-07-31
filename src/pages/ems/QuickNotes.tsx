@@ -47,7 +47,7 @@ const colorDots: Record<string, string> = {
 const getColorClasses = (color: string) =>
   colorOptions.find((c) => c.value === color) || colorOptions[0];
 
-const QuickNotes = () => {
+const QuickNotes = ({ embedded = false }: { embedded?: boolean }) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { selectedCompanyId } = useCompany();
@@ -306,8 +306,8 @@ const QuickNotes = () => {
     );
   };
 
-  return (
-    <EMSLayout>
+  const content = (
+    <>
       <motion.div
         variants={containerVariants}
         initial="hidden"
@@ -542,8 +542,9 @@ const QuickNotes = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </EMSLayout>
+    </>
   );
+  return embedded ? content : <EMSLayout>{content}</EMSLayout>;
 };
 
 export default QuickNotes;

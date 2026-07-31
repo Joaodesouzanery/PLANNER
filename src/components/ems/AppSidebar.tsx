@@ -21,10 +21,8 @@ import {
   LogOut,
   GraduationCap,
   User as UserIcon,
-  Heart,
   Flag,
   Landmark,
-  BrainCircuit,
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -63,9 +61,7 @@ const menuGroups: MenuGroup[] = [
   {
     label: "Ferramentas",
     items: [
-      { icon: BrainCircuit, label: "Persuasão", path: "/ems/persuasao" },
-      { icon: Heart, label: "Gratidão", path: "/ems/gratidao" },
-      { icon: StickyNote, label: "Notas + Knowledge", path: "/ems/quick-notes" },
+      { icon: StickyNote, label: "Pessoal", path: "/ems/pessoal" },
       { icon: GraduationCap, label: "Faculdade", path: "/ems/faculdade" },
     ],
   },

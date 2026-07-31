@@ -15,17 +15,15 @@ const Companies = lazy(() => import("./pages/ems/Companies"));
 const Projects = lazy(() => import("./pages/ems/Projects"));
 const Finance = lazy(() => import("./pages/ems/Finance"));
 const Settings = lazy(() => import("./pages/ems/Settings"));
-const Persuasion = lazy(() => import("./pages/ems/Persuasion"));
+const Pessoal = lazy(() => import("./pages/ems/Pessoal"));
 const Tasks = lazy(() => import("./pages/ems/Tasks"));
 const Contacts = lazy(() => import("./pages/ems/Contacts"));
 const RoadMap = lazy(() => import("./pages/ems/RoadMap"));
-const QuickNotes = lazy(() => import("./pages/ems/QuickNotes"));
 const Crm = lazy(() => import("./pages/ems/Crm"));
 const Onboarding = lazy(() => import("./pages/ems/Onboarding"));
 const CommercialStructure = lazy(() => import("./pages/ems/CommercialStructure"));
 const CommercialComparison = lazy(() => import("./pages/ems/CommercialComparison"));
 const Faculdade = lazy(() => import("./pages/ems/Faculdade"));
-const Gratitude = lazy(() => import("./pages/ems/Gratitude"));
 const ComercialAutomatizado = lazy(() => import("./pages/ems/ComercialAutomatizado"));
 const AgileImplementation = lazy(() => import("./pages/ems/AgileImplementation"));
 const DailyReport = lazy(() => import("./pages/ems/DailyReport"));
@@ -81,17 +79,19 @@ const App = () => (
               <Route path="/ems/tasks" element={<ProtectedPage><Tasks /></ProtectedPage>} />
               <Route path="/ems/contacts" element={<ProtectedPage><Contacts /></ProtectedPage>} />
               <Route path="/ems/projects" element={<ProtectedPage><Projects /></ProtectedPage>} />
-              <Route path="/ems/knowledge" element={<Navigate to="/ems/quick-notes" replace />} />
+              {/* Módulo "Pessoal" = Persuasão + Gratidão + Notas/Knowledge em abas */}
+              <Route path="/ems/pessoal" element={<ProtectedPage><Pessoal /></ProtectedPage>} />
+              <Route path="/ems/knowledge" element={<Navigate to="/ems/pessoal?tab=notas" replace />} />
               <Route path="/ems/finance" element={<ProtectedPage><Finance /></ProtectedPage>} />
               <Route path="/ems/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
               {/* Relatórios agora é aba do Dashboard */}
               <Route path="/ems/reports" element={<Navigate to="/ems" replace />} />
               <Route path="/ems/planning" element={<Navigate to="/ems/projects?tab=planning" replace />} />
-              <Route path="/ems/persuasao" element={<ProtectedPage><Persuasion /></ProtectedPage>} />
-              <Route path="/ems/persuasion" element={<ProtectedPage><Persuasion /></ProtectedPage>} />
+              <Route path="/ems/persuasao" element={<Navigate to="/ems/pessoal" replace />} />
+              <Route path="/ems/persuasion" element={<Navigate to="/ems/pessoal" replace />} />
               <Route path="/ems/orgchart" element={<Navigate to="/ems/projects" replace />} />
               <Route path="/ems/roadmap" element={<ProtectedPage><RoadMap /></ProtectedPage>} />
-              <Route path="/ems/quick-notes" element={<ProtectedPage><QuickNotes /></ProtectedPage>} />
+              <Route path="/ems/quick-notes" element={<Navigate to="/ems/pessoal?tab=notas" replace />} />
               {/* Calendário removido */}
               <Route path="/ems/calendar" element={<Navigate to="/ems" replace />} />
               <Route path="/ems/daily-report" element={<ProtectedPage><DailyReport /></ProtectedPage>} />
@@ -112,7 +112,7 @@ const App = () => (
               <Route path="/ems/timesheet" element={<Navigate to="/ems" replace />} />
               <Route path="/ems/companies" element={<ProtectedPage><Companies /></ProtectedPage>} />
               <Route path="/ems/faculdade" element={<ProtectedPage><Faculdade /></ProtectedPage>} />
-              <Route path="/ems/gratidao" element={<ProtectedPage><Gratitude /></ProtectedPage>} />
+              <Route path="/ems/gratidao" element={<Navigate to="/ems/pessoal?tab=gratidao" replace />} />
               <Route path="/ems/comercial-automatizado" element={<Navigate to="/ems/crm?tab=campanhas" replace />} />
               <Route path="/ems/implementacao-agil" element={<Navigate to="/ems/crm?tab=entrega" replace />} />
               <Route path="/ems/conferencia" element={<Navigate to="/ems/projects" replace />} />

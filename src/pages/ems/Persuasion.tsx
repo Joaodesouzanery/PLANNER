@@ -87,7 +87,7 @@ const decodeFallbackNote = (row: any): PersuasionNote | null => {
   }
 };
 
-const Persuasion = () => {
+const Persuasion = ({ embedded = false }: { embedded?: boolean }) => {
   const { selectedCompanyId } = useCompany();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -222,8 +222,7 @@ const Persuasion = () => {
 
   const graphNodes = filteredNotes.slice(0, 10);
 
-  return (
-    <EMSLayout>
+  const content = (
       <div className="space-y-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
@@ -411,8 +410,8 @@ const Persuasion = () => {
           </DialogContent>
         </Dialog>
       </div>
-    </EMSLayout>
   );
+  return embedded ? content : <EMSLayout>{content}</EMSLayout>;
 };
 
 export default Persuasion;
