@@ -102,6 +102,33 @@ export const summarizeForecastByMonth = (series: ForecastSeries) => {
   return Array.from(map.values());
 };
 
+export interface MonthScenarioRow {
+  month: string;        // "yyyy-MM"
+  income: number;       // soma das entradas do mês
+  expense: number;      // soma das saídas do mês
+  conservative: number; // saldo de fechamento do mês, cenário conservador
+  expected: number;     // saldo de fechamento, cenário esperado
+  optimistic: number;   // saldo de fechamento, cenário otimista
+}
+
+// Irmão do summarizeForecastByMonth que PRESERVA os 3 cenários por mês (o resumo padrão só guarda o
+// "expected"). Saldos = fechamento do último dia do mês; income/expense = soma do mês. Base do orçamento
+// anual 12m × 3 cenários.
+export const summarizeForecastByMonthScenarios = (series: ForecastSeries): MonthScenarioRow[] => {
+  const map = new Map<string, MonthScenarioRow>();
+  series.days.forEach((day) => {
+    const month = day.date.slice(0, 7);
+    const current = map.get(month) || { month, income: 0, expense: 0, conservative: day.conservative, expected: day.expected, optimistic: day.optimistic };
+    current.income += day.income;
+    current.expense += day.expense;
+    current.conservative = day.conservative;
+    current.expected = day.expected;
+    current.optimistic = day.optimistic;
+    map.set(month, current);
+  });
+  return Array.from(map.values());
+};
+
 export const getUpcomingPayables = (
   events: ForecastEvent[],
   today = dateOnly(new Date()),

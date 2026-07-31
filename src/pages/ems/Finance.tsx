@@ -1,7 +1,7 @@
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
-import { Activity, BarChart3, Calculator, CalendarDays, DollarSign, GitCompare, Landmark, Plane, PiggyBank, ShieldAlert, ShoppingCart, Sparkles, Table2, Target, TrendingUp, Wallet } from "lucide-react";
+import { Activity, BarChart3, Building2, Calculator, CalendarDays, DollarSign, GitCompare, Landmark, Plane, PiggyBank, ShieldAlert, ShoppingCart, Sparkles, Table2, Target, TrendingUp, Wallet } from "lucide-react";
 import FinanceDashboard from "@/components/ems/finance/FinanceDashboard";
 import FinanceOKRs from "@/components/ems/finance/FinanceOKRs";
 import FinanceTransactions from "@/components/ems/finance/FinanceTransactions";
@@ -23,6 +23,7 @@ import { FinanceAposentadoria } from "@/components/ems/finance/FinanceAposentado
 import { FinanceFullReport } from "@/components/ems/finance/FinanceFullReport";
 import EstrategiaCascade from "@/components/ems/estrategia/EstrategiaCascade";
 import EstrategiaCiclos from "@/components/ems/estrategia/EstrategiaCiclos";
+import EstrategiaEmpresa from "@/components/ems/estrategia/EstrategiaEmpresa";
 
 const outerTab = "gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary";
 const innerTab = "gap-1.5 rounded-md text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary";
@@ -100,12 +101,14 @@ const Finance = () => {
             <Tabs defaultValue="estrategia" className="space-y-4">
               <TabsList className="flex flex-wrap h-auto bg-card/60 border border-border/50 rounded-lg p-1">
                 <TabsTrigger value="estrategia" className={innerTab}><Sparkles className="h-3.5 w-3.5" />Visão & Objetivos</TabsTrigger>
+                <TabsTrigger value="empresa" className={innerTab}><Building2 className="h-3.5 w-3.5" />Empresa</TabsTrigger>
                 <TabsTrigger value="patrimonio" className={innerTab}><Landmark className="h-3.5 w-3.5" />Patrimônio</TabsTrigger>
                 <TabsTrigger value="metas" className={innerTab}><Target className="h-3.5 w-3.5" />Metas</TabsTrigger>
                 <TabsTrigger value="okrs" className={innerTab}><Target className="h-3.5 w-3.5" />OKRs</TabsTrigger>
                 <TabsTrigger value="monthly-planning" className={innerTab}><CalendarDays className="h-3.5 w-3.5" />Planejamento</TabsTrigger>
               </TabsList>
               <TabsContent value="estrategia" className="space-y-6"><EstrategiaCascade /><EstrategiaCiclos /></TabsContent>
+              <TabsContent value="empresa"><EstrategiaEmpresa /></TabsContent>
               <TabsContent value="patrimonio"><FinancePatrimonio /></TabsContent>
               <TabsContent value="metas"><FinanceMetas /></TabsContent>
               <TabsContent value="okrs"><FinanceOKRs /></TabsContent>
