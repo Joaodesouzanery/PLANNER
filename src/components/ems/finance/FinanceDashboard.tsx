@@ -26,6 +26,7 @@ import { FinanceAlertsFeed } from "./FinanceAlertsFeed";
 import { FinanceClientsCard } from "./FinanceClientsCard";
 import { FinanceBudgetCard } from "./FinanceBudgetCard";
 import { FinanceProLaborePanel } from "./FinanceProLaborePanel";
+import { EstrategiaCfoStrip } from "@/components/ems/estrategia/EstrategiaCfoStrip";
 
 const todayIso = () => format(new Date(), "yyyy-MM-dd");
 const defaultFrom = () => format(startOfMonth(new Date()), "yyyy-MM-dd");
@@ -226,6 +227,7 @@ const FinanceDashboard = () => {
       </div>
 
       <TabsContent value="overview" className="mt-0 space-y-6">
+        <EstrategiaCfoStrip />
         <FinanceCockpitStrip />
         <FinanceCfoPanel />
         <FinanceAlertsFeed />
