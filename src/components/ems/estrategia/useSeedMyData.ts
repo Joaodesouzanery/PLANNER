@@ -21,6 +21,8 @@ export interface SeedSummary { criados: number; pulados: number; }
 
 export const useSeedMyData = () => {
   const qc = useQueryClient();
+  // Trava anti-duplo-clique: mesmo com dois cliques rápidos, só uma execução roda de fato.
+  const running = useRef(false);
 
   // Status: quantas transações do seed existem (pra UI mostrar "carregado").
   const status = useQuery({
@@ -31,6 +33,9 @@ export const useSeedMyData = () => {
 
   const run = useMutation({
     mutationFn: async (): Promise<SeedSummary> => {
+      if (running.current) return { criados: 0, pulados: 0 };
+      running.current = true;
+      try {
       const today = format(new Date(), "yyyy-MM-dd");
       const now = new Date();
       const curYear = now.getFullYear();
