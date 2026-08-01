@@ -1791,6 +1791,72 @@ export type Database = {
           },
         ]
       }
+      crm_atividades: {
+        Row: {
+          cadencia_id: string | null
+          company_id: string | null
+          created_at: string
+          data_feito: string | null
+          data_prevista: string | null
+          deal_id: string | null
+          direcao: string | null
+          id: string
+          passo_n: number | null
+          resultado: string | null
+          status: string
+          tipo: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          cadencia_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          data_feito?: string | null
+          data_prevista?: string | null
+          deal_id?: string | null
+          direcao?: string | null
+          id?: string
+          passo_n?: number | null
+          resultado?: string | null
+          status?: string
+          tipo?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          cadencia_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          data_feito?: string | null
+          data_prevista?: string | null
+          deal_id?: string | null
+          direcao?: string | null
+          id?: string
+          passo_n?: number | null
+          resultado?: string | null
+          status?: string
+          tipo?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_atividades_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_atividades_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "project_opportunities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_ativos: {
         Row: {
           angulo_de_dor: string | null
@@ -1947,6 +2013,95 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "crm_boards_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_cadencia_passos: {
+        Row: {
+          cadencia_id: string
+          canal: string
+          company_id: string | null
+          created_at: string
+          dia_offset: number
+          id: string
+          modelo_mensagem: string | null
+          passo_n: number
+          user_id: string | null
+        }
+        Insert: {
+          cadencia_id: string
+          canal?: string
+          company_id?: string | null
+          created_at?: string
+          dia_offset?: number
+          id?: string
+          modelo_mensagem?: string | null
+          passo_n?: number
+          user_id?: string | null
+        }
+        Update: {
+          cadencia_id?: string
+          canal?: string
+          company_id?: string | null
+          created_at?: string
+          dia_offset?: number
+          id?: string
+          modelo_mensagem?: string | null
+          passo_n?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_cadencia_passos_cadencia_id_fkey"
+            columns: ["cadencia_id"]
+            isOneToOne: false
+            referencedRelation: "crm_cadencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_cadencia_passos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_cadencias: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          id: string
+          nome: string
+          tipo: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          nome: string
+          tipo?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+          tipo?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_cadencias_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
@@ -2544,6 +2699,331 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estrategia_acao: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          custo_estimado: number | null
+          descricao: string
+          id: string
+          key_result_id: string | null
+          ordem: number
+          quinzena: string | null
+          status: string
+          transacao_id: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          custo_estimado?: number | null
+          descricao: string
+          id?: string
+          key_result_id?: string | null
+          ordem?: number
+          quinzena?: string | null
+          status?: string
+          transacao_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          custo_estimado?: number | null
+          descricao?: string
+          id?: string
+          key_result_id?: string | null
+          ordem?: number
+          quinzena?: string | null
+          status?: string
+          transacao_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estrategia_acao_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estrategia_acao_key_result_id_fkey"
+            columns: ["key_result_id"]
+            isOneToOne: false
+            referencedRelation: "estrategia_kr"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estrategia_ciclo: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          fim: string | null
+          horizonte: string
+          id: string
+          inicio: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          fim?: string | null
+          horizonte?: string
+          id?: string
+          inicio?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          fim?: string | null
+          horizonte?: string
+          id?: string
+          inicio?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estrategia_ciclo_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estrategia_kr: {
+        Row: {
+          alvo: number | null
+          company_id: string | null
+          created_at: string
+          descricao: string
+          id: string
+          metrica: string | null
+          objetivo_id: string | null
+          tipo: string
+          trimestre: string | null
+          unidade: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          alvo?: number | null
+          company_id?: string | null
+          created_at?: string
+          descricao: string
+          id?: string
+          metrica?: string | null
+          objetivo_id?: string | null
+          tipo?: string
+          trimestre?: string | null
+          unidade?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          alvo?: number | null
+          company_id?: string | null
+          created_at?: string
+          descricao?: string
+          id?: string
+          metrica?: string | null
+          objetivo_id?: string | null
+          tipo?: string
+          trimestre?: string | null
+          unidade?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estrategia_kr_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estrategia_kr_objetivo_id_fkey"
+            columns: ["objetivo_id"]
+            isOneToOne: false
+            referencedRelation: "estrategia_objetivo"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estrategia_objetivo: {
+        Row: {
+          alvo: number | null
+          ano: number | null
+          company_id: string | null
+          created_at: string
+          id: string
+          metrica: string | null
+          tipo: string
+          titulo: string
+          updated_at: string
+          user_id: string | null
+          visao_id: string | null
+        }
+        Insert: {
+          alvo?: number | null
+          ano?: number | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          metrica?: string | null
+          tipo?: string
+          titulo: string
+          updated_at?: string
+          user_id?: string | null
+          visao_id?: string | null
+        }
+        Update: {
+          alvo?: number | null
+          ano?: number | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          metrica?: string | null
+          tipo?: string
+          titulo?: string
+          updated_at?: string
+          user_id?: string | null
+          visao_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estrategia_objetivo_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estrategia_objetivo_visao_id_fkey"
+            columns: ["visao_id"]
+            isOneToOne: false
+            referencedRelation: "estrategia_visao"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estrategia_revisao: {
+        Row: {
+          aprendi: string | null
+          ciclo_id: string | null
+          company_id: string | null
+          created_at: string
+          data: string
+          decisao: string
+          fiz: string | null
+          id: string
+          nota: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          aprendi?: string | null
+          ciclo_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          data?: string
+          decisao?: string
+          fiz?: string | null
+          id?: string
+          nota?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          aprendi?: string | null
+          ciclo_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          data?: string
+          decisao?: string
+          fiz?: string | null
+          id?: string
+          nota?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estrategia_revisao_ciclo_id_fkey"
+            columns: ["ciclo_id"]
+            isOneToOne: false
+            referencedRelation: "estrategia_ciclo"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estrategia_revisao_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estrategia_visao: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          horizonte: string
+          id: string
+          metrica_alvo: string | null
+          prazo: string | null
+          titulo: string
+          updated_at: string
+          user_id: string | null
+          valor_alvo: number | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          horizonte?: string
+          id?: string
+          metrica_alvo?: string | null
+          prazo?: string | null
+          titulo: string
+          updated_at?: string
+          user_id?: string | null
+          valor_alvo?: number | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          horizonte?: string
+          id?: string
+          metrica_alvo?: string | null
+          prazo?: string | null
+          titulo?: string
+          updated_at?: string
+          user_id?: string | null
+          valor_alvo?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estrategia_visao_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -3358,6 +3838,7 @@ export type Database = {
           expected_expense_variavel: number | null
           id: string
           opening_bank_balance: number | null
+          prolabore_mensal: number | null
           rbt12_alert_pct: number | null
           rbt12_limit: number | null
           reserve_months: number | null
@@ -3373,6 +3854,7 @@ export type Database = {
           expected_expense_variavel?: number | null
           id?: string
           opening_bank_balance?: number | null
+          prolabore_mensal?: number | null
           rbt12_alert_pct?: number | null
           rbt12_limit?: number | null
           reserve_months?: number | null
@@ -3388,6 +3870,7 @@ export type Database = {
           expected_expense_variavel?: number | null
           id?: string
           opening_bank_balance?: number | null
+          prolabore_mensal?: number | null
           rbt12_alert_pct?: number | null
           rbt12_limit?: number | null
           reserve_months?: number | null
@@ -4805,11 +5288,14 @@ export type Database = {
           amount: number | null
           company_id: string | null
           created_at: string
+          expected_date: string | null
           goal_id: string | null
           id: string
           impact_type: string | null
           notes: string | null
           project_id: string | null
+          source_deal_id: string | null
+          status: string | null
           title: string
           user_id: string | null
         }
@@ -4817,11 +5303,14 @@ export type Database = {
           amount?: number | null
           company_id?: string | null
           created_at?: string
+          expected_date?: string | null
           goal_id?: string | null
           id?: string
           impact_type?: string | null
           notes?: string | null
           project_id?: string | null
+          source_deal_id?: string | null
+          status?: string | null
           title: string
           user_id?: string | null
         }
@@ -4829,11 +5318,14 @@ export type Database = {
           amount?: number | null
           company_id?: string | null
           created_at?: string
+          expected_date?: string | null
           goal_id?: string | null
           id?: string
           impact_type?: string | null
           notes?: string | null
           project_id?: string | null
+          source_deal_id?: string | null
+          status?: string | null
           title?: string
           user_id?: string | null
         }
@@ -5173,10 +5665,12 @@ export type Database = {
           active: boolean
           client_id: string | null
           created_at: string
+          customer_id: string | null
           day_of_month: number | null
           frequency: string | null
           id: string
           kind: string
+          modulo_id: string | null
           parent_item_id: string | null
           sort_order: number
           title: string
@@ -5188,10 +5682,12 @@ export type Database = {
           active?: boolean
           client_id?: string | null
           created_at?: string
+          customer_id?: string | null
           day_of_month?: number | null
           frequency?: string | null
           id?: string
           kind?: string
+          modulo_id?: string | null
           parent_item_id?: string | null
           sort_order?: number
           title: string
@@ -5203,10 +5699,12 @@ export type Database = {
           active?: boolean
           client_id?: string | null
           created_at?: string
+          customer_id?: string | null
           day_of_month?: number | null
           frequency?: string | null
           id?: string
           kind?: string
+          modulo_id?: string | null
           parent_item_id?: string | null
           sort_order?: number
           title?: string
