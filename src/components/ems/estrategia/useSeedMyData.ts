@@ -187,6 +187,7 @@ export const useSeedMyData = () => {
       }
 
       return s;
+      } finally { running.current = false; }
     },
     onSuccess: (s) => { qc.invalidateQueries(); toast({ title: "Dados carregados", description: `${s.criados} criados · ${s.pulados} já existiam` }); },
     onError: (e: any) => toast({ title: "Erro ao carregar dados", description: e?.message, variant: "destructive" }),
