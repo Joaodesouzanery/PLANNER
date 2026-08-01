@@ -110,9 +110,13 @@ export const computeDre = (rows: PeriodRow[], from: string, to: string, opts: Dr
   const resultadoFinanceiro = -byLine.resultado_financeiro;
   const lucroLiquido = ebit + resultadoFinanceiro;
   // Camada datada: se veio o total já somado no período, usa; senão escala o mensal pelo nº de meses.
-  const prolabore = opts.prolaboreTotal != null
-    ? Math.max(0, opts.prolaboreTotal)
-    : Math.max(0, opts.prolabore ?? 0) * Math.max(1, opts.periodMonths ?? 1);
+  // Sem receita no período (mês ainda sem lançamento), o pró-labore NÃO é aplicado — senão a DRE
+  // mostraria "lucro da empresa negativo" só pela subtração da retirada sobre receita zero.
+  const prolabore = receitaBruta <= 0
+    ? 0
+    : opts.prolaboreTotal != null
+      ? Math.max(0, opts.prolaboreTotal)
+      : Math.max(0, opts.prolabore ?? 0) * Math.max(1, opts.periodMonths ?? 1);
   const lucroEmpresa = lucroLiquido - prolabore;
   const m = (x: number) => (receitaLiquida > 0 ? x / receitaLiquida : 0);
 
