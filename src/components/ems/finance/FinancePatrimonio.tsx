@@ -19,6 +19,7 @@ import { intervalFactor } from "./projectionCalc";
 import { usePatrimonio, type NetworthItem, type SinkingFund } from "./usePatrimonio";
 import { computeNetWorth, investimentosPrincipal } from "./financePatrimonioCalc";
 import { categoryScope } from "./financeCategories";
+import { useConfigTimeline } from "./useConfigTimeline";
 
 const todayIso = () => format(new Date(), "yyyy-MM-dd");
 const monthsUntil = (from: string, to: string) => {
@@ -33,6 +34,7 @@ export const FinancePatrimonio = () => {
   const workspace = useFinanceWorkspace();
   const { settings, missing: settingsMissing } = useFinanceSettings();
   const { items, funds, missing, saveItem, deleteItem, saveFund, deleteFund } = usePatrimonio();
+  const cfg = useConfigTimeline();
   const confirm = useConfirm();
 
   const cfo = useMemo(() => computeCfo(workspace.canonical.rows, settings, workspace.reserveBalance, todayIso(), workspace.expectedMonthly), [workspace.canonical.rows, settings, workspace.reserveBalance, workspace.expectedMonthly]);
@@ -81,7 +83,8 @@ export const FinancePatrimonio = () => {
   const paraInvestir = Math.max(0, sobra - paraReserva - paraSinking);
 
   // Vínculo visual do ciclo pessoal: pró-labore − gastos PF = sobra pessoal → aporte → patrimônio.
-  const prolabore = settings.prolabore_mensal ?? 0;
+  // Camada datada: pró-labore vigente no mês corrente (fallback = settings).
+  const prolabore = cfg.valueAsOf("prolabore", format(new Date(), "yyyy-MM")) ?? settings.prolabore_mensal ?? 0;
   const gastoPFMes = useMemo(() => {
     const mk = todayIso().slice(0, 7);
     return workspace.canonical.rows.filter((r) => r.type === "expense" && r.paid && r.date.slice(0, 7) === mk && categoryScope(r.category) === "PF").reduce((a, r) => a + r.amount, 0);

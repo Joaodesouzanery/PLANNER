@@ -12,6 +12,8 @@ import { useFinanceWorkspace } from "./useFinanceWorkspace";
 import { useFinanceSettings } from "./useFinanceSettings";
 import { useDreCategories } from "./useDreCategories";
 import { computeDre, mapCategoryToDreLine, DRE_LINE_LABEL, type DreLine } from "./financeDre";
+import { useConfigTimeline } from "./useConfigTimeline";
+import { configSumOverMonths } from "./configTimeline";
 
 const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
 const LINES: DreLine[] = ["receita", "deducao", "custo", "despesa_operacional", "resultado_financeiro", "depreciacao"];
@@ -30,6 +32,7 @@ export const FinanceDre = () => {
   const workspace = useFinanceWorkspace();
   const { settings } = useFinanceSettings();
   const { overrides, missing, setOverride } = useDreCategories();
+  const cfg = useConfigTimeline();
   const [periodType, setPeriodType] = useState<"mes" | "tri" | "ano">("mes");
   const [basis, setBasis] = useState<"caixa" | "competencia">("caixa");
   const [dAndA, setDAndA] = useState("");
@@ -43,9 +46,16 @@ export const FinanceDre = () => {
   }, [periodType]);
 
   const prolaboreMensal = settings.prolabore_mensal ?? 0;
+  // Camada datada: soma o pró-labore vigente mês-a-mês no período (fallback = escalar do settings).
+  // Cap no mês corrente: no "ano" o período vai até dez, mas a DRE é YTD (não projeta pró-labore futuro).
+  const prolaboreTotal = useMemo(() => {
+    const curMonth = format(new Date(), "yyyy-MM");
+    const toMonth = to.slice(0, 7) < curMonth ? to.slice(0, 7) : curMonth;
+    return configSumOverMonths(cfg.rows, "prolabore", from.slice(0, 7), toMonth, prolaboreMensal);
+  }, [cfg.rows, from, to, prolaboreMensal]);
   const dre = useMemo(
-    () => computeDre(workspace.canonical.rows, from, to, { taxRate: settings.tax_rate, overrides, dAndAManual: Number(dAndA) || 0, basis, prolabore: prolaboreMensal, periodMonths: months }),
-    [workspace.canonical.rows, from, to, settings.tax_rate, overrides, dAndA, basis, prolaboreMensal, months],
+    () => computeDre(workspace.canonical.rows, from, to, { taxRate: settings.tax_rate, overrides, dAndAManual: Number(dAndA) || 0, basis, prolaboreTotal, periodMonths: months }),
+    [workspace.canonical.rows, from, to, settings.tax_rate, overrides, dAndA, basis, prolaboreTotal, months],
   );
 
   return (
@@ -74,7 +84,7 @@ export const FinanceDre = () => {
           <DreRow label="(+/−) Resultado financeiro" value={dre.resultadoFinanceiro} kind="sub" />
           <DreRow label="= Lucro líquido" value={dre.lucroLiquido} kind="total" margem={dre.margemLiquida} />
           {dre.prolabore > 0 && <>
-            <DreRow label={`(−) Pró-labore${months > 1 ? ` (${months}× ${fmtCurrency(prolaboreMensal)})` : ""}`} value={-dre.prolabore} kind="sub" />
+            <DreRow label={`(−) Pró-labore${months > 1 ? ` (${months} meses)` : ""}`} value={-dre.prolabore} kind="sub" />
             <DreRow label="= Lucro da empresa" value={dre.lucroEmpresa} kind="ebitda" />
           </>}
         </div>

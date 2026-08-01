@@ -63,6 +63,7 @@ export interface DreOptions {
   dAndAManual?: number;
   basis?: "caixa" | "competencia"; // caixa = só pago; competência = tudo no período
   prolabore?: number; // pró-labore do MÊS (config); a linha da DRE usa o proporcional ao período
+  prolaboreTotal?: number; // pró-labore JÁ SOMADO no período (camada datada); se presente, ignora prolabore×periodMonths
   periodMonths?: number; // nº de meses do período (p/ escalar o pró-labore mensal); default 1
 }
 
@@ -108,7 +109,10 @@ export const computeDre = (rows: PeriodRow[], from: string, to: string, opts: Dr
   const ebit = ebitda - depreciacaoAmortizacao;
   const resultadoFinanceiro = -byLine.resultado_financeiro;
   const lucroLiquido = ebit + resultadoFinanceiro;
-  const prolabore = Math.max(0, opts.prolabore ?? 0) * Math.max(1, opts.periodMonths ?? 1);
+  // Camada datada: se veio o total já somado no período, usa; senão escala o mensal pelo nº de meses.
+  const prolabore = opts.prolaboreTotal != null
+    ? Math.max(0, opts.prolaboreTotal)
+    : Math.max(0, opts.prolabore ?? 0) * Math.max(1, opts.periodMonths ?? 1);
   const lucroEmpresa = lucroLiquido - prolabore;
   const m = (x: number) => (receitaLiquida > 0 ? x / receitaLiquida : 0);
 

@@ -8,6 +8,7 @@ import { fmtCurrency } from "./useFinanceData";
 import { useFinanceWorkspace } from "./useFinanceWorkspace";
 import { useFinanceSettings } from "./useFinanceSettings";
 import { categoryScope } from "./financeCategories";
+import { useConfigTimeline } from "./useConfigTimeline";
 
 // Painel PF: mede seus gastos PESSOAIS (categorias PF) contra o pró-labore — não contra o
 // faturamento. Só aparece quando o pró-labore está configurado (Ajustes CFO). A sobra é o que
@@ -15,8 +16,10 @@ import { categoryScope } from "./financeCategories";
 export const FinanceProLaborePanel = () => {
   const { canonical } = useFinanceWorkspace();
   const { settings } = useFinanceSettings();
-  const prolabore = settings.prolabore_mensal ?? 0;
+  const cfg = useConfigTimeline();
   const curKey = format(new Date(), "yyyy-MM");
+  // Camada datada: pró-labore vigente neste mês (fallback = settings).
+  const prolabore = cfg.valueAsOf("prolabore", curKey) ?? settings.prolabore_mensal ?? 0;
 
   const gastoPF = useMemo(
     () => canonical.rows
