@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
   SEED_CLIENTES, SEED_RECEITA, SEED_CUSTOS, SEED_DIVIDA_MENSAL, SEED_DIVIDAS, SEED_TETOS,
-  SEED_SETTINGS, SEED_ACCOUNTS, SEED_NETWORTH_ASSETS, SEED_SINKING,
+  SEED_SETTINGS, SEED_ACCOUNTS, SEED_NETWORTH_ASSETS, SEED_SINKING, SEED_ALIASES,
   buildSeedConfig, buildSeedEstrategia, quarterKey,
 } from "./seedData";
 
