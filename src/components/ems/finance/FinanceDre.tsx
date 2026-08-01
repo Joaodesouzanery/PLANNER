@@ -34,7 +34,7 @@ export const FinanceDre = () => {
   const { overrides, missing, setOverride } = useDreCategories();
   const cfg = useConfigTimeline();
   const [periodType, setPeriodType] = useState<"mes" | "tri" | "ano">("mes");
-  const [basis, setBasis] = useState<"caixa" | "competencia">("caixa");
+  const [basis, setBasis] = useState<"caixa" | "competencia">("competencia");
   const [dAndA, setDAndA] = useState("");
   const [showClassifier, setShowClassifier] = useState(false);
 

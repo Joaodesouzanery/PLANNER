@@ -1,10 +1,11 @@
+import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import {
   SEED_CLIENTES, SEED_RECEITA, SEED_CUSTOS, SEED_DIVIDA_MENSAL, SEED_DIVIDAS, SEED_TETOS,
-  SEED_SETTINGS, SEED_ACCOUNTS, SEED_NETWORTH_ASSETS, SEED_SINKING,
+  SEED_SETTINGS, SEED_ACCOUNTS, SEED_NETWORTH_ASSETS, SEED_SINKING, SEED_ALIASES,
   buildSeedConfig, buildSeedEstrategia, quarterKey,
 } from "./seedData";
 
@@ -21,6 +22,8 @@ export interface SeedSummary { criados: number; pulados: number; }
 
 export const useSeedMyData = () => {
   const qc = useQueryClient();
+  // Trava anti-duplo-clique: mesmo com dois cliques rápidos, só uma execução roda de fato.
+  const running = useRef(false);
 
   // Status: quantas transações do seed existem (pra UI mostrar "carregado").
   const status = useQuery({
@@ -31,6 +34,9 @@ export const useSeedMyData = () => {
 
   const run = useMutation({
     mutationFn: async (): Promise<SeedSummary> => {
+      if (running.current) return { criados: 0, pulados: 0 };
+      running.current = true;
+      try {
       const today = format(new Date(), "yyyy-MM-dd");
       const now = new Date();
       const curYear = now.getFullYear();
@@ -63,28 +69,52 @@ export const useSeedMyData = () => {
         bump(!error);
       }
 
-      // 4) transações: receita + custos + dívida mensal. Dedup por descrição+VALOR (não só descrição) —
-      // não pisa num "Contador 150" que o usuário já tenha com outro valor. source_type='seed' p/ reverter.
-      const txKey = (desc: any, amt: any) => `${lc(desc)}|${Number(amt)}`;
-      const txSet = new Set((await safe(() => db.from("financial_transactions").select("description,amount"))).map((t) => txKey(t.description, t.amount)));
-      const insertTx = async (row: Record<string, unknown>) => {
-        const k = txKey(row.description, row.amount);
-        if (txSet.has(k)) { bump(false); return; }
-        const { error } = await db.from("financial_transactions").insert(row);
-        if (!error) txSet.add(k);
+      // 4) transações: receita + custos + dívida mensal — UPSERT de verdade (chave natural):
+      //    a) descrição normalizada, b) apelido de lançamento legado (SEED_ALIASES),
+      //    c) receita recorrente do MESMO cliente. Se achar, ATUALIZA (valor/categoria/recorrência)
+      //    em vez de criar uma segunda linha — era daí que vinha a duplicação. Rodar 2× = mesmo resultado.
+      const existing = await safe(() => db.from("financial_transactions").select("id,description,amount,type,cliente_id,is_recurring,source_type"));
+      const byDesc = new Map<string, any>();
+      for (const t of existing) if (!byDesc.has(lc(t.description))) byDesc.set(lc(t.description), t);
+      const findMatch = (row: Record<string, any>) => {
+        const key = lc(row.description);
+        const direct = byDesc.get(key);
+        if (direct) return direct;
+        for (const alias of SEED_ALIASES[key] ?? []) {
+          const hit = byDesc.get(alias);
+          if (hit && hit.type === row.type) return hit;
+        }
+        if (row.type === "income" && row.cliente_id) {
+          const hit = existing.find((t: any) => t.type === "income" && t.cliente_id === row.cliente_id && t.is_recurring);
+          if (hit) return hit;
+        }
+        return null;
+      };
+      const upsertTx = async (row: Record<string, unknown>) => {
+        const match = findMatch(row);
+        if (match) {
+          const { error } = await db.from("financial_transactions").update({
+            amount: row.amount, category: row.category, is_recurring: true, recurrence_interval: "monthly",
+            recurrence_end_date: row.recurrence_end_date ?? null, cliente_id: row.cliente_id ?? match.cliente_id ?? null,
+          }).eq("id", match.id);
+          if (!error) bump(false);
+          return;
+        }
+        const { data, error } = await db.from("financial_transactions").insert(row).select("id,description,amount,type,cliente_id,is_recurring").single();
+        if (!error && data) { existing.push(data); byDesc.set(lc(data.description), data); }
         bump(!error);
       };
-      for (const r of SEED_RECEITA) await insertTx({
+      for (const r of SEED_RECEITA) await upsertTx({
         description: r.description, amount: r.amount, type: "income", category: "Receita — Cliente",
         date: today, due_date: today, status: "confirmed", is_recurring: true, recurrence_interval: "monthly",
         recurrence_end_date: r.endDate ?? null, cliente_id: cliByName.get(lc(r.cliente)) ?? null, company_id: null, source_type: "seed",
       });
-      for (const c of SEED_CUSTOS) await insertTx({
+      for (const c of SEED_CUSTOS) await upsertTx({
         description: c.description, amount: c.amount, type: "expense", category: c.category,
         date: today, due_date: today, status: "confirmed", is_recurring: true, recurrence_interval: "monthly",
         recurrence_end_date: c.endDate ?? null, company_id: null, source_type: "seed",
       });
-      await insertTx({
+      await upsertTx({
         description: SEED_DIVIDA_MENSAL.description, amount: SEED_DIVIDA_MENSAL.amount, type: "expense", category: SEED_DIVIDA_MENSAL.category,
         date: today, due_date: today, status: "confirmed", is_recurring: true, recurrence_interval: "monthly", recurrence_end_date: null, company_id: null, source_type: "seed",
       });
@@ -158,6 +188,7 @@ export const useSeedMyData = () => {
       }
 
       return s;
+      } finally { running.current = false; }
     },
     onSuccess: (s) => { qc.invalidateQueries(); toast({ title: "Dados carregados", description: `${s.criados} criados · ${s.pulados} já existiam` }); },
     onError: (e: any) => toast({ title: "Erro ao carregar dados", description: e?.message, variant: "destructive" }),
