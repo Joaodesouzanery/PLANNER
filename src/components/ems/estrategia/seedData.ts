@@ -62,17 +62,29 @@ export const SEED_TETOS: SeedTeto[] = [
 
 export const SEED_SETTINGS = { tax_regime: "simples", tax_rate: 6, reserve_months: 6, prolabore_mensal: 2310 };
 
-// Patrimônio: Guardado 3.000 = conta savings (vira reserva + entra no patrimônio); Caixa 4.700 = ativo manual
-// (o "caixa" derivado do razão é ledger-based, então o disponível inicial entra como ativo). Investido 0.
-export const SEED_ACCOUNTS = [
-  { name: "Guardado (reserva)", account_type: "savings", opening_balance: 3000 },
-];
+// Patrimônio: Guardado 3.000 e Caixa 4.700 entram como ATIVOS (nada de criar conta bancária —
+// contas são cadastro do usuário; criar conta pelo seed gerava "conta fantasma"). Investido 0.
+export const SEED_ACCOUNTS: { name: string; account_type: string; opening_balance: number }[] = [];
 export const SEED_NETWORTH_ASSETS = [
   { label: "Caixa disponível", category: "caixa", value: 4700 },
+  { label: "Guardado (reserva)", category: "reserva", value: 3000 },
 ];
 export const SEED_SINKING = [
   { title: "Reserva de emergência", target: 15000, monthly: 0, balance: 3000 },
 ];
+
+// Apelidos de lançamentos legados (criados à mão antes do seed) que representam a MESMA linha.
+// Usados p/ o seed atualizar em vez de criar uma segunda cópia (fonte da duplicação anterior).
+export const SEED_ALIASES: Record<string, string[]> = {
+  "iris — mensalidade (administrativo)": ["iris - pagamento", "pagamento iris"],
+  "circle — software": ["circle - pagamento", "pagamento circle"],
+  "raoni (dentro de iris/circle)": ["pagamento raoni", "raoni - pagamento"],
+  "compizzo — construdata": ["pagamento compizzo (2500/2)", "pagamento compizzo"],
+  "conab — projeto (temporário)": ["pagamento conab", "conab - pagamento"],
+  "contador": ["contabilidade"],
+  "macbook (parcela)": ["macbook (1/10)", "macbook"],
+  "seguro macbook": [],
+};
 
 // Pró-labore e tax_rate na camada datada. A vigência de hoje é preenchida pelo builder.
 export const buildSeedConfig = (today: string): SeedConfig[] => [
