@@ -69,6 +69,8 @@ export const useFinanceWorkspace = () => {
   const finance = useFinanceData();
   const { settings: financeSettings } = useFinanceSettings();
   const [scope, setScope] = useState(() => localStorage.getItem(SCOPE_KEY) || "personal");
+  const { lens, setLens, produtos, activeProdutos } = useFinanceLens();
+  const lensOpen = useMemo(() => isLensOpen(lens), [lens]);
 
   const { data: entities = [], isLoading: entitiesLoading, error: entitiesError } = useQuery({
     queryKey: ["finance-entities"],
