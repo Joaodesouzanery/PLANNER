@@ -231,6 +231,9 @@ export const useFinanceWorkspace = () => {
           sourceType: transaction.card_invoice_id ? "invoice" : transaction.installment_group_id ? "installment" : "transaction",
           sourceId: transaction.source_id || transaction.id,
           status: transaction.status || "confirmed",
+          produtoId: transaction.produto_id ?? null,
+          clienteId: transaction.cliente_id ?? null,
+          escopo: transaction.escopo ?? null,
         });
       }
       events.push(...recurringFutureEvents(transaction, entityId));
