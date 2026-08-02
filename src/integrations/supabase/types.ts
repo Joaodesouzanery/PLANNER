@@ -3219,6 +3219,7 @@ export type Database = {
           credit_limit: number | null
           due_day: number | null
           entity_id: string
+          escopo: string | null
           id: string
           is_active: boolean
           is_default: boolean
@@ -3237,6 +3238,7 @@ export type Database = {
           credit_limit?: number | null
           due_day?: number | null
           entity_id: string
+          escopo?: string | null
           id?: string
           is_active?: boolean
           is_default?: boolean
@@ -3255,6 +3257,7 @@ export type Database = {
           credit_limit?: number | null
           due_day?: number | null
           entity_id?: string
+          escopo?: string | null
           id?: string
           is_active?: boolean
           is_default?: boolean
@@ -3395,6 +3398,7 @@ export type Database = {
           notes: string | null
           owner: string | null
           priority: string | null
+          produto_id: string | null
           recorrente: boolean
           segment: string | null
           stage: string | null
@@ -3412,6 +3416,7 @@ export type Database = {
           notes?: string | null
           owner?: string | null
           priority?: string | null
+          produto_id?: string | null
           recorrente?: boolean
           segment?: string | null
           stage?: string | null
@@ -3429,6 +3434,7 @@ export type Database = {
           notes?: string | null
           owner?: string | null
           priority?: string | null
+          produto_id?: string | null
           recorrente?: boolean
           segment?: string | null
           stage?: string | null
@@ -3442,6 +3448,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_clientes_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "finance_produtos"
             referencedColumns: ["id"]
           },
         ]
@@ -3699,6 +3712,63 @@ export type Database = {
             columns: ["plan_id"]
             isOneToOne: false
             referencedRelation: "finance_monthly_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      finance_produtos: {
+        Row: {
+          archived_at: string | null
+          color: string | null
+          company_id: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          legacy_company_id: string | null
+          name: string
+          slug: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          archived_at?: string | null
+          color?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          legacy_company_id?: string | null
+          name: string
+          slug: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          color?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          legacy_company_id?: string | null
+          name?: string
+          slug?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_produtos_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_produtos_legacy_company_id_fkey"
+            columns: ["legacy_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -4175,6 +4245,7 @@ export type Database = {
           date: string
           description: string
           due_date: string | null
+          escopo: string | null
           finance_account_id: string | null
           id: string
           import_fingerprint: string | null
@@ -4182,6 +4253,7 @@ export type Database = {
           installment_number: number | null
           installment_total: number | null
           is_recurring: boolean | null
+          produto_id: string | null
           project_id: string | null
           recurrence_end_date: string | null
           recurrence_interval: string | null
@@ -4202,6 +4274,7 @@ export type Database = {
           date?: string
           description: string
           due_date?: string | null
+          escopo?: string | null
           finance_account_id?: string | null
           id?: string
           import_fingerprint?: string | null
@@ -4209,6 +4282,7 @@ export type Database = {
           installment_number?: number | null
           installment_total?: number | null
           is_recurring?: boolean | null
+          produto_id?: string | null
           project_id?: string | null
           recurrence_end_date?: string | null
           recurrence_interval?: string | null
@@ -4229,6 +4303,7 @@ export type Database = {
           date?: string
           description?: string
           due_date?: string | null
+          escopo?: string | null
           finance_account_id?: string | null
           id?: string
           import_fingerprint?: string | null
@@ -4236,6 +4311,7 @@ export type Database = {
           installment_number?: number | null
           installment_total?: number | null
           is_recurring?: boolean | null
+          produto_id?: string | null
           project_id?: string | null
           recurrence_end_date?: string | null
           recurrence_interval?: string | null
@@ -4273,6 +4349,13 @@ export type Database = {
             columns: ["finance_account_id"]
             isOneToOne: false
             referencedRelation: "finance_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "finance_produtos"
             referencedColumns: ["id"]
           },
           {
