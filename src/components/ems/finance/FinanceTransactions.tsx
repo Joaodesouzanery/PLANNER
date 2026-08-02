@@ -163,6 +163,8 @@ const FinanceTransactions = () => {
       recurrence_interval: form.is_recurring ? (form.recurrence_interval || "monthly") : null,
       recurrence_end_date: form.is_recurring ? (form.recurrence_end_date || null) : null,
       cliente_id: form.type === "income" ? (form.cliente_id || null) : null,
+      produto_id: form.produto_id || null,
+      escopo: form.escopo || null,
     };
     saveTransactionMutation.mutate({ form: payload, editingId: editingTransaction?.id }, {
       onSuccess: () => { setShowModal(false); setEditingTransaction(null); setForm(emptyForm()); },
