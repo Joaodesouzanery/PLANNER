@@ -81,6 +81,10 @@ export interface ForecastEvent {
   status: FinanceStatus | "skipped";
   isScenario?: boolean;
   confidence?: "high" | "medium" | "low" | null;
+  /** Dimensões da lente (B2). Nulo = não classificado. */
+  produtoId?: string | null;
+  clienteId?: string | null;
+  escopo?: string | null;
 }
 
 export interface ForecastDay {
