@@ -21,6 +21,7 @@ import { useConfirm } from "@/hooks/useConfirm";
 import { exportTablePdf, captureChart, type PdfImage } from "@/lib/exportPdf";
 import { FinanceReportCharts, type ReportChartRefs } from "./FinanceReportCharts";
 import { toast } from "sonner";
+import { useFinanceLens } from "./useFinanceLens";
 
 const WIDE_FROM = "2000-01-01";
 const WIDE_TO = "2100-12-31";
@@ -47,11 +48,13 @@ const emptyForm = () => ({
   description: "", amount: 0, type: "expense" as "income" | "expense", category: "",
   date: todayIso(), due_date: todayIso(), status: "confirmed", finance_account_id: "",
   is_recurring: false, recurrence_interval: "", recurrence_end_date: "", paid: false, cliente_id: "",
+  produto_id: "", escopo: "",
 });
 
 const FinanceTransactions = () => {
   const { rawTransactions, allCategories, saveTransactionMutation, deleteTransactionMutation, reconcileTransactionMutation, selectedAccounts, accounts, canonical, txInScope } = useFinanceWorkspace();
   const { clientes, saveCliente } = useClientes();
+  const { activeProdutos } = useFinanceLens();
   const confirm = useConfirm();
   const [newClient, setNewClient] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -144,6 +147,7 @@ const FinanceTransactions = () => {
       finance_account_id: t.finance_account_id || "", is_recurring: t.is_recurring || false,
       recurrence_interval: t.recurrence_interval || "", recurrence_end_date: t.recurrence_end_date || "", paid: isPaid(t),
       cliente_id: t.cliente_id || "",
+      produto_id: t.produto_id || "", escopo: t.escopo || "",
     });
     setShowModal(true);
   };
@@ -159,6 +163,8 @@ const FinanceTransactions = () => {
       recurrence_interval: form.is_recurring ? (form.recurrence_interval || "monthly") : null,
       recurrence_end_date: form.is_recurring ? (form.recurrence_end_date || null) : null,
       cliente_id: form.type === "income" ? (form.cliente_id || null) : null,
+      produto_id: form.produto_id || null,
+      escopo: form.escopo || null,
     };
     saveTransactionMutation.mutate({ form: payload, editingId: editingTransaction?.id }, {
       onSuccess: () => { setShowModal(false); setEditingTransaction(null); setForm(emptyForm()); },
@@ -384,6 +390,29 @@ const FinanceTransactions = () => {
             <div className="grid grid-cols-2 gap-4">
               <div><Label>Categoria</Label><CategorySelect value={form.category} onChange={(v) => setForm({ ...form, category: v })} allCategories={allCategories} type={form.type} className="rounded-xl" /></div>
               <div><Label>Data</Label><Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className="rounded-xl" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Produto <span className="text-xs text-muted-foreground">(dimensão)</span></Label>
+                <Select value={form.produto_id || "none"} onValueChange={value => setForm({ ...form, produto_id: value === "none" ? "" : value })}>
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Sem produto" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem produto</SelectItem>
+                    {activeProdutos.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Escopo</Label>
+                <Select value={form.escopo || "none"} onValueChange={value => setForm({ ...form, escopo: value === "none" ? "" : value })}>
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Não definido" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Não definido</SelectItem>
+                    <SelectItem value="pf">PF (pessoal)</SelectItem>
+                    <SelectItem value="pj">PJ (empresa)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             {form.type === "income" && (
               <div>

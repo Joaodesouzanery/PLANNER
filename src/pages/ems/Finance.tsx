@@ -21,11 +21,16 @@ import FinanceScenarios from "@/components/ems/finance/FinanceScenarios";
 import { FinancePatrimonio } from "@/components/ems/finance/FinancePatrimonio";
 import { FinanceAposentadoria } from "@/components/ems/finance/FinanceAposentadoria";
 import { FinanceFullReport } from "@/components/ems/finance/FinanceFullReport";
+import FinanceLensBar from "@/components/ems/finance/FinanceLensBar";
+import FinanceMacroPanel from "@/components/ems/finance/FinanceMacroPanel";
+import { useFinanceLens } from "@/components/ems/finance/useFinanceLens";
 
 const outerTab = "gap-1.5 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary";
 const innerTab = "gap-1.5 rounded-md text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary";
 
 const Finance = () => {
+  const { lens, setLens, activeProdutos } = useFinanceLens();
+
   return (
     <EMSLayout>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
@@ -39,6 +44,11 @@ const Finance = () => {
           </div>
           <FinanceFullReport />
         </div>
+
+        {/* B2/B3 — lente (PF·PJ·produto·cliente) + os 5 números macro, antes de qualquer drill-down */}
+        <FinanceLensBar lens={lens} setLens={setLens} produtos={activeProdutos} />
+        <FinanceMacroPanel />
+
 
         {/* 5 grupos (consolidado de 13 abas). Cada grupo agrupa as telas em sub-abas, sem perder nada. */}
         <Tabs defaultValue="overview" className="space-y-6">

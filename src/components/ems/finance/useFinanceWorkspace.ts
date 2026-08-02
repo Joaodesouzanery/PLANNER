@@ -10,6 +10,8 @@ import type { FinanceAccount, FinanceCardInvoice, FinanceEntity, FinanceTransfer
 import { useFinanceData, assertUuid, buildPeriodSource, type PlanItem, type Transaction } from "./useFinanceData";
 import { canonicalTotals, curvaDiaria, menorSaldo, saldoAbertura, saldoRealHoje } from "./financeCanonical";
 import { useFinanceSettings } from "./useFinanceSettings";
+import { useFinanceLens } from "./useFinanceLens";
+import { isLensOpen, matchLens } from "./financeLens";
 
 const SCOPE_KEY = "ems-finance-scope";
 const todayIso = () => format(new Date(), "yyyy-MM-dd");
@@ -50,6 +52,9 @@ const recurringFutureEvents = (transaction: Transaction, entityId: string | null
       sourceType: "transaction",
       sourceId: transaction.id,
       status: "planned",
+      produtoId: transaction.produto_id ?? null,
+      clienteId: transaction.cliente_id ?? null,
+      escopo: transaction.escopo ?? null,
     });
     cursor = advance(cursor);
     index += 1;
@@ -64,6 +69,8 @@ export const useFinanceWorkspace = () => {
   const finance = useFinanceData();
   const { settings: financeSettings } = useFinanceSettings();
   const [scope, setScope] = useState(() => localStorage.getItem(SCOPE_KEY) || "personal");
+  const { lens, setLens, produtos, activeProdutos } = useFinanceLens();
+  const lensOpen = useMemo(() => isLensOpen(lens), [lens]);
 
   const { data: entities = [], isLoading: entitiesLoading, error: entitiesError } = useQuery({
     queryKey: ["finance-entities"],
@@ -229,6 +236,9 @@ export const useFinanceWorkspace = () => {
           sourceType: transaction.card_invoice_id ? "invoice" : transaction.installment_group_id ? "installment" : "transaction",
           sourceId: transaction.source_id || transaction.id,
           status: transaction.status || "confirmed",
+          produtoId: transaction.produto_id ?? null,
+          clienteId: transaction.cliente_id ?? null,
+          escopo: transaction.escopo ?? null,
         });
       }
       events.push(...recurringFutureEvents(transaction, entityId));
@@ -255,9 +265,16 @@ export const useFinanceWorkspace = () => {
     return events;
   }, [accounts, entities, entityByAccount, finance.planItems, finance.transactions, impacts, invoices, transfers]);
 
-  const filteredEvents = useMemo(() => allEvents.filter((event) =>
+  // Lente (B2) aplicada ANTES de qualquer agregação — puro read-model, nunca grava.
+  const lensedEvents = useMemo(
+    () => lensOpen
+      ? allEvents
+      : allEvents.filter((event) => matchLens({ escopo: event.escopo, produto_id: event.produtoId, cliente_id: event.clienteId }, lens)),
+    [allEvents, lens, lensOpen],
+  );
+  const filteredEvents = useMemo(() => lensedEvents.filter((event) =>
     event.accountId ? selectedAccountIds.has(event.accountId) : scope === "consolidated" || event.entityId === selectedEntity?.id
-  ), [allEvents, scope, selectedAccountIds, selectedEntity]);
+  ), [lensedEvents, scope, selectedAccountIds, selectedEntity]);
 
   const openingBalance = useMemo(() => {
     const today = todayIso();
@@ -292,15 +309,15 @@ export const useFinanceWorkspace = () => {
   // Escopado pela empresa selecionada. Em "consolidated" usa allEvents/dashboardTransactions
   // crus (modo TODAS = comportamento idêntico ao anterior, zero regressão); no modo EMPRESA
   // usa os eventos e realizados já filtrados p/ a entidade → CFO/DRE/KPI/saldo respeitam a empresa.
-  const scopedDashboardTransactions = useMemo(
-    () => scope === "consolidated" ? finance.dashboardTransactions : finance.dashboardTransactions.filter(txInScope),
-    [scope, finance.dashboardTransactions, txInScope],
-  );
+  const scopedDashboardTransactions = useMemo(() => {
+    const base = scope === "consolidated" ? finance.dashboardTransactions : finance.dashboardTransactions.filter(txInScope);
+    return lensOpen ? base : base.filter((row: Transaction) => matchLens(row, lens));
+  }, [scope, finance.dashboardTransactions, txInScope, lensOpen, lens]);
   const canonicalRows = useMemo(
     () => scope === "consolidated"
-      ? buildPeriodSource(finance.dashboardTransactions, allEvents)
+      ? buildPeriodSource(scopedDashboardTransactions, lensedEvents)
       : buildPeriodSource(scopedDashboardTransactions, filteredEvents),
-    [scope, finance.dashboardTransactions, allEvents, scopedDashboardTransactions, filteredEvents],
+    [scope, lensedEvents, scopedDashboardTransactions, filteredEvents],
   );
   const saldoRealHojeVal = useMemo(() => saldoRealHoje(canonicalRows, todayIso()), [canonicalRows]);
   const canonical = useMemo(() => ({
@@ -547,8 +564,9 @@ export const useFinanceWorkspace = () => {
   return {
     ...finance,
     scope, setScope, txInScope, entities, accounts, selectedEntity, selectedAccounts, cardAccounts, accountBalances,
-    transfers, invoices, allEvents, filteredEvents, openingBalance, forecast90, monthlyForecast, contracts,
+    transfers, invoices, allEvents, lensedEvents, filteredEvents, openingBalance, forecast90, monthlyForecast, contracts,
     canonical, expectedMonthly, upcomingPayables, reserveBalance, entitiesLoading, entitiesError,
+    lens, setLens, lensOpen, produtos, activeProdutos,
     saveAccountMutation, saveTransferMutation, saveInvoiceMutation, payInvoiceMutation,
     reconcileTransactionMutation, importCsvMutation, addInstallmentToFlowMutation, materializeReceived,
   };
