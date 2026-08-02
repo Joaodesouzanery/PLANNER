@@ -145,6 +145,7 @@ const FinanceTransactions = () => {
       finance_account_id: t.finance_account_id || "", is_recurring: t.is_recurring || false,
       recurrence_interval: t.recurrence_interval || "", recurrence_end_date: t.recurrence_end_date || "", paid: isPaid(t),
       cliente_id: t.cliente_id || "",
+      produto_id: t.produto_id || "", escopo: t.escopo || "",
     });
     setShowModal(true);
   };
