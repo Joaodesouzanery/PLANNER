@@ -257,9 +257,16 @@ export const useFinanceWorkspace = () => {
     return events;
   }, [accounts, entities, entityByAccount, finance.planItems, finance.transactions, impacts, invoices, transfers]);
 
-  const filteredEvents = useMemo(() => allEvents.filter((event) =>
+  // Lente (B2) aplicada ANTES de qualquer agregação — puro read-model, nunca grava.
+  const lensedEvents = useMemo(
+    () => lensOpen
+      ? allEvents
+      : allEvents.filter((event) => matchLens({ escopo: event.escopo, produto_id: event.produtoId, cliente_id: event.clienteId }, lens)),
+    [allEvents, lens, lensOpen],
+  );
+  const filteredEvents = useMemo(() => lensedEvents.filter((event) =>
     event.accountId ? selectedAccountIds.has(event.accountId) : scope === "consolidated" || event.entityId === selectedEntity?.id
-  ), [allEvents, scope, selectedAccountIds, selectedEntity]);
+  ), [lensedEvents, scope, selectedAccountIds, selectedEntity]);
 
   const openingBalance = useMemo(() => {
     const today = todayIso();
