@@ -30,14 +30,30 @@ const readLens = (): FinanceLens => {
   }
 };
 
+// Store externo (module-level): a lente é global — todo componente que a lê vê o mesmo recorte.
+let currentLens: FinanceLens = readLens();
+const listeners = new Set<() => void>();
+const subscribe = (fn: () => void) => {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+};
+const getSnapshot = () => currentLens;
+const writeLens = (next: FinanceLens) => {
+  currentLens = next;
+  try {
+    localStorage.setItem(LENS_KEY, JSON.stringify(next));
+  } catch {
+    /* storage indisponível — a lente segue só em memória */
+  }
+  listeners.forEach((fn) => fn());
+};
+
 /** Produtos (dimensão da Nery Tecnologia) + estado da lente PF/PJ · produto · cliente. */
 export const useFinanceLens = () => {
   const qc = useQueryClient();
-  const [lens, setLens] = useState<FinanceLens>(readLens);
+  const lens = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const setLens = useCallback((next: FinanceLens) => writeLens(next), []);
 
-  useEffect(() => {
-    localStorage.setItem(LENS_KEY, JSON.stringify(lens));
-  }, [lens]);
 
   const query = useQuery({
     queryKey: ["finance-produtos"],
