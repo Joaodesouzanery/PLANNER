@@ -385,6 +385,29 @@ const FinanceTransactions = () => {
               <div><Label>Categoria</Label><CategorySelect value={form.category} onChange={(v) => setForm({ ...form, category: v })} allCategories={allCategories} type={form.type} className="rounded-xl" /></div>
               <div><Label>Data</Label><Input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} className="rounded-xl" /></div>
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Produto <span className="text-xs text-muted-foreground">(dimensão)</span></Label>
+                <Select value={form.produto_id || "none"} onValueChange={value => setForm({ ...form, produto_id: value === "none" ? "" : value })}>
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Sem produto" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem produto</SelectItem>
+                    {activeProdutos.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Escopo</Label>
+                <Select value={form.escopo || "none"} onValueChange={value => setForm({ ...form, escopo: value === "none" ? "" : value })}>
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Não definido" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Não definido</SelectItem>
+                    <SelectItem value="pf">PF (pessoal)</SelectItem>
+                    <SelectItem value="pj">PJ (empresa)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             {form.type === "income" && (
               <div>
                 <Label>Cliente <span className="text-xs text-muted-foreground">(de quem entra a receita)</span></Label>
