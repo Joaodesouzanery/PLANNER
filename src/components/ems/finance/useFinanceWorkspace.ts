@@ -294,15 +294,15 @@ export const useFinanceWorkspace = () => {
   // Escopado pela empresa selecionada. Em "consolidated" usa allEvents/dashboardTransactions
   // crus (modo TODAS = comportamento idêntico ao anterior, zero regressão); no modo EMPRESA
   // usa os eventos e realizados já filtrados p/ a entidade → CFO/DRE/KPI/saldo respeitam a empresa.
-  const scopedDashboardTransactions = useMemo(
-    () => scope === "consolidated" ? finance.dashboardTransactions : finance.dashboardTransactions.filter(txInScope),
-    [scope, finance.dashboardTransactions, txInScope],
-  );
+  const scopedDashboardTransactions = useMemo(() => {
+    const base = scope === "consolidated" ? finance.dashboardTransactions : finance.dashboardTransactions.filter(txInScope);
+    return lensOpen ? base : base.filter((row: Transaction) => matchLens(row, lens));
+  }, [scope, finance.dashboardTransactions, txInScope, lensOpen, lens]);
   const canonicalRows = useMemo(
     () => scope === "consolidated"
-      ? buildPeriodSource(finance.dashboardTransactions, allEvents)
+      ? buildPeriodSource(scopedDashboardTransactions, lensedEvents)
       : buildPeriodSource(scopedDashboardTransactions, filteredEvents),
-    [scope, finance.dashboardTransactions, allEvents, scopedDashboardTransactions, filteredEvents],
+    [scope, lensedEvents, scopedDashboardTransactions, filteredEvents],
   );
   const saldoRealHojeVal = useMemo(() => saldoRealHoje(canonicalRows, todayIso()), [canonicalRows]);
   const canonical = useMemo(() => ({
