@@ -53,6 +53,7 @@ const emptyForm = () => ({
 const FinanceTransactions = () => {
   const { rawTransactions, allCategories, saveTransactionMutation, deleteTransactionMutation, reconcileTransactionMutation, selectedAccounts, accounts, canonical, txInScope } = useFinanceWorkspace();
   const { clientes, saveCliente } = useClientes();
+  const { activeProdutos } = useFinanceLens();
   const confirm = useConfirm();
   const [newClient, setNewClient] = useState("");
   const [showModal, setShowModal] = useState(false);
