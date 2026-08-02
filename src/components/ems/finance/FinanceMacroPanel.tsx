@@ -28,10 +28,20 @@ export const FinanceMacroPanel = () => {
     };
   }, [canonical]);
 
-  const cards = [
+  type MacroCard = {
+    key: string;
+    label: string;
+    value: number;
+    icon: typeof Wallet;
+    hint: string;
+    tone?: "pos" | "neg";
+    signed?: boolean;
+  };
+
+  const cards: MacroCard[] = [
     { key: "saldo", label: "Saldo real hoje", value: macro.saldo, icon: Wallet, hint: "Só o que já aconteceu" },
-    { key: "in", label: "Entradas do mês", value: macro.entradas, icon: ArrowUpRight, hint: "Realizado + previsto", tone: "pos" as const },
-    { key: "out", label: "Saídas do mês", value: macro.saidas, icon: ArrowDownRight, hint: "Realizado + previsto", tone: "neg" as const },
+    { key: "in", label: "Entradas do mês", value: macro.entradas, icon: ArrowUpRight, hint: "Realizado + previsto", tone: "pos" },
+    { key: "out", label: "Saídas do mês", value: macro.saidas, icon: ArrowDownRight, hint: "Realizado + previsto", tone: "neg" },
     { key: "res", label: "Resultado do mês", value: macro.resultado, icon: Scale, hint: "Entradas − saídas", signed: true },
     { key: "min", label: "Menor saldo (90d)", value: macro.menorSaldo, icon: TrendingDown, hint: macro.menorSaldoDate ? `em ${macro.menorSaldoDate.split("-").reverse().slice(0, 2).join("/")}` : "", signed: true },
   ];
