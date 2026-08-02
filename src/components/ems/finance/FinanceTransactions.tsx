@@ -21,6 +21,7 @@ import { useConfirm } from "@/hooks/useConfirm";
 import { exportTablePdf, captureChart, type PdfImage } from "@/lib/exportPdf";
 import { FinanceReportCharts, type ReportChartRefs } from "./FinanceReportCharts";
 import { toast } from "sonner";
+import { useFinanceLens } from "./useFinanceLens";
 
 const WIDE_FROM = "2000-01-01";
 const WIDE_TO = "2100-12-31";
