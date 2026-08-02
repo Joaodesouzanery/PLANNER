@@ -52,6 +52,9 @@ const recurringFutureEvents = (transaction: Transaction, entityId: string | null
       sourceType: "transaction",
       sourceId: transaction.id,
       status: "planned",
+      produtoId: transaction.produto_id ?? null,
+      clienteId: transaction.cliente_id ?? null,
+      escopo: transaction.escopo ?? null,
     });
     cursor = advance(cursor);
     index += 1;
