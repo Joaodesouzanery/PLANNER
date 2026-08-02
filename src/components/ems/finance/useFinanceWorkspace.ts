@@ -10,6 +10,8 @@ import type { FinanceAccount, FinanceCardInvoice, FinanceEntity, FinanceTransfer
 import { useFinanceData, assertUuid, buildPeriodSource, type PlanItem, type Transaction } from "./useFinanceData";
 import { canonicalTotals, curvaDiaria, menorSaldo, saldoAbertura, saldoRealHoje } from "./financeCanonical";
 import { useFinanceSettings } from "./useFinanceSettings";
+import { useFinanceLens } from "./useFinanceLens";
+import { isLensOpen, matchLens } from "./financeLens";
 
 const SCOPE_KEY = "ems-finance-scope";
 const todayIso = () => format(new Date(), "yyyy-MM-dd");
