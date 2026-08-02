@@ -549,8 +549,9 @@ export const useFinanceWorkspace = () => {
   return {
     ...finance,
     scope, setScope, txInScope, entities, accounts, selectedEntity, selectedAccounts, cardAccounts, accountBalances,
-    transfers, invoices, allEvents, filteredEvents, openingBalance, forecast90, monthlyForecast, contracts,
+    transfers, invoices, allEvents, lensedEvents, filteredEvents, openingBalance, forecast90, monthlyForecast, contracts,
     canonical, expectedMonthly, upcomingPayables, reserveBalance, entitiesLoading, entitiesError,
+    lens, setLens, lensOpen, produtos, activeProdutos,
     saveAccountMutation, saveTransferMutation, saveInvoiceMutation, payInvoiceMutation,
     reconcileTransactionMutation, importCsvMutation, addInstallmentToFlowMutation, materializeReceived,
   };
