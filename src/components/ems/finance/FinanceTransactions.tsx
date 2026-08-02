@@ -47,6 +47,7 @@ const emptyForm = () => ({
   description: "", amount: 0, type: "expense" as "income" | "expense", category: "",
   date: todayIso(), due_date: todayIso(), status: "confirmed", finance_account_id: "",
   is_recurring: false, recurrence_interval: "", recurrence_end_date: "", paid: false, cliente_id: "",
+  produto_id: "", escopo: "",
 });
 
 const FinanceTransactions = () => {
