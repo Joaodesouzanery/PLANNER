@@ -230,7 +230,7 @@ const FinanceDashboard = () => {
         <EstrategiaCfoStrip />
         <FinanceCockpitStrip />
         <FinanceCfoPanel />
-        <FinanceAlertsFeed />
+        
         <Card className="border border-border/50 bg-card/80">
           <CardContent className="p-3 flex flex-wrap items-center gap-3">
             <DollarSign className="h-4 w-4 text-primary" />
