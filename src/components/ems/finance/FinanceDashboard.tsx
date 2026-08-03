@@ -22,7 +22,7 @@ import { FinanceDre } from "./FinanceDre";
 import { FinanceKpis } from "./FinanceKpis";
 import { FinanceCockpitStrip } from "./FinanceCockpitStrip";
 import { FinanceCfoPanel } from "./FinanceCfoPanel";
-import { FinanceAlertsFeed } from "./FinanceAlertsFeed";
+
 import { FinanceClientsCard } from "./FinanceClientsCard";
 import { FinanceBudgetCard } from "./FinanceBudgetCard";
 import { FinanceProLaborePanel } from "./FinanceProLaborePanel";
