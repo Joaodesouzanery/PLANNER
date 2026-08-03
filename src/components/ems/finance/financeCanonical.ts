@@ -45,9 +45,14 @@ export const canonicalTotals = (rows: PeriodRow[], from: string, to: string): Ca
   };
 };
 
-/** Saldo de abertura do mês = acumulado do que JÁ ACONTECEU (realizado) antes de `monthStart`. */
+/**
+ * Saldo de abertura do mês = caixa acumulado do que REALMENTE moveu (pago/recebido) antes de
+ * `monthStart`. Lançamentos vencidos e não quitados NÃO entram no caixa — eles continuam
+ * aparecendo como "a receber vencido" / "a pagar".
+ */
 export const saldoAbertura = (rows: PeriodRow[], monthStart: string): number =>
-  rows.reduce((a, r) => (r.realized && r.date < monthStart ? a + (r.type === "income" ? r.amount : -r.amount) : a), 0);
+  rows.reduce((a, r) => (r.paid && r.date < monthStart ? a + (r.type === "income" ? r.amount : -r.amount) : a), 0);
+
 
 /**
  * Saldo real hoje = o número que TODAS as abas exibem como "saldo disponível".
