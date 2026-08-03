@@ -1,0 +1,2 @@
+ALTER TABLE public.commercial_prospects ADD COLUMN IF NOT EXISTS job_fingerprint text;
+CREATE INDEX IF NOT EXISTS commercial_prospects_job_fingerprint_idx ON public.commercial_prospects (job_fingerprint);

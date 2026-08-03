@@ -1126,6 +1126,7 @@ export type Database = {
           extracted_tasks: Json
           id: string
           job_about: string | null
+          job_fingerprint: string | null
           job_title: string | null
           linkedin_job_url: string | null
           location: string | null
@@ -1145,6 +1146,7 @@ export type Database = {
           extracted_tasks?: Json
           id?: string
           job_about?: string | null
+          job_fingerprint?: string | null
           job_title?: string | null
           linkedin_job_url?: string | null
           location?: string | null
@@ -1164,6 +1166,7 @@ export type Database = {
           extracted_tasks?: Json
           id?: string
           job_about?: string | null
+          job_fingerprint?: string | null
           job_title?: string | null
           linkedin_job_url?: string | null
           location?: string | null

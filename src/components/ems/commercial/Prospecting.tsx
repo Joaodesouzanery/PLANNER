@@ -1150,6 +1150,33 @@ export const Prospecting = () => {
   const meetingCount = prospects.filter((prospect) => prospect.status === "meeting").length;
   const contactedCount = prospects.filter((prospect) => ["contacted", "meeting", "won"].includes(prospect.status)).length;
 
+  /** Exporta todas as empresas/vagas com o que a vaga pede (tarefas extraídas) em CSV. */
+  const exportProspectsCsv = () => {
+    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""').replace(/\s*\n\s*/g, " ")}"`;
+    const header = ["Empresa", "Local", "Vaga", "Status", "Prioridade", "O que a vaga pede", "Link", "Descrição"];
+    const lines = prospects.map((p) => {
+      const tasks = p.extracted_tasks?.length ? p.extracted_tasks : extractTasks(p.job_about || "");
+      return [
+        p.company_name,
+        p.location,
+        p.job_title,
+        p.status,
+        p.priority,
+        tasks.join(" | "),
+        p.linkedin_job_url,
+        p.job_about,
+      ].map(esc).join(";");
+    });
+    const csv = `\uFEFF${[header.join(";"), ...lines].join("\n")}`;
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `prospeccao-vagas-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
@@ -1162,10 +1189,17 @@ export const Prospecting = () => {
             Empresas para abordar, leitura de vagas do LinkedIn e diagnostico operacional preliminar.
           </p>
         </div>
-        <Button className="gap-2 rounded-xl shadow-lg shadow-primary/20" onClick={openCreate}>
-          <Plus className="h-4 w-4" />
-          Adicionar empresa
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" className="gap-2 rounded-xl" onClick={exportProspectsCsv} disabled={!prospects.length}>
+            <FileSearch className="h-4 w-4" />
+            Exportar vagas (CSV)
+          </Button>
+          <Button className="gap-2 rounded-xl shadow-lg shadow-primary/20" onClick={openCreate}>
+            <Plus className="h-4 w-4" />
+            Adicionar empresa
+          </Button>
+        </div>
+
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

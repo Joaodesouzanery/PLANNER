@@ -22,7 +22,7 @@ import { FinanceDre } from "./FinanceDre";
 import { FinanceKpis } from "./FinanceKpis";
 import { FinanceCockpitStrip } from "./FinanceCockpitStrip";
 import { FinanceCfoPanel } from "./FinanceCfoPanel";
-import { FinanceAlertsFeed } from "./FinanceAlertsFeed";
+
 import { FinanceClientsCard } from "./FinanceClientsCard";
 import { FinanceBudgetCard } from "./FinanceBudgetCard";
 import { FinanceProLaborePanel } from "./FinanceProLaborePanel";
@@ -80,11 +80,9 @@ const FinanceDashboard = () => {
   const previstoExpense = useMemo(() => filtered.filter(t => t.type === "expense").reduce((a, t) => a + t.amount, 0), [filtered]);
   const realIncome = useMemo(() => filtered.filter(t => t.type === "income" && t.paid).reduce((a, t) => a + t.amount, 0), [filtered]);
   const realExpense = useMemo(() => filtered.filter(t => t.type === "expense" && t.paid).reduce((a, t) => a + t.amount, 0), [filtered]);
-  // Saldo inicial = acumulado do que JÁ ACONTECEU antes do mês (o que sobrou; conta Lançado + Recebido).
-  const saldoInicial = useMemo(
-    () => periodSource.filter(t => t.realized && t.date < from).reduce((a, t) => a + (t.type === "income" ? t.amount : -t.amount), 0),
-    [periodSource, from],
-  );
+  // Saldo inicial = caixa acumulado antes do período (só o que foi pago/recebido — mesma regra do canônico).
+  const saldoInicial = useMemo(() => canonical.saldoAbertura(from), [canonical, from]);
+
   const saldoRealHoje = saldoInicial + realIncome - realExpense;
   const disponivelPrevisto = saldoInicial + previstoIncome;              // inicial + entradas previstas (sem tirar saídas)
   const saldoProjetadoFim = saldoInicial + previstoIncome - previstoExpense;
@@ -230,7 +228,7 @@ const FinanceDashboard = () => {
         <EstrategiaCfoStrip />
         <FinanceCockpitStrip />
         <FinanceCfoPanel />
-        <FinanceAlertsFeed />
+        
         <Card className="border border-border/50 bg-card/80">
           <CardContent className="p-3 flex flex-wrap items-center gap-3">
             <DollarSign className="h-4 w-4 text-primary" />
