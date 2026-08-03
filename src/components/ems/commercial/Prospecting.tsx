@@ -1162,10 +1162,17 @@ export const Prospecting = () => {
             Empresas para abordar, leitura de vagas do LinkedIn e diagnostico operacional preliminar.
           </p>
         </div>
-        <Button className="gap-2 rounded-xl shadow-lg shadow-primary/20" onClick={openCreate}>
-          <Plus className="h-4 w-4" />
-          Adicionar empresa
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" className="gap-2 rounded-xl" onClick={exportProspectsCsv} disabled={!prospects.length}>
+            <FileSearch className="h-4 w-4" />
+            Exportar vagas (CSV)
+          </Button>
+          <Button className="gap-2 rounded-xl shadow-lg shadow-primary/20" onClick={openCreate}>
+            <Plus className="h-4 w-4" />
+            Adicionar empresa
+          </Button>
+        </div>
+
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
