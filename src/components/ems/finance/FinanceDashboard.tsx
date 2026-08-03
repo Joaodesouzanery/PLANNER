@@ -80,11 +80,9 @@ const FinanceDashboard = () => {
   const previstoExpense = useMemo(() => filtered.filter(t => t.type === "expense").reduce((a, t) => a + t.amount, 0), [filtered]);
   const realIncome = useMemo(() => filtered.filter(t => t.type === "income" && t.paid).reduce((a, t) => a + t.amount, 0), [filtered]);
   const realExpense = useMemo(() => filtered.filter(t => t.type === "expense" && t.paid).reduce((a, t) => a + t.amount, 0), [filtered]);
-  // Saldo inicial = acumulado do que JÁ ACONTECEU antes do mês (o que sobrou; conta Lançado + Recebido).
-  const saldoInicial = useMemo(
-    () => periodSource.filter(t => t.realized && t.date < from).reduce((a, t) => a + (t.type === "income" ? t.amount : -t.amount), 0),
-    [periodSource, from],
-  );
+  // Saldo inicial = caixa acumulado antes do período (só o que foi pago/recebido — mesma regra do canônico).
+  const saldoInicial = useMemo(() => canonical.saldoAbertura(from), [canonical, from]);
+
   const saldoRealHoje = saldoInicial + realIncome - realExpense;
   const disponivelPrevisto = saldoInicial + previstoIncome;              // inicial + entradas previstas (sem tirar saídas)
   const saldoProjetadoFim = saldoInicial + previstoIncome - previstoExpense;
