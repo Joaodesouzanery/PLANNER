@@ -6,12 +6,14 @@
 export type EstrTipo = "financeira" | "operacional";
 export type Semaforo = "verde" | "amarelo" | "vermelho";
 
-// Valores financeiros canônicos, INJETADOS (não recalculados aqui) — a fonte é o useFinanceWorkspace.
+// Valores canônicos INJETADOS (não recalculados aqui). Os 4 financeiros vêm do useFinanceWorkspace;
+// `extras` traz as métricas dos demais módulos (projetos, tarefas, CRM, oportunidades, tempo...).
 export interface FinMetrics {
   mrr: number;
   reserva: number;
   patrimonio: number;
   sobra: number;
+  extras?: Record<string, number>;
 }
 
 export interface AcaoLite {
@@ -50,20 +52,32 @@ export interface Progress {
 export const semaforoOf = (pct: number): Semaforo =>
   pct >= 0.7 ? "verde" : pct >= 0.4 ? "amarelo" : "vermelho";
 
-// Resolve uma métrica financeira nomeada para o valor real canônico. Retorna null se não reconhecida.
+/** Normaliza o nome de uma métrica (sem acento, minúsculo, espaços/hífens → "_"). */
+export const normalizeMetric = (m: string | null | undefined) =>
+  (m || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\s-]+/g, "_");
+
+// Resolve uma métrica nomeada para o valor real canônico: primeiro os 4 financeiros,
+// depois qualquer métrica dos outros módulos (extras). Retorna null se não reconhecida.
 export const metricValue = (metrica: string | null | undefined, fin: FinMetrics): number | null => {
-  switch ((metrica || "").trim().toLowerCase()) {
+  const key = normalizeMetric(metrica);
+  switch (key) {
     case "mrr":
       return fin.mrr;
     case "reserva":
       return fin.reserva;
     case "patrimonio":
-    case "patrimônio":
       return fin.patrimonio;
     case "sobra":
       return fin.sobra;
-    default:
-      return null;
+    default: {
+      const v = fin.extras?.[key];
+      return typeof v === "number" && Number.isFinite(v) ? v : null;
+    }
   }
 };
 

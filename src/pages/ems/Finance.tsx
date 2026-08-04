@@ -1,10 +1,11 @@
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
-import { Activity, BarChart3, Calculator, CalendarDays, DollarSign, GitCompare, Landmark, Plane, PiggyBank, ShieldAlert, ShoppingCart, Table2, Target, TrendingUp, Wallet } from "lucide-react";
+import { Activity, BarChart3, Calculator, CalendarDays, DollarSign, GitCompare, Landmark, Plane, PiggyBank, ShieldAlert, ScrollText, ShoppingCart, Table2, Target, TrendingUp, Wallet } from "lucide-react";
 import FinanceDashboard from "@/components/ems/finance/FinanceDashboard";
 import FinanceOKRs from "@/components/ems/finance/FinanceOKRs";
 import FinanceTransactions from "@/components/ems/finance/FinanceTransactions";
+import FinanceAudit from "@/components/ems/finance/FinanceAudit";
 import FinanceMonthlyPlanning from "@/components/ems/finance/FinanceMonthlyPlanning";
 import FinanceProjections from "@/components/ems/finance/FinanceProjections";
 import FinanceCalculator from "@/components/ems/finance/FinanceCalculator";
@@ -64,8 +65,17 @@ const Finance = () => {
           {/* 1. Visão Geral (Dashboard + Painel CFO já embutido) */}
           <TabsContent value="overview"><FinanceDashboard /></TabsContent>
 
-          {/* 2. Transações — a fonte da verdade */}
-          <TabsContent value="transactions"><FinanceTransactions /></TabsContent>
+          {/* 2. Transações — a fonte da verdade (+ auditoria de origem/duplicidades) */}
+          <TabsContent value="transactions">
+            <Tabs defaultValue="lancamentos" className="space-y-4">
+              <TabsList className="bg-muted/40 rounded-lg p-1 h-auto flex-wrap">
+                <TabsTrigger value="lancamentos" className={innerTab}><Wallet className="h-3.5 w-3.5" />Lançamentos</TabsTrigger>
+                <TabsTrigger value="auditoria" className={innerTab}><ScrollText className="h-3.5 w-3.5" />Auditoria</TabsTrigger>
+              </TabsList>
+              <TabsContent value="lancamentos"><FinanceTransactions /></TabsContent>
+              <TabsContent value="auditoria"><FinanceAudit /></TabsContent>
+            </Tabs>
+          </TabsContent>
 
           {/* 3. Futuro & Cenários */}
           <TabsContent value="future">

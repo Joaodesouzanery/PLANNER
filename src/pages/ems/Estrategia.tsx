@@ -1,8 +1,9 @@
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Compass, Sparkles, CalendarClock, Building2, SlidersHorizontal, Database } from "lucide-react";
+import { Compass, Gauge, Sparkles, CalendarClock, Building2, SlidersHorizontal, Database } from "lucide-react";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import EstrategiaCockpit from "@/components/ems/estrategia/EstrategiaCockpit";
 import EstrategiaCascade from "@/components/ems/estrategia/EstrategiaCascade";
 import EstrategiaCiclos from "@/components/ems/estrategia/EstrategiaCiclos";
 import EstrategiaEmpresa from "@/components/ems/estrategia/EstrategiaEmpresa";
@@ -16,9 +17,9 @@ const trig = "rounded-lg gap-1.5 data-[state=active]:bg-primary/15 data-[state=a
 
 const Estrategia = () => {
   const [params, setParams] = useSearchParams();
-  const tab = params.get("tab") || "cascata";
+  const tab = params.get("tab") || "cockpit";
   const setTab = (v: string) =>
-    setParams((p) => { const n = new URLSearchParams(p); if (v === "cascata") n.delete("tab"); else n.set("tab", v); return n; }, { replace: true });
+    setParams((p) => { const n = new URLSearchParams(p); if (v === "cockpit") n.delete("tab"); else n.set("tab", v); return n; }, { replace: true });
 
   return (
     <EMSLayout>
@@ -33,12 +34,14 @@ const Estrategia = () => {
 
         <Tabs value={tab} onValueChange={setTab} className="space-y-4">
           <TabsList className="bg-card/80 border border-border/50 rounded-xl">
+            <TabsTrigger value="cockpit" className={trig}><Gauge className="h-4 w-4" />Cockpit</TabsTrigger>
             <TabsTrigger value="cascata" className={trig}><Sparkles className="h-4 w-4" />Cascata</TabsTrigger>
             <TabsTrigger value="ciclos" className={trig}><CalendarClock className="h-4 w-4" />Ciclos</TabsTrigger>
             <TabsTrigger value="empresa" className={trig}><Building2 className="h-4 w-4" />Empresa</TabsTrigger>
             <TabsTrigger value="config" className={trig}><SlidersHorizontal className="h-4 w-4" />Config</TabsTrigger>
             <TabsTrigger value="preenchimento" className={trig}><Database className="h-4 w-4" />Preenchimento</TabsTrigger>
           </TabsList>
+          <TabsContent value="cockpit" className="mt-0"><EstrategiaCockpit /></TabsContent>
           <TabsContent value="cascata" className="mt-0"><EstrategiaCascade /></TabsContent>
           <TabsContent value="ciclos" className="mt-0"><EstrategiaCiclos /></TabsContent>
           <TabsContent value="empresa" className="mt-0"><EstrategiaEmpresa /></TabsContent>

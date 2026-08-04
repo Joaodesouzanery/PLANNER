@@ -16,10 +16,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { fmtCurrency } from "@/components/ems/finance/useFinanceData";
 import { goalViability } from "@/components/ems/finance/financeGoalViability";
 import { useEstrategia, type VisaoNode, type ObjetivoNode, type KrNode, type Acao, type AcaoStatus } from "./useEstrategia";
-import { useFinMetrics } from "./useFinMetrics";
+import { useEstrategiaSignals } from "./useEstrategiaSignals";
 import {
   visaoProgress, objetivoProgress, krProgress, metricValue,
-  type Semaforo, type EstrTipo, type Progress,
+  type Semaforo, type EstrTipo, type Progress, type FinMetrics,
 } from "./estrategiaProgress";
 
 const todayIso = () => format(new Date(), "yyyy-MM-dd");
@@ -114,7 +114,7 @@ const AcaoRow = ({ acao, ops, onEdit, onDelete }: {
 // ── Componente principal ────────────────────────────────────────────────────────────────────
 export const EstrategiaCascade = () => {
   const est = useEstrategia();
-  const fin = useFinMetrics();
+  const fin = useEstrategiaSignals().fin;
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [editing, setEditing] = useState<EditState | null>(null);
 
@@ -169,7 +169,7 @@ export const EstrategiaCascade = () => {
 
 // ── Cartão da Visão ─────────────────────────────────────────────────────────────────────────
 const VisaoCard = ({ visao, fin, expanded, toggle, onAdd, onEdit, onDelete, acaoOps }: {
-  visao: VisaoNode; fin: ReturnType<typeof useFinMetrics>;
+  visao: VisaoNode; fin: FinMetrics;
   expanded: Set<string>; toggle: (id: string) => void;
   onAdd: (e: EditState) => void; onEdit: (e: EditState) => void; onDelete: (k: EditKind, id: string) => void;
   acaoOps: AcaoOps;
@@ -216,7 +216,7 @@ const VisaoCard = ({ visao, fin, expanded, toggle, onAdd, onEdit, onDelete, acao
 
 // ── Objetivo ────────────────────────────────────────────────────────────────────────────────
 const ObjetivoCard = ({ obj, fin, expanded, toggle, onAdd, onEdit, onDelete, acaoOps }: {
-  obj: ObjetivoNode; fin: ReturnType<typeof useFinMetrics>;
+  obj: ObjetivoNode; fin: FinMetrics;
   expanded: Set<string>; toggle: (id: string) => void;
   onAdd: (e: EditState) => void; onEdit: (e: EditState) => void; onDelete: (k: EditKind, id: string) => void;
   acaoOps: AcaoOps;
@@ -260,7 +260,7 @@ const ObjetivoCard = ({ obj, fin, expanded, toggle, onAdd, onEdit, onDelete, aca
 
 // ── KR ──────────────────────────────────────────────────────────────────────────────────────
 const KrCard = ({ kr, fin, expanded, toggle, onAdd, onEdit, onDelete, acaoOps }: {
-  kr: KrNode; fin: ReturnType<typeof useFinMetrics>;
+  kr: KrNode; fin: FinMetrics;
   expanded: Set<string>; toggle: (id: string) => void;
   onAdd: (e: EditState) => void; onEdit: (e: EditState) => void; onDelete: (k: EditKind, id: string) => void;
   acaoOps: AcaoOps;
