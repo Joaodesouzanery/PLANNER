@@ -6,12 +6,14 @@
 export type EstrTipo = "financeira" | "operacional";
 export type Semaforo = "verde" | "amarelo" | "vermelho";
 
-// Valores financeiros canônicos, INJETADOS (não recalculados aqui) — a fonte é o useFinanceWorkspace.
+// Valores canônicos INJETADOS (não recalculados aqui). Os 4 financeiros vêm do useFinanceWorkspace;
+// `extras` traz as métricas dos demais módulos (projetos, tarefas, CRM, oportunidades, tempo...).
 export interface FinMetrics {
   mrr: number;
   reserva: number;
   patrimonio: number;
   sobra: number;
+  extras?: Record<string, number>;
 }
 
 export interface AcaoLite {
