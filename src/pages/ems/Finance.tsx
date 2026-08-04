@@ -1,10 +1,11 @@
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
-import { Activity, BarChart3, Calculator, CalendarDays, DollarSign, GitCompare, Landmark, Plane, PiggyBank, ShieldAlert, ShoppingCart, Table2, Target, TrendingUp, Wallet } from "lucide-react";
+import { Activity, BarChart3, Calculator, CalendarDays, DollarSign, GitCompare, Landmark, Plane, PiggyBank, ShieldAlert, ScrollText, ShoppingCart, Table2, Target, TrendingUp, Wallet } from "lucide-react";
 import FinanceDashboard from "@/components/ems/finance/FinanceDashboard";
 import FinanceOKRs from "@/components/ems/finance/FinanceOKRs";
 import FinanceTransactions from "@/components/ems/finance/FinanceTransactions";
+import FinanceAudit from "@/components/ems/finance/FinanceAudit";
 import FinanceMonthlyPlanning from "@/components/ems/finance/FinanceMonthlyPlanning";
 import FinanceProjections from "@/components/ems/finance/FinanceProjections";
 import FinanceCalculator from "@/components/ems/finance/FinanceCalculator";
