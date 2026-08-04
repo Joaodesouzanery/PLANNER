@@ -64,8 +64,17 @@ const Finance = () => {
           {/* 1. Visão Geral (Dashboard + Painel CFO já embutido) */}
           <TabsContent value="overview"><FinanceDashboard /></TabsContent>
 
-          {/* 2. Transações — a fonte da verdade */}
-          <TabsContent value="transactions"><FinanceTransactions /></TabsContent>
+          {/* 2. Transações — a fonte da verdade (+ auditoria de origem/duplicidades) */}
+          <TabsContent value="transactions">
+            <Tabs defaultValue="lancamentos" className="space-y-4">
+              <TabsList className="bg-muted/40 rounded-lg p-1 h-auto flex-wrap">
+                <TabsTrigger value="lancamentos" className={innerTab}><Wallet className="h-3.5 w-3.5" />Lançamentos</TabsTrigger>
+                <TabsTrigger value="auditoria" className={innerTab}><ScrollText className="h-3.5 w-3.5" />Auditoria</TabsTrigger>
+              </TabsList>
+              <TabsContent value="lancamentos"><FinanceTransactions /></TabsContent>
+              <TabsContent value="auditoria"><FinanceAudit /></TabsContent>
+            </Tabs>
+          </TabsContent>
 
           {/* 3. Futuro & Cenários */}
           <TabsContent value="future">
