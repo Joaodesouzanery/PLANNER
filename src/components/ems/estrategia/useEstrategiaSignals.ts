@@ -99,7 +99,7 @@ export const useEstrategiaSignals = (): EstrategiaSignals => {
       contatos: contatosTotal,
     };
 
-    const money = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+    const money = (v: number) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     return {
       fin: { ...fin, extras: metrics },
