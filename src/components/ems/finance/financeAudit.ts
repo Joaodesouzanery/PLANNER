@@ -125,7 +125,7 @@ export const buildAuditReport = (
       description: r.description || "(sem descrição)",
       category: r.category,
       origem: originLabel(r),
-      situacao: r.paid ? "Pago/Recebido" : r.date < today ? "Vencido" : "Previsto",
+      situacao: (r.paid ? "Pago/Recebido" : r.date < today ? "Vencido" : "Previsto") as AuditRow["situacao"],
       sourceId: r.sourceId,
       sourceType: r.sourceType,
     }))
