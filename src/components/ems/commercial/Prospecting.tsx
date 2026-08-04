@@ -41,6 +41,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useMapPins } from "@/hooks/useMapPins";
+import { validateProspectForm, friendlyDbError, filterProspects, buildExportRows, toCsv, toJson } from "./prospectExport";
 
 type ProspectStatus = "new" | "researching" | "contacted" | "meeting" | "won" | "lost";
 type ProspectPriority = "high" | "medium" | "low";
@@ -834,8 +835,14 @@ export const Prospecting = () => {
     });
   }, [sharedMapPins, mapLayers.contacts, mapLayers.projects, mapTaskFilter]);
 
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportCompany, setExportCompany] = useState("all");
+  const [exportStatus, setExportStatus] = useState("all");
+
   const saveProspectMutation = useMutation({
     mutationFn: async () => {
+      const problems = validateProspectForm(form);
+      if (problems.length) throw new Error(problems.join(" "));
       if (duplicateProspect) {
         throw new Error(`Vaga duplicada: ja existe um prospect para ${duplicateProspect.company_name}. Abra o registro existente para revisar.`);
       }
@@ -881,7 +888,7 @@ export const Prospecting = () => {
       toast({ title: editingProspect ? "Prospect atualizado!" : "Prospect criado!" });
     },
     onError: (error: any) => {
-      toast({ title: "Erro ao salvar prospect", description: error?.message, variant: "destructive" });
+      toast({ title: "Erro ao salvar prospect", description: friendlyDbError(error), variant: "destructive" });
     },
   });
 
@@ -1150,32 +1157,38 @@ export const Prospecting = () => {
   const meetingCount = prospects.filter((prospect) => prospect.status === "meeting").length;
   const contactedCount = prospects.filter((prospect) => ["contacted", "meeting", "won"].includes(prospect.status)).length;
 
-  /** Exporta todas as empresas/vagas com o que a vaga pede (tarefas extraídas) em CSV. */
-  const exportProspectsCsv = () => {
-    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""').replace(/\s*\n\s*/g, " ")}"`;
-    const header = ["Empresa", "Local", "Vaga", "Status", "Prioridade", "O que a vaga pede", "Link", "Descrição"];
-    const lines = prospects.map((p) => {
-      const tasks = p.extracted_tasks?.length ? p.extracted_tasks : extractTasks(p.job_about || "");
-      return [
-        p.company_name,
-        p.location,
-        p.job_title,
-        p.status,
-        p.priority,
-        tasks.join(" | "),
-        p.linkedin_job_url,
-        p.job_about,
-      ].map(esc).join(";");
-    });
-    const csv = `\uFEFF${[header.join(";"), ...lines].join("\n")}`;
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+  /** Export das vagas (CSV ou JSON) com filtros por empresa e status — mesma estrutura nos dois formatos. */
+  const exportCompanies = useMemo(
+    () => [...new Set(prospects.map((p) => p.company_name).filter(Boolean))].sort(),
+    [prospects],
+  );
+  const exportFilters = useMemo(
+    () => ({
+      companies: exportCompany === "all" ? [] : [exportCompany],
+      statuses: exportStatus === "all" ? [] : [exportStatus],
+    }),
+    [exportCompany, exportStatus],
+  );
+  const exportRows = useMemo(
+    () => buildExportRows(filterProspects(prospects, exportFilters), extractTasks),
+    [prospects, exportFilters],
+  );
+
+  const downloadExport = (format: "csv" | "json") => {
+    if (!exportRows.length) {
+      toast({ title: "Nada para exportar", description: "Nenhuma vaga bate com os filtros escolhidos.", variant: "destructive" });
+      return;
+    }
+    const content = format === "csv" ? toCsv(exportRows) : toJson(exportRows, exportFilters);
+    const mime = format === "csv" ? "text/csv;charset=utf-8;" : "application/json;charset=utf-8;";
+    const url = URL.createObjectURL(new Blob([content], { type: mime }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `prospeccao-vagas-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `prospeccao-vagas-${new Date().toISOString().slice(0, 10)}.${format}`;
     a.click();
     URL.revokeObjectURL(url);
+    toast({ title: `Export gerado (${format.toUpperCase()})`, description: `${exportRows.length} vaga(s) no arquivo.` });
   };
-
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
@@ -1190,9 +1203,9 @@ export const Prospecting = () => {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" className="gap-2 rounded-xl" onClick={exportProspectsCsv} disabled={!prospects.length}>
+          <Button variant="outline" className="gap-2 rounded-xl" onClick={() => setExportOpen(true)} disabled={!prospects.length}>
             <FileSearch className="h-4 w-4" />
-            Exportar vagas (CSV)
+            Exportar vagas
           </Button>
           <Button className="gap-2 rounded-xl shadow-lg shadow-primary/20" onClick={openCreate}>
             <Plus className="h-4 w-4" />
@@ -1201,6 +1214,39 @@ export const Prospecting = () => {
         </div>
 
       </div>
+
+      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Exportar vagas</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Empresa</p>
+              <Select value={exportCompany} onValueChange={setExportCompany}>
+                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as empresas</SelectItem>
+                  {exportCompanies.map((name) => <SelectItem key={name} value={name}>{name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Status</p>
+              <Select value={exportStatus} onValueChange={setExportStatus}>
+                <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os status</SelectItem>
+                  {Object.entries(statusConfig).map(([key, config]) => <SelectItem key={key} value={key}>{config.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">{exportRows.length} vaga(s) no recorte atual.</p>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" className="rounded-xl" onClick={() => downloadExport("csv")}>Baixar CSV</Button>
+            <Button className="rounded-xl" onClick={() => downloadExport("json")}>Baixar JSON (para IA)</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
