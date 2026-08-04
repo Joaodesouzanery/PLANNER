@@ -19,7 +19,7 @@ import { useEstrategia, type VisaoNode, type ObjetivoNode, type KrNode, type Aca
 import { useEstrategiaSignals } from "./useEstrategiaSignals";
 import {
   visaoProgress, objetivoProgress, krProgress, metricValue,
-  type Semaforo, type EstrTipo, type Progress,
+  type Semaforo, type EstrTipo, type Progress, type FinMetrics,
 } from "./estrategiaProgress";
 
 const todayIso = () => format(new Date(), "yyyy-MM-dd");
