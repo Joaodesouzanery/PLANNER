@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit2, Trash2, RefreshCw, Download, FileText, CheckCircle2, CalendarClock, CalendarPlus, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { Plus, Edit2, Trash2, RefreshCw, Download, FileText, CheckCircle2, CalendarClock, CalendarPlus, ChevronLeft, ChevronRight, RotateCcw, Layers } from "lucide-react";
+import FinanceCosts from "./FinanceCosts";
 import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -238,7 +239,9 @@ const FinanceTransactions = () => {
           <TabsList className="bg-card/80 border border-border/50 rounded-xl">
             <TabsTrigger value="lista" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Lista</TabsTrigger>
             <TabsTrigger value="mensal" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5"><CalendarClock className="h-3.5 w-3.5" />Mês a mês</TabsTrigger>
+            <TabsTrigger value="custos" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5"><Layers className="h-3.5 w-3.5" />Custos</TabsTrigger>
           </TabsList>
+
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" className="rounded-xl" onClick={exportCsv}><Download className="h-4 w-4 mr-1" />CSV</Button>
             <Button size="sm" variant="outline" className="rounded-xl" onClick={exportPdf}><FileText className="h-4 w-4 mr-1" />PDF</Button>
@@ -375,6 +378,10 @@ const FinanceTransactions = () => {
               </CardContent>
             </Card>
           ))}
+        </TabsContent>
+
+        <TabsContent value="custos" className="mt-0">
+          <FinanceCosts />
         </TabsContent>
       </Tabs>
 
