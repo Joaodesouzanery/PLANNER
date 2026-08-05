@@ -247,7 +247,7 @@ export const FinanceCosts = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div><Label>Categoria</Label><CategorySelect value={form.category} onChange={(v) => setForm({ ...form, category: v })} categories={allCategories} type="expense" /></div>
+              <div><Label>Categoria</Label><CategorySelect value={form.category} onChange={(v) => setForm({ ...form, category: v })} allCategories={allCategories} type="expense" /></div>
             </div>
             {selectedAccounts.length > 0 && (
               <div>
