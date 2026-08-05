@@ -3462,6 +3462,42 @@ export type Database = {
           },
         ]
       }
+      finance_cost_buckets: {
+        Row: {
+          color: string | null
+          company_id: string | null
+          created_at: string
+          id: string
+          kind: string
+          name: string
+          sort_order: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          color?: string | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       finance_dre_categories: {
         Row: {
           category: string
@@ -4244,6 +4280,7 @@ export type Database = {
           category: string | null
           cliente_id: string | null
           company_id: string | null
+          cost_bucket_id: string | null
           created_at: string
           date: string
           description: string
@@ -4273,6 +4310,7 @@ export type Database = {
           category?: string | null
           cliente_id?: string | null
           company_id?: string | null
+          cost_bucket_id?: string | null
           created_at?: string
           date?: string
           description: string
@@ -4302,6 +4340,7 @@ export type Database = {
           category?: string | null
           cliente_id?: string | null
           company_id?: string | null
+          cost_bucket_id?: string | null
           created_at?: string
           date?: string
           description?: string
@@ -4345,6 +4384,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_transactions_cost_bucket_id_fkey"
+            columns: ["cost_bucket_id"]
+            isOneToOne: false
+            referencedRelation: "finance_cost_buckets"
             referencedColumns: ["id"]
           },
           {
