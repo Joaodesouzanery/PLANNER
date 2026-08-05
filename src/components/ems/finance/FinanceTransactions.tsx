@@ -238,7 +238,9 @@ const FinanceTransactions = () => {
           <TabsList className="bg-card/80 border border-border/50 rounded-xl">
             <TabsTrigger value="lista" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Lista</TabsTrigger>
             <TabsTrigger value="mensal" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5"><CalendarClock className="h-3.5 w-3.5" />Mês a mês</TabsTrigger>
+            <TabsTrigger value="custos" className="rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5"><Layers className="h-3.5 w-3.5" />Custos</TabsTrigger>
           </TabsList>
+
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" className="rounded-xl" onClick={exportCsv}><Download className="h-4 w-4 mr-1" />CSV</Button>
             <Button size="sm" variant="outline" className="rounded-xl" onClick={exportPdf}><FileText className="h-4 w-4 mr-1" />PDF</Button>
