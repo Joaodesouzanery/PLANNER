@@ -9,7 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit2, Trash2, RefreshCw, Download, FileText, CheckCircle2, CalendarClock, CalendarPlus, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
+import { Plus, Edit2, Trash2, RefreshCw, Download, FileText, CheckCircle2, CalendarClock, CalendarPlus, ChevronLeft, ChevronRight, RotateCcw, Layers } from "lucide-react";
+import FinanceCosts from "./FinanceCosts";
 import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -377,6 +378,10 @@ const FinanceTransactions = () => {
               </CardContent>
             </Card>
           ))}
+        </TabsContent>
+
+        <TabsContent value="custos" className="mt-0">
+          <FinanceCosts />
         </TabsContent>
       </Tabs>
 
