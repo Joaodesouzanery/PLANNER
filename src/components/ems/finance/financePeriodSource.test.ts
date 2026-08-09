@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { buildPeriodSource, effectiveDate, isRealized, isSyntheticId } from "./financePeriodSource";
+import { buildPeriodSource, dedupeEquivalent, effectiveDate, entryKey, isRealized, isSyntheticId } from "./financePeriodSource";
+
 
 describe("financePeriodSource — helpers", () => {
   it("effectiveDate usa due_date quando houver", () => {
