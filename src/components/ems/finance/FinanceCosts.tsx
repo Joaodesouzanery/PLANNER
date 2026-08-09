@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ChevronLeft, ChevronRight, Edit2, Layers, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Edit2, Info, Layers, Plus, Search, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { fmtCurrency, type Transaction } from "./useFinanceData";
@@ -17,8 +17,11 @@ import { useFinanceWorkspace } from "./useFinanceWorkspace";
 import { useCostBuckets } from "./useCostBuckets";
 import { CategorySelect } from "./CategorySelect";
 import { useConfirm } from "@/hooks/useConfirm";
-import { buildCostMonth, shiftMonth, type CostTx } from "./financeCosts";
+import { buildCostMonth, shiftMonth, type CostOccurrence, type CostTx } from "./financeCosts";
+import { buildAuditReport } from "./financeAudit";
+import { buildCostExport, costExportToCsv, costExportToJson, originLabelForCost } from "./financeCostsExport";
 import FinanceDuplicateAlert from "./FinanceDuplicateAlert";
+
 
 const KINDS = [
   { value: "fixo", label: "Fixo" },
