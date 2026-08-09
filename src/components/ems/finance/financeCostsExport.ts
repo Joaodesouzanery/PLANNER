@@ -47,8 +47,10 @@ export const buildCostExport = (
   const custos: CostExportRow[] = [];
   for (const g of report.groups) {
     for (const occ of g.items) {
-      const c = occ.cost as CostExportRow extends never ? never : typeof occ.cost & {
-        escopo?: string | null; produto_id?: string | null; cliente_id?: string | null;
+      const c = occ.cost as typeof occ.cost & {
+        escopo?: string | null;
+        produto_id?: string | null;
+        cliente_id?: string | null;
       };
       custos.push({
         mes: report.month,
