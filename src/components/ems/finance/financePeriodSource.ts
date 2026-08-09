@@ -63,5 +63,42 @@ export const buildPeriodSource = (dashboardTransactions: any[], allEvents: any[]
     const existing = merged.get(key);
     if (!existing || score(row) > score(existing)) merged.set(key, row);
   }
-  return [...standalone, ...merged.values()];
+  return dedupeEquivalent([...standalone, ...merged.values()]);
 };
+
+/**
+ * Chave semântica de um lançamento: descrição normalizada (sem acento, sem "(2/10)",
+ * sem pontuação e com as palavras ordenadas) + tipo + data + valor.
+ * "Macbook" e "Macbook (2/10)" de 800 no mesmo dia geram a MESMA chave.
+ */
+export const entryKey = (r: Pick<PeriodRow, "description" | "type" | "date" | "amount">): string => {
+  const desc = String(r.description || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\(\s*\d+\s*\/\s*\d+\s*\)/g, " ")
+    .replace(/\b\d+\s*\/\s*\d+\b/g, " ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .sort()
+    .join(" ");
+  return `${desc}|${r.type}|${r.date}|${r.amount.toFixed(2)}`;
+};
+
+/**
+ * Rede de segurança contra dupla contagem: dois registros DIFERENTES que representam
+ * o mesmo pagamento (mesma descrição, mesmo dia, mesmo valor e mesmo tipo) contam 1×.
+ * Mantém o de maior score (pago > realizado > não-sintético).
+ */
+export const dedupeEquivalent = (rows: PeriodRow[]): PeriodRow[] => {
+  const score = (r: PeriodRow) => (r.paid ? 4 : 0) + (r.realized ? 2 : 0) + (r.synthetic ? 0 : 1);
+  const byKey = new Map<string, PeriodRow>();
+  for (const row of rows) {
+    const key = entryKey(row);
+    const existing = byKey.get(key);
+    if (!existing || score(row) > score(existing)) byKey.set(key, row);
+  }
+  return [...byKey.values()];
+};
+
