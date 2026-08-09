@@ -171,12 +171,13 @@ export const FinanceCosts = () => {
       saveTransactionMutation.mutate({ form: { status: "confirmed", settled_at: null }, editingId: occ.txId });
       return;
     }
-    if (occ.txId) { reconcileTransactionMutation.mutate(occ.txId); return; }
+    if (occ.txId) { reconcileTransactionMutation.mutate(occ.txId); setDetail({ occ }); return; }
     materializeReceived.mutate({
       sourceId: occ.cost.id, date: occ.due, amount: occ.amount, kind: "expense",
       description: occ.cost.description, category: occ.cost.category || null,
       accountId: (occ.cost as any).finance_account_id || null,
     });
+    setDetail({ occ });
   };
 
   return (
@@ -313,6 +314,7 @@ export const FinanceCosts = () => {
                     </p>
                   </div>
                   <span className="text-sm font-medium">{fmtCurrency(occ.amount)}</span>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" title="Detalhamento de origem" onClick={() => setDetail({ occ, bucket: g.bucket?.name })}><Info className="h-3.5 w-3.5" /></Button>
                   <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(occ.cost as unknown as Transaction)}><Edit2 className="h-3.5 w-3.5" /></Button>
                   <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={async () => {
                     if (await confirm({ title: "Excluir custo?", description: `${occ.cost.description} · ${fmtCurrency(occ.amount)}`, destructive: true, confirmText: "Excluir" }))
@@ -407,8 +409,39 @@ export const FinanceCosts = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Detalhamento de origem do custo no mês */}
+      <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Origem de {detail?.occ.cost.description}</DialogTitle></DialogHeader>
+          {detail && (
+            <div className="space-y-2 text-sm">
+              <Row label="Mês" value={monthLabel(month)} />
+              <Row label="Tipo de custo" value={detail.bucket || buckets.find((b) => b.id === detail.occ.cost.cost_bucket_id)?.name || "Sem tipo"} />
+              <Row label="Categoria (DRE)" value={detail.occ.cost.category || "sem categoria"} />
+              <Row label="Vencimento" value={detail.occ.due} />
+              <Row label="Valor" value={fmtCurrency(detail.occ.amount)} />
+              <Row label="Situação" value={detail.occ.paid ? "Pago / reconciliado" : "Em aberto"} />
+              <Row label="Como foi materializado" value={originLabelForCost(detail.occ.origin)} />
+              <Row label="Recorrência" value={detail.occ.cost.is_recurring ? `${detail.occ.cost.recurrence_interval === "yearly" ? "Anual" : "Mensal"}${detail.occ.cost.recurrence_end_date ? ` até ${detail.occ.cost.recurrence_end_date}` : ""}` : "Avulso"} />
+              <Row label="Custo base (id)" value={detail.occ.cost.id} />
+              <Row label="Transação do mês (id)" value={detail.occ.txId || "ainda não materializada"} />
+              <p className="text-xs text-muted-foreground pt-1">
+                Ao marcar o check, a transação do mês é criada/reconciliada e passa a somar no fluxo, nas projeções e na DRE pela categoria acima.
+              </p>
+            </div>
+          )}
+          <DialogFooter><Button variant="outline" onClick={() => setDetail(null)}>Fechar</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
+
+const Row = ({ label, value }: { label: string; value: string }) => (
+  <div className="flex items-start justify-between gap-4 border-b border-border/40 pb-1">
+    <span className="text-muted-foreground text-xs">{label}</span>
+    <span className="text-right text-xs font-medium break-all">{value}</span>
+  </div>
+);
 
 export default FinanceCosts;
