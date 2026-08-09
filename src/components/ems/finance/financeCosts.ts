@@ -57,6 +57,15 @@ export interface CostOccurrence {
   paid: boolean;
   /** Id da transação real daquele mês (para editar/desmarcar), quando existir. */
   txId: string | null;
+  /** Transação que sustenta o mês (a própria base ou a materializada), quando existir. */
+  matched: CostTx | null;
+  /**
+   * Como o mês foi resolvido:
+   *  base         → o próprio lançamento cadastrado cai neste mês
+   *  materializada→ existe uma transação filha (source_id = custo) neste mês
+   *  projetada    → nada no banco ainda; é uma ocorrência da recorrência
+   */
+  origin: "base" | "materializada" | "projetada";
 }
 
 /**
@@ -74,8 +83,11 @@ export const occurrenceFor = (cost: CostTx, month: string, all: CostTx[]): CostO
     amount: Number(row?.amount ?? cost.amount),
     paid: row ? isPaidTx(row) : false,
     txId: row && row.id !== cost.id ? row.id : self ? cost.id : null,
+    matched: row,
+    origin: row ? (row.id === cost.id ? "base" : "materializada") : "projetada",
   };
 };
+
 
 export interface CostBucketGroup {
   bucket: CostBucket | null;

@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ChevronLeft, ChevronRight, Edit2, Layers, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Edit2, Info, Layers, Plus, Search, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { fmtCurrency, type Transaction } from "./useFinanceData";
@@ -17,8 +17,11 @@ import { useFinanceWorkspace } from "./useFinanceWorkspace";
 import { useCostBuckets } from "./useCostBuckets";
 import { CategorySelect } from "./CategorySelect";
 import { useConfirm } from "@/hooks/useConfirm";
-import { buildCostMonth, shiftMonth, type CostTx } from "./financeCosts";
+import { buildCostMonth, shiftMonth, type CostOccurrence, type CostTx } from "./financeCosts";
+import { buildAuditReport } from "./financeAudit";
+import { buildCostExport, costExportToCsv, costExportToJson, originLabelForCost } from "./financeCostsExport";
 import FinanceDuplicateAlert from "./FinanceDuplicateAlert";
+
 
 const KINDS = [
   { value: "fixo", label: "Fixo" },
@@ -43,7 +46,7 @@ const monthLabel = (m: string) => {
  */
 export const FinanceCosts = () => {
   const {
-    rawTransactions, allCategories, selectedAccounts, txInScope,
+    rawTransactions, allCategories, selectedAccounts, txInScope, produtos, canonical,
     saveTransactionMutation, deleteTransactionMutation, reconcileTransactionMutation, materializeReceived,
   } = useFinanceWorkspace();
   const { buckets, save: saveBucket, remove: removeBucket } = useCostBuckets();
@@ -55,14 +58,73 @@ export const FinanceCosts = () => {
   const [form, setForm] = useState(emptyCost());
   const [bucketModal, setBucketModal] = useState(false);
   const [bucketForm, setBucketForm] = useState<{ id?: string; name: string; kind: string }>({ name: "", kind: "fixo" });
+  const [detail, setDetail] = useState<{ occ: CostOccurrence; bucket?: string } | null>(null);
+  const [search, setSearch] = useState("");
+  const [bucketFilter, setBucketFilter] = useState("all");
+  const [kindFilter, setKindFilter] = useState("all");
+  const [escopoFilter, setEscopoFilter] = useState("all");
+  const [produtoFilter, setProdutoFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const scoped = useMemo(() => rawTransactions.filter(txInScope) as unknown as CostTx[], [rawTransactions, txInScope]);
   // Custos = saídas recorrentes (com ou sem tipo definido) + qualquer saída já classificada num tipo.
-  const costs = useMemo(
+  const allCosts = useMemo(
     () => scoped.filter((t) => t.type === "expense" && (t.is_recurring || t.cost_bucket_id) && !t.source_id),
     [scoped],
   );
-  const report = useMemo(() => buildCostMonth(buckets, costs, scoped, month), [buckets, costs, scoped, month]);
+
+  const norm = (v: string) => v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const kindOf = (id?: string | null) => buckets.find((b) => b.id === id)?.kind || "";
+
+  // Filtros de leitura: nunca alteram o dado, só o recorte exibido/exportado.
+  const costs = useMemo(() => {
+    const q = norm(search.trim());
+    return allCosts.filter((c: any) => {
+      if (q && !norm(`${c.description} ${c.category || ""}`).includes(q)) return false;
+      if (bucketFilter !== "all" && (bucketFilter === "none" ? !!c.cost_bucket_id : c.cost_bucket_id !== bucketFilter)) return false;
+      if (kindFilter !== "all" && kindOf(c.cost_bucket_id) !== kindFilter) return false;
+      if (escopoFilter !== "all" && (c.escopo || "none") !== escopoFilter) return false;
+      if (produtoFilter !== "all" && (c.produto_id || "none") !== produtoFilter) return false;
+      return true;
+    });
+  }, [allCosts, search, bucketFilter, kindFilter, escopoFilter, produtoFilter, buckets]);
+
+  const fullReport = useMemo(() => buildCostMonth(buckets, costs, scoped, month), [buckets, costs, scoped, month]);
+  const report = useMemo(() => {
+    if (statusFilter === "all") return fullReport;
+    const wantPaid = statusFilter === "paid";
+    const groups = fullReport.groups
+      .map((g) => {
+        const items = g.items.filter((i) => i.paid === wantPaid);
+        return { ...g, items, total: items.reduce((s, i) => s + i.amount, 0), paidTotal: items.filter((i) => i.paid).reduce((s, i) => s + i.amount, 0) };
+      })
+      .filter((g) => g.items.length);
+    const total = groups.reduce((s, g) => s + g.total, 0);
+    const paidTotal = groups.reduce((s, g) => s + g.paidTotal, 0);
+    return { ...fullReport, groups, total, paidTotal, pendingTotal: total - paidTotal };
+  }, [fullReport, statusFilter]);
+
+  const filtersOn = search || [bucketFilter, kindFilter, escopoFilter, produtoFilter, statusFilter].some((v) => v !== "all");
+
+  const monthDuplicates = useMemo(
+    () => buildAuditReport(canonical.rows, `${month}-01`, `${month}-31`).duplicates,
+    [canonical.rows, month],
+  );
+
+  const download = (content: string, ext: string, mime: string) => {
+    const url = URL.createObjectURL(new Blob([content], { type: mime }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `custos-${month}.${ext}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  const exportCosts = (kind: "csv" | "json") => {
+    const data = buildCostExport(report, monthDuplicates);
+    if (kind === "csv") download(costExportToCsv(data), "csv", "text/csv;charset=utf-8");
+    else download(costExportToJson(data), "json", "application/json");
+  };
+
 
   const openNew = (bucketId?: string) => {
     setEditing(null);
@@ -109,12 +171,13 @@ export const FinanceCosts = () => {
       saveTransactionMutation.mutate({ form: { status: "confirmed", settled_at: null }, editingId: occ.txId });
       return;
     }
-    if (occ.txId) { reconcileTransactionMutation.mutate(occ.txId); return; }
+    if (occ.txId) { reconcileTransactionMutation.mutate(occ.txId); setDetail({ occ }); return; }
     materializeReceived.mutate({
       sourceId: occ.cost.id, date: occ.due, amount: occ.amount, kind: "expense",
       description: occ.cost.description, category: occ.cost.category || null,
       accountId: (occ.cost as any).finance_account_id || null,
     });
+    setDetail({ occ });
   };
 
   return (
@@ -128,12 +191,70 @@ export const FinanceCosts = () => {
           <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl" onClick={() => setMonth(shiftMonth(month, 1))}><ChevronRight className="h-4 w-4" /></Button>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" className="rounded-xl" onClick={() => exportCosts("csv")}><Download className="h-4 w-4 mr-1" />CSV</Button>
+          <Button size="sm" variant="outline" className="rounded-xl" onClick={() => exportCosts("json")}><Download className="h-4 w-4 mr-1" />JSON</Button>
           <Button size="sm" variant="outline" className="rounded-xl" onClick={() => { setBucketForm({ name: "", kind: "fixo" }); setBucketModal(true); }}>
             <Layers className="h-4 w-4 mr-1" />Novo tipo de custo
           </Button>
           <Button size="sm" className="rounded-xl shadow-lg shadow-primary/20" onClick={() => openNew()}><Plus className="h-4 w-4 mr-1" />Novo custo</Button>
         </div>
       </div>
+
+      {/* Filtros e busca — só recorte de leitura */}
+      <Card className="border border-border/50 bg-card/80">
+        <CardContent className="p-3 flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[180px] flex-1">
+            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input className="pl-8 h-9" placeholder="Buscar custo ou categoria..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+          <Select value={bucketFilter} onValueChange={setBucketFilter}>
+            <SelectTrigger className="h-9 w-[160px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os tipos</SelectItem>
+              {buckets.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              <SelectItem value="none">Sem tipo</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={kindFilter} onValueChange={setKindFilter}>
+            <SelectTrigger className="h-9 w-[140px]"><SelectValue placeholder="Natureza" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toda natureza</SelectItem>
+              {KINDS.map((k) => <SelectItem key={k.value} value={k.value}>{k.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={escopoFilter} onValueChange={setEscopoFilter}>
+            <SelectTrigger className="h-9 w-[130px]"><SelectValue placeholder="Escopo" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">PF e PJ</SelectItem>
+              <SelectItem value="pf">PF</SelectItem>
+              <SelectItem value="pj">PJ</SelectItem>
+              <SelectItem value="none">Sem escopo</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={produtoFilter} onValueChange={setProdutoFilter}>
+            <SelectTrigger className="h-9 w-[160px]"><SelectValue placeholder="Produto" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os produtos</SelectItem>
+              {(produtos || []).map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome || p.name}</SelectItem>)}
+              <SelectItem value="none">Sem produto</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-9 w-[140px]"><SelectValue placeholder="Situação" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="paid">Pagos</SelectItem>
+              <SelectItem value="open">Em aberto</SelectItem>
+            </SelectContent>
+          </Select>
+          {filtersOn && (
+            <Button size="sm" variant="ghost" className="h-9 text-xs" onClick={() => { setSearch(""); setBucketFilter("all"); setKindFilter("all"); setEscopoFilter("all"); setProdutoFilter("all"); setStatusFilter("all"); }}>
+              Limpar
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
@@ -193,6 +314,7 @@ export const FinanceCosts = () => {
                     </p>
                   </div>
                   <span className="text-sm font-medium">{fmtCurrency(occ.amount)}</span>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" title="Detalhamento de origem" onClick={() => setDetail({ occ, bucket: g.bucket?.name })}><Info className="h-3.5 w-3.5" /></Button>
                   <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(occ.cost as unknown as Transaction)}><Edit2 className="h-3.5 w-3.5" /></Button>
                   <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={async () => {
                     if (await confirm({ title: "Excluir custo?", description: `${occ.cost.description} · ${fmtCurrency(occ.amount)}`, destructive: true, confirmText: "Excluir" }))
@@ -287,8 +409,39 @@ export const FinanceCosts = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Detalhamento de origem do custo no mês */}
+      <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader><DialogTitle>Origem de {detail?.occ.cost.description}</DialogTitle></DialogHeader>
+          {detail && (
+            <div className="space-y-2 text-sm">
+              <Row label="Mês" value={monthLabel(month)} />
+              <Row label="Tipo de custo" value={detail.bucket || buckets.find((b) => b.id === detail.occ.cost.cost_bucket_id)?.name || "Sem tipo"} />
+              <Row label="Categoria (DRE)" value={detail.occ.cost.category || "sem categoria"} />
+              <Row label="Vencimento" value={detail.occ.due} />
+              <Row label="Valor" value={fmtCurrency(detail.occ.amount)} />
+              <Row label="Situação" value={detail.occ.paid ? "Pago / reconciliado" : "Em aberto"} />
+              <Row label="Como foi materializado" value={originLabelForCost(detail.occ.origin)} />
+              <Row label="Recorrência" value={detail.occ.cost.is_recurring ? `${detail.occ.cost.recurrence_interval === "yearly" ? "Anual" : "Mensal"}${detail.occ.cost.recurrence_end_date ? ` até ${detail.occ.cost.recurrence_end_date}` : ""}` : "Avulso"} />
+              <Row label="Custo base (id)" value={detail.occ.cost.id} />
+              <Row label="Transação do mês (id)" value={detail.occ.txId || "ainda não materializada"} />
+              <p className="text-xs text-muted-foreground pt-1">
+                Ao marcar o check, a transação do mês é criada/reconciliada e passa a somar no fluxo, nas projeções e na DRE pela categoria acima.
+              </p>
+            </div>
+          )}
+          <DialogFooter><Button variant="outline" onClick={() => setDetail(null)}>Fechar</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
+
+const Row = ({ label, value }: { label: string; value: string }) => (
+  <div className="flex items-start justify-between gap-4 border-b border-border/40 pb-1">
+    <span className="text-muted-foreground text-xs">{label}</span>
+    <span className="text-right text-xs font-medium break-all">{value}</span>
+  </div>
+);
 
 export default FinanceCosts;
