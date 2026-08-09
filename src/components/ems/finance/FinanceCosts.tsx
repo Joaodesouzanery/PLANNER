@@ -46,7 +46,7 @@ const monthLabel = (m: string) => {
  */
 export const FinanceCosts = () => {
   const {
-    rawTransactions, allCategories, selectedAccounts, txInScope,
+    rawTransactions, allCategories, selectedAccounts, txInScope, produtos, canonical,
     saveTransactionMutation, deleteTransactionMutation, reconcileTransactionMutation, materializeReceived,
   } = useFinanceWorkspace();
   const { buckets, save: saveBucket, remove: removeBucket } = useCostBuckets();
@@ -58,14 +58,73 @@ export const FinanceCosts = () => {
   const [form, setForm] = useState(emptyCost());
   const [bucketModal, setBucketModal] = useState(false);
   const [bucketForm, setBucketForm] = useState<{ id?: string; name: string; kind: string }>({ name: "", kind: "fixo" });
+  const [detail, setDetail] = useState<{ occ: CostOccurrence; bucket?: string } | null>(null);
+  const [search, setSearch] = useState("");
+  const [bucketFilter, setBucketFilter] = useState("all");
+  const [kindFilter, setKindFilter] = useState("all");
+  const [escopoFilter, setEscopoFilter] = useState("all");
+  const [produtoFilter, setProdutoFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const scoped = useMemo(() => rawTransactions.filter(txInScope) as unknown as CostTx[], [rawTransactions, txInScope]);
   // Custos = saídas recorrentes (com ou sem tipo definido) + qualquer saída já classificada num tipo.
-  const costs = useMemo(
+  const allCosts = useMemo(
     () => scoped.filter((t) => t.type === "expense" && (t.is_recurring || t.cost_bucket_id) && !t.source_id),
     [scoped],
   );
-  const report = useMemo(() => buildCostMonth(buckets, costs, scoped, month), [buckets, costs, scoped, month]);
+
+  const norm = (v: string) => v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const kindOf = (id?: string | null) => buckets.find((b) => b.id === id)?.kind || "";
+
+  // Filtros de leitura: nunca alteram o dado, só o recorte exibido/exportado.
+  const costs = useMemo(() => {
+    const q = norm(search.trim());
+    return allCosts.filter((c: any) => {
+      if (q && !norm(`${c.description} ${c.category || ""}`).includes(q)) return false;
+      if (bucketFilter !== "all" && (bucketFilter === "none" ? !!c.cost_bucket_id : c.cost_bucket_id !== bucketFilter)) return false;
+      if (kindFilter !== "all" && kindOf(c.cost_bucket_id) !== kindFilter) return false;
+      if (escopoFilter !== "all" && (c.escopo || "none") !== escopoFilter) return false;
+      if (produtoFilter !== "all" && (c.produto_id || "none") !== produtoFilter) return false;
+      return true;
+    });
+  }, [allCosts, search, bucketFilter, kindFilter, escopoFilter, produtoFilter, buckets]);
+
+  const fullReport = useMemo(() => buildCostMonth(buckets, costs, scoped, month), [buckets, costs, scoped, month]);
+  const report = useMemo(() => {
+    if (statusFilter === "all") return fullReport;
+    const wantPaid = statusFilter === "paid";
+    const groups = fullReport.groups
+      .map((g) => {
+        const items = g.items.filter((i) => i.paid === wantPaid);
+        return { ...g, items, total: items.reduce((s, i) => s + i.amount, 0), paidTotal: items.filter((i) => i.paid).reduce((s, i) => s + i.amount, 0) };
+      })
+      .filter((g) => g.items.length);
+    const total = groups.reduce((s, g) => s + g.total, 0);
+    const paidTotal = groups.reduce((s, g) => s + g.paidTotal, 0);
+    return { ...fullReport, groups, total, paidTotal, pendingTotal: total - paidTotal };
+  }, [fullReport, statusFilter]);
+
+  const filtersOn = search || [bucketFilter, kindFilter, escopoFilter, produtoFilter, statusFilter].some((v) => v !== "all");
+
+  const monthDuplicates = useMemo(
+    () => buildAuditReport(canonical.rows, `${month}-01`, `${month}-31`).duplicates,
+    [canonical.rows, month],
+  );
+
+  const download = (content: string, ext: string, mime: string) => {
+    const url = URL.createObjectURL(new Blob([content], { type: mime }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `custos-${month}.${ext}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  const exportCosts = (kind: "csv" | "json") => {
+    const data = buildCostExport(report, monthDuplicates);
+    if (kind === "csv") download(costExportToCsv(data), "csv", "text/csv;charset=utf-8");
+    else download(costExportToJson(data), "json", "application/json");
+  };
+
 
   const openNew = (bucketId?: string) => {
     setEditing(null);
