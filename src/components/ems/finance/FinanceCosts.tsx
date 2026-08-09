@@ -190,12 +190,70 @@ export const FinanceCosts = () => {
           <Button variant="outline" size="icon" className="h-9 w-9 rounded-xl" onClick={() => setMonth(shiftMonth(month, 1))}><ChevronRight className="h-4 w-4" /></Button>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" className="rounded-xl" onClick={() => exportCosts("csv")}><Download className="h-4 w-4 mr-1" />CSV</Button>
+          <Button size="sm" variant="outline" className="rounded-xl" onClick={() => exportCosts("json")}><Download className="h-4 w-4 mr-1" />JSON</Button>
           <Button size="sm" variant="outline" className="rounded-xl" onClick={() => { setBucketForm({ name: "", kind: "fixo" }); setBucketModal(true); }}>
             <Layers className="h-4 w-4 mr-1" />Novo tipo de custo
           </Button>
           <Button size="sm" className="rounded-xl shadow-lg shadow-primary/20" onClick={() => openNew()}><Plus className="h-4 w-4 mr-1" />Novo custo</Button>
         </div>
       </div>
+
+      {/* Filtros e busca — só recorte de leitura */}
+      <Card className="border border-border/50 bg-card/80">
+        <CardContent className="p-3 flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[180px] flex-1">
+            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input className="pl-8 h-9" placeholder="Buscar custo ou categoria..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+          <Select value={bucketFilter} onValueChange={setBucketFilter}>
+            <SelectTrigger className="h-9 w-[160px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os tipos</SelectItem>
+              {buckets.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              <SelectItem value="none">Sem tipo</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={kindFilter} onValueChange={setKindFilter}>
+            <SelectTrigger className="h-9 w-[140px]"><SelectValue placeholder="Natureza" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toda natureza</SelectItem>
+              {KINDS.map((k) => <SelectItem key={k.value} value={k.value}>{k.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={escopoFilter} onValueChange={setEscopoFilter}>
+            <SelectTrigger className="h-9 w-[130px]"><SelectValue placeholder="Escopo" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">PF e PJ</SelectItem>
+              <SelectItem value="pf">PF</SelectItem>
+              <SelectItem value="pj">PJ</SelectItem>
+              <SelectItem value="none">Sem escopo</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={produtoFilter} onValueChange={setProdutoFilter}>
+            <SelectTrigger className="h-9 w-[160px]"><SelectValue placeholder="Produto" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os produtos</SelectItem>
+              {(produtos || []).map((p: any) => <SelectItem key={p.id} value={p.id}>{p.nome || p.name}</SelectItem>)}
+              <SelectItem value="none">Sem produto</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-9 w-[140px]"><SelectValue placeholder="Situação" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="paid">Pagos</SelectItem>
+              <SelectItem value="open">Em aberto</SelectItem>
+            </SelectContent>
+          </Select>
+          {filtersOn && (
+            <Button size="sm" variant="ghost" className="h-9 text-xs" onClick={() => { setSearch(""); setBucketFilter("all"); setKindFilter("all"); setEscopoFilter("all"); setProdutoFilter("all"); setStatusFilter("all"); }}>
+              Limpar
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
