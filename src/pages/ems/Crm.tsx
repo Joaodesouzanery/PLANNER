@@ -38,6 +38,7 @@ import { buildCustomer360, diasSemContato, type CustomerSpine, type Customer360 
 
 import { ContactsTab } from "@/components/ems/crm/ContactsTab";
 const Prospecting = lazy(() => import("@/components/ems/commercial/Prospecting"));
+const ProspectingInteresse = lazy(() => import("@/components/ems/commercial/ProspectingInteresse"));
 const ContactBoards = lazy(() => import("@/components/ems/crm/ContactBoards"));
 const CampaignManager = lazy(() => import("@/components/ems/crm/CampaignManager"));
 const VisitRoutesContent = lazy(() => import("@/pages/ems/VisitRoutes").then((m) => ({ default: m.VisitRoutesContent })));
@@ -63,6 +64,7 @@ const TAB_META: Record<string, { title: string; sub: string }> = {
   contatos: { title: "Contatos", sub: "As pessoas num kanban por segmento — ligue cada uma a um cliente pra aparecer no 360." },
   oportunidades: { title: "Oportunidades", sub: "Fila (NBA) · funil de deals · métricas · atividades (cadências) · expansão." },
   prospeccao: { title: "Prospecção", sub: "Empresas a prospectar — converta em cliente + contato + deal." },
+  interesse: { title: "Prospecção de Interesse", sub: "Cole vagas (ex.: IA) só pra estudar o que o mercado mais cobra." },
   motor: { title: "Motor", sub: "Ativos, Prova, Rotina e Campanhas — o motor de conteúdo e outreach." },
   operacao: { title: "Operação", sub: "Mapa da carteira, rotas e a entrega (implementação ágil)." },
 };
@@ -73,6 +75,7 @@ const TAB_ALIAS: Record<string, string> = {
   quadros: "contatos", contatos: "contatos",
   oportunidades: "oportunidades", atividades: "oportunidades", expansao: "oportunidades",
   prospeccao: "prospeccao",
+  interesse: "interesse",
   ativos: "motor", prova: "motor", rotina: "motor", campanhas: "motor",
   mapa: "operacao", entrega: "operacao",
 };
@@ -163,6 +166,7 @@ const Crm = () => {
             <TabsTrigger value="contatos" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5">Contatos {crm.contacts.filter((c) => !c.customer_id).length > 0 && <span className="rounded-full bg-amber-500/15 text-amber-500 px-1.5 text-[10px] font-mono" title="sem cliente ligado">{crm.contacts.filter((c) => !c.customer_id).length}</span>}</TabsTrigger>
             <TabsTrigger value="oportunidades" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary gap-1.5">Oportunidades {crm.nbaItems.length > 0 && <span className="rounded-full bg-primary/15 text-primary px-1.5 text-[10px] font-mono">{crm.nbaItems.length}</span>}</TabsTrigger>
             <TabsTrigger value="prospeccao" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Prospecção</TabsTrigger>
+            <TabsTrigger value="interesse" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Interesse</TabsTrigger>
             <TabsTrigger value="motor" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Motor</TabsTrigger>
             <TabsTrigger value="operacao" className="shrink-0 rounded-lg data-[state=active]:bg-primary/15 data-[state=active]:text-primary">Operação</TabsTrigger>
           </TabsList>
@@ -269,6 +273,10 @@ const Crm = () => {
 
           <TabsContent value="prospeccao" className="mt-0">
             <Suspense fallback={<LazyFallback />}><Prospecting /></Suspense>
+          </TabsContent>
+
+          <TabsContent value="interesse" className="mt-0">
+            <Suspense fallback={<LazyFallback />}><ProspectingInteresse /></Suspense>
           </TabsContent>
 
           {/* MOTOR = Ativos · Prova · Rotina · Campanhas */}

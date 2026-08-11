@@ -7,6 +7,7 @@ const corsHeaders = {
 interface ParseRequest {
   url?: string;
   text?: string;
+  extractSkills?: boolean; // quando true, o refino da IA também devolve uma lista geral de competências
 }
 
 interface ParsedJob {
@@ -14,6 +15,7 @@ interface ParsedJob {
   location?: string;
   jobTitle?: string;
   about?: string;
+  skills?: string[]; // competências/tecnologias/ferramentas exigidas (só quando extractSkills)
 }
 
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -163,7 +165,16 @@ function heuristicFromText(text: string): ParsedJob {
   };
 }
 
-async function refineWithAI(rawAbout: string, base: ParsedJob): Promise<ParsedJob> {
+const SYSTEM_CLEAN =
+  'Voce recebe a descricao bruta de uma vaga do LinkedIn (ja em texto puro). Devolva APENAS um JSON valido no formato {"about":"..."}. O campo about deve conter a secao "Sobre a vaga" / responsabilidades / requisitos COMPLETA, preservando bullets com - no inicio. Remova rodape, beneficios, links e textos de interface. NUNCA invente, apenas reorganize o que foi recebido.';
+
+const SYSTEM_SKILLS =
+  'Voce recebe a descricao bruta de uma vaga do LinkedIn (texto puro). Devolva APENAS um JSON valido no formato {"about":"...","skills":["..."]}. ' +
+  'O campo about deve conter a secao "Sobre a vaga"/responsabilidades/requisitos COMPLETA, preservando bullets com - no inicio, sem rodape/beneficios/links/UI. ' +
+  'O campo skills deve ser uma lista GERAL das competencias, tecnologias, ferramentas e metodologias EXIGIDAS ou desejadas pela vaga (ex.: Python, LLM, RAG, PyTorch, MLOps, SQL, AWS, prompt engineering, lideranca...). ' +
+  'Cada item curto (1 a 4 palavras), no idioma da vaga, sem duplicar. Extraia AMPLAMENTE o que a vaga cobra. NUNCA invente o que nao esta na vaga; se nao houver competencias claras, devolva skills: [].';
+
+async function refineWithAI(rawAbout: string, base: ParsedJob, withSkills = false): Promise<ParsedJob> {
   if (!LOVABLE_API_KEY || !rawAbout) return base;
   try {
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -175,11 +186,7 @@ async function refineWithAI(rawAbout: string, base: ParsedJob): Promise<ParsedJo
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          {
-            role: "system",
-            content:
-              'Voce recebe a descricao bruta de uma vaga do LinkedIn (ja em texto puro). Devolva APENAS um JSON valido no formato {"about":"..."}. O campo about deve conter a secao "Sobre a vaga" / responsabilidades / requisitos COMPLETA, preservando bullets com - no inicio. Remova rodape, beneficios, links e textos de interface. NUNCA invente, apenas reorganize o que foi recebido.',
-          },
+          { role: "system", content: withSkills ? SYSTEM_SKILLS : SYSTEM_CLEAN },
           { role: "user", content: rawAbout.slice(0, 30000) },
         ],
         response_format: { type: "json_object" },
@@ -188,10 +195,20 @@ async function refineWithAI(rawAbout: string, base: ParsedJob): Promise<ParsedJo
     if (!response.ok) return base;
     const data = await response.json();
     const parsed = JSON.parse(data.choices?.[0]?.message?.content || "{}");
-    if (parsed.about && parsed.about.length >= rawAbout.length * 0.5) {
-      return { ...base, about: parsed.about };
+    // about só é aceito se não truncou (>= 50% do bruto); senão mantém o base.
+    const about = parsed.about && parsed.about.length >= rawAbout.length * 0.5 ? parsed.about : base.about;
+    if (withSkills) {
+      const skills = Array.isArray(parsed.skills)
+        ? Array.from(new Set(
+            parsed.skills
+              .filter((s: unknown) => typeof s === "string")
+              .map((s: string) => s.trim())
+              .filter(Boolean),
+          )).slice(0, 60)
+        : [];
+      return { ...base, about, skills };
     }
-    return base;
+    return { ...base, about };
   } catch {
     return base;
   }
@@ -247,9 +264,9 @@ Deno.serve(async (req) => {
       parsed = { ...heuristicFromText(body.text), ...parsed };
     }
 
-    // AI refine to clean noise but keep full content
+    // AI refine to clean noise but keep full content (+ extrai competências quando pedido)
     if (parsed.about) {
-      parsed = await refineWithAI(parsed.about, parsed);
+      parsed = await refineWithAI(parsed.about, parsed, body.extractSkills === true);
     }
 
     if (!parsed.about && !parsed.jobTitle && !parsed.companyName) {

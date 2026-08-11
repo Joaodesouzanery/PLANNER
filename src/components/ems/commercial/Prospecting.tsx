@@ -133,6 +133,7 @@ interface Prospect {
   meeting_date: string | null;
   notes: string | null;
   job_fingerprint?: string | null;
+  area?: string | null;
   created_at: string;
 }
 
@@ -684,7 +685,9 @@ export const Prospecting = () => {
       if (selectedCompanyId !== "all") query = query.eq("company_id", selectedCompanyId);
       const { data, error } = await query;
       if (error) throw error;
-      return (data || []) as Prospect[];
+      // Só a área "construção" aqui (a "Prospecção de Interesse" tem aba própria). Filtro client-side pra
+      // não quebrar caso a coluna `area` ainda não exista (linhas sem área = construção por default).
+      return (data || []).filter((p: any) => (p.area ?? "construcao") === "construcao") as Prospect[];
     },
   });
 
