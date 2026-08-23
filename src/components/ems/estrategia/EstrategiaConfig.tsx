@@ -53,7 +53,7 @@ const ProLaboreTimeline = () => {
           Ex.: <span className="text-foreground">2.310 hoje → 3.500 em jan/27</span>.
         </p>
         {rows.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic">Nenhuma vigência ainda. Adicione a primeira abaixo (ou use a aba Preenchimento).</p>
+          <p className="text-xs text-muted-foreground italic">Nenhuma vigência ainda. Adicione a primeira abaixo.</p>
         ) : (
           <div className="space-y-1">
             {rows.map((r) => (

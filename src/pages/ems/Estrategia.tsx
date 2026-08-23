@@ -1,6 +1,6 @@
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Compass, Gauge, Sparkles, CalendarClock, Building2, SlidersHorizontal, Database } from "lucide-react";
+import { Compass, Gauge, Sparkles, CalendarClock, Building2, SlidersHorizontal } from "lucide-react";
 import { EMSLayout } from "@/components/ems/EMSLayout";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import EstrategiaCockpit from "@/components/ems/estrategia/EstrategiaCockpit";
@@ -8,7 +8,6 @@ import EstrategiaCascade from "@/components/ems/estrategia/EstrategiaCascade";
 import EstrategiaCiclos from "@/components/ems/estrategia/EstrategiaCiclos";
 import EstrategiaEmpresa from "@/components/ems/estrategia/EstrategiaEmpresa";
 import EstrategiaConfig from "@/components/ems/estrategia/EstrategiaConfig";
-import EstrategiaPreenchimento from "@/components/ems/estrategia/EstrategiaPreenchimento";
 
 // Módulo Estratégia — cockpit próprio da estratégia. Puxa o que já vive nos outros módulos
 // (as métricas financeiras reais, DRE/orçamento/fluxo do Finanças) e adiciona o que é dele:
@@ -39,14 +38,12 @@ const Estrategia = () => {
             <TabsTrigger value="ciclos" className={trig}><CalendarClock className="h-4 w-4" />Ciclos</TabsTrigger>
             <TabsTrigger value="empresa" className={trig}><Building2 className="h-4 w-4" />Empresa</TabsTrigger>
             <TabsTrigger value="config" className={trig}><SlidersHorizontal className="h-4 w-4" />Config</TabsTrigger>
-            <TabsTrigger value="preenchimento" className={trig}><Database className="h-4 w-4" />Preenchimento</TabsTrigger>
           </TabsList>
           <TabsContent value="cockpit" className="mt-0"><EstrategiaCockpit /></TabsContent>
           <TabsContent value="cascata" className="mt-0"><EstrategiaCascade /></TabsContent>
           <TabsContent value="ciclos" className="mt-0"><EstrategiaCiclos /></TabsContent>
           <TabsContent value="empresa" className="mt-0"><EstrategiaEmpresa /></TabsContent>
           <TabsContent value="config" className="mt-0"><EstrategiaConfig /></TabsContent>
-          <TabsContent value="preenchimento" className="mt-0"><EstrategiaPreenchimento /></TabsContent>
         </Tabs>
       </motion.div>
     </EMSLayout>
