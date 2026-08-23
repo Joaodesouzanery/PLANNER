@@ -9,8 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit2, Trash2, RefreshCw, Download, FileText, CheckCircle2, CalendarClock, CalendarPlus, ChevronLeft, ChevronRight, RotateCcw, Layers } from "lucide-react";
+import { Plus, Edit2, Trash2, RefreshCw, Download, FileText, CheckCircle2, CalendarClock, CalendarPlus, ChevronLeft, ChevronRight, RotateCcw, Layers, FileSpreadsheet } from "lucide-react";
 import FinanceCosts from "./FinanceCosts";
+import { PlanilhaImportDialog } from "./planilha/PlanilhaImportDialog";
 import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -59,6 +60,7 @@ const FinanceTransactions = () => {
   const confirm = useConfirm();
   const [newClient, setNewClient] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [filterCategory, setFilterCategory] = useState("");
   const [filterType, setFilterType] = useState("");
@@ -245,6 +247,7 @@ const FinanceTransactions = () => {
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" className="rounded-xl" onClick={exportCsv}><Download className="h-4 w-4 mr-1" />CSV</Button>
             <Button size="sm" variant="outline" className="rounded-xl" onClick={exportPdf}><FileText className="h-4 w-4 mr-1" />PDF</Button>
+            <Button size="sm" variant="outline" className="rounded-xl" onClick={() => setShowImport(true)}><FileSpreadsheet className="h-4 w-4 mr-1" />Importar planilha</Button>
             <Button size="sm" variant="outline" className="rounded-xl" onClick={() => openNew({ type: "expense", status: "planned", paid: false, date: format(startOfMonth(subMonths(new Date(), -1)), "yyyy-MM-dd"), due_date: format(startOfMonth(subMonths(new Date(), -1)), "yyyy-MM-dd") })}><CalendarPlus className="h-4 w-4 mr-1" />Compra futura</Button>
             <Button size="sm" onClick={() => openNew()} className="rounded-xl shadow-lg shadow-primary/20"><Plus className="h-4 w-4 mr-2" />Nova Transação</Button>
           </div>
@@ -494,6 +497,8 @@ const FinanceTransactions = () => {
           <DialogFooter><Button variant="outline" className="rounded-xl" onClick={() => setShowModal(false)}>Cancelar</Button><Button className="rounded-xl shadow-lg shadow-primary/20" onClick={handleSave}>{editingTransaction ? "Salvar" : "Criar"}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PlanilhaImportDialog open={showImport} onOpenChange={setShowImport} />
 
       {/* Gráficos renderizados offscreen p/ o PDF turbinado (categorias + receita×despesa). */}
       <div style={{ position: "fixed", left: -10000, top: 0, width: 720, zIndex: -1 }} aria-hidden>
