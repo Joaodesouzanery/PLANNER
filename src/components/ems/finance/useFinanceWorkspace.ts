@@ -234,6 +234,7 @@ export const useFinanceWorkspace = () => {
           entityId,
           category: transaction.category,
           sourceType: transaction.card_invoice_id ? "invoice" : transaction.installment_group_id ? "installment" : "transaction",
+          origin: transaction.source_type ?? null, // origem real (planilha/csv/travel/…) p/ a Auditoria
           sourceId: transaction.source_id || transaction.id,
           status: transaction.status || "confirmed",
           produtoId: transaction.produto_id ?? null,

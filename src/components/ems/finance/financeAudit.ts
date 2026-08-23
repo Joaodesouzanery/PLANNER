@@ -33,18 +33,31 @@ export interface AuditReport {
 }
 
 const LABELS: Record<string, string> = {
+  planilha: "Planilha",
+  csv: "Importação CSV",
+  seed: "Preenchimento inicial",
+  manual: "Lançamento manual",
+  estrategia: "Estratégia",
   transaction: "Lançamento manual",
   recurring: "Recorrência",
   installment: "Parcela",
   plan: "Planejamento",
   materialized: "Recorrência materializada",
   invoice: "Fatura de cartão",
+  purchase: "Compra parcelada",
+  travel: "Viagem",
   scenario: "Cenário",
 };
 
+/**
+ * Origem REAL da linha. Usa `origin` (source_type do banco: planilha/csv/seed/…) e cai
+ * no `sourceType` (papel no fluxo) quando não há origem gravada — antes tudo que vinha do
+ * banco aparecia como "Lançamento manual", porque o read-model descartava a origem.
+ */
 export const originLabel = (r: PeriodRow): string => {
   if (r.synthetic) return "Recorrência (ocorrência gerada)";
-  return LABELS[r.sourceType] || r.sourceType || "Origem desconhecida";
+  const key = r.origin || r.sourceType;
+  return LABELS[key] || key || "Origem desconhecida";
 };
 
 /** Primeiro dia do mês N meses atrás (inclusive o mês atual). */

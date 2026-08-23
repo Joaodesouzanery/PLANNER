@@ -77,6 +77,8 @@ export interface ForecastEvent {
   entityId: string | null;
   category?: string | null;
   sourceType: "transaction" | "plan" | "project" | "transfer" | "invoice" | "installment";
+  /** Origem REAL do dado (source_type do banco: planilha, csv, travel, estrategia…), p/ a Auditoria. */
+  origin?: string | null;
   sourceId?: string | null;
   status: FinanceStatus | "skipped";
   isScenario?: boolean;

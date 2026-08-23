@@ -45,6 +45,17 @@ describe("financePeriodSource — buildPeriodSource (dedup)", () => {
     assert.equal(rows.filter((r) => r.sourceId === "rec1").length, 2);
   });
 
+  it("mesma origem e data, valores diferentes: NÃO colapsa (viagem lança voo+hotel no mesmo dia)", () => {
+    const dash = [
+      { id: "v1", source_id: "trip9", type: "expense", amount: 3000, date: "2026-09-10", status: "reconciled", description: "Viagem — voo" },
+      { id: "v2", source_id: "trip9", type: "expense", amount: 2000, date: "2026-09-10", status: "reconciled", description: "Viagem — hotel" },
+      { id: "v3", source_id: "trip9", type: "expense", amount: 1000, date: "2026-09-10", status: "reconciled", description: "Viagem — alimentação" },
+    ];
+    const rows = buildPeriodSource(dash, []);
+    assert.equal(rows.filter((r) => r.sourceId === "trip9").length, 3);
+    assert.equal(rows.reduce((a, r) => a + r.amount, 0), 6000);
+  });
+
   it("exclui cenários e linhas sem sourceId ficam avulsas", () => {
     const events = [
       { id: "cen-1", sourceId: "s1", kind: "income", amount: 500, date: "2026-07-01", isScenario: true, sourceType: "scenario", description: "cenário" },
@@ -84,6 +95,43 @@ describe("financePeriodSource — dedup semântica (mesma despesa, registros dif
       row({ id: "b", description: "Gasolina", amount: 25, date: "2026-07-22" }),
     ]);
     assert.equal(out.length, 2);
+  });
+
+  // Caso real da planilha: 4× "Zigpay" em 17/08 (46, 10, 46, 10). São compras distintas —
+  // engoli-las fazia agosto fechar em 6.045 em vez de 6.101.
+  it("não colapsa repetições legítimas: mesma descrição crua, ambas reais, no mesmo dia", () => {
+    const real = { realized: true, projected: false, paid: true, date: "2026-08-17" };
+    const out = dedupeEquivalent([
+      row({ ...real, id: "z1", description: "Zigpay", amount: 46 }),
+      row({ ...real, id: "z2", description: "Zigpay", amount: 10 }),
+      row({ ...real, id: "z3", description: "Zigpay", amount: 46 }),
+      row({ ...real, id: "z4", description: "Zigpay", amount: 10 }),
+    ]);
+    assert.equal(out.length, 4);
+    assert.equal(out.reduce((a, r) => a + r.amount, 0), 112);
+  });
+
+  // Grupo misto: 2 compras iguais ("Macbook") + 1 variante ("Macbook (2/10)") no mesmo dia/valor.
+  // O resultado não pode depender da ordem em que as linhas vieram do banco.
+  it("independe da ordem: 2 repetições + 1 variante dão sempre o mesmo total", () => {
+    const real = { realized: true, projected: false, date: "2026-08-04", amount: 800 };
+    const A = row({ ...real, id: "A", description: "Macbook", paid: false });
+    const B = row({ ...real, id: "B", description: "Macbook (2/10)", paid: true });
+    const C = row({ ...real, id: "C", description: "Macbook", paid: true });
+    const total = (rs: ReturnType<typeof row>[]) => dedupeEquivalent(rs).reduce((a, r) => a + r.amount, 0);
+    assert.equal(total([A, B, C]), 1600);
+    assert.equal(total([A, C, B]), 1600);
+    assert.equal(total([B, A, C]), 1600);
+    assert.equal(total([C, B, A]), 1600);
+  });
+
+  it("ainda colapsa a recorrência sintética contra a linha real do mesmo dia", () => {
+    const out = dedupeEquivalent([
+      row({ id: "anc-r3", description: "Zigpay", amount: 46, date: "2026-08-17", synthetic: true }),
+      row({ id: "z1", description: "Zigpay", amount: 46, date: "2026-08-17", realized: true, projected: false, paid: true }),
+    ]);
+    assert.equal(out.length, 1);
+    assert.equal(out[0].id, "z1");
   });
 
   it("buildPeriodSource já aplica a rede de segurança", () => {
