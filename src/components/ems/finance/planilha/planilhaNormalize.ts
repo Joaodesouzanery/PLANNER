@@ -70,8 +70,14 @@ export const parseValor = (c: Celula): number | null => {
   const s = texto(c);
   if (!s) return null;
   const limpo = s.replace(/R\$/gi, "").replace(/\s/g, "").replace(/\((.*)\)/, "-$1"); // (1.234) = negativo
-  // pt-BR: ponto é milhar, vírgula é decimal. Sem vírgula, ponto pode ser decimal (1234.56).
-  const norm = limpo.includes(",") ? limpo.replace(/\./g, "").replace(",", ".") : limpo;
+  // pt-BR: ponto é milhar, vírgula é decimal.
+  // Sem vírgula o ponto é ambíguo: "1234.56" é decimal, mas "1.500" é MIL E QUINHENTOS — e a
+  // planilha escreve assim o tempo todo ("R$ 5.546", "R$ 1.900"). Só grupos de exatamente 3
+  // dígitos contam como milhar; o resto continua sendo lido como decimal.
+  const ehMilhar = !limpo.includes(",") && /^-?\d{1,3}(\.\d{3})+$/.test(limpo);
+  const norm = limpo.includes(",")
+    ? limpo.replace(/\./g, "").replace(",", ".")
+    : ehMilhar ? limpo.replace(/\./g, "") : limpo;
   const n = Number(norm);
   return Number.isFinite(n) ? n : null;
 };

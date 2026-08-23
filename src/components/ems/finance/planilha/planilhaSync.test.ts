@@ -139,11 +139,16 @@ describe("planilhaSync — estado-alvo", () => {
   });
 });
 
-/** Simula a ida-e-volta pelo banco: Postgres devolve null onde o alvo tem null, e numeric vira number. */
+/**
+ * Simula a ida-e-volta REAL pelo banco: `is_recurring` volta null, `amount` volta number e
+ * `settled_at` (timestamptz) volta com hora e fuso. Sem isso, o teste de idempotência só provava
+ * que a comparação é reflexiva.
+ */
 const existente = (l: LinhaAlvo, id: string, over: Partial<LinhaExistente> = {}): LinhaExistente => ({
   id, uid: l.uid, description: l.description, amount: l.amount, type: l.type,
   category: l.category, date: l.date, due_date: l.due_date, status: l.status,
-  settled_at: l.settled_at, is_recurring: l.is_recurring || null,
+  settled_at: l.settled_at ? `${l.settled_at}T00:00:00+00:00` : null,
+  is_recurring: l.is_recurring || null,
   recurrence_interval: l.recurrence_interval, recurrence_end_date: l.recurrence_end_date,
   escopo: l.escopo, cliente_id: l.cliente_id, ...over,
 });
@@ -155,12 +160,24 @@ describe("planilhaSync — diff", () => {
   const banco = () => linhas.map((l, i) => existente(l, `db${i}`));
 
   it("reimportar o MESMO arquivo não muda nada (idempotente)", () => {
-    // `is_recurring` volta como null do Postgres nas linhas não-recorrentes — não pode virar diff.
+    // Passa pela coerção do Postgres: is_recurring null e settled_at com hora/fuso.
     const d = diffPlanilha(linhas, banco(), [], janela);
     assert.equal(d.novos.length, 0);
     assert.equal(d.alterados.length, 0);
     assert.equal(d.removidos.length, 0);
     assert.equal(d.inalterados, linhas.length);
+  });
+
+  it("settled_at com hora e fuso (timestamptz) não vira mudança falsa", () => {
+    const db = banco().map((e) => ({ ...e, settled_at: e.settled_at ? e.settled_at.replace("+00:00", "-03:00") : null }));
+    assert.equal(diffPlanilha(linhas, db, [], janela).alterados.length, 0);
+  });
+
+  it("mudar o dia da quitação continua sendo detectado", () => {
+    const db = banco();
+    const i = db.findIndex((e) => e.settled_at);
+    db[i] = { ...db[i], settled_at: "2020-01-01T00:00:00+00:00" };
+    assert.deepEqual(diffPlanilha(linhas, db, [], janela).alterados[0].campos, ["settled_at"]);
   });
 
   it("valor editado no Excel vira ALTERADO, não uma linha nova", () => {
@@ -231,9 +248,9 @@ describe("planilhaSync — diff", () => {
     assert.deepEqual(d.naoEhDaPlanilha.map((r) => r.id), ["manual-1"]);
   });
 
-  it("recorrente antigo de outra origem conta como dentro da janela se ainda gera ocorrências nela", () => {
-    // Âncora de 2025 sem data-fim: a data dela está fora, mas as ocorrências caem em jun/ago/26
-    // e duplicariam com os lançamentos da planilha.
+  it("recorrente antigo que só ATRAVESSA a janela vira aviso, nunca remoção", () => {
+    // Âncora de 2025 sem prazo: as ocorrências caem em jun/ago/26 e duplicariam com a planilha —
+    // mas apagá-la mataria também o histórico de 2025, que o arquivo não cobre e não repõe.
     const velho = existente(linhas[0], "seed-1", {
       uid: "", date: "2025-03-10", due_date: "2025-03-10", is_recurring: true, recurrence_end_date: null,
     });
@@ -241,7 +258,17 @@ describe("planilhaSync — diff", () => {
       uid: "", date: "2025-03-10", due_date: "2025-03-10", is_recurring: true, recurrence_end_date: "2025-12-10",
     });
     const d = diffPlanilha(linhas, [], [velho, encerrado], janela);
-    assert.deepEqual(d.naoEhDaPlanilha.map((r) => r.id), ["seed-1"]);
+    assert.deepEqual(d.naoEhDaPlanilha, []); // nada removível
+    assert.deepEqual(d.recorrentesQueCruzam.map((r) => r.id), ["seed-1"]);
+  });
+
+  it("recorrente de outra origem que COMEÇA dentro da janela é removível", () => {
+    const dentro = existente(linhas[0], "manual-rec", {
+      uid: "", date: "2026-06-05", due_date: "2026-06-05", is_recurring: true, recurrence_end_date: null,
+    });
+    const d = diffPlanilha(linhas, [], [dentro], janela);
+    assert.deepEqual(d.naoEhDaPlanilha.map((r) => r.id), ["manual-rec"]);
+    assert.deepEqual(d.recorrentesQueCruzam, []);
   });
 });
 

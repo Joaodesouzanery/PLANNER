@@ -1,6 +1,7 @@
 // Camada CFO — métricas de nível CFO derivadas do read-model canônico. Funções puras/testáveis.
 import type { PeriodRow } from "./useFinanceData";
 import { saldoRealHoje } from "./financeCanonical";
+import { isSaldoInicial } from "./financeCategories";
 
 export interface CfoSettings {
   tax_rate: number; // % efetivo
@@ -67,7 +68,12 @@ export const computeCfo = (rows: PeriodRow[], s: CfoSettings, reservaAtual: numb
   const burnMensal = hasBuckets ? Math.max(0, (expected.fixo || 0) + (expected.variavel || 0)) : despesaMensal;
 
   // Imposto a recolher = Σ receita recebida × alíquota − Σ imposto já pago.
-  const receitaRecebida = rows.reduce((a, r) => (r.type === "income" && r.paid && r.date <= today ? a + r.amount : a), 0);
+  // A âncora de saldo inicial (importação da planilha) é `income` no razão só para o saldo bater;
+  // somá-la aqui cobraria imposto sobre dinheiro que já existia.
+  const receitaRecebida = rows.reduce(
+    (a, r) => (r.type === "income" && r.paid && r.date <= today && !isSaldoInicial(r.category) ? a + r.amount : a),
+    0,
+  );
   const impostoPago = rows.reduce((a, r) => (r.type === "expense" && r.paid && isImpostoRow(r) ? a + r.amount : a), 0);
   const impostoARecolher = Math.max(0, receitaRecebida * rate - impostoPago);
   const saldoLiquidoImposto = saldoDisponivel - impostoARecolher;

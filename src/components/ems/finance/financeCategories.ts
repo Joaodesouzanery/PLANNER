@@ -81,7 +81,7 @@ export const CATEGORY_ALIASES: Record<string, string> = {
   investimento: "Investimento / Reserva", reserva: "Investimento / Reserva", aporte: "Investimento / Reserva", cdb: "Investimento / Reserva",
   // Pró-labore
   "pro-labore": "Pró-labore", "pro labore": "Pró-labore", prolabore: "Pró-labore",
-  "saldo inicial": "Saldo inicial", "saldo de abertura": "Saldo inicial", abertura: "Saldo inicial",
+  "saldo inicial": "Saldo inicial", "saldo de abertura": "Saldo inicial",
   // Empresa
   infra: "Infra / COGS", supabase: "Infra / COGS", api: "Infra / COGS", gateway: "Infra / COGS",
   ferramenta: "Ferramentas", ferramentas: "Ferramentas", claude: "Ferramentas", internet: "Ferramentas", dominio: "Ferramentas",
@@ -115,3 +115,16 @@ export const categoryScope = (name: string | null | undefined): CatScope | null 
 
 /** Linha da DRE sugerida pelo catálogo (só p/ categorias conhecidas). */
 export const catalogDreLine = (name: string | null | undefined): DreLine | undefined => categoryDef(name)?.dreLine;
+
+/** Transferência = dinheiro mudando de lugar (pró-labore, aporte na reserva, saldo de abertura). */
+export const isTransferCategory = (name: string | null | undefined): boolean => categoryDef(name)?.type === "transfer";
+
+export const CATEGORIA_SALDO_INICIAL = "Saldo inicial";
+
+/**
+ * Âncora de abertura de saldo criada pela importação da planilha. Ela existe só para o saldo
+ * derivado do razão bater com o declarado — não é receita, não é despesa e não pode entrar em
+ * NENHUM número de resultado (receita do mês, gráficos, base de imposto, alertas).
+ */
+export const isSaldoInicial = (name: string | null | undefined): boolean =>
+  canonicalCategory(name) === CATEGORIA_SALDO_INICIAL;

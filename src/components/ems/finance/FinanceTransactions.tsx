@@ -9,9 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit2, Trash2, RefreshCw, Download, FileText, CheckCircle2, CalendarClock, CalendarPlus, ChevronLeft, ChevronRight, RotateCcw, Layers, FileSpreadsheet } from "lucide-react";
+import { Plus, Edit2, Trash2, RefreshCw, Download, FileText, CheckCircle2, CalendarClock, CalendarPlus, ChevronLeft, ChevronRight, RotateCcw, Layers, FileSpreadsheet, Lock } from "lucide-react";
 import FinanceCosts from "./FinanceCosts";
 import { PlanilhaImportDialog } from "./planilha/PlanilhaImportDialog";
+import { usePlanilhaImport } from "./planilha/usePlanilhaImport";
 import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -68,6 +69,13 @@ const FinanceTransactions = () => {
   const [from, setFrom] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
   const [to, setTo] = useState(format(endOfMonth(new Date()), "yyyy-MM-dd"));
   const [form, setForm] = useState(emptyForm());
+  const { ultimoLote } = usePlanilhaImport();
+
+  // ESPELHO: depois que a planilha entra, ela é a fonte da verdade — editar aqui criaria dois
+  // caminhos escrevendo e a próxima importação desfaria a edição sem avisar. Antes da primeira
+  // importação nada muda: não faz sentido travar um app que ainda não foi alimentado.
+  const espelho = useMemo(() => rawTransactions.some((t) => t.source_type === "planilha"), [rawTransactions]);
+  const daPlanilha = (t: Transaction) => t.source_type === "planilha";
 
   const goMonth = (delta: number) => {
     const target = addMonths(new Date(`${from}T00:00:00`), delta);
@@ -225,6 +233,11 @@ const FinanceTransactions = () => {
   };
 
   const rowActions = (t: Transaction) => (
+    daPlanilha(t) ? (
+      <div className="flex justify-end" title="Veio da planilha — edite no Excel e importe de novo">
+        <Lock className="h-3.5 w-3.5 text-muted-foreground/60" />
+      </div>
+    ) : (
     <div className="flex gap-1 justify-end">
       {!isPaid(t) && (
         <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-400 hover:bg-emerald-500/10" title="Marcar como pago/recebido" onClick={() => reconcileTransactionMutation.mutate(t.id)}><CheckCircle2 className="h-4 w-4" /></Button>
@@ -232,6 +245,7 @@ const FinanceTransactions = () => {
       <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/10 hover:text-primary" onClick={() => openEdit(t)}><Edit2 className="h-4 w-4" /></Button>
       <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={async () => { if (await confirm({ title: "Excluir transação?", description: `"${t.description}" · ${fmtCurrency(Number(t.amount))}`, destructive: true, confirmText: "Excluir" })) deleteTransactionMutation.mutate(t.id); }}><Trash2 className="h-4 w-4" /></Button>
     </div>
+    )
   );
 
   return (
@@ -247,11 +261,25 @@ const FinanceTransactions = () => {
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" className="rounded-xl" onClick={exportCsv}><Download className="h-4 w-4 mr-1" />CSV</Button>
             <Button size="sm" variant="outline" className="rounded-xl" onClick={exportPdf}><FileText className="h-4 w-4 mr-1" />PDF</Button>
-            <Button size="sm" variant="outline" className="rounded-xl" onClick={() => setShowImport(true)}><FileSpreadsheet className="h-4 w-4 mr-1" />Importar planilha</Button>
-            <Button size="sm" variant="outline" className="rounded-xl" onClick={() => openNew({ type: "expense", status: "planned", paid: false, date: format(startOfMonth(subMonths(new Date(), -1)), "yyyy-MM-dd"), due_date: format(startOfMonth(subMonths(new Date(), -1)), "yyyy-MM-dd") })}><CalendarPlus className="h-4 w-4 mr-1" />Compra futura</Button>
-            <Button size="sm" onClick={() => openNew()} className="rounded-xl shadow-lg shadow-primary/20"><Plus className="h-4 w-4 mr-2" />Nova Transação</Button>
+            <Button size="sm" variant={espelho ? "default" : "outline"} className="rounded-xl" onClick={() => setShowImport(true)}><FileSpreadsheet className="h-4 w-4 mr-1" />Importar planilha</Button>
+            {!espelho && <Button size="sm" variant="outline" className="rounded-xl" onClick={() => openNew({ type: "expense", status: "planned", paid: false, date: format(startOfMonth(subMonths(new Date(), -1)), "yyyy-MM-dd"), due_date: format(startOfMonth(subMonths(new Date(), -1)), "yyyy-MM-dd") })}><CalendarPlus className="h-4 w-4 mr-1" />Compra futura</Button>}
+            {!espelho && <Button size="sm" onClick={() => openNew()} className="rounded-xl shadow-lg shadow-primary/20"><Plus className="h-4 w-4 mr-2" />Nova Transação</Button>}
           </div>
         </div>
+
+        {espelho && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/50 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            <Lock className="h-3.5 w-3.5" />
+            <span>
+              <strong className="text-foreground">Espelho da planilha</strong> — para mudar um lançamento, edite no Excel e importe de novo.
+            </span>
+            {ultimoLote && (
+              <span>
+                Última importação: {ultimoLote.arquivo || "planilha"} em {new Date(ultimoLote.created_at).toLocaleString("pt-BR")}.
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Filtros comuns */}
         <Card className="border border-border/50 bg-card/80">
@@ -357,7 +385,7 @@ const FinanceTransactions = () => {
                     <span className="text-emerald-400/70">+ {fmtCurrency(group.income)}</span>
                     <span className="text-destructive/70">- {fmtCurrency(group.expense)}</span>
                     {group.pendingExpense > 0 && <Badge variant="outline" className="border-amber-500/40 text-amber-500">A pagar {fmtCurrency(group.pendingExpense)}</Badge>}
-                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openNew({ type: "expense", status: "planned", paid: false, date: `${group.key}-01`, due_date: `${group.key}-15` })}><CalendarPlus className="h-3.5 w-3.5 mr-1" />Adicionar</Button>
+                    {!espelho && <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openNew({ type: "expense", status: "planned", paid: false, date: `${group.key}-01`, due_date: `${group.key}-15` })}><CalendarPlus className="h-3.5 w-3.5 mr-1" />Adicionar</Button>}
                   </div>
                 </div>
                 <div className="overflow-x-auto">

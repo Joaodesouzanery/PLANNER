@@ -22,6 +22,9 @@ import { FinanceDre } from "./FinanceDre";
 import { FinanceKpis } from "./FinanceKpis";
 import { FinanceCockpitStrip } from "./FinanceCockpitStrip";
 import { FinanceCfoPanel } from "./FinanceCfoPanel";
+import { FinancePlanilhaMirror } from "./FinancePlanilhaMirror";
+import { FinanceCategoryPivotCard } from "./FinanceCategoryPivotCard";
+import { FinanceAlertsFeed } from "./FinanceAlertsFeed";
 
 import { FinanceClientsCard } from "./FinanceClientsCard";
 import { FinanceBudgetCard } from "./FinanceBudgetCard";
@@ -225,6 +228,11 @@ const FinanceDashboard = () => {
       </div>
 
       <TabsContent value="overview" className="mt-0 space-y-6">
+        {/* Espelho da Visão Geral da planilha — caixa livre, fôlego e agenda. Os painéis que já
+            existiam continuam logo abaixo, intactos. */}
+        <FinancePlanilhaMirror />
+        <FinanceAlertsFeed />
+        <FinanceCategoryPivotCard />
         <EstrategiaCfoStrip />
         <FinanceCockpitStrip />
         <FinanceCfoPanel />

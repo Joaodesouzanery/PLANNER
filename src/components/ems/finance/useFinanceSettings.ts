@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -20,6 +21,10 @@ export interface FinanceSettings {
   rbt12_alert_pct: number | null;
   // Pró-labore mensal (PJ→PF): entra na DRE como "= Lucro da empresa" e no painel PF (null = 0).
   prolabore_mensal: number | null;
+  // Bloco CAIXA (aba Config da planilha): saldo − reserva − provisionado = caixa livre.
+  // reserva_separada null = inferir pelo saldo das contas savings/investment.
+  reserva_separada: number | null;
+  provisionado: number | null;
 }
 
 const FALLBACK: FinanceSettings = {
@@ -34,6 +39,8 @@ const FALLBACK: FinanceSettings = {
   rbt12_limit: null,
   rbt12_alert_pct: 80,
   prolabore_mensal: null,
+  reserva_separada: null,
+  provisionado: null,
 };
 
 /** Config CFO. Se a tabela finance_settings ainda não existir (migration não aplicada), usa defaults. */
@@ -53,11 +60,22 @@ export const useFinanceSettings = () => {
   });
 
   const missing = query.data?.missing ?? false;
-  const settings: FinanceSettings = { ...FALLBACK, ...(query.data?.row ?? {}) };
+  const row = query.data?.row ?? null;
+  // Memoizado: sem isso `settings` é um objeto novo a cada render e derruba o useMemo de TODO
+  // consumidor (computeCfo varre o universo canônico inteiro em cada um deles).
+  const settings: FinanceSettings = useMemo(() => ({ ...FALLBACK, ...(row ?? {}) }), [row]);
+
+  // Colunas que podem não existir ainda no banco (migration mais nova que o deploy). Mandá-las no
+  // upsert derrubaria o "Salvar" INTEIRO com PGRST204 — imposto, baldes e RBT12 juntos.
+  const colunasDoServidor = useMemo(() => new Set(Object.keys(row ?? {})), [row]);
+  const seguro = (payload: Record<string, unknown>) => {
+    if (!row) return payload; // ainda não há linha: o insert define as colunas que existirem
+    return Object.fromEntries(Object.entries(payload).filter(([k]) => colunasDoServidor.has(k)));
+  };
 
   const save = useMutation({
     mutationFn: async (patch: Partial<FinanceSettings>) => {
-      const { error } = await db.from("finance_settings").upsert({ ...settings, ...patch }, { onConflict: "user_id" });
+      const { error } = await db.from("finance_settings").upsert(seguro({ ...settings, ...patch }), { onConflict: "user_id" });
       if (error) throw error;
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["finance-settings"] }); toast({ title: "Config salva" }); },

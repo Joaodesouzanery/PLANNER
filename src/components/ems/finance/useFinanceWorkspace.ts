@@ -62,6 +62,11 @@ const recurringFutureEvents = (transaction: Transaction, entityId: string | null
   return events;
 };
 
+// O bootstrap (cria entidade/conta padrão quando não existem) roda dentro do hook, e o hook é
+// montado por dezenas de componentes AO MESMO TEMPO. Sem um guard de módulo, num workspace virgem
+// cada instância dispara o próprio insert e o usuário ganha N "Conta principal" duplicadas.
+let bootstrapEmVoo = false;
+
 export const useFinanceWorkspace = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -189,8 +194,10 @@ export const useFinanceWorkspace = () => {
   });
 
   useEffect(() => {
+    if (bootstrapEmVoo) return; // ver o comentário do guard: ~30 instâncias montam este hook
     if (!entitiesLoading && !entitiesError && (!entities.some((item) => item.entity_type === "cpf") || companies.some((company) => !entities.some((item) => item.company_id === company.id)))) {
-      bootstrapMutation.mutate();
+      bootstrapEmVoo = true;
+      bootstrapMutation.mutate(undefined, { onSettled: () => { bootstrapEmVoo = false; } });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entitiesLoading, entities.length, companies.length, entitiesError]);

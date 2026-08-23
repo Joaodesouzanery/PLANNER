@@ -2,7 +2,7 @@
 // PeriodRow[] (realizado × previsto via `paid`). Classifica cada categoria numa linha da DRE
 // por heurística, com override do usuário vencendo. Simples Nacional: IR embutido (sem IRPJ à parte).
 import type { PeriodRow } from "./useFinanceData";
-import { catalogDreLine, categoryDef } from "./financeCategories";
+import { catalogDreLine, isTransferCategory } from "./financeCategories";
 
 export type DreLine = "receita" | "deducao" | "custo" | "despesa_operacional" | "resultado_financeiro" | "depreciacao";
 
@@ -80,7 +80,9 @@ export const computeDre = (rows: PeriodRow[], from: string, to: string, opts: Dr
     // TRANSFERÊNCIA não é resultado: pró-labore, aporte na reserva e a âncora de saldo inicial só
     // movem dinheiro de lugar. Como receita, a âncora inflaria a receita bruta E a estimativa de
     // imposto (que é receitaBruta × alíquota) — a DRE mentiria por causa de uma linha de abertura.
-    if (categoryDef(r.category)?.type === "transfer") continue;
+    // O override explícito do usuário continua vencendo: se ele classificou a categoria numa linha
+    // da DRE, é porque quer vê-la lá (o classificador da tela é o único lugar de override).
+    if (isTransferCategory(r.category) && !overrides[r.category || "Sem categoria"]) continue;
     if (r.type === "income") {
       // Receita financeira (rendimentos/juros recebidos) NÃO infla a receita bruta nem a base do imposto:
       // entra líquida no resultado financeiro (que assim pode ser positivo).

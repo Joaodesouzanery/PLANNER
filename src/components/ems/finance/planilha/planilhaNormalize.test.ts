@@ -11,7 +11,9 @@ describe("planilha — leitura de célula", () => {
   it("valor pt-BR", () => {
     assert.equal(parseValor("R$ 1.234,56"), 1234.56);
     assert.equal(parseValor("R$ 5.546,12"), 5546.12);
-    assert.equal(parseValor("R$ 1.500"), 1500);
+    assert.equal(parseValor("R$ 1.500"), 1500); // milhar "cheio", como a planilha escreve
+    assert.equal(parseValor("R$ 1.234.567"), 1234567);
+    assert.equal(parseValor("1234.56"), 1234.56); // sem grupo de 3: ponto continua decimal
     assert.equal(parseValor("2.000,00"), 2000);
     assert.equal(parseValor(800), 800);
     assert.equal(parseValor("(R$ 495)"), -495); // parênteses = negativo

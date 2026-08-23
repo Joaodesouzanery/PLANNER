@@ -73,7 +73,13 @@ export interface DiffPlanilha {
   inalterados: number;
   janela: Janela | null;
   foraDaJanela: number;
-  naoEhDaPlanilha: LinhaExistente[]; // lançamentos de outra origem dentro da janela
+  naoEhDaPlanilha: LinhaExistente[]; // lançamentos de outra origem DENTRO da janela (removíveis)
+  /**
+   * Recorrentes de outra origem que COMEÇAM antes da janela e ainda geram ocorrências nela.
+   * Ficam separados de propósito: apagar a âncora mataria também o histórico fora do período,
+   * que a planilha não cobre e não tem como repor. Aqui é aviso, nunca remoção.
+   */
+  recorrentesQueCruzam: LinhaExistente[];
   uidsRepetidos: string[]; // colisão de identidade: sinal de planilha malformada
 }
 
@@ -271,28 +277,37 @@ export const construirAlvo = (snap: SnapshotPlanilha, opts: OpcoesAlvo): Resulta
 
 /** Campos escritos pela importação. Tudo que é gravado tem que ser comparado, senão a planilha
  *  deixa de corrigir o campo depois da primeira gravação (ex.: cliente cadastrado só depois). */
-const CAMPOS_TEXTO = ["description", "type", "category", "date", "due_date", "status", "settled_at",
+const CAMPOS_TEXTO = ["description", "type", "category", "date", "due_date", "status",
   "recurrence_interval", "recurrence_end_date", "escopo", "cliente_id"] as const;
 
 const igualTexto = (a: unknown, b: unknown) => (a ?? null) === (b ?? null);
+
+/**
+ * `settled_at` é timestamptz: gravamos "2026-06-04" e o Postgres devolve
+ * "2026-06-04T00:00:00+00:00". Comparado como texto, TODA linha conciliada voltaria como alterada
+ * em toda reimportação — a idempotência morria em silêncio. Só o dia importa aqui.
+ */
+const mesmoDia = (a: string | null, b: string | null) => (a ? a.slice(0, 10) : null) === (b ? b.slice(0, 10) : null);
 
 const camposDiferentes = (alvo: LinhaAlvo, atual: LinhaExistente): string[] => {
   const out: string[] = [];
   if (Math.abs(alvo.amount - Number(atual.amount ?? 0)) >= 0.005) out.push("amount");
   if (Boolean(alvo.is_recurring) !== Boolean(atual.is_recurring)) out.push("is_recurring");
+  if (!mesmoDia(alvo.settled_at, atual.settled_at)) out.push("settled_at");
   for (const c of CAMPOS_TEXTO) if (!igualTexto(alvo[c], atual[c])) out.push(c);
   return out;
 };
 
-/** A linha cai dentro da janela? Para uma âncora RECORRENTE vale o intervalo que ela cobre: uma
- *  recorrência de 2025 sem prazo continua gerando ocorrências nos meses do arquivo, e essas
- *  ocorrências duplicariam com os lançamentos importados. */
-const tocaAJanela = (l: LinhaExistente, janela: Janela): boolean => {
-  const data = l.due_date || l.date;
-  if (!l.is_recurring) return janela.meses.has(mesDe(data));
-  const de = mesDe(data);
+/** A própria data da linha está num mês que o arquivo cobre? */
+const dentroDaJanela = (l: LinhaExistente, janela: Janela): boolean =>
+  janela.meses.has(mesDe(l.due_date || l.date));
+
+/** Recorrente que começa ANTES da janela e ainda gera ocorrências dentro dela. */
+const cruzaAJanela = (l: LinhaExistente, janela: Janela): boolean => {
+  if (!l.is_recurring) return false;
+  const de = mesDe(l.due_date || l.date);
   const ate = l.recurrence_end_date ? mesDe(l.recurrence_end_date) : "9999-99";
-  for (const m of janela.meses) if (m >= de && m <= ate) return true;
+  for (const m of janela.meses) if (m > de && m <= ate) return true;
   return false;
 };
 
@@ -340,13 +355,16 @@ export const diffPlanilha = (
     // Lista de PERMISSÃO: só apaga o que a importação criou. Um uid desconhecido nunca é tocado.
     if (uid.startsWith(PREFIXO_CFG) || uid.startsWith(PREFIXO_ANCORA)) { removidos.push(sobrou); continue; }
     if (!uid.startsWith(PREFIXO_LANC)) continue;
-    if (janela && tocaAJanela(sobrou, janela)) removidos.push(sobrou);
+    if (janela && dentroDaJanela(sobrou, janela)) removidos.push(sobrou);
     else foraDaJanela += 1; // mês que o arquivo não cobre: preservado
   }
 
-  const naoEhDaPlanilha = janela ? outrasOrigens.filter((o) => tocaAJanela(o, janela)) : [];
+  const naoEhDaPlanilha = janela ? outrasOrigens.filter((o) => dentroDaJanela(o, janela)) : [];
+  const recorrentesQueCruzam = janela
+    ? outrasOrigens.filter((o) => !dentroDaJanela(o, janela) && cruzaAJanela(o, janela))
+    : [];
 
-  return { novos, alterados, removidos, inalterados, janela, foraDaJanela, naoEhDaPlanilha, uidsRepetidos };
+  return { novos, alterados, removidos, inalterados, janela, foraDaJanela, naoEhDaPlanilha, recorrentesQueCruzam, uidsRepetidos };
 };
 
 // ───────────────────────── conferência ─────────────────────────

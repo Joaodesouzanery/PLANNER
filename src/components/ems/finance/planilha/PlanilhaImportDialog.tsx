@@ -36,12 +36,22 @@ export const PlanilhaImportDialog = ({ open, onOpenChange }: Props) => {
     onOpenChange(aberto);
   };
 
+  const cfg = analise?.snapshot.config;
+  // O que a importação escreve FORA das transações — o usuário aprova sabendo.
+  const configuracoes = [
+    cfg?.reservaSeparada != null ? `reserva separada ${brl(cfg.reservaSeparada)}` : null,
+    cfg?.provisionado != null ? `provisionado ${brl(cfg.provisionado)}` : null,
+    cfg?.variavelTotal != null ? `gasto variável ${brl(cfg.variavelTotal)}/mês` : null,
+    cfg?.tetos.length ? `${cfg.tetos.length} teto(s) por categoria` : null,
+  ].filter(Boolean) as string[];
+
   const diff = analise?.diff;
   // Também "muda" quando há linhas de outra origem para limpar — senão o botão fica desabilitado
   // justamente quando o que falta é tornar a planilha a fonte única do período.
   const semMudanca = diff
     && !diff.novos.length && !diff.alterados.length && !diff.removidos.length
-    && !(removerOutras && diff.naoEhDaPlanilha.length);
+    && !(removerOutras && diff.naoEhDaPlanilha.length)
+    && !configuracoes.length; // só a Config mudou? ainda assim há o que aplicar
 
   return (
     <Dialog open={open} onOpenChange={fechar}>
@@ -207,14 +217,28 @@ export const PlanilhaImportDialog = ({ open, onOpenChange }: Props) => {
                 {diff.foraDaJanela} lançamento(s) de meses que este arquivo não cobre ficam intactos.
               </p>
             )}
+            {!!configuracoes.length && (
+              <p className="text-xs text-muted-foreground">
+                A Config da planilha também atualiza: {configuracoes.join(" · ")}.
+              </p>
+            )}
             {!!analise.ignoradas && (
               <p className="text-xs text-muted-foreground">
-                {analise.ignoradas} linha(s) de simulação da Config ignoradas (não entram na sobra).
+                {analise.ignoradas} linha(s) de simulação da Config viram cenário: aparecem no fluxo previsto,
+                mas ficam fora da sobra e do saldo real.
               </p>
             )}
             {!!analise.encerradas && (
               <p className="text-xs text-muted-foreground">
                 {analise.encerradas} recorrente(s) da Config já com o prazo vencido — não viram compromisso.
+              </p>
+            )}
+            {!!diff.recorrentesQueCruzam.length && (
+              <p className="flex items-start gap-1.5 text-xs text-amber-600">
+                <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                {diff.recorrentesQueCruzam.length} recorrente(s) de outra origem começam antes deste período e ainda
+                geram lançamentos nele — podem duplicar com a planilha. Não são removidos aqui (isso apagaria o
+                histórico anterior); ajuste-os na lista de Transações.
               </p>
             )}
             {!!diff.uidsRepetidos.length && (

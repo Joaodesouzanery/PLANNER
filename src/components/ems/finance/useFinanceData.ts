@@ -9,7 +9,7 @@ import { ptBR } from "date-fns/locale";
 import { expandRecurringTransactions, parseDateOnly } from "@/lib/geocode";
 import { computeProjection, type ProjectionBreakdown } from "./projectionCalc";
 import { buildPeriodSource, effectiveDate, isRealized, isSyntheticId, type PeriodRow } from "./financePeriodSource";
-import { canonicalCategory } from "./financeCategories";
+import { canonicalCategory, isSaldoInicial } from "./financeCategories";
 
 export interface OKR {
   id: string; title: string; description: string | null; target_value: number;
@@ -23,7 +23,7 @@ export interface Transaction {
   card_invoice_id?: string | null; import_fingerprint?: string | null;
   installment_group_id?: string | null; installment_number?: number | null; installment_total?: number | null;
   is_recurring?: boolean; recurrence_interval?: string | null; recurrence_end_date?: string | null;
-  source_id?: string | null; is_projected?: boolean | null; projection_index?: number | null;
+  source_id?: string | null; source_type?: string | null; is_projected?: boolean | null; projection_index?: number | null;
   cliente_id?: string | null; produto_id?: string | null; escopo?: string | null;
 }
 export interface SavedInstallment {
@@ -435,8 +435,17 @@ export const useFinanceData = (options?: { historyWindow?: number }) => {
     return Array.from(merged.values());
   }, [transactions]);
 
-  const totalIncome = useMemo(() => dashboardTransactions.filter(t => t.type === "income").reduce((a, t) => a + Number(t.amount), 0), [dashboardTransactions]);
-  const totalExpense = useMemo(() => dashboardTransactions.filter(t => t.type === "expense").reduce((a, t) => a + Number(t.amount), 0), [dashboardTransactions]);
+  // Números de RESULTADO (totais, gráficos, mês a mês) não podem incluir a âncora de saldo inicial
+  // criada pela importação da planilha: ela é `income` no razão só para o SALDO bater com o
+  // declarado. Contá-la aqui inflaria a receita do mês em que ela cai e os gráficos de categoria.
+  // O carry/saldo (que usa dashboardTransactions direto) continua vendo a âncora — é o ponto dela.
+  const resultTransactions = useMemo(
+    () => dashboardTransactions.filter(t => !isSaldoInicial(t.category)),
+    [dashboardTransactions],
+  );
+
+  const totalIncome = useMemo(() => resultTransactions.filter(t => t.type === "income").reduce((a, t) => a + Number(t.amount), 0), [resultTransactions]);
+  const totalExpense = useMemo(() => resultTransactions.filter(t => t.type === "expense").reduce((a, t) => a + Number(t.amount), 0), [resultTransactions]);
   const balance = totalIncome - totalExpense;
 
   const allCategories = useMemo(() => {
@@ -450,25 +459,25 @@ export const useFinanceData = (options?: { historyWindow?: number }) => {
     const totalMonths = Math.max(12, historyWindow);
     for (let i = totalMonths - 1; i >= 0; i--) {
       const d = subMonths(new Date(), i); const key = format(d, "yyyy-MM"); const label = format(d, "MMM/yy", { locale: ptBR });
-      const monthTx = dashboardTransactions.filter(t => effectiveDate(t).slice(0, 7) === key);
+      const monthTx = resultTransactions.filter(t => effectiveDate(t).slice(0, 7) === key);
       const inc = monthTx.filter(t => t.type === "income").reduce((a, t) => a + Number(t.amount), 0);
       const exp = monthTx.filter(t => t.type === "expense").reduce((a, t) => a + Number(t.amount), 0);
       months.push({ month: label, income: inc, expense: exp, balance: inc - exp });
     }
     return months;
-  }, [dashboardTransactions, historyWindow]);
+  }, [resultTransactions, historyWindow]);
 
   const incomeByCat = useMemo(() => {
     const map: Record<string, number> = {};
-    dashboardTransactions.filter(t => t.type === "income").forEach(t => { const cat = canonicalCategory(t.category) || "Sem categoria"; map[cat] = (map[cat] || 0) + Number(t.amount); });
+    resultTransactions.filter(t => t.type === "income").forEach(t => { const cat = canonicalCategory(t.category) || "Sem categoria"; map[cat] = (map[cat] || 0) + Number(t.amount); });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  }, [dashboardTransactions]);
+  }, [resultTransactions]);
 
   const expenseByCat = useMemo(() => {
     const map: Record<string, number> = {};
-    dashboardTransactions.filter(t => t.type === "expense").forEach(t => { const cat = canonicalCategory(t.category) || "Sem categoria"; map[cat] = (map[cat] || 0) + Number(t.amount); });
+    resultTransactions.filter(t => t.type === "expense").forEach(t => { const cat = canonicalCategory(t.category) || "Sem categoria"; map[cat] = (map[cat] || 0) + Number(t.amount); });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  }, [dashboardTransactions]);
+  }, [resultTransactions]);
 
   const projection = useMemo(() => {
     const futureMonthLabels: string[] = [];
