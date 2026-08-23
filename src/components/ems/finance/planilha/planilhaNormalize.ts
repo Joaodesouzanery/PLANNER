@@ -357,6 +357,9 @@ export const lerConfig = (grade: Grade, hoje: string): { config: ConfigPlanilha;
   const iPar = acharColuna(cab, COL.parcelaAtual);
   const iTot = acharColuna(cab, COL.totalParcelas);
 
+  // Contador por (descrição, tipo): duas linhas iguais na Config precisam de uids distintos,
+  // senão a segunda nunca casa no diff — entra como "nova" a cada importação e o lixo cresce.
+  const ocorrencias = new Map<string, number>();
   for (let i = h + 1; i < grade.length; i += 1) {
     const l = grade[i] || [];
     const descricao = texto(l[iDesc]);
@@ -371,8 +374,12 @@ export const lerConfig = (grade: Grade, hoje: string): { config: ConfigPlanilha;
     const totalParcelas = iTot >= 0 ? parseValor(l[iTot]) : null;
     const fimDireto = iFim >= 0 ? parseData(l[iFim]) : null;
 
+    const chave = `${slug(descricao)}:${tipo}`;
+    const n = (ocorrencias.get(chave) ?? 0) + 1;
+    ocorrencias.set(chave, n);
+
     config.recorrentes.push({
-      uid: `planilha:cfg:${slug(descricao)}:${tipo}`,
+      uid: `planilha:cfg:${chave}:${n}`,
       descricao,
       tipo,
       valor: Math.abs(valor),

@@ -16,8 +16,9 @@ const dataBr = (iso: string) => iso.split("-").reverse().join("/");
 
 const ROTULO_CAMPO: Record<string, string> = {
   description: "descrição", amount: "valor", type: "tipo", category: "categoria",
-  date: "data", due_date: "vencimento", status: "situação",
-  is_recurring: "recorrência", recurrence_end_date: "fim da recorrência",
+  date: "data", due_date: "vencimento", status: "situação", settled_at: "data de quitação",
+  is_recurring: "recorrência", recurrence_interval: "intervalo", recurrence_end_date: "fim da recorrência",
+  escopo: "escopo PF/PJ", cliente_id: "cliente",
 };
 
 interface Props {
@@ -28,7 +29,7 @@ interface Props {
 export const PlanilhaImportDialog = ({ open, onOpenChange }: Props) => {
   const { analise, analisando, analisar, limpar, aplicar, aplicando, desfazer, desfazendo, ultimoLote } = usePlanilhaImport();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [arquivarOutras, setArquivarOutras] = useState(true);
+  const [removerOutras, setRemoverOutras] = useState(true);
 
   const fechar = (aberto: boolean) => {
     if (!aberto) limpar();
@@ -36,7 +37,11 @@ export const PlanilhaImportDialog = ({ open, onOpenChange }: Props) => {
   };
 
   const diff = analise?.diff;
-  const semMudanca = diff && !diff.novos.length && !diff.alterados.length && !diff.removidos.length;
+  // Também "muda" quando há linhas de outra origem para limpar — senão o botão fica desabilitado
+  // justamente quando o que falta é tornar a planilha a fonte única do período.
+  const semMudanca = diff
+    && !diff.novos.length && !diff.alterados.length && !diff.removidos.length
+    && !(removerOutras && diff.naoEhDaPlanilha.length);
 
   return (
     <Dialog open={open} onOpenChange={fechar}>
@@ -142,15 +147,22 @@ export const PlanilhaImportDialog = ({ open, onOpenChange }: Props) => {
                   </thead>
                   <tbody>
                     {analise.conferencia.porMes.map((m) => (
-                      <tr key={m.mes} className={m.bate ? "" : "bg-amber-500/5"}>
-                        <td className="p-2">{m.mes}</td>
-                        <td className="p-2 text-right tabular-nums">
-                          {brl(m.entradasApp)}
-                          {!m.bate && <span className="ml-1 text-xs text-muted-foreground">(planilha: {brl(m.entradasPlanilha)})</span>}
+                      <tr key={m.mes} className={!m.comparavel ? "opacity-50" : m.bate ? "" : "bg-amber-500/5"}>
+                        <td className="p-2">
+                          {m.mes}
+                          {!m.comparavel && (
+                            <span className="ml-1 text-xs text-muted-foreground">
+                              {m.reconhecido ? "· projeção da planilha" : "· não é um mês"}
+                            </span>
+                          )}
                         </td>
                         <td className="p-2 text-right tabular-nums">
-                          {brl(m.saidasApp)}
-                          {!m.bate && <span className="ml-1 text-xs text-muted-foreground">(planilha: {brl(m.saidasPlanilha)})</span>}
+                          {m.comparavel ? brl(m.entradasApp) : "—"}
+                          {m.comparavel && !m.bate && <span className="ml-1 text-xs text-muted-foreground">(planilha: {brl(m.entradasPlanilha)})</span>}
+                        </td>
+                        <td className="p-2 text-right tabular-nums">
+                          {m.comparavel ? brl(m.saidasApp) : "—"}
+                          {m.comparavel && !m.bate && <span className="ml-1 text-xs text-muted-foreground">(planilha: {brl(m.saidasPlanilha)})</span>}
                         </td>
                       </tr>
                     ))}
@@ -200,6 +212,18 @@ export const PlanilhaImportDialog = ({ open, onOpenChange }: Props) => {
                 {analise.ignoradas} linha(s) de simulação da Config ignoradas (não entram na sobra).
               </p>
             )}
+            {!!analise.encerradas && (
+              <p className="text-xs text-muted-foreground">
+                {analise.encerradas} recorrente(s) da Config já com o prazo vencido — não viram compromisso.
+              </p>
+            )}
+            {!!diff.uidsRepetidos.length && (
+              <p className="flex items-start gap-1.5 text-xs text-amber-600">
+                <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                {diff.uidsRepetidos.length} linha(s) com identidade repetida foram ignoradas — confira se a planilha
+                tem descrições duplicadas na mesma data.
+              </p>
+            )}
             {analise.snapshot.avisos.map((a) => (
               <p key={a} className="flex items-start gap-1.5 text-xs text-amber-600">
                 <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />{a}
@@ -208,7 +232,7 @@ export const PlanilhaImportDialog = ({ open, onOpenChange }: Props) => {
 
             {!!diff.naoEhDaPlanilha.length && (
               <label className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
-                <Checkbox checked={arquivarOutras} onCheckedChange={(v) => setArquivarOutras(v === true)} className="mt-0.5" />
+                <Checkbox checked={removerOutras} onCheckedChange={(v) => setRemoverOutras(v === true)} className="mt-0.5" />
                 <span>
                   Remover os <strong>{diff.naoEhDaPlanilha.length}</strong> lançamentos de outra origem que estão dentro do
                   período da planilha (seed, CSV, manuais). É o que faz a planilha ser a fonte única — e dá para desfazer.
@@ -221,7 +245,7 @@ export const PlanilhaImportDialog = ({ open, onOpenChange }: Props) => {
         <DialogFooter>
           {analise && <Button variant="ghost" onClick={limpar}>Escolher outro arquivo</Button>}
           <Button variant="outline" onClick={() => fechar(false)}>Cancelar</Button>
-          <Button disabled={!analise || aplicando || semMudanca} onClick={() => aplicar({ arquivarOutras })}>
+          <Button disabled={!analise || aplicando || semMudanca} onClick={() => aplicar({ removerOutras })}>
             {aplicando && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Aplicar importação
           </Button>

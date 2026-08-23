@@ -91,6 +91,26 @@ describe("financeDre — pró-labore (= Lucro da empresa)", () => {
     assert.equal(dp.lucroLiquido, 10000 - 600); // só a dedução de 6%
     assert.equal(dp.lucroEmpresa, 9400 - 4500); // pró-labore subtraído UMA vez
   });
+
+  it("âncora de saldo inicial não vira receita nem base de imposto", () => {
+    // A importação da planilha grava uma linha de abertura para o saldo do app bater com o
+    // declarado. Como receita, ela inflaria a receita bruta E a estimativa de imposto.
+    const r2 = [
+      row({ id: "inc", date: "2026-08-05", type: "income", amount: 10000 }),
+      row({ id: "anc", date: "2026-08-01", type: "income", amount: 3692.12, category: "Saldo inicial" }),
+    ];
+    const d2 = computeDre(r2, "2026-08-01", "2026-08-31", { taxRate: 6 });
+    assert.equal(d2.receitaBruta, 10000);
+    assert.equal(d2.deducoes, 600);
+  });
+
+  it("aporte na reserva não é despesa da empresa (transferência, não resultado)", () => {
+    const r2 = [
+      row({ id: "inc", date: "2026-08-05", type: "income", amount: 10000 }),
+      row({ id: "ap", date: "2026-08-10", type: "expense", amount: 1000, category: "Investimento / Reserva" }),
+    ];
+    assert.equal(computeDre(r2, "2026-08-01", "2026-08-31", { taxRate: 6 }).despesaOperacional, 0);
+  });
 });
 
 describe("financeDre — dedução com piso da estimativa (não é mais tudo-ou-nada)", () => {

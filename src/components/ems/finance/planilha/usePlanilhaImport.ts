@@ -11,23 +11,28 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { lerPlanilha } from "./planilhaParse";
 import {
-  conferir, construirAlvo, diffPlanilha,
-  type Conferencia, type DiffPlanilha, type LinhaAlvo, type LinhaExistente,
+  conferir, construirAlvo, dataBaseDa, diffPlanilha, janelaDaPlanilha,
+  PREFIXO_ANCORA,
+  type Conferencia, type DiffPlanilha, type Janela, type LinhaAlvo, type LinhaExistente,
 } from "./planilhaSync";
 import type { SnapshotPlanilha } from "./planilhaNormalize";
 
 const ORIGEM = "planilha";
+const PAGINA = 1000; // o PostgREST corta em `db-max-rows` (1000 por padrão) — sem paginar, o diff
+// veria menos linhas do que existem e reinseriria tudo que ficou de fora.
 
 export interface AnalisePlanilha {
   arquivo: string;
   snapshot: SnapshotPlanilha;
   alvo: LinhaAlvo[];
+  ancora: LinhaAlvo | null;
   diff: DiffPlanilha;
   conferencia: Conferencia;
+  janela: Janela | null;
   ignoradas: number;
+  encerradas: number;
   /** id → linha completa do banco, para o payload de desfazer. */
   brutas: Map<string, Record<string, any>>;
-  clientesPorNome: Map<string, string>;
 }
 
 export interface LoteImport {
@@ -51,7 +56,7 @@ const CAMPOS_ESCRITOS = [
   "is_recurring", "recurrence_interval", "recurrence_end_date", "escopo", "cliente_id",
 ] as const;
 
-const paraBanco = (l: LinhaAlvo, clienteId: string | null) => ({
+const paraBanco = (l: LinhaAlvo) => ({
   description: l.description,
   amount: l.amount,
   type: l.type,
@@ -59,12 +64,19 @@ const paraBanco = (l: LinhaAlvo, clienteId: string | null) => ({
   date: l.date,
   due_date: l.due_date,
   status: l.status,
-  settled_at: l.status === "reconciled" ? l.date : null,
+  settled_at: l.settled_at,
   is_recurring: l.is_recurring,
   recurrence_interval: l.recurrence_interval,
   recurrence_end_date: l.recurrence_end_date,
   escopo: l.escopo,
-  cliente_id: clienteId,
+  cliente_id: l.cliente_id,
+});
+
+const projetar = (t: any): LinhaExistente => ({
+  id: t.id, uid: t.import_fingerprint || "", description: t.description, amount: Number(t.amount),
+  type: t.type, category: t.category, date: t.date, due_date: t.due_date, status: t.status,
+  settled_at: t.settled_at, is_recurring: t.is_recurring, recurrence_interval: t.recurrence_interval,
+  recurrence_end_date: t.recurrence_end_date, escopo: t.escopo, cliente_id: t.cliente_id,
 });
 
 const pedacos = <T,>(itens: T[], n: number): T[][] => {
@@ -93,6 +105,7 @@ export const usePlanilhaImport = () => {
       if (error) throw error;
       return (data || []) as LoteImport[];
     },
+    retry: false,
   });
 
   const ultimoLote = lotes.find((l) => !l.desfeito_em) || null;
@@ -105,33 +118,46 @@ export const usePlanilhaImport = () => {
     try {
       const snapshot = await lerPlanilha(arquivo);
 
-      let q = supabase.from("financial_transactions").select("*");
-      if (companyId) q = q.eq("company_id", companyId);
-      const [{ data: clientes }, { data: existentes, error }] = await Promise.all([
-        (supabase as any).from("finance_clientes").select("id, nome"),
-        q,
-      ]);
-      if (error) throw error;
+      const { data: clientesRaw } = await (supabase as any).from("finance_clientes").select("id, nome");
+      const clientes = ((clientesRaw || []) as any[]).map((c) => ({ id: String(c.id), nome: String(c.nome || "") }));
 
-      const clientesPorNome = new Map<string, string>((clientes || []).map((c: any) => [c.nome as string, c.id as string]));
-      const { linhas, ignoradas } = construirAlvo(snapshot, { clientes: [...clientesPorNome.keys()] });
+      // Todas as linhas, paginadas — o diff precisa enxergar o banco inteiro para não duplicar.
+      const todas: any[] = [];
+      for (let pagina = 0; ; pagina += 1) {
+        let q = supabase.from("financial_transactions").select("*").order("id");
+        if (companyId) q = q.eq("company_id", companyId);
+        const { data, error } = await q.range(pagina * PAGINA, (pagina + 1) * PAGINA - 1);
+        if (error) throw error;
+        todas.push(...(data || []));
+        if (!data || data.length < PAGINA) break;
+      }
 
-      // Só as linhas gravadas: as ocorrências de recorrência que o app expande em memória
-      // (`expandRecurringTransactions`) não existem no banco e não entram no diff.
-      const reais = (existentes || []) as any[];
-      const brutas = new Map<string, Record<string, any>>(reais.map((t: any) => [t.id, t]));
-      const projetar = (t: any): LinhaExistente => ({
-        id: t.id, uid: t.import_fingerprint || "", description: t.description, amount: Number(t.amount),
-        type: t.type, category: t.category, date: t.date, due_date: t.due_date, status: t.status,
-        is_recurring: t.is_recurring, recurrence_end_date: t.recurrence_end_date,
-      });
-      const daPlanilha = reais.filter((t: any) => t.source_type === ORIGEM && t.import_fingerprint).map(projetar);
-      const outras = reais.filter((t: any) => t.source_type !== ORIGEM).map(projetar);
+      const janela = janelaDaPlanilha(snapshot);
+      const dataBase = dataBaseDa(snapshot);
 
-      const diff = diffPlanilha(linhas, daPlanilha, outras);
+      // Caixa que já está no banco, sobrevive à importação e não veio deste arquivo: sem descontá-lo,
+      // a âncora de saldo o contaria duas vezes ao reimportar uma planilha enxuta.
+      const realizadoPreservado = !janela || !dataBase ? 0 : todas.reduce((a, t) => {
+        const uid = t.import_fingerprint || "";
+        if (uid.startsWith(PREFIXO_ANCORA)) return a; // a âncora antiga é substituída
+        const data = t.due_date || t.date;
+        if (t.status !== "reconciled" || data > dataBase) return a; // só caixa que já moveu
+        if (janela.meses.has(String(data).slice(0, 7))) return a; // dentro do arquivo: já contado
+        return a + (t.type === "income" ? Number(t.amount) : -Number(t.amount));
+      }, 0);
+
+      const { linhas, ancora, ignoradas, encerradas } = construirAlvo(snapshot, { clientes, realizadoPreservado });
+
+      const brutas = new Map<string, Record<string, any>>(todas.map((t) => [t.id, t]));
+      const daPlanilha = todas.filter((t) => t.source_type === ORIGEM && t.import_fingerprint).map(projetar);
+      // Uma linha marcada como da planilha mas SEM fingerprint é órfã: não casa com nada. Vai para
+      // "outras origens" para pelo menos aparecer na prévia em vez de ficar invisível para sempre.
+      const outras = todas.filter((t) => t.source_type !== ORIGEM || !t.import_fingerprint).map(projetar);
+
+      const diff = diffPlanilha(linhas, daPlanilha, outras, janela);
       setAnalise({
-        arquivo: arquivo.name, snapshot, alvo: linhas, diff,
-        conferencia: conferir(snapshot, linhas), ignoradas, brutas, clientesPorNome,
+        arquivo: arquivo.name, snapshot, alvo: linhas, ancora, diff,
+        conferencia: conferir(snapshot, linhas, janela), janela, ignoradas, encerradas, brutas,
       });
     } catch (e: any) {
       setAnalise(null);
@@ -142,17 +168,16 @@ export const usePlanilhaImport = () => {
   }, [toast, companyId]);
 
   const aplicar = useMutation({
-    mutationFn: async ({ arquivarOutras }: { arquivarOutras: boolean }) => {
+    mutationFn: async ({ removerOutras }: { removerOutras: boolean }) => {
       if (!analise) throw new Error("Nada para aplicar.");
-      const { diff, clientesPorNome, brutas } = analise;
-      const clienteId = (nome: string | null) => (nome ? clientesPorNome.get(nome) ?? null : null);
+      const { diff, brutas } = analise;
 
       const criados: string[] = [];
       for (const lote of pedacos(diff.novos, 200)) {
         const { data, error } = await supabase
           .from("financial_transactions")
           .insert(lote.map((l) => ({
-            ...paraBanco(l, clienteId(l.cliente)),
+            ...paraBanco(l),
             source_type: ORIGEM,
             import_fingerprint: l.uid,
             company_id: companyId,
@@ -169,7 +194,7 @@ export const usePlanilhaImport = () => {
         for (const c of CAMPOS_ESCRITOS) antes[c] = bruta[c] ?? null;
         const { error } = await supabase
           .from("financial_transactions")
-          .update(paraBanco(alt.alvo, clienteId(alt.alvo.cliente)) as any)
+          .update(paraBanco(alt.alvo) as any)
           .eq("id", alt.id);
         if (error) throw error;
         atualizados.push({ id: alt.id, antes });
@@ -179,7 +204,7 @@ export const usePlanilhaImport = () => {
       // janela só saem se o usuário confirmar — é a decisão "a planilha é a fonte única no período".
       const paraRemover = [
         ...diff.removidos.map((r) => r.id),
-        ...(arquivarOutras ? diff.naoEhDaPlanilha.map((r) => r.id) : []),
+        ...(removerOutras ? diff.naoEhDaPlanilha.map((r) => r.id) : []),
       ];
       const removidos = paraRemover.map((id) => brutas.get(id)).filter(Boolean) as Record<string, any>[];
       for (const lote of pedacos(paraRemover, 200)) {

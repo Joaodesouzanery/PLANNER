@@ -184,6 +184,20 @@ describe("planilha — aba Config", () => {
     assert.equal(circle!.sandbox, false);
   });
 
+  it("duas linhas iguais na Config ganham uids distintos", () => {
+    // Sem contador, a segunda nunca casava no diff: entrava como "nova" a cada importação.
+    const repetida: Grade = [
+      ["Descrição", "Tipo", "Valor", "Dia", "Fim (vazio = sem fim)", "Parcela atual", "Total parcelas"],
+      ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""], ["", "", "", "", "", "", ""],
+      ["Aluguel", "Saída", "R$ 1.000", 5, "", "", ""],
+      ["Aluguel", "Saída", "R$ 1.000", 5, "", "", ""],
+    ];
+    const { config } = lerConfig(repetida, HOJE);
+    const uids = config.recorrentes.map((r) => r.uid);
+    assert.equal(uids.length, 2);
+    assert.equal(new Set(uids).size, 2);
+  });
+
   it("lê os tetos do bloco de gasto variável", () => {
     const { config } = lerConfig(grade, HOJE);
     const porCat = Object.fromEntries(config.tetos.map((t) => [t.categoria, t.teto]));

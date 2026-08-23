@@ -2,7 +2,7 @@
 // PeriodRow[] (realizado × previsto via `paid`). Classifica cada categoria numa linha da DRE
 // por heurística, com override do usuário vencendo. Simples Nacional: IR embutido (sem IRPJ à parte).
 import type { PeriodRow } from "./useFinanceData";
-import { catalogDreLine, canonicalCategory } from "./financeCategories";
+import { catalogDreLine, categoryDef } from "./financeCategories";
 
 export type DreLine = "receita" | "deducao" | "custo" | "despesa_operacional" | "resultado_financeiro" | "depreciacao";
 
@@ -77,6 +77,10 @@ export const computeDre = (rows: PeriodRow[], from: string, to: string, opts: Dr
   let receitaBruta = 0;
   for (const r of rows) {
     if (!inP(r)) continue;
+    // TRANSFERÊNCIA não é resultado: pró-labore, aporte na reserva e a âncora de saldo inicial só
+    // movem dinheiro de lugar. Como receita, a âncora inflaria a receita bruta E a estimativa de
+    // imposto (que é receitaBruta × alíquota) — a DRE mentiria por causa de uma linha de abertura.
+    if (categoryDef(r.category)?.type === "transfer") continue;
     if (r.type === "income") {
       // Receita financeira (rendimentos/juros recebidos) NÃO infla a receita bruta nem a base do imposto:
       // entra líquida no resultado financeiro (que assim pode ser positivo).
@@ -84,8 +88,6 @@ export const computeDre = (rows: PeriodRow[], from: string, to: string, opts: Dr
       else receitaBruta += r.amount;
       continue;
     }
-    // Pró-labore é tratado só pela linha de settings (opts.prolabore) — nunca conta como despesa (evita dobra).
-    if (canonicalCategory(r.category) === "Pró-labore") continue;
     const line = mapCategoryToDreLine(r.category, overrides);
     byLine[line] += r.amount;
     const key = r.category || "Sem categoria";

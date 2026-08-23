@@ -35,6 +35,9 @@ export const FINANCE_CATEGORIES: CatDef[] = [
   { name: "Educação", scope: "PF", type: "expense" },
   { name: "Doações", scope: "PF", type: "expense" },
   { name: "Investimento / Reserva", scope: "PF", type: "transfer" },
+  // Âncora de abertura de saldo (importação da planilha). É "transfer" de propósito: dinheiro que
+  // já existia não é receita — como receita, inflaria a receita bruta e a estimativa de imposto.
+  { name: "Saldo inicial", scope: "PF", type: "transfer" },
   { name: "Outros", scope: "PF", type: "expense" },
 ];
 
@@ -78,6 +81,7 @@ export const CATEGORY_ALIASES: Record<string, string> = {
   investimento: "Investimento / Reserva", reserva: "Investimento / Reserva", aporte: "Investimento / Reserva", cdb: "Investimento / Reserva",
   // Pró-labore
   "pro-labore": "Pró-labore", "pro labore": "Pró-labore", prolabore: "Pró-labore",
+  "saldo inicial": "Saldo inicial", "saldo de abertura": "Saldo inicial", abertura: "Saldo inicial",
   // Empresa
   infra: "Infra / COGS", supabase: "Infra / COGS", api: "Infra / COGS", gateway: "Infra / COGS",
   ferramenta: "Ferramentas", ferramentas: "Ferramentas", claude: "Ferramentas", internet: "Ferramentas", dominio: "Ferramentas",
