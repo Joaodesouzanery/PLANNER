@@ -278,10 +278,12 @@ describe("planilhaSync — rótulo de mês", () => {
     assert.equal(mesKey("jul/2026"), "2026-07");
     assert.equal(mesKey("março/26"), "2026-03");
     assert.equal(mesKey("Julho de 2026"), "2026-07");
+    assert.equal(mesKey("Acumulado jan/26"), "2026-01"); // o mês não precisa ser a 1ª palavra
   });
   it("não inventa mês onde não tem", () => {
     assert.equal(mesKey("outros 26"), null); // "out" + "ros" não é outubro
     assert.equal(mesKey("Total 2026"), null);
+    assert.equal(mesKey("jun"), null); // sem ano não dá para situar
     assert.equal(mesKey(""), null);
   });
 });
@@ -293,6 +295,12 @@ describe("planilhaSync — conferência contra os totais declarados", () => {
     const c = conferir(snap, linhas);
     assert.equal(c.bate, true);
     assert.equal(c.porMes[0].entradasApp, 2000);
+  });
+
+  it("saída declarada com sinal negativo não reprova a conferência", () => {
+    // A Visão Geral da planilha escreve as saídas como negativas em alguns blocos.
+    const snap = snapshot({ totais: { porMes: [{ mes: "jun./26", entradas: 2000, saidas: -100 }], saldoHoje: null } });
+    assert.equal(conferir(snap, construirAlvo(snap, { clientes: [] }).linhas).bate, true);
   });
 
   it("acusa a diferença quando não bate", () => {

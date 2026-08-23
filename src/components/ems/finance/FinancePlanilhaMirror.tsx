@@ -3,7 +3,7 @@
 // mês em diante. Tudo derivado do mesmo read-model canônico — nenhum número novo é inventado aqui.
 
 import { useMemo } from "react";
-import { format, addMonths, startOfMonth } from "date-fns";
+import { format, addMonths, endOfMonth, startOfMonth } from "date-fns";
 import { AlertTriangle, CalendarClock, PiggyBank, TrendingDown, Wallet } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -87,7 +87,8 @@ export const FinancePlanilhaMirror = () => {
     // Do 1º DIA DO MÊS, não de hoje: senão as contas já vencidas deste mês somem da tabela —
     // e elas continuam pesando no menor saldo, o que deixaria os dois números irreconciliáveis.
     const de = format(startOfMonth(new Date()), "yyyy-MM-dd");
-    const ate = format(addMonths(new Date(), HORIZONTE_MESES), "yyyy-MM-dd");
+    // Fecha no ÚLTIMO dia do 12º mês: `addMonths(hoje, 12)` daria 12 meses e mais uns dias.
+    const ate = format(endOfMonth(addMonths(startOfMonth(new Date()), HORIZONTE_MESES - 1)), "yyyy-MM-dd");
     const hoje = todayIso();
     const t = canonical.totals(de, ate);
     const linhas = [

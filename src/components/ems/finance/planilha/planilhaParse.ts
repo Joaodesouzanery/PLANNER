@@ -71,9 +71,13 @@ export const lerPlanilha = async (arquivo: File, hoje = hojeLocal()): Promise<Sn
   const { linhas, avisos } = lerLancamentos(gLanc, hoje);
   const todosAvisos = [...avisos];
 
+  // A maior data dos Lançamentos é a data-base de reserva: estável entre importações do MESMO
+  // arquivo, ao contrário de "hoje".
+  const maiorData = linhas.reduce((m, l) => (l.data > m ? l.data : m), "") || null;
+
   const gConfig = await grade("config");
   const cfg = gConfig
-    ? lerConfig(gConfig, hoje)
+    ? lerConfig(gConfig, hoje, maiorData)
     : { config: { saldoHoje: null, dataBase: null, tetos: [], variavelTotal: null, reservaSeparada: null, provisionado: null, recorrentes: [] }, avisos: ["Aba Config não encontrada: recorrentes e saldo declarado ficaram de fora."] };
   todosAvisos.push(...cfg.avisos);
 

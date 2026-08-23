@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { AlertTriangle, Download, ScrollText } from "lucide-react";
+import { PlanilhaImportHistory } from "./planilha/PlanilhaImportHistory";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -79,6 +80,8 @@ export const FinanceAudit = () => {
           </Card>
         ))}
       </div>
+
+      <PlanilhaImportHistory />
 
       {report.duplicates.length > 0 && (
         <Card className="border-amber-500/30">

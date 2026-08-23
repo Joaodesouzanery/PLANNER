@@ -70,7 +70,9 @@ export const saldoRealHoje = (rows: PeriodRow[], today: string = todayStr()): nu
 /**
  * Curva de saldo diária a partir do saldo real de hoje.
  * - Saídas não-pagas: vencidas + de hoje batem imediatamente (dia 0); as futuras, na data.
- * - Entradas não-pagas: só as futuras entram — recebível já vencido é incerto e não infla o piso.
+ * - Entradas não-pagas: só as de data FUTURA entram. O recebível vencido — e também o que vence
+ *   HOJE, que costuma cair no dia seguinte — é incerto e de propósito não infla o piso: este número
+ *   alimenta alarme de caixa, então errar para menos é o lado seguro.
  */
 export const curvaDiaria = (rows: PeriodRow[], days: number, today: string = todayStr()) => {
   const base = saldoRealHoje(rows, today);

@@ -388,16 +388,22 @@ export interface Conferencia {
 const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 const NOMES = ["janeiro", "fevereiro", "marco", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
 
-/** "jun./26" · "julho de 2026" · "março/26" → "AAAA-MM". Devolve null quando não é um mês. */
+/**
+ * "jun./26" · "julho de 2026" · "março/26" · "Acumulado jan/26" → "AAAA-MM".
+ * Varre TODAS as palavras: prender-se à primeira faria "Acumulado jan/26" virar "não é um mês" e
+ * o mês sumir da conferência. E a palavra tem que ser um mês de verdade — "outros 26" não é outubro.
+ */
 export const mesKey = (rotulo: string): string | null => {
-  const m = semAcento(rotulo).match(/([a-z]+)\D*(\d{2,4})/);
-  if (!m) return null;
-  const palavra = m[1];
-  // "outros 26" não é outubro: a palavra tem que ser a abreviação exata ou o nome completo.
-  const i = MESES.indexOf(palavra) >= 0 ? MESES.indexOf(palavra) : NOMES.indexOf(palavra);
-  if (i < 0) return null;
-  const ano = Number(m[2]) < 100 ? 2000 + Number(m[2]) : Number(m[2]);
-  return `${ano}-${String(i + 1).padStart(2, "0")}`;
+  const limpo = semAcento(rotulo);
+  const ano = limpo.match(/\d{2,4}/);
+  if (!ano) return null;
+  for (const palavra of limpo.split(/[^a-z]+/).filter(Boolean)) {
+    const i = MESES.indexOf(palavra) >= 0 ? MESES.indexOf(palavra) : NOMES.indexOf(palavra);
+    if (i < 0) continue;
+    const a = Number(ano[0]) < 100 ? 2000 + Number(ano[0]) : Number(ano[0]);
+    return `${a}-${String(i + 1).padStart(2, "0")}`;
+  }
+  return null;
 };
 
 /**
@@ -418,11 +424,13 @@ export const conferir = (snap: SnapshotPlanilha, linhas: LinhaAlvo[], janela: Ja
       mes: t.mes,
       reconhecido: !!chave,
       comparavel,
-      entradasPlanilha: t.entradas,
+      entradasPlanilha: Math.abs(t.entradas),
       entradasApp,
-      saidasPlanilha: t.saidas,
+      // A Visão Geral pode declarar as saídas com sinal negativo; o app soma sempre positivo.
+      // Sem normalizar, a conferência daria vermelho em toda importação correta.
+      saidasPlanilha: Math.abs(t.saidas),
       saidasApp,
-      bate: Math.abs(entradasApp - t.entradas) < 1 && Math.abs(saidasApp - t.saidas) < 1,
+      bate: Math.abs(entradasApp - Math.abs(t.entradas)) < 1 && Math.abs(saidasApp - Math.abs(t.saidas)) < 1,
     };
   });
   const comparaveis = porMes.filter((m) => m.comparavel);

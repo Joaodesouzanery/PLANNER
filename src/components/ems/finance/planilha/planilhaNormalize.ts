@@ -285,20 +285,33 @@ export const fimPorParcelas = (dataBase: string, dia: number, parcelaAtual: numb
   return iso(Math.floor(total / 12), (total % 12) + 1, dia);
 };
 
-/** Aba "Config" → recorrentes + âncoras (saldo, data-base, tetos, reserva). */
-export const lerConfig = (grade: Grade, hoje: string): { config: ConfigPlanilha; avisos: string[] } => {
+/**
+ * Aba "Config" → recorrentes + âncoras (saldo, data-base, tetos, reserva).
+ * `fallbackDataBase` (normalmente a maior data dos Lançamentos) é usado quando a aba não declara
+ * data-base. Cair em `hoje` faria a data de todo recorrente andar um dia por dia, e o mesmo
+ * arquivo apareceria como "alterado" a cada importação.
+ */
+export const lerConfig = (
+  grade: Grade,
+  hoje: string,
+  fallbackDataBase?: string | null,
+): { config: ConfigPlanilha; avisos: string[] } => {
   const avisos: string[] = [];
   const config: ConfigPlanilha = {
     saldoHoje: null, dataBase: null, tetos: [],
     variavelTotal: null, reservaSeparada: null, provisionado: null, recorrentes: [],
   };
 
+  // Rótulo comparável: sem acento e sem o enfeite da planilha ("(−) Reserva já separada", " · Nubank").
+  // Assim os regexes podem ser ancorados em ^ e param de casar qualquer célula que CONTENHA a palavra.
+  const rotulo = (c: Celula) => semAcento(texto(c)).replace(/^[^a-z0-9]+/, "");
+
   // Blocos "rótulo → valor" espalhados na aba: varre tudo procurando o par (texto, número).
   const acharValorPorRotulo = (regex: RegExp): { valor: number | null; linha: number } => {
     for (let i = 0; i < grade.length; i += 1) {
       const l = grade[i] || [];
       for (let j = 0; j < l.length; j += 1) {
-        if (regex.test(semAcento(texto(l[j])))) {
+        if (regex.test(rotulo(l[j]))) {
           for (let k = j + 1; k < l.length; k += 1) {
             const v = parseValor(l[k]);
             if (v != null) return { valor: v, linha: i };
@@ -311,7 +324,7 @@ export const lerConfig = (grade: Grade, hoje: string): { config: ConfigPlanilha;
   const acharDataPorRotulo = (regex: RegExp): string | null => {
     for (const l of grade) {
       for (let j = 0; j < (l || []).length; j += 1) {
-        if (regex.test(semAcento(texto(l[j])))) {
+        if (regex.test(rotulo(l[j]))) {
           for (let k = j + 1; k < l.length; k += 1) {
             const d = parseData(l[k]);
             if (d) return d;
@@ -323,10 +336,10 @@ export const lerConfig = (grade: Grade, hoje: string): { config: ConfigPlanilha;
   };
 
   config.saldoHoje = acharValorPorRotulo(/^saldo em caixa hoje/).valor;
-  config.dataBase = acharDataPorRotulo(/^data-?base/) || hoje;
+  config.dataBase = acharDataPorRotulo(/^data-?base/) || fallbackDataBase || hoje;
   config.variavelTotal = acharValorPorRotulo(/^variavel total/).valor;
-  config.reservaSeparada = acharValorPorRotulo(/reserva ja separada/).valor;
-  config.provisionado = acharValorPorRotulo(/provisionado/).valor;
+  config.reservaSeparada = acharValorPorRotulo(/^reserva ja separada/).valor;
+  config.provisionado = acharValorPorRotulo(/^provisionado/).valor;
 
   // Tetos do bloco "GASTO VARIÁVEL — orçado por categoria": pares (rótulo, valor) entre o título
   // do bloco e a linha de total.

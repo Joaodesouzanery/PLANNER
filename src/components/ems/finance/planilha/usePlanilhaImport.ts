@@ -446,8 +446,10 @@ export const usePlanilhaImport = () => {
         const { error: e } = await supabase.from("financial_transactions").update(a.antes as any).eq("id", a.id);
         if (e) throw e;
       }
-      for (const lote of pedacos(payload.removidos || [], 200)) {
-        const { error: e } = await supabase.from("financial_transactions").insert(lote as any);
+      // upsert, não insert: se um desfazer anterior falhou no meio, parte das linhas já voltou —
+      // um insert cru estouraria duplicate key e o desfazer nunca mais rodaria.
+      for (const pedaco of pedacos(payload.removidos || [], 200)) {
+        const { error: e } = await supabase.from("financial_transactions").upsert(pedaco as any, { onConflict: "id" });
         if (e) throw e;
       }
 
@@ -458,7 +460,8 @@ export const usePlanilhaImport = () => {
         if (e) throw e;
       }
       if (imp.removidos?.length) {
-        const { error: e } = await (supabase as any).from("project_financial_impacts").insert(imp.removidos);
+        const { error: e } = await (supabase as any)
+          .from("project_financial_impacts").upsert(imp.removidos, { onConflict: "id" });
         if (e) throw e;
       }
 
@@ -480,7 +483,7 @@ export const usePlanilhaImport = () => {
           .delete().eq("year", payload.tetos.ano).eq("month", payload.tetos.mes);
         if (e) throw e;
         if (payload.tetos.antes?.length) {
-          const { error: e3 } = await db.from("finance_category_budgets").insert(payload.tetos.antes);
+          const { error: e3 } = await db.from("finance_category_budgets").upsert(payload.tetos.antes, { onConflict: "id" });
           if (e3) throw e3;
         }
       }

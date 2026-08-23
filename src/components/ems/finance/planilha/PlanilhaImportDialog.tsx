@@ -2,7 +2,7 @@
 // A prévia é o coração: mostra o que vai mudar linha a linha e a conferência contra os totais
 // que a própria planilha declara, para o usuário aprovar sabendo o que acontece.
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Check, FileSpreadsheet, Loader2, Minus, Pencil, Plus, RotateCcw, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,10 @@ export const PlanilhaImportDialog = ({ open, onOpenChange }: Props) => {
   const { analise, analisando, analisar, limpar, aplicar, aplicando, desfazer, desfazendo, ultimoLote } = usePlanilhaImport();
   const inputRef = useRef<HTMLInputElement>(null);
   const [removerOutras, setRemoverOutras] = useState(true);
+
+  // A escolha é sobre UMA análise: carregar outro arquivo tem que voltar ao padrão, senão um
+  // "desmarquei da última vez" silencioso decide a remoção da vez seguinte.
+  useEffect(() => { setRemoverOutras(true); }, [analise]);
 
   const fechar = (aberto: boolean) => {
     if (!aberto) limpar();
