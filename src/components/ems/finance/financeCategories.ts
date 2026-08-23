@@ -16,6 +16,7 @@ export interface CatDef {
 export const FINANCE_CATEGORIES: CatDef[] = [
   // 🏢 Empresa (PJ)
   { name: "Receita — Cliente", scope: "PJ", type: "income", dreLine: "receita" },
+  { name: "Impostos", scope: "PJ", type: "expense", dreLine: "deducao" },
   { name: "Infra / COGS", scope: "PJ", type: "expense", dreLine: "custo" },
   { name: "Ferramentas", scope: "PJ", type: "expense", dreLine: "despesa_operacional" },
   { name: "Contador / Fiscal", scope: "PJ", type: "expense", dreLine: "despesa_operacional" },
@@ -32,6 +33,7 @@ export const FINANCE_CATEGORIES: CatDef[] = [
   { name: "Assinaturas pessoais", scope: "PF", type: "expense" },
   { name: "Dívidas", scope: "PF", type: "expense" },
   { name: "Educação", scope: "PF", type: "expense" },
+  { name: "Doações", scope: "PF", type: "expense" },
   { name: "Investimento / Reserva", scope: "PF", type: "transfer" },
   { name: "Outros", scope: "PF", type: "expense" },
 ];
@@ -56,6 +58,12 @@ export const CATEGORY_ALIASES: Record<string, string> = {
   esporte: "Saúde / Esporte", academia: "Saúde / Esporte", "cerrado mma": "Saúde / Esporte", suplemento: "Saúde / Esporte", farmacia: "Saúde / Esporte", saude: "Saúde / Esporte",
   // Lazer / Social
   lazer: "Lazer / Social", bar: "Lazer / Social", balada: "Lazer / Social", cinema: "Lazer / Social", social: "Lazer / Social", outback: "Lazer / Social",
+  // Formas SEM espaço na barra (como saem da planilha) — `norm` não mexe em "/", então
+  // "lazer/social" não casava com o catálogo "lazer / social" e virava categoria legada.
+  "lazer/social": "Lazer / Social", "saude/esporte": "Saúde / Esporte", "alimentacao (casa)": "Alimentação (casa)",
+  // Receita genérica da planilha → categoria de receita do catálogo (dreLine: receita).
+  receita: "Receita — Cliente", "receita cliente": "Receita — Cliente",
+  doacao: "Doações", doacoes: "Doações",
   // Vestuário
   roupa: "Vestuário", sapato: "Vestuário", vestuario: "Vestuário",
   // Moradia
@@ -74,7 +82,11 @@ export const CATEGORY_ALIASES: Record<string, string> = {
   infra: "Infra / COGS", supabase: "Infra / COGS", api: "Infra / COGS", gateway: "Infra / COGS",
   ferramenta: "Ferramentas", ferramentas: "Ferramentas", claude: "Ferramentas", internet: "Ferramentas", dominio: "Ferramentas",
   contador: "Contador / Fiscal", contabilidade: "Contador / Fiscal", mei: "Contador / Fiscal",
-  // "das" NÃO vira alias: é o imposto (Simples/DAS) e deve cair na linha de DEDUÇÃO da DRE (heurística \bdas\b), não em despesa operacional.
+  // Imposto tem categoria PRÓPRIA com dreLine "deducao" — antes dependia da heurística \bdas\b
+  // e, se a categoria viesse como outra coisa (ex.: "Operacional (PJ)"), o DAS caía em despesa
+  // operacional e a dedução da DRE ficava subestimada.
+  das: "Impostos", imposto: "Impostos", impostos: "Impostos", "simples nacional": "Impostos",
+  "das / imposto simples": "Impostos", inss: "Impostos", iss: "Impostos", tributo: "Impostos", tributos: "Impostos",
   equipamento: "Equipamento", macbook: "Equipamento", notebook: "Equipamento",
 };
 
