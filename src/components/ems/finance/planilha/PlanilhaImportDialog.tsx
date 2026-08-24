@@ -242,13 +242,8 @@ export const PlanilhaImportDialog = ({ open, onOpenChange }: Props) => {
             )}
             {!!analise.ignoradas && (
               <p className="text-xs text-muted-foreground">
-                As simulações da importação anterior são substituídas pelas deste arquivo.
-              </p>
-            )}
-            {!!analise.ignoradas && (
-              <p className="text-xs text-muted-foreground">
-                {analise.ignoradas} linha(s) de simulação da Config viram cenário: aparecem no fluxo previsto,
-                mas ficam fora da sobra e do saldo real.
+                {analise.ignoradas} linha(s) de simulação da Config viram cenário: aparecem no fluxo previsto, mas
+                ficam fora da sobra e do saldo real — e substituem as simulações da importação anterior.
               </p>
             )}
             {!!analise.encerradas && (

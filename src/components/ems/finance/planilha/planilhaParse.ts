@@ -95,5 +95,14 @@ export const lerPlanilha = async (arquivo: File, hoje = hojeLocal()): Promise<Sn
 
   if (!linhas.length) todosAvisos.push("A aba Lançamentos não tinha nenhuma linha válida.");
 
+  // Abas que existem no arquivo mas que a importação NÃO usa. Simulador e Estratégia são views
+  // derivadas (e a planilha tem erros de fórmula neles) — o app recalcula esses números a partir
+  // dos Lançamentos e da Config. Dito em voz alta para não parecer que sumiram em silêncio.
+  const usadas = [ABAS.lancamentos, ABAS.config, ABAS.visaoGeral].map((sin) => acharAba(nomes, sin));
+  const ignoradas = nomes.filter((_, i) => !usadas.includes(i));
+  if (ignoradas.length) {
+    todosAvisos.push(`Abas não usadas nesta importação: ${ignoradas.join(", ")}. O app recalcula esses números.`);
+  }
+
   return { lancamentos: linhas, config: cfg.config, temConfig: !!gConfig, totais, avisos: todosAvisos };
 };

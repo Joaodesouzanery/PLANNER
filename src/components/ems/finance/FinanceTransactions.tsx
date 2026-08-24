@@ -365,7 +365,7 @@ const FinanceTransactions = () => {
 
         {/* ---- MES A MES ---- */}
         <TabsContent value="mensal" className="mt-0 space-y-4">
-          {monthGroups.length === 0 && <Card className="border border-border/50 bg-card/80"><CardContent className="py-10 text-center text-muted-foreground italic">Nenhuma transação. Use "Compra futura" para planejar.</CardContent></Card>}
+          {monthGroups.length === 0 && <Card className="border border-border/50 bg-card/80"><CardContent className="py-10 text-center text-muted-foreground italic">{espelho ? "Nenhuma transação neste recorte. Lance na planilha e importe de novo." : 'Nenhuma transação. Use "Compra futura" para planejar.'}</CardContent></Card>}
           {monthGroups.map(group => (
             <Card key={group.key} className={cn("border bg-card/80", group.isFuture ? "border-primary/30" : "border-border/50")}>
               <CardContent className="p-0">
