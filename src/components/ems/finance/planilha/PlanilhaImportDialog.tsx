@@ -124,6 +124,11 @@ export const PlanilhaImportDialog = ({ open, onOpenChange }: Props) => {
                   período do arquivo: {dataBr(diff.janela.inicio)} a {dataBr(diff.janela.fim)}
                 </span>
               )}
+              {analise.dataBase && (
+                <span className="text-muted-foreground" title="Lida da Config. Os recorrentes só disparam depois do fim do período acima.">
+                  · data-base: {dataBr(analise.dataBase)}
+                </span>
+              )}
             </div>
 
             <div className="grid grid-cols-4 gap-2">

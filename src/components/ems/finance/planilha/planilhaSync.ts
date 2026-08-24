@@ -208,12 +208,18 @@ export const construirAlvo = (snap: SnapshotPlanilha, opts: OpcoesAlvo): Resulta
   }
 
   const dataBase = dataBaseDa(snap);
+  const janelaAlvo = janelaDaPlanilha(snap);
+  // O compromisso recorrente só pode disparar DEPOIS do último mês que os Lançamentos cobrem.
+  // Dentro desse período quem manda são os fatos, não a previsão: ancorar só na data-base fazia o
+  // DAS da Config cair em 20/08 e somar de novo com o DAS já lançado em 07/08 — R$ 495 a mais no
+  // mês. O Diário da própria planilha confirma a regra: os recorrentes começam em setembro.
+  const corte = janelaAlvo && dataBase && janelaAlvo.fim > dataBase ? janelaAlvo.fim : dataBase;
   let ignoradas = 0;
   let encerradas = 0;
   for (const r of snap.config.recorrentes) {
     if (r.sandbox) { ignoradas += 1; continue; } // simulação: não entra na sobra (vira cenário)
-    if (!dataBase) continue;
-    const venc = proximoVencimento(dataBase, r.dia);
+    if (!corte) continue;
+    const venc = proximoVencimento(corte, r.dia);
     // Prazo já vencido: `expandRecurringTransactions` empurra a própria âncora para o fluxo antes
     // de olhar o `recurrence_end_date`, então gravá-la criaria um compromisso fantasma.
     if (r.fim && venc > r.fim) { encerradas += 1; continue; }

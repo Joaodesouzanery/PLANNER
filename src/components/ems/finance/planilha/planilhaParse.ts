@@ -91,7 +91,16 @@ export const lerPlanilha = async (arquivo: File, hoje = hojeLocal()): Promise<Sn
 
   const gVisao = await grade("visaoGeral");
   const totais = gVisao ? lerTotaisDeclarados(gVisao) : { porMes: [], saldoHoje: null };
-  if (!gVisao) todosAvisos.push("Aba Visão Geral não encontrada: a conferência de totais foi pulada.");
+  if (!gVisao) {
+    todosAvisos.push("Aba Visão Geral não encontrada: a conferência de totais foi pulada.");
+  } else if (!totais.porMes.length) {
+    // Silêncio aqui é caro: a conferência é o alarme que pega divergência de total sozinho.
+    // Sem ele, um lançamento duplicado passa despercebido até alguém somar na mão.
+    todosAvisos.push(
+      "Achei a aba Visão Geral mas não a tabela de totais por mês (preciso de colunas começando em "
+      + "\"Mês\" e \"Entradas\"). A conferência automática NÃO rodou nesta importação.",
+    );
+  }
 
   if (!linhas.length) todosAvisos.push("A aba Lançamentos não tinha nenhuma linha válida.");
 

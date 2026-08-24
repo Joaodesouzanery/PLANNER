@@ -422,14 +422,19 @@ export const lerConfig = (
 };
 
 /** Totais que a própria planilha declara — base da conferência pós-importação. */
+/** Rótulos aceitos na tabela de totais da Visão Geral — a planilha varia a escrita entre versões. */
+const COL_MES = ["mes", "mês", "periodo", "competencia"];
+const COL_ENTRADAS = ["entradas", "receitas", "receita", "recebido", "recebimentos"];
+const COL_SAIDAS = ["saidas", "despesas", "despesa", "pago", "pagamentos", "gastos"];
+
 export const lerTotaisDeclarados = (grade: Grade): TotaisDeclarados => {
   const porMes: TotaisDeclarados["porMes"] = [];
-  const h = acharCabecalho(grade, [["mes"], ["entradas"]]);
+  const h = acharCabecalho(grade, [COL_MES, COL_ENTRADAS]);
   if (h >= 0) {
     const cab = grade[h];
-    const iMes = acharColuna(cab, ["mes"]);
-    const iEnt = acharColuna(cab, ["entradas"]);
-    const iSai = acharColuna(cab, ["saidas"]);
+    const iMes = acharColuna(cab, COL_MES);
+    const iEnt = acharColuna(cab, COL_ENTRADAS);
+    const iSai = acharColuna(cab, COL_SAIDAS);
     for (let i = h + 1; i < grade.length; i += 1) {
       const l = grade[i] || [];
       const mes = texto(l[iMes]);

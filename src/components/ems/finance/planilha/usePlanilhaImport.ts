@@ -41,6 +41,8 @@ interface Bruto {
 
 export interface AnalisePlanilha {
   arquivo: string;
+  /** Data-base lida da Config — se vier errada, os recorrentes disparam no mês errado. */
+  dataBase: string | null;
   /** Linhas da planilha hoje em outra empresa — a importação as traz para o escopo atual. */
   foraDoEscopo: number;
   snapshot: SnapshotPlanilha;
@@ -89,7 +91,7 @@ const derivar = (b: Bruto, removerOutras: boolean): AnalisePlanilha => {
   const diff = diffPlanilha(linhas, b.daPlanilha, b.outras, janela, snapshot.temConfig);
 
   return {
-    arquivo: b.arquivo, foraDoEscopo: b.foraDoEscopo, snapshot, alvo: linhas, ancora, diff,
+    arquivo: b.arquivo, dataBase, foraDoEscopo: b.foraDoEscopo, snapshot, alvo: linhas, ancora, diff,
     conferencia: conferir(snapshot, linhas, janela), janela, ignoradas, encerradas, brutas: b.brutas,
   };
 };

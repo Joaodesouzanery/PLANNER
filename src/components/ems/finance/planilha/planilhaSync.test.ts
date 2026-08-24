@@ -98,6 +98,17 @@ describe("planilhaSync — estado-alvo", () => {
     assert.equal(construirAlvo(snap, { clientes: [] }).ancora, null);
   });
 
+  it("recorrente da Config NUNCA cai dentro do período que os Lançamentos cobrem", () => {
+    // Caso real: DAS dia 20, data-base lida antes de 20/08, arquivo cobrindo jun–ago. Ancorando só
+    // na data-base, o compromisso caía em 20/08 e somava R$ 495 de novo com o DAS já lançado em
+    // 07/08 — agosto fechava 6.595,98 em vez dos 6.101 que a planilha declara.
+    const snap = snapshot();
+    snap.config.dataBase = "2026-08-10"; // anterior ao fim do período do arquivo (31/08)
+    snap.config.recorrentes = [rec("planilha:cfg:das:expense:1", "DAS / Imposto Simples", "expense", 495, 20, null)];
+    const das = construirAlvo(snap, { clientes: [] }).linhas.find((l) => l.uid.startsWith("planilha:cfg:"))!;
+    assert.equal(das.date, "2026-09-20"); // setembro, como no Diário da planilha
+  });
+
   it("recorrente entra como PLANEJADO e sem settled_at — um vencimento futuro não nasce pago", () => {
     const { linhas } = construirAlvo(snapshot(), { clientes: [] });
     const circle = linhas.find((l) => l.uid === "planilha:cfg:circle:income:1")!;
