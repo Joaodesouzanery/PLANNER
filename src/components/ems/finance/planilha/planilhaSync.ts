@@ -74,6 +74,8 @@ export interface DiffPlanilha {
   janela: Janela | null;
   foraDaJanela: number;
   naoEhDaPlanilha: LinhaExistente[]; // lançamentos de outra origem DENTRO da janela (removíveis)
+  /** Quantos dos removíveis são ÂNCORAS RECORRENTES — remover uma delas apaga a série inteira. */
+  recorrentesRemoviveis: number;
   /**
    * Recorrentes de outra origem que COMEÇAM antes da janela e ainda geram ocorrências nela.
    * Ficam separados de propósito: apagar a âncora mataria também o histórico fora do período,
@@ -303,20 +305,21 @@ const dentroDaJanela = (l: LinhaExistente, janela: Janela): boolean =>
   janela.meses.has(mesDe(l.due_date || l.date));
 
 /**
- * Recorrente cujo alcance EXTRAPOLA a janela — comece antes dela ou termine depois.
- * Apagar uma âncora dessas mataria as ocorrências de meses que a planilha não cobre e não repõe,
- * então ela nunca entra na lista de remoção: vira aviso.
+ * Recorrente que COMEÇA antes da janela e ainda alcança meses dela.
+ *
+ * Só esse caso é protegido, e o critério é o começo — não o fim. `expandRecurringTransactions`
+ * projeta para FRENTE a partir da data da âncora: uma âncora datada DENTRO do período não tem
+ * nenhuma ocorrência anterior a proteger, e o futuro dela é justamente o que a aba Config da
+ * planilha passa a governar. Tratar "sem data-fim" como intocável blindava exatamente as âncoras
+ * de seed que duplicavam o mês inteiro.
  */
 const cruzaAJanela = (l: LinhaExistente, janela: Janela): boolean => {
   if (!l.is_recurring) return false;
   const de = mesDe(l.due_date || l.date);
   const ate = l.recurrence_end_date ? mesDe(l.recurrence_end_date) : "9999-99";
   const meses = [...janela.meses].sort();
-  const primeiro = meses[0];
-  const ultimo = meses[meses.length - 1];
-  const comecaAntes = de < primeiro && meses.some((m) => m >= de && m <= ate);
-  const terminaDepois = ate > ultimo;
-  return comecaAntes || terminaDepois;
+  if (de >= meses[0]) return false; // começa dentro (ou depois): não há passado para preservar
+  return meses.some((m) => m >= de && m <= ate);
 };
 
 /**
@@ -381,11 +384,15 @@ export const diffPlanilha = (
   const removivel = (o: LinhaExistente) =>
     janela !== null && dentroDaJanela(o, janela) && !(o.is_recurring && (!temConfig || cruzaAJanela(o, janela)));
   const naoEhDaPlanilha = janela ? outrasOrigens.filter(removivel) : [];
+  const recorrentesRemoviveis = naoEhDaPlanilha.filter((o) => o.is_recurring).length;
   const recorrentesQueCruzam = janela
     ? outrasOrigens.filter((o) => !removivel(o) && (cruzaAJanela(o, janela) || (o.is_recurring && dentroDaJanela(o, janela))))
     : [];
 
-  return { novos, alterados, removidos, inalterados, janela, foraDaJanela, naoEhDaPlanilha, recorrentesQueCruzam, uidsRepetidos };
+  return {
+    novos, alterados, removidos, inalterados, janela, foraDaJanela,
+    naoEhDaPlanilha, recorrentesRemoviveis, recorrentesQueCruzam, uidsRepetidos,
+  };
 };
 
 // ───────────────────────── conferência ─────────────────────────

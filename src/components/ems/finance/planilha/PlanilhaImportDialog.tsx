@@ -285,6 +285,16 @@ export const PlanilhaImportDialog = ({ open, onOpenChange }: Props) => {
                 <span>
                   Remover os <strong>{diff.naoEhDaPlanilha.length}</strong> lançamentos de outra origem que estão dentro do
                   período da planilha (seed, CSV, manuais). É o que faz a planilha ser a fonte única — e dá para desfazer.
+                  {!!diff.recorrentesRemoviveis && (
+                    <>
+                      {" "}
+                      <strong className="text-amber-600">
+                        {diff.recorrentesRemoviveis} deles são recorrências que começam dentro do período
+                      </strong>
+                      {" "}— remover apaga a série inteira daqui para a frente. Os compromissos equivalentes passam a
+                      vir da aba Config da planilha.
+                    </>
+                  )}
                 </span>
               </label>
             )}

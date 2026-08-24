@@ -277,14 +277,17 @@ describe("planilhaSync — diff", () => {
     assert.deepEqual(d.recorrentesQueCruzam.map((r) => r.id), ["seed-1"]);
   });
 
-  it("recorrente sem prazo que começa DENTRO da janela também vira aviso, não remoção", () => {
-    // Ele se estende para meses que a planilha não cobre; apagá-lo mataria o compromisso futuro.
-    const semPrazo = existente(linhas[0], "manual-rec", {
-      uid: "", date: "2026-06-05", due_date: "2026-06-05", is_recurring: true, recurrence_end_date: null,
+  it("recorrente SEM prazo que começa dentro da janela É removível — é a âncora de seed que duplica", () => {
+    // Caso real: 5 âncoras `seed` mensais datadas de 01/08/2026 duplicavam 8.250 de receita todo
+    // mês contra os recebimentos reais da planilha. Como a âncora só projeta para FRENTE a partir
+    // da própria data, não há passado para preservar — e o futuro dela passa a ser da Config.
+    const seed = existente(linhas[0], "seed-ancora", {
+      uid: "", date: "2026-08-01", due_date: "2026-08-01", is_recurring: true, recurrence_end_date: null,
     });
-    const d = diffPlanilha(linhas, [], [semPrazo], janela);
-    assert.deepEqual(d.naoEhDaPlanilha, []);
-    assert.deepEqual(d.recorrentesQueCruzam.map((r) => r.id), ["manual-rec"]);
+    const d = diffPlanilha(linhas, [], [seed], janela);
+    assert.deepEqual(d.naoEhDaPlanilha.map((r) => r.id), ["seed-ancora"]);
+    assert.equal(d.recorrentesRemoviveis, 1); // a prévia precisa dizer que é uma SÉRIE saindo
+    assert.deepEqual(d.recorrentesQueCruzam, []);
   });
 
   it("recorrente que começa E termina dentro da janela é removível", () => {
