@@ -2,7 +2,7 @@
 // A prévia é o coração: mostra o que vai mudar linha a linha e a conferência contra os totais
 // que a própria planilha declara, para o usuário aprovar sabendo o que acontece.
 
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { AlertTriangle, Check, FileSpreadsheet, Loader2, Minus, Pencil, Plus, RotateCcw, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,13 +27,11 @@ interface Props {
 }
 
 export const PlanilhaImportDialog = ({ open, onOpenChange }: Props) => {
-  const { analise, analisando, analisar, limpar, aplicar, aplicando, desfazer, desfazendo, ultimoLote } = usePlanilhaImport();
+  const {
+    analise, analisando, analisar, limpar, aplicar, aplicando,
+    desfazer, desfazendo, ultimoLote, removerOutras, setRemoverOutras,
+  } = usePlanilhaImport();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [removerOutras, setRemoverOutras] = useState(true);
-
-  // A escolha é sobre UMA análise: carregar outro arquivo tem que voltar ao padrão, senão um
-  // "desmarquei da última vez" silencioso decide a remoção da vez seguinte.
-  useEffect(() => { setRemoverOutras(true); }, [analise]);
 
   const fechar = (aberto: boolean) => {
     if (!aberto) limpar();
@@ -50,12 +48,13 @@ export const PlanilhaImportDialog = ({ open, onOpenChange }: Props) => {
   ].filter(Boolean) as string[];
 
   const diff = analise?.diff;
-  // Também "muda" quando há linhas de outra origem para limpar — senão o botão fica desabilitado
-  // justamente quando o que falta é tornar a planilha a fonte única do período.
+  // "Sem mudança" só quando NADA tem o que aplicar: nem transação, nem limpeza de outra origem,
+  // nem Config/tetos, nem as simulações — senão o botão travaria com trabalho pendente.
   const semMudanca = diff
     && !diff.novos.length && !diff.alterados.length && !diff.removidos.length
     && !(removerOutras && diff.naoEhDaPlanilha.length)
-    && !configuracoes.length; // só a Config mudou? ainda assim há o que aplicar
+    && !configuracoes.length
+    && !analise?.ignoradas;
 
   return (
     <Dialog open={open} onOpenChange={fechar}>
@@ -160,8 +159,8 @@ export const PlanilhaImportDialog = ({ open, onOpenChange }: Props) => {
                     <tr><th className="p-2 text-left">Mês</th><th className="p-2 text-right">Entradas</th><th className="p-2 text-right">Saídas</th></tr>
                   </thead>
                   <tbody>
-                    {analise.conferencia.porMes.map((m) => (
-                      <tr key={m.mes} className={!m.comparavel ? "opacity-50" : m.bate ? "" : "bg-amber-500/5"}>
+                    {analise.conferencia.porMes.map((m, i) => (
+                      <tr key={`${i}-${m.mes}`} className={!m.comparavel ? "opacity-50" : m.bate ? "" : "bg-amber-500/5"}>
                         <td className="p-2">
                           {m.mes}
                           {!m.comparavel && (
@@ -201,7 +200,9 @@ export const PlanilhaImportDialog = ({ open, onOpenChange }: Props) => {
                     <span className="w-20 shrink-0 text-muted-foreground">{dataBr(a.alvo.date)}</span>
                     <span className="flex-1 truncate">{a.alvo.description}</span>
                     <span className="text-xs text-muted-foreground">
-                      muda {a.campos.map((c) => ROTULO_CAMPO[c] || c).join(", ")}
+                      {a.campos.includes("amount")
+                        ? `${brl(a.antes.amount)} → ${brl(a.alvo.amount)}`
+                        : `muda ${a.campos.map((c) => ROTULO_CAMPO[c] || c).join(", ")}`}
                     </span>
                   </div>
                 ))}
@@ -210,20 +211,38 @@ export const PlanilhaImportDialog = ({ open, onOpenChange }: Props) => {
                     <Minus className="h-3.5 w-3.5 shrink-0 text-rose-600" />
                     <span className="w-20 shrink-0 text-muted-foreground">{dataBr(r.due_date || r.date)}</span>
                     <span className="flex-1 truncate line-through opacity-70">{r.description}</span>
-                    <span className="tabular-nums opacity-70">{brl(r.amount)}</span>
+                    <span className="tabular-nums opacity-70">{brl(r.type === "expense" ? -r.amount : r.amount)}</span>
                   </div>
                 ))}
               </div>
             </ScrollArea>
+            {(diff.novos.length > 40 || diff.alterados.length > 40 || diff.removidos.length > 40) && (
+              <p className="text-xs text-muted-foreground">
+                A lista acima mostra no máximo 40 linhas por bloco; os totais dos cartões são completos.
+              </p>
+            )}
 
             {!!diff.foraDaJanela && (
               <p className="text-xs text-muted-foreground">
                 {diff.foraDaJanela} lançamento(s) de meses que este arquivo não cobre ficam intactos.
               </p>
             )}
+            {analise.ancora && (
+              <p className="rounded-lg border border-border/50 bg-muted/20 p-2 text-xs text-muted-foreground">
+                <strong className="text-foreground">Âncora de saldo:</strong> {brl(analise.ancora.amount)} em{" "}
+                {dataBr(analise.ancora.date)} — é a linha de abertura que faz o saldo do app bater com o declarado na
+                Config. Fica fora da DRE, do imposto e dos gráficos.
+              </p>
+            )}
             {!!configuracoes.length && (
               <p className="text-xs text-muted-foreground">
                 A Config da planilha também atualiza: {configuracoes.join(" · ")}.
+                {!!cfg?.tetos.length && " Os tetos do mês corrente que não estiverem na planilha são apagados."}
+              </p>
+            )}
+            {!!analise.ignoradas && (
+              <p className="text-xs text-muted-foreground">
+                As simulações da importação anterior são substituídas pelas deste arquivo.
               </p>
             )}
             {!!analise.ignoradas && (
@@ -237,12 +256,19 @@ export const PlanilhaImportDialog = ({ open, onOpenChange }: Props) => {
                 {analise.encerradas} recorrente(s) da Config já com o prazo vencido — não viram compromisso.
               </p>
             )}
+            {!!analise.foraDoEscopo && (
+              <p className="flex items-start gap-1.5 text-xs text-amber-600">
+                <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                {analise.foraDoEscopo} linha(s) desta planilha estão hoje em outra empresa e serão trazidas para o
+                escopo atual — a planilha é uma só por usuário.
+              </p>
+            )}
             {!!diff.recorrentesQueCruzam.length && (
               <p className="flex items-start gap-1.5 text-xs text-amber-600">
                 <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-                {diff.recorrentesQueCruzam.length} recorrente(s) de outra origem começam antes deste período e ainda
-                geram lançamentos nele — podem duplicar com a planilha. Não são removidos aqui (isso apagaria o
-                histórico anterior); ajuste-os na lista de Transações.
+                {diff.recorrentesQueCruzam.length} recorrente(s) de outra origem alcançam meses fora deste período e
+                ainda geram lançamentos nele — podem duplicar com a planilha. Não são removidos aqui (isso apagaria
+                o que o arquivo não repõe); ajuste-os na lista de Transações.
               </p>
             )}
             {!!diff.uidsRepetidos.length && (
@@ -252,8 +278,8 @@ export const PlanilhaImportDialog = ({ open, onOpenChange }: Props) => {
                 tem descrições duplicadas na mesma data.
               </p>
             )}
-            {analise.snapshot.avisos.map((a) => (
-              <p key={a} className="flex items-start gap-1.5 text-xs text-amber-600">
+            {analise.snapshot.avisos.map((a, i) => (
+              <p key={`${i}-${a}`} className="flex items-start gap-1.5 text-xs text-amber-600">
                 <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />{a}
               </p>
             ))}
@@ -273,7 +299,7 @@ export const PlanilhaImportDialog = ({ open, onOpenChange }: Props) => {
         <DialogFooter>
           {analise && <Button variant="ghost" onClick={limpar}>Escolher outro arquivo</Button>}
           <Button variant="outline" onClick={() => fechar(false)}>Cancelar</Button>
-          <Button disabled={!analise || aplicando || semMudanca} onClick={() => aplicar({ removerOutras })}>
+          <Button disabled={!analise || aplicando || semMudanca} onClick={() => aplicar()}>
             {aplicando && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Aplicar importação
           </Button>

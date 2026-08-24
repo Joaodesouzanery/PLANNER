@@ -56,6 +56,11 @@ export interface TotaisDeclarados {
 export interface SnapshotPlanilha {
   lancamentos: LancamentoPlanilha[];
   config: ConfigPlanilha;
+  /**
+   * A aba Config foi encontrada e lida? Sem ela o snapshot não tem recorrentes nem saldo — e o
+   * sync NÃO pode concluir que o usuário apagou tudo isso da planilha.
+   */
+  temConfig: boolean;
   totais: TotaisDeclarados;
   avisos: string[];
 }

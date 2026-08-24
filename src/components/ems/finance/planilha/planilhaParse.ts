@@ -68,18 +68,26 @@ export const lerPlanilha = async (arquivo: File, hoje = hojeLocal()): Promise<Sn
     );
   }
 
-  const { linhas, avisos } = lerLancamentos(gLanc, hoje);
-  const todosAvisos = [...avisos];
-
-  // A maior data dos Lançamentos é a data-base de reserva: estável entre importações do MESMO
-  // arquivo, ao contrário de "hoje".
-  const maiorData = linhas.reduce((m, l) => (l.data > m ? l.data : m), "") || null;
+  // DUAS PASSADAS de propósito. A situação de uma linha sem coluna "Situação" é derivada de
+  // "a data já passou?", e ancorar isso no RELÓGIO faria o mesmo arquivo mudar de um dia para o
+  // outro — o lançamento de 21/08 vira "lançado" no dia 21 e a reimportação acusaria alteração.
+  // Passada 1 só descobre a data de referência do arquivo; passada 2 usa ela como corte.
+  const previa = lerLancamentos(gLanc, hoje);
+  // A maior data JÁ PASSADA do arquivo. A maior data absoluta não serve: uma planilha com
+  // previsões até dez/26 marcaria todas elas como já lançadas, porque o corte ficaria depois de
+  // tudo. Com o corte no passado, o previsto continua previsto.
+  const maiorData = previa.linhas.reduce((m, l) => (l.data <= hoje && l.data > m ? l.data : m), "") || null;
 
   const gConfig = await grade("config");
   const cfg = gConfig
     ? lerConfig(gConfig, hoje, maiorData)
     : { config: { saldoHoje: null, dataBase: null, tetos: [], variavelTotal: null, reservaSeparada: null, provisionado: null, recorrentes: [] }, avisos: ["Aba Config não encontrada: recorrentes e saldo declarado ficaram de fora."] };
-  todosAvisos.push(...cfg.avisos);
+
+  // A data-base declarada na Config é a melhor referência: é estável e é o que o usuário quis
+  // dizer com "a planilha está atualizada até aqui".
+  const referencia = cfg.config.dataBase || maiorData || hoje;
+  const { linhas, avisos } = referencia === hoje ? previa : lerLancamentos(gLanc, referencia);
+  const todosAvisos = [...avisos, ...cfg.avisos];
 
   const gVisao = await grade("visaoGeral");
   const totais = gVisao ? lerTotaisDeclarados(gVisao) : { porMes: [], saldoHoje: null };
@@ -87,5 +95,5 @@ export const lerPlanilha = async (arquivo: File, hoje = hojeLocal()): Promise<Sn
 
   if (!linhas.length) todosAvisos.push("A aba Lançamentos não tinha nenhuma linha válida.");
 
-  return { lancamentos: linhas, config: cfg.config, totais, avisos: todosAvisos };
+  return { lancamentos: linhas, config: cfg.config, temConfig: !!gConfig, totais, avisos: todosAvisos };
 };

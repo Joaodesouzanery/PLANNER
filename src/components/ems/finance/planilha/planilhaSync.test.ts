@@ -47,6 +47,7 @@ const snapshot = (over: Partial<SnapshotPlanilha> = {}): SnapshotPlanilha => ({
       rec("planilha:cfg:macbook-parcela:expense:1", "Macbook (parcela)", "expense", 800, 11, "2027-04-11"),
     ],
   },
+  temConfig: true,
   totais: { porMes: [], saldoHoje: 5546.12 },
   avisos: [],
   ...over,
@@ -219,6 +220,20 @@ describe("planilhaSync — diff", () => {
     assert.equal(d.foraDaJanela, 1);
   });
 
+  it("arquivo SEM a aba Config preserva os recorrentes e a âncora já gravados", () => {
+    // Um arquivo sem a aba não é prova de que o usuário apagou a Config; concluir isso varreria
+    // todos os compromissos e o saldo de abertura de uma vez só.
+    const semConfig = snapshot();
+    semConfig.config.recorrentes = [];
+    semConfig.config.saldoHoje = null;
+    const alvo = construirAlvo(semConfig, { clientes: CLIENTES }).linhas;
+    const d = diffPlanilha(alvo, banco(), [], janela, false);
+    assert.equal(d.removidos.length, 0);
+    // Com a aba presente, o mesmo cenário significa "apaguei da planilha" e sincroniza.
+    const comAba = diffPlanilha(alvo, banco(), [], janela, true);
+    assert.equal(comAba.removidos.length, 3); // 2 recorrentes + a âncora
+  });
+
   it("uid desconhecido no banco NUNCA é apagado", () => {
     const estranho = existente(linhas[0], "db-manual", { uid: "csv:2026-06-05:algo" });
     const d = diffPlanilha(linhas, [...banco(), estranho], [], janela);
@@ -262,13 +277,32 @@ describe("planilhaSync — diff", () => {
     assert.deepEqual(d.recorrentesQueCruzam.map((r) => r.id), ["seed-1"]);
   });
 
-  it("recorrente de outra origem que COMEÇA dentro da janela é removível", () => {
-    const dentro = existente(linhas[0], "manual-rec", {
+  it("recorrente sem prazo que começa DENTRO da janela também vira aviso, não remoção", () => {
+    // Ele se estende para meses que a planilha não cobre; apagá-lo mataria o compromisso futuro.
+    const semPrazo = existente(linhas[0], "manual-rec", {
       uid: "", date: "2026-06-05", due_date: "2026-06-05", is_recurring: true, recurrence_end_date: null,
     });
-    const d = diffPlanilha(linhas, [], [dentro], janela);
-    assert.deepEqual(d.naoEhDaPlanilha.map((r) => r.id), ["manual-rec"]);
-    assert.deepEqual(d.recorrentesQueCruzam, []);
+    const d = diffPlanilha(linhas, [], [semPrazo], janela);
+    assert.deepEqual(d.naoEhDaPlanilha, []);
+    assert.deepEqual(d.recorrentesQueCruzam.map((r) => r.id), ["manual-rec"]);
+  });
+
+  it("recorrente que começa E termina dentro da janela é removível", () => {
+    const contido = existente(linhas[0], "manual-fim", {
+      uid: "", date: "2026-06-05", due_date: "2026-06-05", is_recurring: true, recurrence_end_date: "2026-08-05",
+    });
+    const d = diffPlanilha(linhas, [], [contido], janela);
+    assert.deepEqual(d.naoEhDaPlanilha.map((r) => r.id), ["manual-fim"]);
+  });
+
+  it("sem a aba Config, recorrente de outra origem nunca é removível", () => {
+    // Os compromissos moram na Config; um arquivo sem ela não autoriza varrê-los.
+    const contido = existente(linhas[0], "manual-fim", {
+      uid: "", date: "2026-06-05", due_date: "2026-06-05", is_recurring: true, recurrence_end_date: "2026-08-05",
+    });
+    const d = diffPlanilha(linhas, [], [contido], janela, false);
+    assert.deepEqual(d.naoEhDaPlanilha, []);
+    assert.deepEqual(d.recorrentesQueCruzam.map((r) => r.id), ["manual-fim"]);
   });
 });
 

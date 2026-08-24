@@ -4,7 +4,7 @@
 // O motor é todo puro (planilhaParse/Normalize/Sync). Aqui só tem I/O: ler o banco, gravar o
 // lote e mexer em financial_transactions. Nada é escrito antes de o usuário aprovar a prévia.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCompany } from "@/contexts/CompanyContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,8 +21,28 @@ const ORIGEM = "planilha";
 const PAGINA = 1000; // o PostgREST corta em `db-max-rows` (1000 por padrão) — sem paginar, o diff
 // veria menos linhas do que existem e reinseriria tudo que ficou de fora.
 
+/** Tudo que foi LIDO (arquivo + banco). A análise é derivada disto, nunca guardada crua. */
+interface Bruto {
+  arquivo: string;
+  snapshot: SnapshotPlanilha;
+  clientes: { id: string; nome: string }[];
+  /** TODAS as linhas do usuário — o casamento por fingerprint é por usuário, não por empresa. */
+  todas: any[];
+  /** Só as linhas do escopo atual — é o saldo que a âncora precisa fechar. */
+  doEscopo: any[];
+  daPlanilha: LinhaExistente[];
+  outras: LinhaExistente[];
+  brutas: Map<string, Record<string, any>>;
+  janela: Janela | null;
+  dataBase: string | null;
+  /** Linhas da planilha que estão em OUTRA empresa — a importação as traz para o escopo atual. */
+  foraDoEscopo: number;
+}
+
 export interface AnalisePlanilha {
   arquivo: string;
+  /** Linhas da planilha hoje em outra empresa — a importação as traz para o escopo atual. */
+  foraDoEscopo: number;
   snapshot: SnapshotPlanilha;
   alvo: LinhaAlvo[];
   ancora: LinhaAlvo | null;
@@ -34,6 +54,45 @@ export interface AnalisePlanilha {
   /** id → linha completa do banco, para o payload de desfazer. */
   brutas: Map<string, Record<string, any>>;
 }
+
+/**
+ * Deriva a análise do que foi lido. Depende de `removerOutras` porque a ÂNCORA de saldo depende:
+ * ela cobre a diferença entre o saldo declarado e o que vai SOBRAR no banco, e as linhas de outra
+ * origem dentro do período sobrevivem ou não conforme essa decisão.
+ */
+const derivar = (b: Bruto, removerOutras: boolean): AnalisePlanilha => {
+  const { snapshot, janela, dataBase } = b;
+  const paraRemoverIds = new Set(
+    removerOutras && janela
+      ? diffPlanilha([], [], b.outras, janela, snapshot.temConfig).naoEhDaPlanilha.map((o) => o.id)
+      : [],
+  );
+
+  // Só o ESCOPO atual: o saldo que a âncora fecha é o da empresa selecionada, e somar o caixa de
+  // outra empresa faria a âncora nascer com o valor (ou o sinal) errado.
+  const realizadoPreservado = !janela || !dataBase ? 0 : b.doEscopo.reduce((a, t) => {
+    const uid = t.import_fingerprint || "";
+    if (uid.startsWith(PREFIXO_ANCORA)) return a; // a âncora antiga é recalculada, não preservada
+    const data = t.due_date || t.date;
+    const ehDaPlanilha = t.source_type === ORIGEM && !!uid;
+    // Linha da planilha DENTRO da janela será substituída pelo alvo — o alvo já a contabiliza.
+    // FORA da janela ela é preservada (diffPlanilha a conta em `foraDaJanela`), então o caixa dela
+    // sobrevive e PRECISA entrar aqui: foi exatamente isso que a refatoração quebrou.
+    if (ehDaPlanilha && janela.meses.has(String(data).slice(0, 7))) return a;
+    if (paraRemoverIds.has(t.id)) return a; // vai ser removida nesta importação
+    // "Pago" no app é `status === "reconciled" || settled_at` (financePeriodSource.ts:47).
+    if (!(t.status === "reconciled" || t.settled_at) || data > dataBase) return a;
+    return a + (t.type === "income" ? Number(t.amount) : -Number(t.amount));
+  }, 0);
+
+  const { linhas, ancora, ignoradas, encerradas } = construirAlvo(snapshot, { clientes: b.clientes, realizadoPreservado });
+  const diff = diffPlanilha(linhas, b.daPlanilha, b.outras, janela, snapshot.temConfig);
+
+  return {
+    arquivo: b.arquivo, foraDoEscopo: b.foraDoEscopo, snapshot, alvo: linhas, ancora, diff,
+    conferencia: conferir(snapshot, linhas, janela), janela, ignoradas, encerradas, brutas: b.brutas,
+  };
+};
 
 export interface LoteImport {
   id: string;
@@ -53,7 +112,7 @@ export interface LoteImport {
 /** Campos que o sync escreve. O resto da linha (produto_id, cost_bucket_id…) fica intocado. */
 const CAMPOS_ESCRITOS = [
   "description", "amount", "type", "category", "date", "due_date", "status", "settled_at",
-  "is_recurring", "recurrence_interval", "recurrence_end_date", "escopo", "cliente_id",
+  "is_recurring", "recurrence_interval", "recurrence_end_date", "escopo", "cliente_id", "company_id",
 ] as const;
 
 const paraBanco = (l: LinhaAlvo) => ({
@@ -85,7 +144,7 @@ const projetar = (t: any): LinhaExistente => ({
  * nunca sairia do valor inferido. Não é fatal: se falhar, a importação das transações continua
  * valendo e o problema é reportado.
  */
-const gravarConfig = async (snapshot: SnapshotPlanilha) => {
+const gravarConfig = async (snapshot: SnapshotPlanilha, guardar: GuardarAntes) => {
   const nada = { antes: null as Record<string, any> | null, campos: [] as string[], aviso: null as string | null };
   const patch: Record<string, number | null> = {
     reserva_separada: snapshot.config.reservaSeparada,
@@ -100,6 +159,9 @@ const gravarConfig = async (snapshot: SnapshotPlanilha) => {
   if (error) return { ...nada, aviso: "Não consegui ler a config do app; reserva e gasto variável não foram atualizados." };
 
   const definidos = Object.fromEntries(Object.entries(patch).filter(([, v]) => v != null));
+  // Já está tudo igual? Não escreve — senão uma reimportação idêntica deixaria um lote no
+  // histórico dizendo que houve algo a desfazer quando não houve.
+  if (atual && Object.entries(definidos).every(([k, v]) => Number(atual[k]) === Number(v))) return nada;
   // Colunas que talvez ainda não existam (migration mais nova que o deploy) são descartadas —
   // mandá-las derrubaria o upsert inteiro.
   const seguro = atual ? Object.fromEntries(Object.entries(definidos).filter(([k]) => k in atual)) : definidos;
@@ -107,11 +169,17 @@ const gravarConfig = async (snapshot: SnapshotPlanilha) => {
     return { ...nada, aviso: "A config do app ainda não tem os campos de reserva/provisionado (migration pendente)." };
   }
 
-  const { error: erro } = await db.from("finance_settings").upsert({ ...(atual ?? {}), ...seguro }, { onConflict: "user_id" });
-  if (erro) return { ...nada, aviso: `Não consegui gravar a config: ${erro.message}` };
   // Guarda só os campos tocados: o desfazer restaura exatamente o que havia antes (inclusive null).
   const campos = Object.keys(seguro);
   const antes = atual ? Object.fromEntries(campos.map((k) => [k, atual[k] ?? null])) : null;
+  // Primeiro o que restaura campos sobrescritos — isso vale mesmo se o upsert falhar depois.
+  await guardar({ antes, campos });
+
+  const { error: erro } = await db.from("finance_settings").upsert({ ...(atual ?? {}), ...seguro }, { onConflict: "user_id" });
+  if (erro) return { ...nada, aviso: `Não consegui gravar a config: ${erro.message}` };
+  // `criou` só é gravado DEPOIS do sucesso: afirmá-lo antes faria o desfazer APAGAR uma linha de
+  // config que a importação não criou (e que o usuário pode ter criado no app nesse meio-tempo).
+  if (!atual) await guardar({ antes, campos, criou: true });
   return { antes, campos, aviso: null };
 };
 
@@ -121,7 +189,7 @@ const gravarConfig = async (snapshot: SnapshotPlanilha) => {
  * e não herda de meses anteriores. Substituição total do mês, com o estado anterior guardado
  * para o desfazer.
  */
-const gravarTetos = async (snapshot: SnapshotPlanilha) => {
+const gravarTetos = async (snapshot: SnapshotPlanilha, guardar: GuardarAntes) => {
   const vazio = { antes: [] as Record<string, any>[], ano: 0, mes: 0, gravados: 0, aviso: null as string | null };
   if (!snapshot.config.tetos.length) return vazio;
 
@@ -135,6 +203,16 @@ const gravarTetos = async (snapshot: SnapshotPlanilha) => {
   if (error) return { ...vazio, aviso: "Não consegui ler os tetos atuais; o orçamento não foi atualizado." };
 
   const anteriores = (antes || []) as Record<string, any>[];
+
+  // Já está igual? Não escreve nada. Sem isto, reimportar o MESMO arquivo apagava e recriava os
+  // tetos toda vez — e a promessa "reimportar não muda nada" deixava de valer.
+  const assinatura = (pares: [string, number][]) =>
+    pares.map(([c, v]) => `${c}=${v}`).sort().join("|");
+  const atualAssinatura = assinatura(anteriores.map((a): [string, number] => [String(a.category), Number(a.teto)]));
+  const alvoAssinatura = assinatura(snapshot.config.tetos.map((t): [string, number] => [t.categoria, t.teto]));
+  if (atualAssinatura === alvoAssinatura) return { ...vazio, ano: 0, mes: 0 };
+
+  await guardar({ antes: anteriores, ano, mes });
   if (anteriores.length) {
     const { error: e } = await db.from("finance_category_budgets").delete().in("id", anteriores.map((a) => a.id));
     if (e) return { ...vazio, aviso: `Não consegui limpar os tetos do mês: ${e.message}` };
@@ -148,6 +226,21 @@ const gravarTetos = async (snapshot: SnapshotPlanilha) => {
   return { antes: anteriores, ano, mes, gravados: snapshot.config.tetos.length, aviso: null };
 };
 
+/**
+ * Fábrica do callback "guarde este estado anterior AGORA". As três funções abaixo apagam dados
+ * antes de recriá-los; sem gravar o `antes` no lote primeiro, uma falha no meio deixaria o
+ * usuário sem nada para restaurar.
+ */
+type GuardarAntes = (valor: unknown) => Promise<void>;
+const marcarAntes = (
+  desfazer: Record<string, unknown>,
+  chave: string,
+  marcar: () => Promise<void>,
+): GuardarAntes => async (valor) => {
+  desfazer[chave] = valor;
+  await marcar();
+};
+
 const MARCA_SANDBOX = "planilha:sandbox:";
 
 /**
@@ -156,14 +249,19 @@ const MARCA_SANDBOX = "planilha:sandbox:";
  * (`project_financial_impacts`: soma no fluxo previsto, fora do canônico).
  * Sync por substituição: o conjunto é pequeno e vem completo no arquivo.
  */
-const sincronizarSandbox = async (snapshot: SnapshotPlanilha, companyId: string | null, dataBase: string | null) => {
+const sincronizarSandbox = async (snapshot: SnapshotPlanilha, companyId: string | null, dataBase: string | null, guardar: GuardarAntes) => {
+  const vazio = { criados: [] as string[], removidos: [] as Record<string, any>[], aviso: null as string | null, ignoradasPorData: 0 };
+  // Mesma guarda de gravarConfig/gravarTetos: um arquivo SEM a aba Config não é prova de que o
+  // usuário apagou as simulações. Sem isto, importar um arquivo parcial varreria os cenários.
+  if (!snapshot.temConfig) return vazio;
+
   const db = supabase as any;
-  const { data: atuais, error } = await db
-    .from("project_financial_impacts").select("*").like("notes", `${MARCA_SANDBOX}%`);
-  if (error) {
-    // Tabela ausente (migration não aplicada) não pode derrubar a importação inteira.
-    return { criados: [] as string[], removidos: [] as Record<string, any>[], aviso: null, ignoradasPorData: 0 };
-  }
+  // Escopado pela empresa: sem isto, importar numa empresa apagaria as simulações de todas as
+  // outras e as recriaria na selecionada.
+  const q = db.from("project_financial_impacts").select("*").like("notes", `${MARCA_SANDBOX}%`);
+  const { data: atuais, error } = await (companyId ? q.eq("company_id", companyId) : q.is("company_id", null));
+  // Tabela ausente (migration não aplicada) não pode derrubar a importação inteira.
+  if (error) return vazio;
 
   const antigos = (atuais || []) as Record<string, any>[];
   const linhas = dataBase
@@ -172,6 +270,20 @@ const sincronizarSandbox = async (snapshot: SnapshotPlanilha, companyId: string 
       .map((r) => ({ r, venc: proximoVencimento(dataBase, r.dia) }))
       .filter(({ r, venc }) => !r.fim || venc <= r.fim)
     : [];
+
+  // Mesmo conjunto de simulações? Não mexe. Apagar e recriar cenários idênticos a cada
+  // reimportação trocaria os ids sem motivo e sujaria o histórico com lotes vazios.
+  const assinatura = (itens: { uid: string; valor: number; venc: string; tipo: string }[]) =>
+    itens.map((i) => `${i.uid}|${i.valor}|${i.venc}|${i.tipo}`).sort().join("~");
+  const atualAssinatura = assinatura(antigos.map((a) => ({
+    uid: String(a.notes || "").slice(MARCA_SANDBOX.length),
+    valor: Number(a.amount), venc: String(a.expected_date || ""),
+    tipo: a.impact_type === "revenue" ? "income" : "expense",
+  })));
+  const alvoAssinatura = assinatura(linhas.map(({ r, venc }) => ({ uid: r.uid, valor: r.valor, venc, tipo: r.tipo })));
+  if (atualAssinatura === alvoAssinatura) return vazio;
+
+  await guardar({ removidos: antigos, criados: [] });
 
   if (antigos.length) {
     const { error: e } = await db.from("project_financial_impacts").delete().in("id", antigos.map((a) => a.id));
@@ -191,11 +303,16 @@ const sincronizarSandbox = async (snapshot: SnapshotPlanilha, companyId: string 
       notes: `${MARCA_SANDBOX}${r.uid}`,
     })),
   ).select("id");
-  if (e2) return { criados: [], removidos: antigos, aviso: `Não consegui gravar as simulações: ${e2.message}`, ignoradasPorData: 0 };
+  if (e2) return { ...vazio, removidos: antigos, aviso: `Não consegui gravar as simulações: ${e2.message}` };
+
+  const criados = ((inseridos || []) as any[]).map((i) => i.id as string);
+  // Os ids entram no desfazer AGORA: se a etapa seguinte falhar, esses cenários já criados
+  // precisam poder ser apagados — senão o desfazer reinsere os antigos e duplica tudo.
+  await guardar({ removidos: antigos, criados });
 
   const hoje = new Date().toISOString().slice(0, 10);
   return {
-    criados: ((inseridos || []) as any[]).map((i) => i.id as string),
+    criados,
     removidos: antigos,
     aviso: null,
     // Cenário com data no passado não aparece no fluxo (a projeção começa hoje) — vale avisar.
@@ -213,33 +330,44 @@ export const usePlanilhaImport = () => {
   const { selectedCompanyId } = useCompany();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [analise, setAnalise] = useState<AnalisePlanilha | null>(null);
+  const [bruto, setBruto] = useState<Bruto | null>(null);
+  const [removerOutras, setRemoverOutras] = useState(true);
   const [analisando, setAnalisando] = useState(false);
 
   const companyId = selectedCompanyId !== "all" ? selectedCompanyId : null;
 
+  // A prévia é DERIVADA: mudar "remover linhas de outra origem" recalcula o diff e a âncora de
+  // saldo na hora, em vez de o Aplicar fazer algo diferente do que a tela mostrou.
+  const analise = useMemo(() => (bruto ? derivar(bruto, removerOutras) : null), [bruto, removerOutras]);
+
   const { data: lotes = [] } = useQuery({
     queryKey: ["finance-import-batches", selectedCompanyId],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const q = (supabase as any)
         .from("finance_import_batches")
         .select("id, arquivo, criados, atualizados, removidos, inalterados, janela_inicio, janela_fim, conferencia, avisos, desfeito_em, created_at")
-        .eq("company_id", companyId)
         .order("created_at", { ascending: false })
         .limit(10);
+      // `.eq("company_id", null)` vira `company_id=eq.null` no PostgREST e não casa NADA — no modo
+      // "Todas as empresas" o histórico e o Desfazer sumiriam da tela.
+      const { data, error } = await (companyId ? q.eq("company_id", companyId) : q.is("company_id", null));
       if (error) throw error;
       return (data || []) as LoteImport[];
     },
     retry: false,
   });
 
+  // Lote sem nada para desfazer é APAGADO ao fim da importação (ver `aplicar`), então todo lote
+  // que sobrevive aqui tem payload — inclusive os que só mexeram em Config/tetos/cenários e os que
+  // falharam no meio. Filtrar por contadores de transação esconderia justamente esses.
   const ultimoLote = lotes.find((l) => !l.desfeito_em) || null;
 
-  const limpar = useCallback(() => setAnalise(null), []);
+  const limpar = useCallback(() => setBruto(null), []);
 
   // Trocar de empresa invalida a prévia: ela foi calculada contra outro escopo e aplicá-la
   // apagaria linhas da empresa antiga e inseriria na nova.
-  useEffect(() => { setAnalise(null); }, [companyId]);
+  const escopoAtual = useRef(companyId);
+  useEffect(() => { escopoAtual.current = companyId; setBruto(null); setRemoverOutras(true); }, [companyId]);
 
   /** Lê o arquivo e monta a prévia. NÃO grava nada. */
   const analisar = useCallback(async (arquivo: File) => {
@@ -268,38 +396,34 @@ export const usePlanilhaImport = () => {
         offset += lote.length;
       }
 
-      const janela = janelaDaPlanilha(snapshot);
-      const dataBase = dataBaseDa(snapshot);
-
-      // Caixa que já está no banco, sobrevive à importação e não veio deste arquivo: sem descontá-lo,
-      // a âncora de saldo o contaria duas vezes ao reimportar uma planilha enxuta.
-      const realizadoPreservado = !janela || !dataBase ? 0 : todas.reduce((a, t) => {
-        const uid = t.import_fingerprint || "";
-        if (uid.startsWith(PREFIXO_ANCORA)) return a; // a âncora antiga é substituída
-        const data = t.due_date || t.date;
-        // "Pago" no app é `status === "reconciled" || settled_at` (financePeriodSource.ts:47).
-        // Só o status deixaria de fora linhas quitadas por settled_at e a âncora erraria o saldo.
-        const pago = t.status === "reconciled" || !!t.settled_at;
-        if (!pago || data > dataBase) return a; // só caixa que já moveu
-        if (janela.meses.has(String(data).slice(0, 7))) return a; // dentro do arquivo: já contado
-        return a + (t.type === "income" ? Number(t.amount) : -Number(t.amount));
-      }, 0);
-
-      const { linhas, ancora, ignoradas, encerradas } = construirAlvo(snapshot, { clientes, realizadoPreservado });
-
       const brutas = new Map<string, Record<string, any>>(todas.map((t) => [t.id, t]));
       const daPlanilha = todas.filter((t) => t.source_type === ORIGEM && t.import_fingerprint).map(projetar);
-      // Uma linha marcada como da planilha mas SEM fingerprint é órfã: não casa com nada. Vai para
-      // "outras origens" para pelo menos aparecer na prévia em vez de ficar invisível para sempre.
-      const outras = todas.filter((t) => t.source_type !== ORIGEM || !t.import_fingerprint).map(projetar);
+      // Só as linhas da EMPRESA selecionada podem ser oferecidas para remoção — o select acima é
+      // por usuário (a RLS é por user_id), então sem este filtro a prévia proporia apagar
+      // lançamentos de outra empresa.
+      // Uma linha marcada como da planilha mas SEM fingerprint é órfã: não casa com nada. Entra
+      // aqui para pelo menos aparecer na prévia em vez de ficar invisível para sempre.
+      const noEscopo = (t: any) => (companyId ? t.company_id === companyId : !t.company_id);
+      const outras = todas
+        .filter((t) => t.source_type !== ORIGEM || !t.import_fingerprint)
+        .filter(noEscopo)
+        .map(projetar);
 
-      const diff = diffPlanilha(linhas, daPlanilha, outras, janela);
-      setAnalise({
-        arquivo: arquivo.name, snapshot, alvo: linhas, ancora, diff,
-        conferencia: conferir(snapshot, linhas, janela), janela, ignoradas, encerradas, brutas,
+      // Ler o arquivo e o banco leva segundos; se a empresa mudou nesse meio-tempo, a prévia foi
+      // montada contra outro escopo e instalá-la faria o Aplicar mexer na empresa errada.
+      if (escopoAtual.current !== companyId) return;
+
+      setRemoverOutras(true);
+      setBruto({
+        arquivo: arquivo.name, snapshot, clientes, todas, doEscopo: todas.filter(noEscopo),
+        daPlanilha, outras, brutas,
+        janela: janelaDaPlanilha(snapshot), dataBase: dataBaseDa(snapshot),
+        // A planilha é UMA por usuário; se linhas dela estiverem em outra empresa, a importação as
+        // traz para o escopo atual. Contadas para a prévia poder dizer isso em voz alta.
+        foraDoEscopo: todas.filter((t) => t.source_type === ORIGEM && t.import_fingerprint && !noEscopo(t)).length,
       });
     } catch (e: any) {
-      setAnalise(null);
+      setBruto(null);
       toast({ title: "Não consegui ler a planilha", description: e?.message, variant: "destructive" });
     } finally {
       setAnalisando(false);
@@ -307,7 +431,7 @@ export const usePlanilhaImport = () => {
   }, [toast, companyId]);
 
   const aplicar = useMutation({
-    mutationFn: async ({ removerOutras }: { removerOutras: boolean }) => {
+    mutationFn: async () => {
       if (!analise) throw new Error("Nada para aplicar.");
       const { diff, brutas } = analise;
       const db = supabase as any;
@@ -350,20 +474,23 @@ export const usePlanilhaImport = () => {
         await marcar(); // o desfazer já cobre o que entrou até aqui
       }
 
-      const atualizados: { id: string; antes: Record<string, any> }[] = [];
-      desfazer.atualizados = atualizados;
-      for (const alt of diff.alterados) {
+      // O estado anterior de TODOS os updates é montado e gravado ANTES de qualquer UPDATE sair.
+      // Fazendo depois, uma falha no meio deixaria as linhas já sobrescritas sem nada para restaurar.
+      const atualizados = diff.alterados.map((alt) => {
         const bruta = brutas.get(alt.id) || {};
         const antes: Record<string, any> = {};
         for (const c of CAMPOS_ESCRITOS) antes[c] = bruta[c] ?? null;
+        return { id: alt.id, antes };
+      });
+      desfazer.atualizados = atualizados;
+      if (atualizados.length) await marcar();
+      for (const alt of diff.alterados) {
         const { error } = await supabase
           .from("financial_transactions")
-          .update(paraBanco(alt.alvo) as any)
+          .update({ ...paraBanco(alt.alvo), company_id: companyId } as any)
           .eq("id", alt.id);
         if (error) throw error;
-        atualizados.push({ id: alt.id, antes });
       }
-      if (diff.alterados.length) await marcar();
 
       // Removidos = linhas que vieram da planilha e sumiram dela. As de outra origem dentro da
       // janela só saem se o usuário confirmar — é a decisão "a planilha é a fonte única no período".
@@ -379,9 +506,13 @@ export const usePlanilhaImport = () => {
         if (error) throw error;
       }
 
-      const config = await gravarConfig(analise.snapshot);
-      const sandbox = await sincronizarSandbox(analise.snapshot, companyId, dataBaseDa(analise.snapshot));
-      const tetos = await gravarTetos(analise.snapshot);
+      // Cada uma destas etapas apaga algo. `marcar()` entre elas garante que o "antes" já está no
+      // banco quando o delete acontece — senão uma falha na etapa seguinte perderia o estado.
+      const config = await gravarConfig(analise.snapshot, marcarAntes(desfazer, "config", marcar));
+      const sandbox = await sincronizarSandbox(
+        analise.snapshot, companyId, dataBaseDa(analise.snapshot), marcarAntes(desfazer, "impactos", marcar),
+      );
+      const tetos = await gravarTetos(analise.snapshot, marcarAntes(desfazer, "tetos", marcar));
       const extras = [
         config.aviso,
         sandbox.aviso,
@@ -392,10 +523,7 @@ export const usePlanilhaImport = () => {
       ].filter(Boolean) as string[];
       const avisos = [...analise.snapshot.avisos, ...extras];
 
-      desfazer.impactos = { criados: sandbox.criados, removidos: sandbox.removidos };
-      desfazer.tetos = tetos.ano ? { antes: tetos.antes, ano: tetos.ano, mes: tetos.mes } : null;
-      desfazer.config = config.campos.length ? { antes: config.antes, campos: config.campos } : null;
-
+      const mexeu = criados.length + atualizados.length + removidos.length;
       const { error: erroFinal } = await db.from("finance_import_batches").update({
         criados: criados.length,
         atualizados: atualizados.length,
@@ -405,16 +533,23 @@ export const usePlanilhaImport = () => {
       }).eq("id", loteId);
       if (erroFinal) throw erroFinal;
 
-      return { criados: criados.length, atualizados: atualizados.length, removidos: removidos.length, extras };
+      // Reimportação idêntica não deixa rastro: um lote 0/0/0 só polui o histórico. Se a Config,
+      // os tetos ou os cenários mudaram, o lote fica (há o que desfazer).
+      const mexeuConfig = !!config.campos.length || !!tetos.ano || !!sandbox.criados.length || !!sandbox.removidos.length;
+      if (!mexeu && !mexeuConfig) await db.from("finance_import_batches").delete().eq("id", loteId);
+
+      return { criados: criados.length, atualizados: atualizados.length, removidos: removidos.length, extras, mexeu };
     },
     onSuccess: (r) => {
-      setAnalise(null);
+      setBruto(null);
       queryClient.invalidateQueries({ queryKey: ["finance-transactions"] });
       queryClient.invalidateQueries({ queryKey: ["finance-import-batches"] });
       queryClient.invalidateQueries({ queryKey: ["finance-settings"] });
       queryClient.invalidateQueries({ queryKey: ["finance-forecast-impacts"] });
       queryClient.invalidateQueries({ queryKey: ["finance-category-budgets"] });
-      const base = `${r.criados} novos · ${r.atualizados} atualizados · ${r.removidos} removidos.`;
+      const base = r.mexeu
+        ? `${r.criados} novos · ${r.atualizados} atualizados · ${r.removidos} removidos.`
+        : "Nenhuma transação mudou — o app já estava igual à planilha.";
       toast({
         title: "Planilha importada",
         description: r.extras.length ? `${base} ${r.extras.join(" ")}` : base,
@@ -435,7 +570,7 @@ export const usePlanilhaImport = () => {
         criados?: string[]; atualizados?: { id: string; antes: Record<string, any> }[]; removidos?: Record<string, any>[];
         impactos?: { criados?: string[]; removidos?: Record<string, any>[] };
         tetos?: { antes?: Record<string, any>[]; ano: number; mes: number } | null;
-        config?: { antes: Record<string, any> | null; campos: string[] } | null;
+        config?: { antes: Record<string, any> | null; campos: string[]; criou?: boolean } | null;
       };
 
       for (const lote of pedacos(payload.criados || [], 200)) {
@@ -470,9 +605,16 @@ export const usePlanilhaImport = () => {
         const db = supabase as any;
         const { data: linha } = await db.from("finance_settings").select("*").limit(1).maybeSingle();
         if (linha) {
-          const volta = Object.fromEntries(payload.config.campos.map((k) => [k, payload.config?.antes?.[k] ?? null]));
-          const { error: e } = await db.from("finance_settings").update(volta).eq("id", linha.id);
-          if (e) throw e;
+          if (payload.config.criou) {
+            // A linha de config não existia antes da importação: desfazer é removê-la, não zerar
+            // campos (zerar deixaria uma config órfã que o usuário nunca criou).
+            const { error: e } = await db.from("finance_settings").delete().eq("id", linha.id);
+            if (e) throw e;
+          } else {
+            const volta = Object.fromEntries(payload.config.campos.map((k) => [k, payload.config?.antes?.[k] ?? null]));
+            const { error: e } = await db.from("finance_settings").update(volta).eq("id", linha.id);
+            if (e) throw e;
+          }
         }
       }
 
@@ -504,7 +646,8 @@ export const usePlanilhaImport = () => {
 
   return {
     analise, analisando, analisar, limpar,
-    aplicar: aplicar.mutate, aplicando: aplicar.isPending,
+    removerOutras, setRemoverOutras,
+    aplicar: () => aplicar.mutate(), aplicando: aplicar.isPending,
     desfazer: desfazer.mutate, desfazendo: desfazer.isPending,
     lotes, ultimoLote,
   };

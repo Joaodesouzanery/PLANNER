@@ -302,13 +302,21 @@ const camposDiferentes = (alvo: LinhaAlvo, atual: LinhaExistente): string[] => {
 const dentroDaJanela = (l: LinhaExistente, janela: Janela): boolean =>
   janela.meses.has(mesDe(l.due_date || l.date));
 
-/** Recorrente que começa ANTES da janela e ainda gera ocorrências dentro dela. */
+/**
+ * Recorrente cujo alcance EXTRAPOLA a janela — comece antes dela ou termine depois.
+ * Apagar uma âncora dessas mataria as ocorrências de meses que a planilha não cobre e não repõe,
+ * então ela nunca entra na lista de remoção: vira aviso.
+ */
 const cruzaAJanela = (l: LinhaExistente, janela: Janela): boolean => {
   if (!l.is_recurring) return false;
   const de = mesDe(l.due_date || l.date);
   const ate = l.recurrence_end_date ? mesDe(l.recurrence_end_date) : "9999-99";
-  for (const m of janela.meses) if (m > de && m <= ate) return true;
-  return false;
+  const meses = [...janela.meses].sort();
+  const primeiro = meses[0];
+  const ultimo = meses[meses.length - 1];
+  const comecaAntes = de < primeiro && meses.some((m) => m >= de && m <= ate);
+  const terminaDepois = ate > ultimo;
+  return comecaAntes || terminaDepois;
 };
 
 /**
@@ -322,6 +330,12 @@ export const diffPlanilha = (
   existentes: LinhaExistente[],
   outrasOrigens: LinhaExistente[] = [],
   janela: Janela | null = null,
+  /**
+   * A aba Config veio no arquivo? Se NÃO, os recorrentes e a âncora que já estão no banco são
+   * preservados: um arquivo sem a aba não é prova de que o usuário apagou a Config — concluir isso
+   * varreria todos os compromissos e o saldo de abertura de uma vez.
+   */
+  temConfig = true,
 ): DiffPlanilha => {
   const porUid = new Map<string, LinhaExistente>();
   const uidsRepetidos: string[] = [];
@@ -353,15 +367,22 @@ export const diffPlanilha = (
   for (const sobrou of porUid.values()) {
     const uid = sobrou.uid || "";
     // Lista de PERMISSÃO: só apaga o que a importação criou. Um uid desconhecido nunca é tocado.
-    if (uid.startsWith(PREFIXO_CFG) || uid.startsWith(PREFIXO_ANCORA)) { removidos.push(sobrou); continue; }
+    if (uid.startsWith(PREFIXO_CFG) || uid.startsWith(PREFIXO_ANCORA)) {
+      if (temConfig) removidos.push(sobrou);
+      continue;
+    }
     if (!uid.startsWith(PREFIXO_LANC)) continue;
     if (janela && dentroDaJanela(sobrou, janela)) removidos.push(sobrou);
     else foraDaJanela += 1; // mês que o arquivo não cobre: preservado
   }
 
-  const naoEhDaPlanilha = janela ? outrasOrigens.filter((o) => dentroDaJanela(o, janela)) : [];
+  // Um recorrente só é removível quando cabe INTEIRO na janela e a planilha trouxe a Config (que é
+  // onde os compromissos moram). Fora disso é aviso — remover apagaria o que o arquivo não repõe.
+  const removivel = (o: LinhaExistente) =>
+    janela !== null && dentroDaJanela(o, janela) && !(o.is_recurring && (!temConfig || cruzaAJanela(o, janela)));
+  const naoEhDaPlanilha = janela ? outrasOrigens.filter(removivel) : [];
   const recorrentesQueCruzam = janela
-    ? outrasOrigens.filter((o) => !dentroDaJanela(o, janela) && cruzaAJanela(o, janela))
+    ? outrasOrigens.filter((o) => !removivel(o) && (cruzaAJanela(o, janela) || (o.is_recurring && dentroDaJanela(o, janela))))
     : [];
 
   return { novos, alterados, removidos, inalterados, janela, foraDaJanela, naoEhDaPlanilha, recorrentesQueCruzam, uidsRepetidos };

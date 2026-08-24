@@ -10,6 +10,7 @@ import { fmtCurrency } from "../useFinanceData";
 import { usePlanilhaImport, type LoteImport } from "./usePlanilhaImport";
 
 const dataHora = (iso: string) => new Date(iso).toLocaleString("pt-BR");
+const dataBr = (iso: string | null) => (iso ? iso.split("-").reverse().join("/") : "—");
 
 interface MesConferido {
   mes: string;
@@ -32,7 +33,11 @@ const Conferencia = ({ lote }: { lote: LoteImport }) => {
         : <Badge variant="outline" className="gap-1 text-amber-500"><AlertTriangle className="h-3 w-3" />divergiu</Badge>}
       {meses.filter((m) => m.bate === false).map((m) => (
         <span key={m.mes} className="text-xs text-muted-foreground">
-          {m.mes}: app {fmtCurrency(Number(m.saidasApp || 0))} × planilha {fmtCurrency(Number(m.saidasPlanilha || 0))}
+          {m.mes}:
+          {Math.abs(Number(m.entradasApp || 0) - Number(m.entradasPlanilha || 0)) >= 1
+            && ` entradas ${fmtCurrency(Number(m.entradasApp || 0))} × ${fmtCurrency(Number(m.entradasPlanilha || 0))}`}
+          {Math.abs(Number(m.saidasApp || 0) - Number(m.saidasPlanilha || 0)) >= 1
+            && ` saídas ${fmtCurrency(Number(m.saidasApp || 0))} × ${fmtCurrency(Number(m.saidasPlanilha || 0))}`}
         </span>
       ))}
     </div>
@@ -66,11 +71,11 @@ export const PlanilhaImportHistory = () => {
               </p>
               <p className="text-xs text-muted-foreground">
                 {l.criados} novos · {l.atualizados} atualizados · {l.removidos} removidos · {l.inalterados} sem mudança
-                {l.janela_inicio && ` · período ${l.janela_inicio.slice(5)} a ${l.janela_fim?.slice(5)}`}
+                {l.janela_inicio && ` · período ${dataBr(l.janela_inicio)} a ${dataBr(l.janela_fim)}`}
               </p>
               <Conferencia lote={l} />
-              {(l.avisos || []).map((a) => (
-                <p key={a} className="text-xs text-amber-600">{a}</p>
+              {(l.avisos || []).map((a, i) => (
+                <p key={`${i}-${a}`} className="text-xs text-amber-600">{a}</p>
               ))}
             </div>
             {!l.desfeito_em && l.id === ultimoLote?.id && (
